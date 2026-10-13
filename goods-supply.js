@@ -14,7 +14,7 @@
         },
         prod: {
             view: 'prod', btn: 'gg-view-prod-btn', pane: 'gg-view-prod', table: 'production_orders', title: 'Заказ на производство',
-            hint: 'План пошива. Суммы по размерам показываются в РНП в строке «В пошиве».',
+            hint: 'План пошива: артикул, расцветка, общее количество и процентовка по размерам. В РНП идёт в строку «В пошиве».',
             dateA: 'order_date', dateAName: 'Заказано', dateB: 'due_date', dateBName: 'Срок',
             statuses: [['plan', 'В плане'], ['sewing', 'В пошиве'], ['done', 'Готово']], openStatus: ['plan', 'sewing'],
         },
@@ -32,9 +32,9 @@
         var cab = cabId();
         st.cab = cab;
         if (!cab || !sb()) return;
-        var a = await sb().from('rnp_articles').select('nm_id,name,manual_data,is_active').eq('cabinet_id', cab).order('nm_id').range(0, 1999);
+        var a = await sb().from('rnp_articles').select('nm_id,name,manual_data,is_active,photo_url').eq('cabinet_id', cab).order('nm_id').range(0, 1999);
         st.arts = (a.data || []).filter(function (x) { return x.is_active !== false; });
-        var s = await sb().from('goods_shipments').select('*').eq('cabinet_id', cab).order('created_at', { ascending: true }).range(0, 1999);
+        var s = await sb().from('goods_shipments').select('*').eq('cabinet_id', cab).order('sort_idx', { ascending: true }).order('created_at', { ascending: true }).range(0, 1999);
         var p = await sb().from('production_orders').select('*').eq('cabinet_id', cab).order('created_at', { ascending: false }).range(0, 1999);
         st.rows.ship = s.data || [];
         st.rows.prod = p.data || [];
@@ -43,38 +43,7 @@
 
     function pane(k) { return document.getElementById(KINDS[k].pane); }
 
-    function render(k) {
-        if (k === 'ship') return renderShip();
-        var K = KINDS[k], host = pane(k);
-        if (!host) return;
-        var rows = st.rows[k].filter(function (r) { return st.showDone[k] || isOpen(k, r); });
-        var openRows = st.rows[k].filter(function (r) { return isOpen(k, r); });
-        var total = openRows.reduce(function (s, r) { return s + (Number(r.qty) || 0); }, 0);
-        var dl = '<datalist id="gs-arts-' + k + '">' + st.arts.map(function (a) { return '<option value="' + esc(artLabel(a)) + '">' + a.nm_id + '</option>'; }).join('') + '</datalist>';
-        var opts = function (sel) { return K.statuses.map(function (s) { return '<option value="' + s[0] + '"' + (s[0] === sel ? ' selected' : '') + '>' + s[1] + '</option>'; }).join(''); };
-        var body = rows.map(function (r) {
-            var a = artByNm(r.nm_id);
-            return '<tr data-id="' + esc(r.id || '') + '" data-tmp="' + esc(r._tmp || '') + '">' +
-                '<td class="gs-art"><input class="gs-in" data-f="art" list="gs-arts-' + k + '" value="' + esc(a ? artLabel(a) : (r.nm_id || '')) + '" placeholder="Артикул"></td>' +
-                '<td class="gs-nm">' + esc(r.nm_id || '') + '</td>' +
-                '<td><input class="gs-in gs-sz" data-f="size" value="' + esc(r.size) + '" placeholder="Размер"></td>' +
-                '<td><input class="gs-in gs-qty" data-f="qty" type="number" min="0" value="' + (r.qty || '') + '" placeholder="0"></td>' +
-                '<td><input class="gs-in" data-f="' + K.dateA + '" type="date" value="' + esc(r[K.dateA] || '') + '"></td>' +
-                '<td><input class="gs-in" data-f="' + K.dateB + '" type="date" value="' + esc(r[K.dateB] || '') + '"></td>' +
-                '<td><select class="gs-in" data-f="status">' + opts(r.status) + '</select></td>' +
-                '<td><input class="gs-in gs-note" data-f="note" value="' + esc(r.note) + '" placeholder="Комментарий"></td>' +
-                '<td class="gs-edit"><button type="button" class="gs-del" data-act="del" title="Удалить строку">×</button></td></tr>';
-        }).join('');
-        host.innerHTML = dl +
-            '<div class="gs-head"><div><div class="gs-title">' + K.title + '</div><div class="gs-hint">' + K.hint + '</div></div>' +
-            '<div class="gs-tools"><label class="gs-chk"><input type="checkbox" data-act="done"' + (st.showDone[k] ? ' checked' : '') + '> показывать завершённые</label>' +
-            '<button type="button" class="gs-add gs-edit" data-act="add">+ Добавить</button></div></div>' +
-            '<div class="gg-table-scroll"><table class="gg-table gs-table"><thead><tr>' +
-            '<th class="gg-art">Артикул</th><th class="gs-nm">WB</th><th>Размер</th><th class="gg-num">Кол-во</th><th>' + K.dateAName + '</th><th>' + K.dateBName + '</th><th>Статус</th><th>Комментарий</th><th class="gs-edit"></th></tr></thead><tbody>' +
-            (body || '<tr><td colspan="9" class="gs-empty">Пока пусто. Нажмите «+ Добавить».</td></tr>') +
-            '</tbody><tfoot><tr class="gg-foot"><td class="gg-art">Итого в работе</td><td></td><td></td><td class="gg-num">' + total.toLocaleString('ru') + '</td><td colspan="5"></td></tr></tfoot></table></div>';
-        bind(k, host);
-    }
+    function render(k) { return k === 'ship' ? renderShip() : renderProd(); }
 
 
     // ─── «Логистика» как таблица «В пути»: партии блоками, размеры колонками ───────────────────
@@ -128,8 +97,13 @@
             var rows = g.map[b].filter(function (r) { return showAll || SHIP_OPEN.indexOf(r.status) >= 0 || !r.status || r.status === 'transit'; });
             var tot = rows.reduce(function (s, r) { return s + shipTotal(r); }, 0);
             grand += tot;
+            var all = g.map[b];
+            var onAll = all.length > 0 && all.every(function (r) { return r.in_rnp; });
+            var onSome = !onAll && all.some(function (r) { return r.in_rnp; });
+            var noNm = all.filter(function (r) { return !r.nm_id; }).length;
             body += '<tr class="gs-grp" data-batch="' + esc(b) + '"><td colspan="' + colspan + '"><input class="gs-batch gs-in" value="' + esc(b) + '" placeholder="Название партии (например «№7 ИП Уркунбаев 100%»)">' +
                 '<span class="gs-gtot">' + (tot ? 'всего ' + tot.toLocaleString('ru') + ' шт' : '') + '</span>' +
+                '<button type="button" class="gs-rnp-sw gs-edit' + (onAll ? ' is-on' : (onSome ? ' is-part' : '')) + '" data-act="rnpbatch" title="' + esc((onAll ? 'Поставка показывается в РНП (строка «В пути»). Нажмите, чтобы убрать.' : 'Показать эту поставку в РНП (строка «В пути»).') + (noNm ? ' Строк без артикула WB: ' + noNm + ': они в РНП не попадут.' : '')) + '">' + (onAll ? '✓ В РНП' : (onSome ? '◐ В РНП' : 'В РНП')) + '</button>' +
                 '<button type="button" class="gs-addrow gs-edit" data-act="addrow">+ строка</button></td></tr>';
             rows.forEach(function (r) {
                 var a = artByNm(r.nm_id), sizes = r.sizes || {};
@@ -140,7 +114,7 @@
                 body += '<tr class="gs-row" data-id="' + esc(r.id || '') + '" data-tmp="' + esc(r._tmp || '') + '">' +
                     '<td>' + sel(SHIP_LISTS.method, r.method, 'method', 'gs-m') + '</td>' +
                     '<td><input class="gs-in gs-prod" data-f="product" value="' + esc(r.product) + '" placeholder="Товар"></td>' +
-                    '<td class="gs-art"><input class="gs-in" data-f="art" list="gs-arts-ship" value="' + esc(a ? artLabel(a) : '') + '" placeholder="Артикул"></td>' +
+                    '<td class="gs-art"><input class="gs-in' + (!a && r.article ? ' gs-nomatch' : '') + '" data-f="art" list="gs-arts-ship" value="' + esc(a ? artLabel(a) : (r.article || '')) + '" placeholder="Артикул"' + (!a && r.article ? ' title="Артикул WB не найден: выберите из списка, иначе в РНП эта строка не попадёт"' : '') + '></td>' +
                     '<td><input class="gs-in gs-date" data-f="sent_date" type="date" value="' + esc(r.sent_date || '') + '"></td>' +
                     '<td>' + sel(SHIP_LISTS.status, r.status, 'status', 'gs-st gs-s-' + statusCls(r.status)) + '</td>' +
                     '<td><input class="gs-in gs-or" data-f="origin" list="gs-origin" value="' + esc(r.origin) + '"></td>' +
@@ -177,6 +151,8 @@
             if (act === 'addbatch') {
                 var n = 'Новая партия ' + (groupsOf().order.length + 1);
                 st.draftBatches.push(n); addShipRow(n);
+            } else if (act === 'rnpbatch') {
+                toggleBatchRnp(b.closest('tr').getAttribute('data-batch') || '');
             } else if (act === 'addrow') {
                 addShipRow(b.closest('tr').getAttribute('data-batch') || '');
             } else if (act === 'del') {
@@ -196,7 +172,8 @@
                 var v = String(el.value || '').trim().toLowerCase();
                 var a = st.arts.filter(function (x) { return artLabel(x).toLowerCase() === v || String(x.nm_id) === v; })[0];
                 r.nm_id = a ? a.nm_id : null;
-                el.style.outline = a || !v ? '' : '2px solid #ef4444';
+                r.article = a ? artLabel(a) : String(el.value || '').trim();
+                el.classList.toggle('gs-nomatch', !a && !!v);
             } else if (f === 'sz') {
                 r.sizes = r.sizes || {};
                 var q = Math.max(0, parseInt(el.value, 10) || 0);
@@ -215,7 +192,7 @@
     }
 
     function addShipRow(batch) {
-        var r = { _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, batch: batch, method: '', product: '', origin: 'Бишкек', cargo: '', delivery: 'АВТО', price: null, sizes: {}, status: 'в пути', note: '', sent_date: new Date().toISOString().slice(0, 10) };
+        var r = { _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, article: '', in_rnp: true, batch: batch, method: '', product: '', origin: 'Бишкек', cargo: '', delivery: 'АВТО', price: null, sizes: {}, status: 'в пути', note: '', sent_date: new Date().toISOString().slice(0, 10) };
         var idx = -1;
         st.rows.ship.forEach(function (x, i) { if ((x.batch || '') === batch) idx = i; });
         if (idx >= 0) st.rows.ship.splice(idx + 1, 0, r); else st.rows.ship.push(r);
@@ -225,9 +202,9 @@
     }
 
     async function saveShip(r, tr) {
-        if (!r.nm_id || !(shipTotal(r) > 0)) { tr.classList.add('gs-incomplete'); return; }
+        if (!r.nm_id && !r.article) { tr.classList.add('gs-incomplete'); return; }
         tr.classList.remove('gs-incomplete');
-        var payload = { cabinet_id: st.cab, nm_id: r.nm_id, size: '', qty: shipTotal(r), sizes: r.sizes || {}, status: r.status || '', note: r.note || '', batch: r.batch || '', method: r.method || '', product: r.product || '', origin: r.origin || '', cargo: r.cargo || '', delivery: r.delivery || '', price: r.price == null ? null : r.price, sent_date: r.sent_date || null, updated_at: new Date().toISOString() };
+        var payload = { cabinet_id: st.cab, nm_id: r.nm_id || null, article: r.article || '', in_rnp: r.in_rnp === true, size: '', qty: shipTotal(r), sizes: r.sizes || {}, status: r.status || '', note: r.note || '', batch: r.batch || '', method: r.method || '', product: r.product || '', origin: r.origin || '', cargo: r.cargo || '', delivery: r.delivery || '', price: r.price == null ? null : r.price, sent_date: r.sent_date || null, updated_at: new Date().toISOString() };
         try {
             var res;
             if (r.id) res = await sb().from('goods_shipments').update(payload).eq('id', r.id);
@@ -239,6 +216,25 @@
             tr.style.outline = '';
             changed();
         } catch (e) { tr.style.outline = '2px solid #ef4444'; tr.title = String((e && e.message) || e); }
+    }
+
+    async function toggleBatchRnp(batch) {
+        var rows = st.rows.ship.filter(function (r) { return (r.batch || '') === batch; });
+        if (!rows.length) return;
+        var on = !rows.every(function (r) { return r.in_rnp; });
+        var ids = [];
+        rows.forEach(function (r) { r.in_rnp = on; if (r.id) ids.push(r.id); });
+        renderShip();
+        if (!ids.length) return;
+        try {
+            var res = await sb().from('goods_shipments').update({ in_rnp: on }).in('id', ids);
+            if (res.error) throw res.error;
+            changed();
+        } catch (e) {
+            rows.forEach(function (r) { r.in_rnp = !on; });
+            renderShip();
+            root.alert('Не удалось переключить: ' + String((e && e.message) || e));
+        }
     }
 
     async function renameBatch(oldName, name) {
@@ -262,91 +258,222 @@
         changed();
     }
 
-    function rowFor(k, tr) {
+    // ─── «Заказ на производство» как таблица заказа: артикул + расцветка, размеры строками, процентовка ───
+    var PROD_STATUS = [['plan', 'В плане'], ['sewing', 'В пошиве'], ['done', 'Готово']];
+    var PROD_SIZES = ['42', '44', '46', '48', '50', '52'];
+    function uuid() {
+        if (root.crypto && root.crypto.randomUUID) return root.crypto.randomUUID();
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+    }
+    function fmtDate(d) { if (!d) return ''; var m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '.' + m[2] + '.' + m[1] : String(d); }
+    // Равные проценты по размерам: 17,17,17,17,16,16 (остаток от деления на первые размеры).
+    function evenPct(n) { var base = Math.floor(100 / n), rest = 100 - base * n, a = []; for (var i = 0; i < n; i++) a.push(base + (i < rest ? 1 : 0)); return a; }
+    // Количество по размерам = общее × % ; остаток от округления уходит в крупные (последние) размеры.
+    function splitQty(total, pcts) {
+        var q = pcts.map(function (p) { return Math.floor(total * (Number(p) || 0) / 100); });
+        var sumP = pcts.reduce(function (s, p) { return s + (Number(p) || 0); }, 0);
+        if (Math.round(sumP) === 100) {
+            var rest = total - q.reduce(function (s, x) { return s + x; }, 0);
+            for (var i = q.length - 1; i >= 0 && rest > 0; i--, rest--) q[i] += 1;
+        }
+        return q;
+    }
+    function prodGroups() {
+        var order = [], map = {};
+        st.rows.prod.slice().sort(function (a, b) { return (a.sort_idx || 0) - (b.sort_idx || 0); }).forEach(function (r) {
+            var k = r.grp || r.id || r._tmp;
+            if (!map[k]) { map[k] = { key: k, rows: [] }; order.push(k); }
+            map[k].rows.push(r);
+        });
+        var gs = order.map(function (k) { return map[k]; });
+        gs.forEach(function (g) {
+            var f = g.rows[0];
+            g.nm_id = f.nm_id; g.color = f.color || ''; g.status = f.status || 'plan'; g.order_date = f.order_date || ''; g.due_date = f.due_date || '';
+            g.total = Number(f.total_qty) || g.rows.reduce(function (s, r) { return s + (Number(r.qty) || 0); }, 0);
+            g.created = f.created_at || '9999';
+        });
+        // новые сверху (черновики без created_at — самые верхние)
+        gs.sort(function (a, b) { return a.created < b.created ? 1 : a.created > b.created ? -1 : 0; });
+        return gs;
+    }
+    function groupByKey(key) { var g = prodGroups().filter(function (x) { return x.key === key; })[0]; return g || null; }
+
+    function renderProd() {
+        var host = pane('prod');
+        if (!host) return;
+        var K = KINDS.prod;
+        var groups = prodGroups().filter(function (g) { return st.showDone.prod || g.status !== 'done'; });
+        var open = prodGroups().filter(function (g) { return g.status !== 'done'; });
+        var grand = open.reduce(function (s, g) { return s + g.total; }, 0);
+        var dl = '<datalist id="gs-arts-prod">' + st.arts.map(function (a) { return '<option value="' + esc(artLabel(a)) + '">' + a.nm_id + '</option>'; }).join('') + '</datalist>';
+        var statusSel = function (g) { return '<select class="gs-in gp-st gp-st-' + g.status + '" data-g="' + esc(g.key) + '" data-gf="status">' + PROD_STATUS.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === g.status ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>'; };
+        var body = '';
+        groups.forEach(function (g) {
+            var n = g.rows.length, rs = ' rowspan="' + n + '"';
+            var a = artByNm(g.nm_id), photo = a && a.photo_url ? a.photo_url : '';
+            var sumP = g.rows.reduce(function (s, r) { return s + (Number(r.pct) || 0); }, 0);
+            var pctBad = Math.round(sumP) !== 100;
+            g.rows.forEach(function (r, i) {
+                body += '<tr class="gp-row" data-id="' + esc(r.id || '') + '" data-tmp="' + esc(r._tmp || '') + '" data-g="' + esc(g.key) + '">';
+                if (i === 0) {
+                    body += '<td' + rs + ' class="gp-date"><input class="gs-in gp-din" type="date" data-g="' + esc(g.key) + '" data-gf="order_date" value="' + esc(g.order_date) + '"></td>' +
+                        '<td' + rs + ' class="gp-photo">' + (photo ? '<img src="' + esc(photo) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="gp-nophoto">нет фото</span>') + '</td>' +
+                        '<td' + rs + ' class="gp-art"><input class="gs-in' + (!a && g.rows[0]._tmp ? ' gs-nomatch' : '') + '" list="gs-arts-prod" data-g="' + esc(g.key) + '" data-gf="art" value="' + esc(a ? artLabel(a) : (g.nm_id || '')) + '" placeholder="Артикул">' + (g.nm_id ? '<div class="gp-nm">WB ' + esc(g.nm_id) + '</div>' : '') + '</td>' +
+                        '<td' + rs + ' class="gp-color"><input class="gs-in" data-g="' + esc(g.key) + '" data-gf="color" value="' + esc(g.color) + '" placeholder="Расцветка"></td>';
+                }
+                body += '<td class="gp-size"><input class="gs-in" data-f="size" value="' + esc(r.size) + '" placeholder="Размер"></td>' +
+                    '<td class="gp-qty">' + (Number(r.qty) || 0) + '</td>';
+                if (i === 0) {
+                    body += '<td' + rs + ' class="gp-total"><input class="gs-in gp-tin" type="number" min="0" data-g="' + esc(g.key) + '" data-gf="total" value="' + (g.total || '') + '" placeholder="0"><span>всего</span></td>';
+                }
+                body += '<td class="gp-pct"><input class="gs-in" type="number" min="0" max="100" step="any" data-f="pct" value="' + (r.pct == null ? '' : r.pct) + '"><i>%</i>' +
+                    '<button type="button" class="gp-x gs-edit" data-act="delsize" title="Убрать размер">×</button></td>';
+                if (i === 0) {
+                    body += '<td' + rs + ' class="gp-status">' + statusSel(g) + (pctBad ? '<div class="gp-warn" title="Сумма процентов должна быть 100">Σ ' + Math.round(sumP) + '%</div>' : '') +
+                        '<button type="button" class="gp-addsz gs-edit" data-act="addsize" data-g="' + esc(g.key) + '">+ размер</button></td>' +
+                        '<td' + rs + ' class="gp-due"><input class="gs-in gp-din" type="date" data-g="' + esc(g.key) + '" data-gf="due_date" value="' + esc(g.due_date) + '">' +
+                        '<button type="button" class="gp-delg gs-edit" data-act="delgrp" data-g="' + esc(g.key) + '" title="Удалить заказ">Удалить</button></td>';
+                }
+                body += '</tr>';
+            });
+            body += '<tr class="gp-sep"><td colspan="10"></td></tr>';
+        });
+        host.innerHTML = dl +
+            '<div class="gs-head"><div><div class="gs-title">Заказ на производство</div><div class="gs-hint">Введите общее количество и процентовку по размерам: количество по размерам считается само, остаток от округления уходит в крупные размеры. В РНП идёт в строку «В пошиве».</div></div>' +
+            '<div class="gs-tools"><span class="gs-gt">В работе: <b>' + grand.toLocaleString('ru') + ' шт</b></span><label class="gs-chk"><input type="checkbox" data-act="done"' + (st.showDone.prod ? ' checked' : '') + '> показывать готовые</label>' +
+            '<button type="button" class="gs-add gs-edit" data-act="addgrp">+ Добавить артикул</button></div></div>' +
+            '<div class="gs-sheet"><table class="gs-table gp-table"><thead><tr><th>Дата заказа</th><th>Фото</th><th>Артикул</th><th>Расцветка</th><th>Размер</th><th>Кол-во</th><th>Общее кол-во</th><th>Процентовка</th><th>Статус</th><th>Срок</th></tr></thead><tbody>' +
+            (body || '<tr><td colspan="10" class="gs-empty">Пока пусто. Нажмите «+ Добавить артикул».</td></tr>') + '</tbody></table></div>';
+        bindProd(host);
+    }
+
+    function prodRow(tr) {
         var id = tr.getAttribute('data-id'), tmp = tr.getAttribute('data-tmp');
-        var list = st.rows[k];
+        var list = st.rows.prod;
         for (var i = 0; i < list.length; i++) if ((id && list[i].id === id) || (!id && tmp && list[i]._tmp === tmp)) return list[i];
         return null;
     }
 
-    function bind(k, host) {
-        if (host._gsBound) return;
-        host._gsBound = true;
+    // Пересчёт количества по размерам из общего и процентов; групповые поля копируются в каждую строку.
+    function recalcGroup(g) {
+        var q = splitQty(g.total, g.rows.map(function (r) { return r.pct; }));
+        g.rows.forEach(function (r, i) {
+            r.qty = q[i]; r.total_qty = g.total; r.nm_id = g.nm_id; r.color = g.color; r.status = g.status;
+            r.order_date = g.order_date || null; r.due_date = g.due_date || null; r.sort_idx = i;
+        });
+    }
+
+    var saveTimer = null;
+    function saveGroupSoon(g) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { saveGroup(g.key); }, 250); }
+
+    async function saveGroup(key) {
+        var g = groupByKey(key);
+        if (!g) return;
+        if (!g.nm_id || !(g.total > 0)) return; // ждём артикул WB и количество
+        recalcGroup(g);
+        var now = new Date().toISOString();
+        try {
+            for (var i = 0; i < g.rows.length; i++) {
+                var r = g.rows[i];
+                var payload = { cabinet_id: st.cab, nm_id: r.nm_id, size: r.size || '', qty: r.qty, status: r.status, note: r.note || '', order_date: r.order_date, due_date: r.due_date, grp: g.key, color: r.color || '', pct: r.pct == null || r.pct === '' ? null : Number(r.pct), total_qty: g.total, sort_idx: i, updated_at: now };
+                var res;
+                if (r.id) res = await sb().from('production_orders').update(payload).eq('id', r.id);
+                else {
+                    res = await sb().from('production_orders').insert(payload).select('id,created_at').single();
+                    if (!res.error && res.data) { r.id = res.data.id; r.created_at = res.data.created_at; r.grp = g.key; }
+                }
+                if (res.error) throw res.error;
+            }
+            changed();
+        } catch (e) {
+            root.alert('Не удалось сохранить заказ: ' + String((e && e.message) || e));
+        }
+    }
+
+    function bindProd(host) {
+        if (host._gsProdBound) return;
+        host._gsProdBound = true;
         host.addEventListener('click', function (e) {
             var b = e.target.closest('[data-act]');
             if (!b) return;
             var act = b.getAttribute('data-act');
-            if (act === 'add') { addRow(k); }
-            else if (act === 'del') { delRow(k, b.closest('tr')); }
+            if (act === 'addgrp') addProdGroup();
+            else if (act === 'addsize') addProdSize(b.getAttribute('data-g'));
+            else if (act === 'delsize') delProdSize(b.closest('tr'));
+            else if (act === 'delgrp') delProdGroup(b.getAttribute('data-g'));
         });
         host.addEventListener('change', function (e) {
             var el = e.target;
-            if (el.getAttribute('data-act') === 'done') { st.showDone[k] = el.checked; render(k); return; }
-            var f = el.getAttribute('data-f');
-            if (!f) return;
-            var tr = el.closest('tr'), r = rowFor(k, tr);
-            if (!r) return;
-            if (f === 'art') {
-                var v = String(el.value || '').trim().toLowerCase();
-                var a = st.arts.filter(function (x) { return artLabel(x).toLowerCase() === v || String(x.nm_id) === v; })[0];
-                r.nm_id = a ? a.nm_id : null;
-                tr.querySelector('.gs-nm').textContent = a ? a.nm_id : '';
-                el.style.outline = a ? '' : '2px solid #ef4444';
-            } else if (f === 'qty') {
-                r.qty = Math.max(0, parseInt(el.value, 10) || 0);
-            } else if (f === 'size') {
-                r.size = String(el.value || '').trim();
-            } else {
-                r[f] = el.value === '' ? (f === 'status' ? r.status : (f === 'note' ? '' : null)) : el.value;
+            if (el.getAttribute('data-act') === 'done') { st.showDone.prod = el.checked; renderProd(); return; }
+            var gk = el.getAttribute('data-g'), gf = el.getAttribute('data-gf'), f = el.getAttribute('data-f');
+            if (gf) {
+                var g = groupByKey(gk);
+                if (!g) return;
+                if (gf === 'art') {
+                    var v = String(el.value || '').trim().toLowerCase();
+                    var a = st.arts.filter(function (x) { return artLabel(x).toLowerCase() === v || String(x.nm_id) === v; })[0];
+                    g.nm_id = a ? a.nm_id : null;
+                } else if (gf === 'total') g.total = Math.max(0, parseInt(el.value, 10) || 0);
+                else if (gf === 'color') g.color = String(el.value || '').trim();
+                else if (gf === 'status') g.status = el.value;
+                else if (gf === 'order_date') g.order_date = el.value || '';
+                else if (gf === 'due_date') g.due_date = el.value || '';
+                recalcGroup(g); renderProd(); saveGroupSoon(g);
+            } else if (f) {
+                var tr = el.closest('tr'), r = prodRow(tr);
+                if (!r) return;
+                var g2 = groupByKey(r.grp || r.id || r._tmp);
+                if (f === 'size') r.size = String(el.value || '').trim();
+                else if (f === 'pct') r.pct = el.value === '' ? null : Math.max(0, Number(el.value));
+                if (g2) { recalcGroup(g2); renderProd(); saveGroupSoon(g2); }
             }
-            save(k, r, tr);
         });
     }
 
-    function addRow(k) {
-        var K = KINDS[k];
-        var r = { _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, size: '', qty: 0, status: K.statuses[0][0], note: '' };
-        r[K.dateA] = new Date().toISOString().slice(0, 10);
-        r[K.dateB] = null;
-        st.rows[k].unshift(r);
-        render(k);
-        var first = pane(k).querySelector('tbody tr .gs-in');
-        if (first) first.focus();
+    function addProdGroup() {
+        var key = uuid(), pcts = evenPct(PROD_SIZES.length);
+        var today = new Date().toISOString().slice(0, 10);
+        PROD_SIZES.forEach(function (z, i) {
+            st.rows.prod.push({ _tmp: 't' + Date.now() + '_' + i, grp: key, cabinet_id: st.cab, nm_id: null, size: z, qty: 0, pct: pcts[i], total_qty: 0, color: '', status: 'plan', note: '', order_date: today, due_date: null, sort_idx: i });
+        });
+        renderProd();
+        var el = pane('prod').querySelector('tr[data-g="' + key + '"] [data-gf="art"]'); if (el) el.focus();
     }
 
-    async function save(k, r, tr) {
-        var K = KINDS[k];
-        if (!r.nm_id || !(r.qty > 0)) { tr.classList.add('gs-incomplete'); return; }
-        tr.classList.remove('gs-incomplete');
-        var payload = { cabinet_id: st.cab, nm_id: r.nm_id, size: r.size || '', qty: r.qty, status: r.status, note: r.note || '', updated_at: new Date().toISOString() };
-        payload[K.dateA] = r[K.dateA] || null;
-        payload[K.dateB] = r[K.dateB] || null;
-        try {
-            var res;
-            if (r.id) res = await sb().from(K.table).update(payload).eq('id', r.id);
-            else {
-                res = await sb().from(K.table).insert(payload).select('id').single();
-                if (!res.error && res.data) { r.id = res.data.id; tr.setAttribute('data-id', r.id); }
-            }
-            if (res.error) throw res.error;
-            tr.style.outline = '';
-            changed();
-        } catch (e) {
-            tr.style.outline = '2px solid #ef4444';
-            tr.title = String((e && e.message) || e);
-        }
+    function addProdSize(key) {
+        var g = groupByKey(key);
+        if (!g) return;
+        g.rows.push({ _tmp: 't' + Date.now(), grp: key, cabinet_id: st.cab, nm_id: g.nm_id, size: '', qty: 0, pct: 0, total_qty: g.total, color: g.color, status: g.status, note: '', order_date: g.order_date || null, due_date: g.due_date || null, sort_idx: g.rows.length });
+        st.rows.prod.push(g.rows[g.rows.length - 1]);
+        renderProd();
     }
 
-    async function delRow(k, tr) {
-        var r = rowFor(k, tr);
+    async function delProdSize(tr) {
+        var r = prodRow(tr);
         if (!r) return;
+        var g = groupByKey(r.grp || r.id || r._tmp);
+        if (g && g.rows.length <= 1) return;
         if (r.id) {
-            if (!root.confirm('Удалить строку?')) return;
-            var res = await sb().from(KINDS[k].table).delete().eq('id', r.id);
-            if (res.error) { tr.style.outline = '2px solid #ef4444'; tr.title = res.error.message; return; }
+            var res = await sb().from('production_orders').delete().eq('id', r.id);
+            if (res.error) { root.alert(res.error.message); return; }
         }
-        st.rows[k] = st.rows[k].filter(function (x) { return x !== r; });
-        render(k);
+        st.rows.prod = st.rows.prod.filter(function (x) { return x !== r; });
+        g = groupByKey(r.grp || r.id || r._tmp);
+        if (g) { recalcGroup(g); saveGroupSoon(g); }
+        renderProd();
+    }
+
+    async function delProdGroup(key) {
+        var g = groupByKey(key);
+        if (!g) return;
+        var ids = g.rows.filter(function (r) { return r.id; }).map(function (r) { return r.id; });
+        if (ids.length && !root.confirm('Удалить заказ целиком?')) return;
+        if (ids.length) {
+            var res = await sb().from('production_orders').delete().in('id', ids);
+            if (res.error) { root.alert(res.error.message); return; }
+        }
+        st.rows.prod = st.rows.prod.filter(function (r) { return (r.grp || r.id || r._tmp) !== key; });
+        renderProd();
         changed();
     }
 

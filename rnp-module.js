@@ -2309,7 +2309,7 @@ const RNP = (() => {
         if (!_db || !_cab) return;
         const cab = _cab;
         const [sh, pr] = await Promise.all([
-            _db.from('goods_shipments').select('nm_id,size,qty,sizes,status').eq('cabinet_id', cab).in('status', ['transit', 'в пути', 'на карго', 'Принято ФФ', 'ЕДЕТ В МСК', 'Маркировка']).range(0, 4999),
+            _db.from('goods_shipments').select('nm_id,size,qty,sizes,status').eq('cabinet_id', cab).eq('in_rnp', true).in('status', ['transit', 'в пути', 'на карго', 'Принято ФФ', 'ЕДЕТ В МСК', 'Маркировка']).range(0, 4999),
             _db.from('production_orders').select('nm_id,size,qty').eq('cabinet_id', cab).in('status', ['plan', 'sewing']).range(0, 4999),
         ]);
         if (cab !== _cab) return;
