@@ -860,3 +860,18 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 
 .nw-kc .nw-sp { width: 100%; height: 34px; display: block; } .nw-kc .nw-k { display: block; margin-top: 2px; }
 .nw-rnp .nw-ord td.nw-hg { background: rgba(34,160,90,.20); } .nw-rnp .nw-ord td.nw-hr { background: rgba(239,68,68,.20); color: #b91c1c; }
+
+.nw-form2 { max-width: 640px; } .nw-form2 .nw-card { padding: 16px 20px; max-width: none; }
+.nw-st { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; margin: 4px 0 10px; }
+.nw-st span { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 12px; flex: none; }
+.nw-need { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.nw-nr { border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; background: var(--surface); display: flex; flex-direction: column; }
+.nw-nr b { font-size: 11px; color: var(--text-muted); font-weight: 600; } .nw-nr em { font-style: normal; font-size: 16px; font-weight: 800; color: var(--accent); } .nw-nr small { font-size: 11px; color: var(--text-muted); }
+.nw-cl { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.nw-cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.nw-cat { display: flex; align-items: center; gap: 7px; border: 1px solid rgba(34,160,90,.35); background: rgba(34,160,90,.08); border-radius: 10px; padding: 6px 8px; }
+.nw-cat i { width: 18px; height: 18px; border-radius: 5px; background: #16a34a; color: #fff; font-style: normal; font-size: 11px; display: grid; place-items: center; flex: none; }
+.nw-cat span { display: flex; flex-direction: column; min-width: 0; } .nw-cat b { font-size: 11.5px; } .nw-cat small { font-size: 10px; color: var(--text-muted); }
+.nw-no { font-size: 11px; color: var(--text-muted); margin: 7px 0 12px; }
+.nw-inrow { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-bottom: 4px; } .nw-inrow .nw-in { margin-bottom: 0; }
+@media (max-width: 760px) { .nw-cats { grid-template-columns: 1fr 1fr; } .nw-inrow { grid-template-columns: 1fr; } }

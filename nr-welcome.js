@@ -279,10 +279,17 @@
     }
 
     var ST = { pending: false, i: 0, el: null };
+    var CATS = [['Контент', 'карточки и фото'], ['Маркетплейс', 'заказы FBS'], ['Статистика', 'заказы и продажи'], ['Финансы', 'прибыль и штрафы'], ['Аналитика', 'воронка и показы'], ['Продвижение', 'реклама и ставки'], ['Вопросы и отзывы', 'Акылай'], ['Цены и скидки', 'смена цены'], ['Поставки', 'остатки и приёмка']];
     function sForm() {
         if (ST.pending) return '<div class="nw-stage nw-form"><div class="nw-card"><div class="nw-name">Почти готово</div><p class="nw-p">Команда NR активирует ваш доступ вручную. После этого здесь появится подключение магазина. Пока можно посмотреть инструкцию, как создать токен.</p><a href="#" class="nw-lnk" data-act="guide">Как создать токен</a></div></div>';
-        return '<div class="nw-stage nw-form"><div class="nw-card"><input id="nw-name" class="nw-in" placeholder="Название магазина" autocomplete="off"><input id="nw-token" class="nw-in" type="password" placeholder="Вставьте токен WB" autocomplete="off" spellcheck="false">' +
-            '<div class="nw-req">Тип токена: <b>Персональный</b><br>Доступ: <b>Чтение и запись</b><br>Категории: <b>все</b></div><a href="#" class="nw-lnk" data-act="guide">Посмотреть инструкцию со скриншотами</a></div></div>';
+        return '<div class="nw-stage nw-form nw-form2"><div class="nw-card">' +
+            '<div class="nw-st"><span>1</span>В кабинете WB создайте токен: Профиль → Интеграции по API → Создать токен</div>' +
+            '<div class="nw-need"><div class="nw-nr"><b>Тип токена</b><em>Персональный</em><small>вкладка «Для интеграции вручную»</small></div><div class="nw-nr"><b>Уровень доступа</b><em>Чтение и запись</em><small>не «Только чтение»</small></div></div>' +
+            '<div class="nw-cl">Отметьте галочками категории:</div><div class="nw-cats">' + CATS.map(function (c) { return '<div class="nw-cat"><i>✓</i><span><b>' + c[0] + '</b><small>' + c[1] + '</small></span></div>'; }).join('') + '</div>' +
+            '<div class="nw-no">Чат с покупателем, Возвраты и Документы не нужны</div>' +
+            '<div class="nw-st"><span>2</span>Скопируйте токен и вставьте сюда</div>' +
+            '<div class="nw-inrow"><input id="nw-name" class="nw-in" placeholder="Название магазина" autocomplete="off"><input id="nw-token" class="nw-in" type="password" placeholder="Токен WB" autocomplete="off" spellcheck="false"></div>' +
+            '<a href="#" class="nw-lnk" data-act="guide">Посмотреть инструкцию со скриншотами</a></div></div>';
     }
 
     var TXT = [
@@ -294,7 +301,7 @@
         ['Карточка: фото и цена', 'Листайте фото и меняйте цену вверх или вниз. Сайт сразу покажет, как изменится маржа.'],
         ['А/Б тесты фото', 'Сайт сам меняет главное фото и показывает, какое продаёт лучше.'],
         ['Telegram и отзывы', 'Штрафы и итоги тестов приходят картинкой. Акылай пишет ответы на отзывы, вы только нажимаете «Опубликовать».'],
-        ['Подключим магазин', 'Нужен один токен из кабинета WB. Мы проверим его и начнём собирать данные.'],
+        ['Подключим магазин', 'Нужен один токен из кабинета WB: тип «Персональный», доступ «Чтение и запись» и все нужные категории. Мы проверим токен и начнём собирать данные.'],
     ];
     var VIEWS = [s0, s1, s2, s3d, s4, sCard, sAB, sChat, sForm];
 
