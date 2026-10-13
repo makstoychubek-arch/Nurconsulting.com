@@ -6403,7 +6403,7 @@
                 <p class="space-empty-sub">Остался один шаг: подключите свой магазин Wildberries по API-токену. Мы проверим токен и сразу начнём собирать данные.</p>
                 <ol class="onb-steps">
                     <li>Откройте <a href="https://seller.wildberries.ru/supplier-settings/access-to-api" target="_blank" rel="noopener">Настройки → Доступ к API</a> в кабинете WB.</li>
-                    <li>Нажмите «Создать новый токен» и отметьте категории:<span class="onb-scopes"><code>Статистика</code><code>Контент</code><code>Аналитика</code><code>Продвижение</code><code>Цены и скидки</code><code>Финансы</code><code>Вопросы и отзывы</code><code>Маркетплейс</code></span></li>
+                    <li>Нажмите «Создать новый токен» и отметьте категории:<span class="onb-scopes"><code>Статистика</code><code>Контент</code><code>Аналитика</code><code>Продвижение</code><code>Цены и скидки</code><code>Финансы</code><code>Вопросы и отзывы</code><code>Маркетплейс</code></span>Тип токена — <b>«Персональный»</b>, доступ — <b>«Чтение и запись»</b>. <a href="#" onclick="showTab('akylai');return false">Пошаговая инструкция со скриншотами</a></li>
                     <li>Скопируйте токен целиком и вставьте его сюда. Токен хранится только на сервере и виден лишь вам.</li>
                 </ol>
                 <label class="onb-label" for="onb-name">Название магазина</label>
@@ -7771,7 +7771,7 @@
                 .ak-bubble { position: relative; flex: 1; padding: 14px 16px; border-radius: 4px 18px 18px 18px; background: var(--sel); color: var(--text-primary); font-size: 14.5px; line-height: 1.55; }
                 .ak-bubble b { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 2px; }
                 .ak-body { margin-top: 20px; }
-                .ak-slide-img { width: 100%; border-radius: 14px; border: 1px solid var(--border); display: block; }
+                .ak-slide-img { width: 100%; max-height: 380px; object-fit: contain; background: var(--sel); border-radius: 14px; border: 1px solid var(--border); display: block; }
                 .ak-slide-ph { display: flex; align-items: center; justify-content: center; min-height: 180px; border-radius: 14px; border: 1px dashed var(--border-strong, var(--border)); color: var(--text-muted); font-size: 12.5px; text-align: center; padding: 16px; background: var(--sel); }
                 .ak-slide-text { margin-top: 14px; font-size: 14px; line-height: 1.6; color: var(--text-primary); }
                 .ak-slide-text a { color: var(--accent); text-decoration: underline; }
@@ -8484,6 +8484,7 @@
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
 <script src="/dist/nr-skeleton.c725fa0ddd.min.js"></script>
 <script src="/dist/nr-themes.fdc7bec148.min.js"></script>
+<script src="/dist/ak-slides.6d340a8591.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -19287,13 +19288,7 @@
         serious: '/img/agents/akylai-serious.svg',
         neutral: '/img/agents/akylai-neutral.svg',
     };
-    const AK_SLIDES = [
-        { img: 'step-1-api-settings.png', text: 'Откройте личный кабинет продавца Wildberries → нажмите на профиль в правом верхнем углу → «Настройки» → «Доступ к API». Можно сразу по ссылке: <a href="https://seller.wildberries.ru/supplier-settings/access-to-api" target="_blank" rel="noopener">Доступ к API</a>.' },
-        { img: 'step-2-token-type.png', text: 'Нажмите «Создать новый токен» и выберите тип <b>«Персональный»</b>. Название — любое, например «Акылай».' },
-        { img: 'step-3-category.png', text: 'Отметьте <b>все категории доступа</b> (Контент, Аналитика, Цены и скидки, Статистика, Продвижение, «Вопросы и отзывы», Финансы и остальные) — один токен будет работать во всех разделах NR Space. Галочку <b>«Только на чтение» не ставьте</b> — иначе я не смогу публиковать ответы.' },
-        { img: 'step-4-expiry-copy.png', text: 'Укажите срок действия токена — лучше самый долгий из доступных. Нажмите «Создать» и скопируйте токен целиком.' },
-        { input: true, text: 'Вставьте токен сюда — я проверю его сама, нажимать ничего не нужно.' },
-    ];
+    const AK_SLIDES = window.AK_SLIDES;
     const GENERIC = 'Не получилось проверить. Попробуйте ещё раз через минуту.';
     // Агенты «Скоро»: только то, что они реально будут уметь. Заявка — в WhatsApp NR.
     const AK_SOON = {
