@@ -45,7 +45,7 @@ assert.ok(html.includes('rel="manifest" href="/manifest.json"'));
 assert.ok(html.includes('apple-mobile-web-app-status-bar-style" content="black-translucent"'));
 assert.ok(html.includes('rel="apple-touch-startup-image" href="/splash/splash-1170x2532.png"'));
 assert.ok(html.includes('href="/icons/apple-touch-icon.png"'));
-assert.ok(html.includes('href="/favicon.ico"') && html.includes('/icons/favicon.png'),
+assert.ok(html.includes('href="/favicon.ico') && html.includes('/icons/favicon.png'),
     'dashboard tab icon must match the PWA NR mark');
 assert.ok(fs.existsSync(path.join(__dirname, 'icons/logo-nr.svg')));
 assert.ok(sw.includes("nr-space-pwa-v3") && sw.includes("/icons/logo-nr.svg"));
