@@ -278,7 +278,7 @@
             '<div class="nw-bub nw-ans"><b>Ответ Акылай</b><br>Спасибо за тёплые слова! Рады, что платье село идеально.<div><span class="nw-btn sm">Опубликовать</span></div></div></div>';
     }
 
-    var ST = { pending: false, i: 0, el: null };
+    var ST = { pending: false, i: 0, el: null, pill: null };
     var CATS = [['Контент', 'карточки и фото'], ['Маркетплейс', 'заказы FBS'], ['Статистика', 'заказы и продажи'], ['Финансы', 'прибыль и штрафы'], ['Аналитика', 'воронка и показы'], ['Продвижение', 'реклама и ставки'], ['Вопросы и отзывы', 'Акылай'], ['Цены и скидки', 'смена цены'], ['Поставки', 'остатки и приёмка']];
     function sForm() {
         if (ST.pending) return '<div class="nw-stage nw-form"><div class="nw-card"><div class="nw-name">Почти готово</div><p class="nw-p">Команда NR активирует ваш доступ вручную. После этого здесь появится подключение магазина. Пока можно посмотреть инструкцию, как создать токен.</p><a href="#" class="nw-lnk" data-act="guide">Как создать токен</a></div></div>';
@@ -334,7 +334,24 @@
 
     function done() { try { root.localStorage.setItem('nr_welcome_v1', '1'); } catch (e) {} }
     function close() { root.removeEventListener('resize', applyFit); if (ST.el) { ST.el.remove(); ST.el = null; } doc.removeEventListener('keydown', onKey, true); }
-    function onKey(e) { if (e.key === 'Escape') { done(); close(); } else if (e.key === 'ArrowRight') next(); else if (e.key === 'ArrowLeft' && ST.i) { ST.i--; draw(); } }
+    function onKey(e) { if (e.key === 'Escape') { minimize(); } else if (e.key === 'ArrowRight') next(); else if (e.key === 'ArrowLeft' && ST.i) { ST.i--; draw(); } }
+    function lsSet(k, v) { try { root.localStorage.setItem(k, v); } catch (e) {} }
+    function hidePill() { if (ST.pill) { ST.pill.remove(); ST.pill = null; } }
+    // Свернуть: клиентка может осмотреться по сайту и вернуться к слайдам с того же места.
+    function minimize(restore) {
+        close();
+        if (!restore) { lsSet('nr_welcome_min', '1'); lsSet('nr_welcome_i', String(ST.i)); }
+        if (ST.pill) return;
+        var p = doc.createElement('div');
+        p.className = 'nw-pillw';
+        p.innerHTML = '<button type="button" class="nw-pillb" data-act="back">Приветствие и подключение магазина</button><button type="button" class="nw-pillx" data-act="drop" aria-label="Скрыть">×</button>';
+        p.addEventListener('click', function (e) {
+            var a = e.target.closest('[data-act]'); if (!a) return;
+            if (a.getAttribute('data-act') === 'back') { hidePill(); lsSet('nr_welcome_min', '0'); open(ST.pending, true); }
+            else { hidePill(); done(); }
+        });
+        doc.body.appendChild(p); ST.pill = p;
+    }
     function next() {
         if (ST.i < VIEWS.length - 1) { ST.i++; draw(); return; }
         if (ST.pending) { done(); close(); return; }
@@ -342,25 +359,27 @@
         var tn = doc.getElementById('onb-name'), tt = doc.getElementById('onb-token');
         if (!t.trim()) { ST.el.querySelector('#nw-token').focus(); return; }
         if (tn) tn.value = n; if (tt) tt.value = t;
-        done(); close();
+        done(); hidePill(); close();
         if (typeof root.submitOnboarding === 'function') root.submitOnboarding();
     }
 
-    function open(pending) {
+    function open(pending, keep) {
         if (ST.el) return;
-        ST.pending = !!pending; ST.i = 0; cardState.photo = 0; cardState.step = 0;
+        hidePill();
+        ST.pending = !!pending; if (!keep) ST.i = 0; else if (!ST.i) { try { ST.i = Math.min(VIEWS.length - 1, +root.localStorage.getItem('nr_welcome_i') || 0); } catch (e) {} } cardState.photo = 0; cardState.step = 0;
         var el = doc.createElement('div');
         el.className = 'nw-ov';
-        el.innerHTML = '<div class="nw-modal nr-win" role="dialog" aria-modal="true"><div class="nw-l"><div class="nw-logo"><img src="/icons/logo-nr.svg" alt="NR" width="34" height="34"><span>Space</span></div>' +
+        el.innerHTML = '<div class="nw-modal nr-win" role="dialog" aria-modal="true"><div class="nw-l"><div class="nw-logo"><img src="/icons/logo-nr.svg" alt="NR" width="34" height="34"><span>Space</span><button type="button" class="nw-min" aria-label="Свернуть" title="Свернуть">×</button></div>' +
             '<h2 class="nw-h"></h2><p class="nw-pp"></p><div class="nw-nav"><div class="nw-dots"></div><button type="button" class="nw-back">Назад</button><button type="button" class="nw-next nw-btn">Далее</button></div>' +
-            '<button type="button" class="nw-skip">Пропустить</button></div><div class="nw-r"></div></div>';
+            '<button type="button" class="nw-skip">Свернуть и осмотреться</button></div><div class="nw-r"></div></div>';
         doc.body.appendChild(el);
         ST.el = el;
         el.addEventListener('click', function (e) {
             var t = e.target;
             if (t.closest('.nw-next')) return next();
             if (t.closest('.nw-back')) { if (ST.i) { ST.i--; draw(); } return; }
-            if (t.closest('.nw-skip')) { done(); close(); return; }
+            if (t.closest('.nw-skip') || t.closest('.nw-min')) { minimize(); return; }
+            if (t === el) { minimize(); return; }
             var ph = t.closest('[data-photo]'); if (ph) { cardState.photo = +ph.getAttribute('data-photo'); draw(); return; }
             var ar = t.closest('[data-dir]'); if (ar) { cardState.photo = (cardState.photo + (+ar.getAttribute('data-dir')) + 6) % 6; draw(); return; }
             var st = t.closest('[data-step]'); if (st) { var v = +st.getAttribute('data-step'); cardState.step = cardState.step === v ? 0 : v; draw(); return; }
@@ -375,6 +394,8 @@
     function maybe(pending, hasCabinets) {
         if (hasCabinets || ST.el) return;
         try { if (root.localStorage.getItem('nr_welcome_v1')) return; } catch (e) {}
+        var mini = false; try { mini = root.localStorage.getItem('nr_welcome_min') === '1'; } catch (e) {}
+        if (mini) { if (!ST.pill) { ST.pending = !!pending; minimize(true); } return; }
         open(pending);
     }
     root.NrWelcome = { open: open, maybe: maybe, model: { ARTS: ARTS, ROWS: ROWS, T: T } };
