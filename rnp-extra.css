@@ -899,3 +899,16 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 .nx-ic { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 12px; display: grid; place-items: center; font-size: 28px; background: linear-gradient(135deg, #fff1e0, #ffe3ef); }
 .nx-modal h3 { margin: 0 0 8px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; } .nx-modal p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--text-secondary); } .nx-modal .nx-sm { font-size: 12.5px; color: var(--text-muted); }
 .nx-go { margin-top: 6px; background: var(--accent); color: #fff; border: 0; border-radius: 12px; padding: 11px 28px; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+/* Приветствие: прокрутка, если содержимое не помещается (узкое окно, низкий экран, телефон) */
+.nw-r { overflow: auto !important; align-items: flex-start !important; justify-content: flex-start !important; }
+.nw-r > .nw-stage { margin: auto; }
+.nw-l { overflow-y: auto; }
+@media (max-width: 900px) {
+  .nw-modal { display: block !important; height: auto !important; max-height: calc(100vh - 28px); overflow-y: auto !important; }
+  .nw-l { overflow: visible; padding: 20px 20px 14px; }
+  .nw-logo { margin-bottom: 12px !important; }
+  .nw-r { overflow: visible !important; min-height: 320px; padding: 14px !important; }
+  .nw-h { font-size: 22px; } .nw-pp { font-size: 13.5px; margin-bottom: 14px; }
+  .nw-nav { position: sticky; bottom: 0; background: var(--surface-solid); padding-top: 8px; z-index: 2; }
+}
