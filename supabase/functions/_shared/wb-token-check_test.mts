@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+    checkTokenKind,
     decodeWbToken,
     summarizePings,
     missingScopesMessage,
@@ -103,3 +104,12 @@ const NOW = 1_700_000_000;
 }
 
 console.log('wb-token-check_test: ok');
+
+// тип и доступ токена
+{
+    assert.equal(checkTokenKind({ acc: 3, for: 'self', s: 81662 }).ok, true);
+    const basic = checkTokenKind({ acc: 1, s: 81662 });
+    assert.equal(basic.ok === false && basic.code, 'NOT_PERSONAL');
+    const ro = checkTokenKind({ acc: 3, for: 'self', s: 2 ** 30 + 6 });
+    assert.equal(ro.ok === false && ro.code, 'READ_ONLY');
+}

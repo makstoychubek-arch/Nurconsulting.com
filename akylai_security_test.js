@@ -105,6 +105,7 @@ for (const name of ['akylai-connect', 'akylai-status', 'akylai-admin']) {
 }
 const html = read('dashboard.html');
 const ui = html.slice(html.indexOf('/* ===== Акылай: мастер'), html.indexOf('</script>', html.indexOf('/* ===== Акылай: мастер')));
+const slidesSrc = fs.readFileSync(path.join(__dirname, 'ak-slides.js'), 'utf8');
 assert.ok(ui.length > 1000, 'Akylai UI script is present');
 assert.ok(!/out\.error|\.errorText|res\.status|e\.message/.test(ui), 'Akylai UI never shows raw errors');
 assert.ok(!/localStorage|sessionStorage/.test(ui), 'wizard state is not stored in the browser, it is derived from the DB');
@@ -120,10 +121,10 @@ assert.ok(ui.includes("href=\"https://wa.me/${AK_WA}?text=${msg}\"") && !/t\.me\
     '«Оставить заявку» goes to WhatsApp NR, no bot links for agents that do not exist yet');
 assert.ok(ui.includes('Я отвечаю на отзывы покупателей и присылаю ответы вам в Telegram на проверку.'), 'greeting');
 assert.ok(!/вопрос/i.test(ui.match(/renderHello\(\) \{[\s\S]*?\n    \}/)[0]), 'greeting does not mention questions');
-assert.ok(/input: true/.test(ui) && ui.includes("const input = last"), 'token field only on the last slide');
-assert.ok(ui.includes('«Персональный»') && ui.includes('«Вопросы и отзывы»') && ui.includes('«Только на чтение» не ставьте') && ui.includes('срок действия'),
-    'slides explain type, category, read-only and expiry');
-assert.ok(ui.includes('все категории доступа'), 'the client is asked for ONE token with all categories, not only feedbacks');
+assert.ok(/input: true/.test(slidesSrc) && ui.includes("const input = last"), 'token field only on the last slide');
+assert.ok(slidesSrc.includes('«Персональный»') && slidesSrc.includes('«Вопросы и отзывы»') && slidesSrc.includes('«Только чтение»') && slidesSrc.includes('«Чтение и запись»'),
+    'slides explain type, category and read-write access');
+assert.ok(slidesSrc.includes('все категории'), 'the client is asked for ONE token with all categories, not only feedbacks');
 assert.ok(!/Проверить<\/button>/.test(ui) && ui.includes("addEventListener('paste'"), 'no «check» button: token is checked automatically');
 for (const f of ['akylai-smile.svg', 'akylai-serious.svg', 'akylai-neutral.svg']) {
     assert.ok(fs.existsSync(path.join(__dirname, 'img/agents', f)), `avatar ${f} exists`);

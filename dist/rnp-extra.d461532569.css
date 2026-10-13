@@ -649,3 +649,23 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 @keyframes nrlspin { to { transform: rotate(360deg); } }
 .nrl-foot { margin-top: 12px; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted, #6b7280); }
 @media (prefers-reduced-motion: reduce) { .nrl-st.now .nrl-dot::after { animation: none; } #nr-topbar b { transition: none; } }
+
+/* Окно «Как создать токен WB» (ak-slides.js) */
+.tg-overlay { position: fixed; inset: 0; z-index: 200001; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(15,23,42,.42); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); }
+.tg-box { width: min(560px, 100%); max-height: calc(100vh - 24px); display: flex; flex-direction: column; border-radius: 16px; background: var(--surface-solid); border: 1px solid var(--border); box-shadow: 0 18px 60px rgba(0,0,0,.28); padding: 18px 20px 16px; }
+.tg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.tg-title { font-size: 17px; font-weight: 700; color: var(--text-primary); letter-spacing: -.02em; }
+.tg-step { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.tg-x { width: 30px; height: 30px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 18px; line-height: 1; cursor: pointer; }
+.tg-body { overflow-y: auto; min-height: 0; }
+.tg-img { display: block; width: 100%; max-height: 340px; object-fit: contain; border-radius: 12px; border: 1px solid var(--border); background: var(--sel); }
+.tg-text { margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); }
+.tg-text b { color: var(--text-primary); }
+.tg-text a { color: var(--accent); font-weight: 600; }
+.tg-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.tg-nav button { padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.tg-next { background: var(--accent); color: #fff; border: 0; }
+.tg-nav button:disabled { opacity: .4; cursor: default; }
+.tg-dots { display: flex; gap: 6px; }
+.tg-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.tg-dots i.on { background: var(--accent); width: 18px; border-radius: 4px; }

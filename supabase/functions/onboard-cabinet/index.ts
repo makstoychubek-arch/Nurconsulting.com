@@ -13,6 +13,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
+    checkTokenKind,
     decodeWbToken,
     missingScopesMessage,
     pingStatusMeansNoAccess,
@@ -108,6 +109,8 @@ serve(async (req) => {
         if (!decoded.ok) {
             return json({ error: decoded.message, code: decoded.code }, 400);
         }
+        const kind = checkTokenKind(decoded.payload);
+        if (!kind.ok) return json({ error: kind.message, code: kind.code }, 400);
         const token = rawToken.trim().replace(/\s+/g, '');
 
         // Живая проверка: токен действительно принимается WB и в нём есть
