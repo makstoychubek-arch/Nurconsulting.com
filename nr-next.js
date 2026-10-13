@@ -139,5 +139,34 @@
         clearInterval(S.timer);
         S.timer = setInterval(function () { if (!doc.hidden) { if (S.steps && S.steps.some(function (s) { return !s.done; })) load(); else draw(); } }, 90000);
     }
-    root.NrNext = { init: init, _left: left };
+    // Одноразовое окно «Вам открыт фулл-доступ»: когда команда включила пробный доступ, клиент видит это сразу.
+    var noticed = false;
+    async function notice(db, userId) {
+        if (noticed || !db || !userId) return;
+        noticed = true;
+        var sp = null;
+        try { var r = await db.from('spaces').select('status, plan_until').eq('user_id', userId).maybeSingle(); sp = r && r.data; } catch (e) {}
+        if (!sp || sp.status !== 'active' || !sp.plan_until) return;
+        var ms = new Date(sp.plan_until).getTime() - Date.now();
+        if (ms <= 0 || ms > 3 * 86400000) return;
+        var key = 'nr_trial_notice_' + sp.plan_until;
+        if (lsGet(key)) return;
+        var show = function () {
+            if (doc.querySelector('.nw-ov')) return setTimeout(show, 3000);
+            lsSet(key, '1');
+            var until = new Date(sp.plan_until), pad = function (n) { return String(n).padStart(2, '0'); };
+            var when = pad(until.getDate()) + '.' + pad(until.getMonth() + 1) + ' в ' + pad(until.getHours()) + ':' + pad(until.getMinutes());
+            var el = doc.createElement('div');
+            el.className = 'nx-ov';
+            el.innerHTML = '<div class="nx-modal nr-win" role="dialog" aria-modal="true"><div class="nx-ic">🎁</div><h3>Вам открыт полный доступ</h3>' +
+                '<p>Команда NR подключила вам полный доступ на ' + Math.max(1, Math.ceil(ms / 3600000)) + ' ч, до ' + when + '. Всё открыто: РНП, Дашборд, А/Б тесты, реклама и Акылай.</p>' +
+                '<p class="nx-sm">После этого, чтобы продолжить, нужно выбрать тариф. Данные магазина сохранятся.</p><button type="button" class="nx-go">Понятно</button></div>';
+            doc.body.appendChild(el);
+            var close = function () { el.remove(); };
+            el.querySelector('.nx-go').onclick = close;
+            el.addEventListener('click', function (e) { if (e.target === el) close(); });
+        };
+        show();
+    }
+    root.NrNext = { init: init, notice: notice, _left: left };
 })(typeof window !== 'undefined' ? window : globalThis);
