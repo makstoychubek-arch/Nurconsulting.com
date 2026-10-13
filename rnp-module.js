@@ -6931,7 +6931,14 @@ const RNP = (() => {
             && !body.querySelector('.rnp-action-btn');
     }
 
+    // Загрузка РНП с понятным прогрессом (NrLoader живёт в nr-skeleton.js): полоса сверху + карточка с шагами.
+    const RNP_LOAD_STEPS = ['Артикулы и фото', 'Заказы и продажи', 'Финансы, остатки и поставки', 'Итоги и таблица'];
     async function _renderMain() {
+        const L = window.NrLoader, silent = _rnpMainRendered();
+        if (L && !silent) L.begin('rnp', 'Загружаем РНП', RNP_LOAD_STEPS);
+        try { return await _renderMainImpl(); } finally { if (L && !silent) L.end('rnp'); }
+    }
+    async function _renderMainImpl() {
         await Promise.resolve();
         const el = document.getElementById('tab-rnp');
         if (!el) return;
@@ -7032,6 +7039,7 @@ const RNP = (() => {
         let loadOk = false;
         let loadErr = null;
         try {
+            window.NrLoader && window.NrLoader.step('rnp', 1);
             loadOk = await _loadRnpDataTimed();
             if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             if (loadOk === false) {
@@ -7053,7 +7061,9 @@ const RNP = (() => {
             _setRnpSheetState('error', loadErr.message || 'Ошибка загрузки РНП');
             return;
         }
+        window.NrLoader && window.NrLoader.step('rnp', 2);
         await _renderActiveTable();
+        window.NrLoader && window.NrLoader.step('rnp', 3);
         window._rnpLoadedForCabinet = _cab;
         setTimeout(() => {
             if (renderId !== _mainRenderGen || _cab !== snapCab) return;
