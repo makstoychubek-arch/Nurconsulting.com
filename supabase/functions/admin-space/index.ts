@@ -70,11 +70,13 @@ async function setStaff(admin: any, email: string | null, on: boolean): Promise<
 }
 
 // deno-lint-ignore no-explicit-any
-async function setPlan(admin: any, userId: string, plan: string): Promise<string | null> {
+async function setPlan(admin: any, userId: string, plan: string, days?: number): Promise<string | null> {
     if (!PLANS.includes(plan)) return 'Неизвестный тариф';
-    // Без срока: тариф действует, пока вы его не смените.
+    // Без срока: тариф действует, пока вы его не смените. С days (1..365) — пробный период: по истечении
+    // paid_access_for() даёт false и разделы снова закрываются замком.
+    const until = days && days >= 1 && days <= 365 ? new Date(Date.now() + days * 86400000).toISOString() : null;
     const { error } = await admin.from('spaces')
-        .update({ tariff_plan: plan, plan_until: null, updated_at: new Date().toISOString() })
+        .update({ tariff_plan: plan, plan_until: until, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
     return error ? `Не удалось выдать тариф: ${error.message}` : null;
 }
@@ -131,6 +133,12 @@ serve(async (req) => {
             // Обычная активация даёт доступ только к своему спейсу. В team_staff клиента
             // не добавляем: этот список означает «сотрудник видит все кабинеты».
             // Сотрудником и «Фулл» делает только явный флаг (кнопка «Как сотрудник»).
+            // Пробный период клиента: «Фулл» на N дней (кнопка «Тест: Фулл на 1 день»).
+            const trialDays = Math.floor(Number(body.trial_days));
+            if (trialDays >= 1 && trialDays <= 365 && body.as_staff !== true) {
+                const tr = await setPlan(admin, targetUserId, 'premium', trialDays);
+                if (tr) return json({ error: tr }, 500);
+            }
             if (body.as_staff === true) {
                 const st = await setStaff(admin, space.email, true);
                 if (st) return json({ error: st }, 500);
@@ -174,9 +182,10 @@ serve(async (req) => {
 
         if (action === 'set_plan') {
             const plan = String(body.plan || '');
-            const err = await setPlan(admin, targetUserId, plan);
+            const days = Math.floor(Number(body.days));
+            const err = await setPlan(admin, targetUserId, plan, days >= 1 ? days : undefined);
             if (err) return json({ error: err }, 400);
-            return json({ ok: true, email: space.email, plan });
+            return json({ ok: true, email: space.email, plan, days: days >= 1 ? days : null });
         }
 
         if (action === 'block') {
