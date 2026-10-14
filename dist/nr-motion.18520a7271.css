@@ -73,3 +73,12 @@
 /* Авто-слой: плавная смена раздела и тряска невалидного поля */
 .tab-content.active{animation:nrm-pane .3s var(--nrm-out)}
 .nrm-bad{border-color:var(--red)!important}
+/* Переключатели сайта: пружина и растяжение при нажатии */
+.tg-switch span{transition:left .28s var(--nrm-spring),width .15s ease!important}
+.tg-switch:active span{width:22px}.tg-switch.on:active span{left:12px}
+/* Главные кнопки: блик при наведении */
+.ui-btn-primary{position:relative;overflow:hidden}
+.ui-btn-primary::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);transition:left .7s var(--nrm-out);pointer-events:none}
+.ui-btn-primary:hover::after{left:130%}
+@media (hover:none){.ui-btn-primary::after{display:none}}
+.nru-b.d.nrm-hold{position:relative;overflow:hidden}.nru-b.d.nrm-hold i{background:rgba(0,0,0,.3)}
