@@ -27,7 +27,12 @@
 
     function blank() { return { storage: 0, ship: 0, swap: 0, cancel: 0, missing: 0, payable: 0 }; }
     // Чистый расчёт (для тестов). shares: { nm_id: [{k: 'АМАН ФФ 3', w: 0.7}, ...] } — доли остатка FBS по ФФ.
-    function compute(articles, orders, adjustments, from, to, todayStr, shares) {
+    // stock (необязательно) — хранение по остатку: { terms: [{rate, daily_cap, date_from, date_to}], daily: {дата: {nm: шт}}, snapshot: {nm: шт} }.
+    function termOn(terms, d) {
+        for (var i = 0; i < (terms || []).length; i++) { var t = terms[i]; if (t.date_from <= d && (!t.date_to || d <= t.date_to)) return t; }
+        return null;
+    }
+    function compute(articles, orders, adjustments, from, to, todayStr, shares, stock) {
         var end = to > todayStr ? todayStr : to;
         var md = {};
         (articles || []).forEach(function (a) { md[Number(a.nm_id)] = a.manual_data || {}; });
@@ -38,7 +43,26 @@
             if (!sh || !sh.length) { slot('none')[field] += v; return; }
             sh.forEach(function (x) { slot(x.k)[field] += v * x.w; });
         }
-        if (end >= from) Object.keys(md).forEach(function (nm) { var v = R().sumDaily(md[nm], 'storage', from, end); if (v) spread(Number(nm), 'storage', v); });
+        var terms = stock && stock.terms || [];
+        for (var d = from; d <= end; d = R().addDays(d, 1)) {
+            var term = termOn(terms, d);
+            if (term) {
+                // хранение по остатку: ставка за штуку × остаток FBS за день, не больше суточного лимита
+                var day = (stock.daily && stock.daily[d]) || (d === end ? stock.snapshot : null) || {};
+                var tot = 0, byK = {};
+                Object.keys(day).forEach(function (nm) {
+                    var q = Number(day[nm]) || 0; if (q <= 0) return;
+                    tot += q;
+                    var sh = shares && shares[nm];
+                    if (!sh || !sh.length) byK.none = (byK.none || 0) + q; else sh.forEach(function (x) { byK[x.k] = (byK[x.k] || 0) + q * x.w; });
+                });
+                var charge = tot * Number(term.rate);
+                if (term.daily_cap != null && charge > Number(term.daily_cap)) charge = Number(term.daily_cap);
+                if (tot > 0) Object.keys(byK).forEach(function (k) { slot(k).storage += charge * byK[k] / tot; });
+            } else {
+                Object.keys(md).forEach(function (nm) { var v = R().rateOn(md[nm], 'storage', d); if (v) spread(Number(nm), 'storage', v); });
+            }
+        }
         (orders || []).forEach(function (o) {
             if (o.d > end) return;
             var nm = Number(o.nm_id), rate = R().rateOn(md[nm] || {}, 'ship', o.d), n = Number(o.orders_fbs) || 0;
@@ -149,6 +173,21 @@
         return out;
     }
 
+    // Хранение по остатку: периоды из ff_storage_terms и остатки FBS по дням (goods_daily_stocks), только если периоды пересекаются.
+    async function storageData(db, cab, from, end) {
+        var tr = await db.from('ff_storage_terms').select('rate,daily_cap,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 99);
+        var terms = (tr.data || []).filter(function (t) { return t.date_from <= end && (!t.date_to || t.date_to >= from); });
+        if (tr.error || !terms.length) return { terms: [], daily: {}, snapshot: {} };
+        var daily = {};
+        for (var f = 0; ; f += 1000) {
+            var r = await db.from('goods_daily_stocks').select('nm_id,date,fbs').eq('cabinet_id', cab).gte('date', from).lte('date', end).range(f, f + 999);
+            if (r.error) break;
+            (r.data || []).forEach(function (x) { (daily[x.date] = daily[x.date] || {})[Number(x.nm_id)] = Number(x.fbs) || 0; });
+            if (!r.data || r.data.length < 1000) break;
+        }
+        return { terms: terms, daily: daily, snapshot: {} };
+    }
+
     async function update(db, cab, from, to, dailyOrders) {
         S.db = db; S.cab = cab; S.from = from; S.to = to; S.daily = dailyOrders || S.daily || [];
         S.readonly = !!document.getElementById('nr-viewer-banner');
@@ -159,6 +198,7 @@
             end >= from ? db.rpc('rnp_fbs_split', { p_cabinet: cab, p_from: from, p_to: end }) : Promise.resolve({ data: [] }),
             db.from('ff_adjustments').select('*').eq('cabinet_id', cab).gte('adj_date', from).lte('adj_date', to).order('adj_date', { ascending: false }).range(0, 999),
             fbsStocks(db, cab),
+            storageData(db, cab, from, end).catch(function () { return { terms: [], daily: {}, snapshot: {} }; }),
         ]);
         if (res[1].error) throw res[1].error;
         S.items = res[2].data || [];
@@ -178,7 +218,9 @@
         });
         S.items.forEach(function (a) { if (a.ff_name && !(a.ff_name in wh)) wh[a.ff_name] = 0; });
         S.providers = Object.keys(wh).sort(function (a, b) { return wh[b] - wh[a] || (a < b ? -1 : 1); }).map(function (k) { return { id: k, name: k }; });
-        var t = compute(res[0], S.orders, S.items, from, to, today(), S.shares);
+        var stock = res[4];
+        res[3].forEach(function (r) { var q = Number(r.quantity) || 0; if (q > 0) stock.snapshot[Number(r.nm_id)] = (stock.snapshot[Number(r.nm_id)] || 0) + q; });
+        var t = compute(res[0], S.orders, S.items, from, to, today(), S.shares, stock);
         S.total = t; S.byFf = t.byFf || {};
         if (S.sel !== 'all' && S.sel !== 'none' && !(S.sel in wh)) S.sel = 'all';
         renderSummary(); renderChart();
