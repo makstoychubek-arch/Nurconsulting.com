@@ -17,17 +17,19 @@
     function blank() { return { storage: 0, ship: 0, swap: 0, cancel: 0, missing: 0, payable: 0 }; }
     // Чистый расчёт (для тестов). shares: { nm: [{k: 'АМАН ФФ 3', w: 0.7}] } — доли остатка FBS по ФФ; terms — строки ff_terms.
     // stock: { daily: {дата: {nm: шт}}, snapshot: {nm: шт} }.
-    function compute(orders, adjustments, from, to, todayStr, shares, stock, terms) {
+    function compute(orders, adjustments, from, to, todayStr, shares, stock, terms, oidx) {
         var T = root.FfTerms, idx = T.index(terms), end = to > todayStr ? todayStr : to;
         var by = {};
         function slot(k) { return by[k] || (by[k] = blank()); }
         // отправка: заказы FBS товара × цена отправки его ФФ (по долям остатка)
         (orders || []).forEach(function (o) {
             if (o.d > end) return;
-            var nm = Number(o.nm_id), n = Number(o.orders_fbs) || 0, sh = shares && shares[nm];
+            var nm = Number(o.nm_id), n = Number(o.orders_fbs) || 0;
+            // точный ФФ — из заказов WB (fbs_orders); если за день данных нет — по доле остатка
+            var sh = (oidx && oidx.days[o.d] && T.distFor(oidx, nm, o.d)) || (shares && shares[nm]);
             if (!sh || !sh.length) { slot('none').missing += n; return; }
             sh.forEach(function (x) {
-                var t = T.at(idx, x.k, 'ship', o.d);
+                var t = x.k === 'none' ? null : T.at(idx, x.k, 'ship', o.d);
                 if (t) slot(x.k).ship += n * x.w * Number(t.value); else slot(x.k).missing += n * x.w;
             });
         });
@@ -59,6 +61,20 @@
         });
         total.byFf = by;
         return total;
+    }
+
+    function T0() { return root.FfTerms; }
+    async function fbsOrders(db, cab, from, to) {
+        var out = [];
+        try {
+            for (var f = 0; ; f += 1000) {
+                var r = await db.from('fbs_orders').select('nm_id,order_date,ff_name').eq('cabinet_id', cab).gte('order_date', from).lte('order_date', to).range(f, f + 999);
+                if (r.error) break;
+                out = out.concat(r.data || []);
+                if (!r.data || r.data.length < 1000) break;
+            }
+        } catch (e) { /* таблицы нет — работаем по остаткам */ }
+        return out;
     }
 
     function cur() { return S.sel === 'all' ? S.total : (S.byFf[S.sel] || blank()); }
@@ -180,6 +196,7 @@
             db.from('ff_adjustments').select('*').eq('cabinet_id', cab).gte('adj_date', from).lte('adj_date', to).order('adj_date', { ascending: false }).range(0, 999),
             fbsStocks(db, cab),
             termsData(db, cab, from, end).catch(function () { return { terms: [], daily: {} }; }),
+            fbsOrders(db, cab, T0().addDays(from, -1), end),
             db.rpc('dashboard_ff_penalties', { p_cabinet_id: cab, p_from: from, p_to: to }).then(function (r) { return r.error ? [] : (r.data || []); }, function () { return []; }),
         ]);
         if (res[0].error) throw res[0].error;
@@ -200,17 +217,20 @@
             S.shares[nm] = Object.keys(per[nm]).map(function (k) { return { k: k, w: per[nm][k] / tot }; });
         });
         S.items.forEach(function (a) { if (a.ff_name && !(a.ff_name in wh)) wh[a.ff_name] = 0; });
+        res[4].forEach(function (o) { if (o.ff_name && !(o.ff_name in wh)) wh[o.ff_name] = 0; });
         S.providers = Object.keys(wh).sort(function (a, b) { return wh[b] - wh[a] || (a < b ? -1 : 1); }).map(function (k) { return { id: k, name: k }; });
         // Штрафы WB «подмена МП» и «отмена продавцом» берём из финотчёта автоматически и делим по ФФ товара; ручные записи — сверху.
         S.auto = { swap: 0, cancel: 0, swapN: 0, cancelN: 0 };
-        var autoAdj = [];
-        (res[4] || []).forEach(function (p) {
-            var amt = Number(p.amount) || 0, n = Number(p.cnt) || 0, sh = S.shares[Number(p.nm_id)];
+        var oidx = T0().ordersIndex(res[4]), autoAdj = [];
+        (res[5] || []).forEach(function (p) {
+            var amt = Number(p.amount) || 0, n = Number(p.cnt) || 0, nm = Number(p.nm_id);
             S.auto[p.kind] += amt; S.auto[p.kind + 'N'] += n;
-            if (sh && sh.length) sh.forEach(function (x) { autoAdj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k }); });
+            // ФФ штрафа — по заказам этого товара в день (WB), иначе по остатку, иначе «Без ФФ»
+            var sh = T0().distFor(oidx, nm, String(p.d || '').slice(0, 10)) || S.shares[nm];
+            if (sh && sh.length) sh.forEach(function (x) { autoAdj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k === 'none' ? null : x.k }); });
             else autoAdj.push({ kind: p.kind, amount: amt, ff_name: null });
         });
-        var t = compute(S.orders, autoAdj.concat(S.items), from, to, today(), S.shares, { daily: res[3].daily, snapshot: snapshot }, res[3].terms);
+        var t = compute(S.orders, autoAdj.concat(S.items), from, to, today(), S.shares, { daily: res[3].daily, snapshot: snapshot }, res[3].terms, oidx);
         S.total = t; S.byFf = t.byFf || {};
         if (S.sel !== 'all' && S.sel !== 'none' && !(S.sel in wh)) S.sel = 'all';
         renderSummary(); renderChart();
