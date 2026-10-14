@@ -4,7 +4,7 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { readAdvTokenFromVault } from '../_shared/wb-adv-proxy.ts';
-import { parseIgDryRun, postGraphForm } from '../_shared/content-ig-publish.ts';
+import { makeWaitContainer, parseIgDryRun, postGraphForm } from '../_shared/content-ig-publish.ts';
 import { runContentPublishTick, type ContentPostRow, type TickDeps } from '../_shared/content-publish-tick.ts';
 
 const CORS = {
@@ -113,6 +113,7 @@ function makeDeps(admin: Admin, now: Date, dryRun: boolean): TickDeps {
             return { token, igUserId: String(data.ig_user_id) };
         },
         postGraph: (path, body) => postGraphForm(fetch, path, body),
+        waitContainer: (id, token) => makeWaitContainer(fetch, token)(id),
     };
 }
 

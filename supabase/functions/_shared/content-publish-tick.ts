@@ -50,7 +50,7 @@ export type TickDeps = {
     }) => Promise<void>;
     loadIg: (cabinetId: string) => Promise<{ token: string; igUserId: string } | null>;
     postGraph: (path: string, body: Record<string, string>) => Promise<IgHttpResult>;
-    waitContainer?: (id: string) => Promise<boolean>;
+    waitContainer?: (id: string, token: string) => Promise<boolean>;
 };
 
 export function slideUrlsOf(row: ContentPostRow): string[] {
@@ -124,7 +124,7 @@ export async function runContentPublishTick(deps: TickDeps): Promise<TickResult>
             caption: row.caption || undefined,
             kind: row.post_kind === 'story' ? 'story' : 'feed',
             postGraph: deps.postGraph,
-            waitContainer: deps.waitContainer,
+            waitContainer: deps.waitContainer ? (id: string) => deps.waitContainer!(id, ig.token) : undefined,
         });
         if (!pub.published) {
             result.failed += 1;
