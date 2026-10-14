@@ -1953,15 +1953,19 @@
         for (const c of camps) touchRecent(c.cabinetId, c.wbId);
         let ok = 0;
         let fail = 0;
-        for (const c of camps) {
-            const result = await call(verb === 'start' ? 'advert_start' : 'advert_pause', { advertId: c.wbId }, c.cabinetId);
-            if (result) ok += 1;
-            else fail += 1;
-        }
+        window._nrBulkQuiet = true; window._nrBulkErr = '';
+        try {
+            for (const c of camps) {
+                const result = await call(verb === 'start' ? 'advert_start' : 'advert_pause', { advertId: c.wbId }, c.cabinetId);
+                if (result) ok += 1;
+                else fail += 1;
+            }
+        } finally { window._nrBulkQuiet = false; }
         if (modal) {
-            modal(fail ? 'error' : 'success',
-                verb === 'start' ? 'Запуск' : 'Пауза',
-                'Готово: ' + ok + ', ошибок: ' + fail + '.');
+            const what = verb === 'start' ? 'запустить' : 'поставить на паузу';
+            if (!fail) modal('success', verb === 'start' ? 'Кампании запущены' : 'Кампании на паузе', ok === 1 ? 'Готово.' : 'Готово: ' + ok + '.');
+            else modal(ok ? 'warning' : 'error', ok ? 'Часть кампаний не удалось ' + (verb === 'start' ? 'запустить' : 'остановить') : 'Не удалось ' + what,
+                (ok ? 'Получилось: ' + ok + ', не получилось: ' + fail + '. ' : '') + (window._nrBulkErr || 'Попробуйте ещё раз чуть позже.'));
         }
         await load();
     }
