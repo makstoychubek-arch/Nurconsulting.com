@@ -108,6 +108,14 @@
         h.close = function () { clearTimeout(h.timer); t.classList.remove('on'); setTimeout(function () { t.remove(); }, 260); };
         h.update = function (ty, ti, tx, o2) { opts.loading = false; if (o2) { for (var k in o2) opts[k] = o2[k]; } paint(ty, ti, tx); schedule(); };
         schedule();
+        if (type === 'error' && root.NrMotion) root.NrMotion.shake(t);
+        (function swipe() {
+            var x0 = null, dx = 0;
+            t.addEventListener('pointerdown', function (e) { if (e.target.closest('button')) return; x0 = e.clientX; dx = 0; });
+            t.addEventListener('pointermove', function (e) { if (x0 == null) return; dx = e.clientX - x0; if (Math.abs(dx) > 6) { t.style.transition = 'none'; t.style.transform = 'translateX(' + dx + 'px)'; t.style.opacity = String(1 - Math.min(.7, Math.abs(dx) / 260)); } });
+            function end() { if (x0 == null) return; x0 = null; t.style.transition = ''; if (Math.abs(dx) > 90) { h.close(); } else { t.style.transform = ''; t.style.opacity = ''; } }
+            t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+        })();
         return h;
     }
     toast.promise = function (p, msg) {
