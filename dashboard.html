@@ -14342,11 +14342,9 @@
         $('pnl-tax-bar').innerHTML = bar(taxes, taxTotal);
         $('pnl-tax-rows').innerHTML = taxes.map(r => row(r[0], r[1], r[2])).join('');
 
-        // Штрафы WB (уже внутри «Услуг») и расходы ФФ с галочкой «учитывать» — прямо в операционной прибыли.
-        const pen = n(m.penaltySum);
+        // Расходы ФФ с галочкой «учитывать» — в стиле строк «Маржинальность / Рентабельность».
         if ($('pnl-extra-rows')) $('pnl-extra-rows').innerHTML =
-            `<div class="pnl-row"><span class="pnl-dot" style="background:#ef4444"></span><span class="pnl-lbl">Штрафы WB</span><b>${fmtN(pen)}</b></div>` +
-            `<label class="pnl-row" style="cursor:pointer"><span class="pnl-dot" style="background:#38bdf8"></span><span class="pnl-lbl"><a href="#" onclick="event.preventDefault();event.stopPropagation();window.NrCosts&&NrCosts.open()" style="color:inherit;border-bottom:1px dashed var(--text-muted)" title="Ввести сумму ФФ">Расходы ФФ</a></span><b>${fmtN(ffAmt)}</b><input type="checkbox" id="pnl-ff-on" ${ffOn ? 'checked' : ''} ${ffAmt > 0 ? '' : 'disabled'} title="Учитывать ФФ в прибыли" style="width:16px;height:16px;margin-left:8px;accent-color:var(--accent)" onchange="window.NrCosts&&NrCosts.toggleFf(this.checked)"></label>`;
+            `<div class="pnl-row"><span class="pnl-lbl" style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="pnl-ff-on" ${ffOn ? 'checked' : ''} ${ffAmt > 0 ? '' : 'disabled'} title="Учитывать ФФ в прибыли" style="width:15px;height:15px;margin:0;accent-color:var(--accent)" onchange="window.NrCosts&&NrCosts.toggleFf(this.checked)"><a href="#" onclick="event.preventDefault();window.NrCosts&&NrCosts.open()" style="color:inherit" title="Ввести сумму ФФ">Расходы ФФ</a></span><em class="pnl-chip">${fmtN(ffAmt)}</em></div>`;
         const profit = n(m.profitFull);
         $('pnl-profit').textContent = fmtN(profit);
         $('pnl-profit').classList.toggle('is-neg', profit < 0);
