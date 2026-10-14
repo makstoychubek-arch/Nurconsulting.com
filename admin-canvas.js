@@ -141,6 +141,7 @@
             }
             index(); render(); updateChips(); applyFilter(); setStatusLine('');
             loaded = true;
+            try { var qs = new URLSearchParams(location.search); if (qs.get('ig')) { setTimeout(function () { openIgWindow(); if (qs.get('ig') === 'error') toast('Instagram: ' + (qs.get('msg') || 'ошибка'), true); }, 300); } } catch (e) { /* без параметров */ }
         } catch (e) {
             setStatusLine('Не удалось загрузить карту: ' + (e.message || e));
         }
@@ -362,8 +363,12 @@
                 row('Токен доступа', f.token, 'Хранится в защищённом хранилище и больше не показывается'),
                 row('Подпись в конце постов', f.foot), row('Хэштеги по умолчанию', f.tags),
                 h('label', { style: 'display:flex;gap:8px;align-items:center;margin-top:12px' }, [f.auto, 'Публиковать по расписанию автоматически']),
+                h('div', { style: 'margin-top:16px;padding:10px;border:1px dashed #ccc;border-radius:8px' }, [
+                    h('button', { style: S.btn, onclick: function () { call({ action: 'oauth_url' }).then(function (r) { location.href = r.url; }).catch(function (e) { status.textContent = 'Ошибка: ' + e.message; status.style.background = '#fee2e2'; }); } }, ['Войти через Facebook']),
+                    h('div', { style: S.hint, text: 'Сам найдёт страницу и Instagram, сохранит долгий токен. Вручную вводить ничего не нужно.' }),
+                ]),
                 h('div', { style: 'margin-top:16px' }, [
-                    h('button', { style: S.btn, onclick: function () { busy(call(payload()), 'Сохраняю…'); } }, ['Сохранить']),
+                    h('button', { style: S.btn2, onclick: function () { busy(call(payload()), 'Сохраняю…'); } }, ['Сохранить']),
                     h('button', { style: S.btn2, onclick: function () { busy(call(payload()).then(function () { return call({ action: 'verify' }); }), 'Проверяю…'); } }, ['Сохранить и проверить']),
                 ]),
             ]),
