@@ -7,6 +7,7 @@ import { hasAllCabinetsAccess, isSuperAdminUser } from '../_shared/cabinet-acces
 import { readAdvTokenFromVault } from '../_shared/wb-adv-proxy.ts';
 import {
     parseIgDryRun,
+    makeWaitContainer,
     postGraphForm,
     runIgPublish,
 } from '../_shared/content-ig-publish.ts';
@@ -101,6 +102,7 @@ Deno.serve(async (req) => {
         caption: post.caption || undefined,
         kind: post.post_kind === 'story' ? 'story' : 'feed',
         postGraph: (path, body) => postGraphForm(fetch, path, body),
+        waitContainer: makeWaitContainer(fetch, token || ''),
     });
 
     if (dryRun) return json({ ok: true, ...result });

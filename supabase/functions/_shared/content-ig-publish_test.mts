@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
     buildIgPublishSteps,
+    makeWaitContainer,
     parseGraphBody,
     parseIgDryRun,
     runIgPublish,
@@ -106,4 +107,19 @@ console.log('content-ig-publish_test: ok');
     assert.ok(calls.every(([p, b]) => !p.endsWith('/media') || b.media_type === 'STORIES'));
     assert.ok(calls.every(([, b]) => !('caption' in b)));
     console.log('story publish: ok');
+}
+
+// Ожидание контейнера: ждём FINISHED, на ERROR сразу отказ, без ответа — отказ после попыток
+{
+    const seq = ['IN_PROGRESS', 'IN_PROGRESS', 'FINISHED'];
+    let i = 0;
+    const f = (async () => new Response(JSON.stringify({ status_code: seq[Math.min(i++, seq.length - 1)] }))) as typeof fetch;
+    const noSleep = async () => {};
+    assert.equal(await makeWaitContainer(f, 't', { sleep: noSleep })('c1'), true);
+    assert.equal(i, 3);
+    const bad = (async () => new Response(JSON.stringify({ status_code: 'ERROR' }))) as typeof fetch;
+    assert.equal(await makeWaitContainer(bad, 't', { sleep: noSleep })('c2'), false);
+    const slow = (async () => new Response(JSON.stringify({ status_code: 'IN_PROGRESS' }))) as typeof fetch;
+    assert.equal(await makeWaitContainer(slow, 't', { tries: 3, sleep: noSleep })('c3'), false);
+    console.log('wait container: ok');
 }

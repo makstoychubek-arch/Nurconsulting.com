@@ -168,6 +168,9 @@ export async function runIgPublish(deps: IgPublishDeps): Promise<IgPublishResult
             if (!res.ok || !res.id) {
                 return { dryRun: false, published: false, wouldPublish: false, error: res.error || 'media failed', steps };
             }
+            if (deps.waitContainer && !(await deps.waitContainer(res.id))) {
+                return { dryRun: false, published: false, wouldPublish: false, error: 'Контейнер поста не готов', steps };
+            }
             creationId = res.id;
         } else if (step.type === 'carousel') {
             const body: Record<string, string> = {
@@ -179,6 +182,9 @@ export async function runIgPublish(deps: IgPublishDeps): Promise<IgPublishResult
             const res = await deps.postGraph(`${deps.igUserId}/media`, body);
             if (!res.ok || !res.id) {
                 return { dryRun: false, published: false, wouldPublish: false, error: res.error || 'carousel failed', steps };
+            }
+            if (deps.waitContainer && !(await deps.waitContainer(res.id))) {
+                return { dryRun: false, published: false, wouldPublish: false, error: 'Контейнер карусели не готов', steps };
             }
             creationId = res.id;
         } else if (step.type === 'publish') {
@@ -236,4 +242,31 @@ export async function postGraphForm(
     }
     const data = await res.json().catch(() => null);
     return parseGraphBody(res.status, data);
+}
+
+/** Ждёт, пока Instagram обработает контейнер (status_code=FINISHED). Без этого media_publish отвечает «Media ID is not available». */
+export function makeWaitContainer(
+    fetchFn: typeof fetch,
+    token: string,
+    opts: { tries?: number; delayMs?: number; sleep?: (ms: number) => Promise<void> } = {},
+): (id: string) => Promise<boolean> {
+    const tries = opts.tries ?? 20;
+    const delay = opts.delayMs ?? 1500;
+    const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    return async (id: string) => {
+        for (let i = 0; i < tries; i++) {
+            try {
+                const url = new URL(graphUrl(id));
+                url.searchParams.set('fields', 'status_code');
+                url.searchParams.set('access_token', token);
+                const res = await fetchFn(url.toString(), { method: 'GET' });
+                const data = await res.json().catch(() => null) as { status_code?: string } | null;
+                const code = String(data?.status_code || '').toUpperCase();
+                if (code === 'FINISHED') return true;
+                if (code === 'ERROR' || code === 'EXPIRED') return false;
+            } catch (_) { /* повторим */ }
+            await sleep(delay);
+        }
+        return false;
+    };
 }
