@@ -245,3 +245,31 @@ extra().then(() => {
     console.error(err);
     process.exit(1);
 });
+
+// Новый раздел «Контент»: срок токена, сводка месяца, очередь, дела на сегодня
+{
+    const CFx = require('./content-factory.js');
+    const now = new Date('2026-10-14T12:00:00Z').getTime();
+    assert.equal(CFx.tokenState(null, now).level, 'none');
+    assert.equal(CFx.tokenState('2026-12-10T00:00:00Z', now).level, 'ok');
+    assert.equal(CFx.tokenState('2026-10-20T00:00:00Z', now).level, 'warn');
+    assert.equal(CFx.tokenState('2026-10-01T00:00:00Z', now).level, 'bad');
+    const posts = [
+        { id: 'a', status: 'published', publish_at: '2026-10-05T10:00:00', views: 100 },
+        { id: 'b', status: 'published', publish_at: '2026-10-06T10:00:00', views: 900 },
+        { id: 'c', status: 'review', publish_at: '2026-10-16T10:00:00', views: 0 },
+        { id: 'd', status: 'error', publish_at: '2026-10-07T10:00:00', views: 0 },
+        { id: 'e', status: 'draft', publish_at: null, views: 0 },
+        { id: 'f', status: 'scheduled', publish_at: '2026-09-30T10:00:00', views: 0 },
+    ];
+    const ms = CFx.monthStats(posts, 2026, 9);
+    assert.equal(ms.published, 2); assert.equal(ms.views, 1000); assert.equal(ms.best.id, 'b'); assert.equal(ms.planned, 3);
+    const g = CFx.queueGroups(posts);
+    assert.deepEqual([g.draft.length, g.review.length, g.scheduled.length, g.done.length], [1, 1, 1, 3]);
+    const todo = CFx.todoItems(posts, now).map((t) => t.kind);
+    assert.deepEqual(todo, ['review', 'error']);
+    assert.ok(CFx.todoItems([], now).some((t) => t.kind === 'empty-week'));
+    assert.equal(CFx.upcomingPosts(posts, 3, now)[0].id, 'c');
+    assert.deepEqual(CFx.FORMATS.map((f) => f.id), ['post', 'carousel', 'story']);
+    assert.deepEqual(CFx.VIEWS.map((v) => v.id), ['overview', 'calendar', 'create', 'review', 'bloggers', 'dashboard']);
+}

@@ -6120,6 +6120,7 @@
             }
         } catch (e) {}
     </script>
+<link rel="stylesheet" href="/dist/content-factory.bd2caab36b.css">
 <link rel="stylesheet" href="/dist/nr-motion.18520a7271.css">
 <link rel="stylesheet" href="/dist/rnp-extra.782fe30fc6.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -8479,7 +8480,7 @@
 <script src="/dist/space-admin-ext.fa75359bc8.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
-<script src="/dist/content-factory.092b4a678c.min.js"></script>
+<script src="/dist/content-factory.7190e2cf80.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
 <script src="/dist/admin-canvas.d45b628a46.min.js"></script>
@@ -13304,6 +13305,8 @@
     }
     window.isHiddenCabinet = isHiddenCabinet;
     window.visibleCabinets = visibleCabinets;
+    window.nrCabinetList = function () { return cabinetListCache.slice(); };
+    window.nrSelectCabinet = function (id) { selectCabinet(id); };
 
     function updateCabinetPickerUI(name) {
         const label = document.getElementById('cabinet-picker-label');
