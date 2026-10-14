@@ -266,7 +266,6 @@
                 if (grant && !tr.querySelector('button[onclick^="adminUnblockSpace("]')) {
                     const uid = uidOf(grant);
                     // Запрос: разрешить сразу сотрудником с полной подпиской.
-                    grant.after(mkBtn('Просмотр кабинета', 'ax ax-view', async () => { await openViewerModal(uid, emailOf(tr)); }, 'eye'));
                     // Новый клиент: разрешить вход и сразу выдать «Фулл» на 1 день (потом замок до оплаты).
                     grant.after(mkBtn('Тест: Фулл на 1 день', 'ax ax-test', async () => {
                         await authedPost({ action: 'activate', user_id: uid, trial_days: 1 });
@@ -278,6 +277,8 @@
                         showPremiumModal('success', 'Сотрудник добавлен', 'Доступ разрешён, подписка «Фулл» выдана, права сотрудника включены.');
                         await refresh('allowed');
                     }, 'user'));
+                    box.querySelectorAll('button[onclick^="adminDeleteUser("]').forEach((x) => x.remove());
+                    styleNative(box);
                     return;
                 }
                 if (block && !grant) {
