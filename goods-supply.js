@@ -601,7 +601,15 @@
             fbsPane.after(p);
         });
         var orig = root.setGoodsView;
+        var VIEWS = ['now', 'daily', 'cost', 'fbs', 'give', 'ship', 'prod'];
+        function savedView() { try { var v = localStorage.getItem('nr_goods_view'); return VIEWS.indexOf(v) >= 0 ? v : 'now'; } catch (e) { return 'now'; } }
+        function rememberView(v) { try { if (VIEWS.indexOf(v) >= 0) localStorage.setItem('nr_goods_view', v); } catch (e) {} }
         root.setGoodsView = function (view, opts) {
+            // Открытие вкладки «Товары» зовёт setGoodsView('now', {skipLoad}) — вместо этого возвращаем последний раздел (после обновления, смены кабинета).
+            if (view === 'now' && opts && opts.skipLoad) {
+                var sv = savedView();
+                if (sv !== 'now') { view = sv; opts = undefined; }
+            } else rememberView(view);
             if (view === 'ship' || view === 'prod') {
                 orig('now', { skipLoad: true });
                 ['gg-view-now', 'gg-view-daily', 'gg-view-cost', 'gg-view-give', 'gg-view-fbs'].forEach(function (id) { var e = document.getElementById(id); if (e) e.hidden = true; });
@@ -613,8 +621,14 @@
                 return;
             }
             hideAll();
-            return orig.apply(this, arguments);
+            return orig.call(this, view, opts);
         };
+        // После жёсткого обновления «Логистика» / «Заказ на производство» восстанавливаем, когда кабинет уже известен.
+        var rt = 0, restoreTimer = setInterval(function () {
+            var sv = savedView(), tab = document.getElementById('tab-goods-groups');
+            if (++rt > 75 || (sv !== 'ship' && sv !== 'prod')) { clearInterval(restoreTimer); return; }
+            if (tab && tab.classList.contains('active') && cabId()) { clearInterval(restoreTimer); if (cur !== sv) root.setGoodsView(sv); }
+        }, 400);
         return true;
     }
 
@@ -622,6 +636,8 @@
     var timer = setInterval(function () { if (install() || ++tries > 240) clearInterval(timer); }, 500);
 
     // Смена кабинета: перечитываем при следующем открытии.
-    root.addEventListener('nr-cabinet-changed', function () { st.loadedCab = null; });
+    function cabinetChanged() { st.loadedCab = null; if (cur) show(cur); }
+    root.addEventListener('nr-cabinet-changed', cabinetChanged);
+    document.addEventListener('cabinet-changed', cabinetChanged);
     root.NrGoodsSupply = { show: show, reload: function () { st.loadedCab = null; } };
 })(typeof window !== 'undefined' ? window : globalThis);
