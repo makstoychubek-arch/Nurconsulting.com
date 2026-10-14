@@ -8468,7 +8468,7 @@
 <script src="/dist/ads-command-center.0a4d49f277.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
-<script src="/dist/goods-fbs.e15568dd2f.min.js"></script><script src="/dist/goods-supply.7c68d8052c.min.js"></script>
+<script src="/dist/goods-fbs.e15568dd2f.min.js"></script><script src="/dist/goods-supply.f1bc788072.min.js"></script>
 <script src="/dist/viewer-mode.50aaff142c.min.js"></script>
 <script src="/dist/space-admin-ext.fa75359bc8.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
@@ -12596,6 +12596,11 @@
             if (goodsGroupsCabinetId && goodsGroupsCabinetId !== cab.id) ggDailyReset();
             goodsGroupsCabinetName = cab.name || '';
             goodsGroupsCabinetId = cab.id || '';
+            // После жёсткого обновления и смены кабинета остаёмся на своём разделе («FBS», «Раздачи»): перерисовать его уже для нужного кабинета.
+            if ((ggView === 'fbs' || ggView === 'give') && window._ggShownCab !== goodsGroupsCabinetId) {
+                window._ggShownCab = goodsGroupsCabinetId;
+                setGoodsView(ggView, { skipLoad: true });
+            }
             ggLoadUi();
             goodsGroupsRows = rows;
             if (catalog) {
