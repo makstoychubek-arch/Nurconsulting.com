@@ -63,6 +63,7 @@ function calculateMetrics(rows, settings = {}) {
     // Ставка налога, %. По умолчанию 0: кыргызские ИП работают без налога; ставку задают настройки.
     const taxRate = Number(settings.taxRate) > 0 ? Number(settings.taxRate) : 0;
     const opexMonthly = settings.opex || 0;    // Операционные расходы в месяц, сом
+    const ffMonthly = Number(settings.ffCost) > 0 ? Number(settings.ffCost) : 0; // Фулфилмент (ФФ), вручную, сом/мес
     const costOfGoods = settings.costOfGoods || {}; // себестоимость по nmId
     const adsSum = Math.round(Number(settings.adsSum || 0)); // расход РК за период (advertising_daily_stats)
 
@@ -72,6 +73,7 @@ function calculateMetrics(rows, settings = {}) {
         ? Math.max(1, Math.round((new Date(dates[dates.length-1]) - new Date(dates[0])) / 86400000) + 1)
         : 30;
     const opexForPeriod = Math.round(opexMonthly * periodDays / 30);
+    const ffForPeriod = Math.round(ffMonthly * periodDays / 30);
 
     // Накопители
     let salesSum = 0;          // Продажи (после СПП) — retail_price_withdisc_rub для Продаж
@@ -235,7 +237,7 @@ function calculateMetrics(rows, settings = {}) {
         - adsSum;
 
     // Чистая прибыль с себестоимостью и опер.расходами
-    const profitFull = profitBeforeCost - costOfSalesSum - opexForPeriod;
+    const profitFull = profitBeforeCost - costOfSalesSum - opexForPeriod - ffForPeriod;
 
     // Маржинальность = Прибыль / Реализация × 100. Без retail_price от WB
     // считаем от продаж — это другая база, но не выдуманное число.
@@ -288,6 +290,7 @@ function calculateMetrics(rows, settings = {}) {
         // Себестоимость и опер.расходы
         costOfSalesSum: Math.round(costOfSalesSum),
         opexForPeriod: Math.round(opexForPeriod),
+        ffForPeriod: Math.round(ffForPeriod),
 
         // Налоги
         taxBase: Math.round(taxBase),
