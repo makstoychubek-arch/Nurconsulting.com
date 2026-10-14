@@ -22,7 +22,7 @@
         var d = new Date(Date.now() + 6 * 3600 * 1000); // Бишкек, UTC+6
         return d.toISOString().slice(0, 10);
     }
-    var state = { supabase: null, cabinetId: null, rows: [], host: null };
+    var state = { supabase: null, cabinetId: null, rows: [], host: null, terms: [] };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -52,6 +52,10 @@
         });
         var arts = {};
         res[1].forEach(function (a) { arts[Number(a.nm_id)] = a; });
+        try {
+            var tr = await state.supabase.from('ff_storage_terms').select('id,rate,daily_cap,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 99);
+            state.terms = tr.error ? [] : (tr.data || []);
+        } catch (e) { state.terms = []; }
         state.rows = Object.keys(qty).filter(function (id) { return qty[id] > 0; }).map(function (id) {
             var a = arts[id] || {};
             var md = a.manual_data || {};
@@ -78,6 +82,52 @@
         var u = r.photo;
         if (!u && root.RNP && root.RNP.wbPhotoUrl) { try { u = root.RNP.wbPhotoUrl(r.nmId) || ''; } catch (e) {} }
         return '<span class="ggx-ph" style="width:40px;height:40px"><i>' + esc((r.article || '?').charAt(0).toUpperCase()) + '</i>' + (u ? '<img src="' + esc(u) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
+    }
+
+    // Хранение у ФФ по остатку: ставка за 1 шт в сутки, лимит в сутки, с даты. Действует вместо тарифа «за артикул».
+    function termCard(totQty) {
+        var t = today();
+        var cur = state.terms.filter(function (x) { return x.date_from <= t && (!x.date_to || x.date_to >= t); })[0];
+        var today_ = cur ? (function () {
+            var raw = totQty * Number(cur.rate), cap = cur.daily_cap == null ? null : Number(cur.daily_cap), pay = cap != null ? Math.min(raw, cap) : raw;
+            return 'Сегодня: ' + fmt(totQty) + ' шт × ' + fmt(cur.rate) + ' = ' + fmt(raw) + ' ₽' + (cap != null ? ' (лимит ' + fmt(cap) + ' ₽' + (raw > cap ? ', лимит сработал: ' + fmt(pay) + ' ₽' : '') + ')' : '') + ' в сутки';
+        })() : 'Пока не задано: хранение считается по тарифу «за артикул» из таблицы ниже.';
+        var list = state.terms.map(function (x) {
+            return '<div class="fbx-tl"><span>с ' + esc(R().fmtD(x.date_from)) + (x.date_to ? ' по ' + esc(R().fmtD(x.date_to)) : ' и дальше') + '</span><b>' + fmt(x.rate) + ' ₽/шт</b><span>' + (x.daily_cap == null ? 'без лимита' : 'лимит ' + fmt(x.daily_cap) + ' ₽/сутки') + '</span>' +
+                '<button type="button" class="fbx-tx" data-term-del="' + esc(x.id) + '" title="Удалить период">×</button></div>';
+        }).join('');
+        return '<div class="fbx-term"><div class="fbx-term-h"><b>Хранение у ФФ — по остатку</b><small>Ставка за 1 шт в сутки × остаток FBS за день, но не больше лимита. На эти дни заменяет тариф «за артикул». ' + esc(today_) + '</small></div>' +
+            '<div class="fbx-term-f"><label>Ставка, ₽ за шт/сутки<input id="fbt-rate" type="text" inputmode="decimal" placeholder="0,40"></label>' +
+            '<label>Лимит, ₽ в сутки<input id="fbt-cap" type="text" inputmode="decimal" placeholder="6000"></label>' +
+            '<label>С даты<input id="fbt-from" type="date" value="' + t + '"></label><button type="button" class="nx-go" data-term-save="1">Сохранить</button></div>' +
+            (list ? '<div class="fbx-tlist">' + list + '</div>' : '') + '</div>';
+    }
+    async function saveTerm() {
+        var rate = num((document.getElementById('fbt-rate') || {}).value), capRaw = String((document.getElementById('fbt-cap') || {}).value || '').trim();
+        var from = (document.getElementById('fbt-from') || {}).value;
+        if (!(rate > 0) || !from) { var f = document.getElementById('fbt-rate'); if (f) f.style.outline = '2px solid #ef4444'; return; }
+        var cap = capRaw === '' ? null : num(capRaw), sb = state.supabase, cab = state.cabinetId;
+        try {
+            // новый период с даты from: открытый предыдущий закрывается днём раньше, будущие периоды заменяются
+            var prev = state.terms.filter(function (x) { return x.date_from < from && (!x.date_to || x.date_to >= from); });
+            for (var i = 0; i < prev.length; i++) { var u = await sb.from('ff_storage_terms').update({ date_to: R().addDays(from, -1) }).eq('id', prev[i].id); if (u.error) throw u.error; }
+            var later = state.terms.filter(function (x) { return x.date_from >= from; });
+            for (var j = 0; j < later.length; j++) { var d = await sb.from('ff_storage_terms').delete().eq('id', later[j].id); if (d.error) throw d.error; }
+            var ins = await sb.from('ff_storage_terms').insert({ cabinet_id: cab, rate: rate, daily_cap: cap, date_from: from });
+            if (ins.error) throw ins.error;
+            var tr = await sb.from('ff_storage_terms').select('id,rate,daily_cap,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 99);
+            state.terms = tr.data || [];
+            render();
+        } catch (e) { root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
+    }
+    async function delTerm(id) {
+        if (!root.confirm('Удалить этот период хранения?')) return;
+        try {
+            var r = await state.supabase.from('ff_storage_terms').delete().eq('id', id);
+            if (r.error) throw r.error;
+            state.terms = state.terms.filter(function (x) { return x.id !== id; });
+            render();
+        } catch (e) { root.alert('Не удалось удалить: ' + String((e && e.message) || e)); }
     }
 
     function render() {
@@ -107,7 +157,10 @@
             '<div class="fbx-bulk"><div><b>Для всех товаров сразу</b><small>впишите значение — применится ко всем' + (needle ? ' найденным' : '') + '</small></div>' +
             '<label>Цена за 1 отправку<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="ship" placeholder="для всех"></label>' +
             '<label>Хранение в день<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="storage" placeholder="для всех"></label></div>' +
+            termCard(totQty) +
             '<div class="fbx-row fbx-h"><span></span><span>АРТИКУЛ</span><span>ФФ</span><span class="n">ОСТАТОК</span><span class="n">ОТПРАВКА</span><span class="n">ХРАНЕНИЕ / ДЕНЬ</span></div>' + body + '</div>';
+        host.querySelectorAll('[data-term-save]').forEach(function (b) { b.addEventListener('click', saveTerm); });
+        host.querySelectorAll('[data-term-del]').forEach(function (b) { b.addEventListener('click', function () { delTerm(b.getAttribute('data-term-del')); }); });
         host.querySelectorAll('.gg-bulk-in').forEach(function (el) {
             el.addEventListener('change', function () { saveAll(el); });
             el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
