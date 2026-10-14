@@ -57,5 +57,29 @@
     function shake(el) { if (!el || reduce) return; el.classList.remove('nrm-shake'); void el.offsetWidth; el.classList.add('nrm-shake'); setTimeout(function () { el.classList.remove('nrm-shake'); }, 500); }
     /* Невалидное поле встряхивается само */
     doc.addEventListener('invalid', function (e) { var t = e.target; if (t && t.classList) { shake(t); t.classList.add('nrm-bad'); t.addEventListener('input', function f() { t.classList.remove('nrm-bad'); t.removeEventListener('input', f); }); } }, true);
+    /* Числа в карточках показателей плавно меняются на месте, рост зелёным, падение красным */
+    var NUM = /^([^\d\-−]*)([−\-]?\d(?:[\d\s\u00a0.,]*\d)?)(.*)$/;
+    function parseNum(s) { var m = NUM.exec(s); if (!m) return null; var raw = m[2].replace(/[\s\u00a0]/g, ''); var dec = /[.,](\d+)$/.exec(raw); var v = parseFloat(raw.replace(/^−/, '-').replace(',', '.')); if (isNaN(v)) return null; return { pre: m[1], suf: m[3], v: v, dec: dec ? dec[1].length : 0, sep: /\u00a0/.test(m[2]) ? '\u00a0' : (/ /.test(m[2]) ? ' ' : ''), comma: /,\d+$/.test(raw) }; }
+    function fmtNum(p, v) { var neg = v < 0, a = Math.abs(v).toFixed(p.dec), parts = a.split('.'); if (p.sep) parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, p.sep); return p.pre + (neg ? '-' : '') + parts.join(p.comma ? ',' : '.') + p.suf; }
+    var VAL = '.metric-card-value,.kpi-hero-value,.adv-kpi-tile-value,.ads-hq-kpi-value', busy = false;
+    function watchValues() {
+        if (reduce || !root.MutationObserver) return;
+        var prev = new WeakMap();
+        new MutationObserver(function (list) {
+            if (busy) return;
+            list.forEach(function (m) {
+                var el = (m.target.nodeType === 3 ? m.target.parentNode : m.target); if (!el || !el.closest) return; el = el.closest(VAL); if (!el || el.children.length) return;
+                var now = el.textContent, was = prev.get(el); prev.set(el, now);
+                if (was == null || was === now) return;
+                var a = parseNum(was), b = parseNum(now);
+                if (!a || !b || a.pre !== b.pre || a.suf !== b.suf || a.v === b.v || el.offsetParent === null) return;
+                busy = true; var t0 = null, dur = 700;
+                el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth; el.classList.add(b.v > a.v ? 'nrm-up' : 'nrm-down');
+                (function step(ts) { if (t0 == null) t0 = ts; var p = Math.min(1, (ts - t0) / dur); busy = true; el.textContent = fmtNum(b, a.v + (b.v - a.v) * easeOut(p)); setTimeout(function () { busy = false; }, 0); if (p < 1) root.requestAnimationFrame(step); else { el.textContent = now; prev.set(el, now); } })(performance.now());
+            });
+        }).observe(doc.body, { childList: true, characterData: true, subtree: true });
+        doc.querySelectorAll(VAL).forEach(function (e) { prev.set(e, e.textContent); });
+    }
+    if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', watchValues); else watchValues();
     root.NrMotion = { shake: shake, count: count, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);

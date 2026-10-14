@@ -150,7 +150,15 @@
             bt.appendChild(no); bt.appendChild(yes); d.appendChild(bt);
             var ctl = overlay(d, function (v) { resolve(!!v); }, o.preview);
             if (o.preview) { resolve(false); return; }
-            no.addEventListener('click', function () { ctl.close(false); }); yes.addEventListener('click', function () { ctl.close(true); });
+            no.addEventListener('click', function () { ctl.close(false); });
+            if (o.danger && root.NrMotion && root.matchMedia && !root.matchMedia('(hover: none)').matches) {
+                /* Опасное действие мышью: удержать кнопку; с клавиатуры подтверждается сразу */
+                yes.classList.add('nrm-hold'); yes.appendChild(el('i')); var tm = null, held = false;
+                yes.title = 'Удерживайте кнопку';
+                yes.addEventListener('pointerdown', function (e) { if (e.button) return; held = false; yes.classList.add('holding'); tm = setTimeout(function () { held = true; yes.classList.remove('holding'); ctl.close(true); }, 700); });
+                ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { yes.addEventListener(ev, function () { clearTimeout(tm); yes.classList.remove('holding'); }); });
+                yes.addEventListener('click', function (e) { if (e.detail === 0) { ctl.close(true); return; } if (!held) { root.NrMotion.shake(yes); } });
+            } else { yes.addEventListener('click', function () { ctl.close(true); }); }
             setTimeout(function () { (o.danger ? no : yes).focus(); }, 60);
         });
     }
