@@ -22,7 +22,7 @@
         var d = new Date(Date.now() + 6 * 3600 * 1000); // Бишкек, UTC+6
         return d.toISOString().slice(0, 10);
     }
-    var state = { supabase: null, cabinetId: null, rows: [], host: null, providers: [] };
+    var state = { supabase: null, cabinetId: null, rows: [], host: null };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -40,17 +40,18 @@
     async function load() {
         var cab = state.cabinetId;
         var res = await Promise.all([
-            fetchAll('wb_stocks', cab, 'nm_id, quantity, stock_scheme', function (q) { return q.eq('stock_scheme', 'fbs'); }),
+            fetchAll('wb_stocks', cab, 'nm_id, quantity, stock_scheme, warehouse_name', function (q) { return q.eq('stock_scheme', 'fbs'); }),
             fetchAll('rnp_articles', cab, 'nm_id, name, manual_data'),
         ]);
-        var qty = {};
+        var qty = {}, whs = {};
         res[0].forEach(function (s) {
             var id = Number(s.nm_id);
-            if (id) qty[id] = (qty[id] || 0) + Number(s.quantity || 0);
+            if (!id) return;
+            qty[id] = (qty[id] || 0) + Number(s.quantity || 0);
+            if (Number(s.quantity) > 0 && s.warehouse_name) (whs[id] = whs[id] || {})[s.warehouse_name] = ((whs[id] || {})[s.warehouse_name] || 0) + Number(s.quantity);
         });
         var arts = {};
         res[1].forEach(function (a) { arts[Number(a.nm_id)] = a; });
-        try { state.providers = root.FfProviders ? await root.FfProviders.load(state.supabase, cab) : []; } catch (e) { state.providers = []; }
         state.rows = Object.keys(qty).filter(function (id) { return qty[id] > 0; }).map(function (id) {
             var a = arts[id] || {};
             var md = a.manual_data || {};
@@ -59,7 +60,7 @@
                 article: String(md.seller_article || md.sa_name || a.name || '').trim(),
                 qty: qty[id],
                 md: md,
-                ff: md.ff_id || '',
+                ffs: Object.keys(whs[id] || {}).sort(function (a, b) { return whs[id][b] - whs[id][a]; }),
                 ship: R().rateOn(md, 'ship', today()) || null,
                 storage: R().rateOn(md, 'storage', today()) || null,
             };
@@ -71,11 +72,6 @@
         var hist = R().describe(r.md, field);
         return '<td class="gg-num gg-edit"><input class="gg-edit-input" type="text" inputmode="decimal" data-nm="' + r.nmId +
             '" data-field="' + field + '" value="' + esc(shown) + '" placeholder="—" title="' + esc(hist || 'Не задано') + '"></td>';
-    }
-
-    function ffSelect(cur, attrs) {
-        var opts = '<option value="">—</option>' + state.providers.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === cur ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '<option value="__new">＋ Новый ФФ…</option>';
-        return '<select class="gg-edit-input gg-ff-sel" ' + attrs + '>' + opts + '</select>';
     }
 
     function render() {
@@ -96,7 +92,7 @@
             return '<tr><td class="gg-art" title="' + esc(r.article) + '">' + esc(r.article || '—') + '</td>' +
                 '<td class="gg-col-nm gg-nm">' + r.nmId + '</td>' +
                 '<td class="gg-num">' + fmt(r.qty) + '</td>' +
-                '<td class="gg-ff">' + ffSelect(r.ff, 'data-ffnm="' + r.nmId + '"') + '</td>' +
+                '<td class="gg-ff" title="' + esc(r.ffs.join(', ')) + '">' + esc(r.ffs.join(', ') || '—') + '</td>' +
                 inputCell(r, 'ship', r.ship) + inputCell(r, 'storage', r.storage) + '</tr>';
         }).join('');
         host.innerHTML = '<div class="gg-fbs-note">Значения действуют по периодам: после ввода сайт спросит, с какой даты. Показан тариф на сегодня, история — во всплывающей подсказке.</div>' +
@@ -104,7 +100,7 @@
             '<th class="gg-art">Артикул</th><th class="gg-col-nm gg-nm">WB</th><th class="gg-num">Остаток FBS</th><th class="gg-ff">ФФ</th>' +
             '<th class="gg-num">Цена за 1 отправку</th><th class="gg-num">Хранение в день</th></tr>' +
             '<tr class="gg-bulk"><th colspan="3" class="gg-bulk-h">Для всех товаров сразу: впишите значение — применится ко всем</th>' +
-            '<th class="gg-ff">' + ffSelect('', 'data-ffbulk="1"') + '</th>' +
+            '<th class="gg-ff"></th>' +
             '<th class="gg-num"><input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="ship" placeholder="для всех"></th>' +
             '<th class="gg-num"><input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="storage" placeholder="для всех"></th></tr></thead><tbody>' + body +
             '</tbody><tfoot><tr class="gg-foot"><td class="gg-art">Итого</td><td class="gg-col-nm"></td><td class="gg-num">' + fmt(totQty) +
@@ -113,10 +109,7 @@
             el.addEventListener('change', function () { saveAll(el); });
             el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
         });
-        host.querySelectorAll('.gg-ff-sel').forEach(function (el) {
-            el.addEventListener('change', function () { saveFf(el); });
-        });
-        host.querySelectorAll('.gg-edit-input:not(.gg-bulk-in):not(.gg-ff-sel)').forEach(function (el) {
+        host.querySelectorAll('.gg-edit-input:not(.gg-bulk-in)').forEach(function (el) {
             el.addEventListener('change', function () { save(el); });
             el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
         });
@@ -199,35 +192,6 @@
             if (g) await applyRate(rows, kind, g.value, next, null);
         }
         return true;
-    }
-
-    // Привязать товар (или все видимые) к ФФ; «＋ Новый ФФ…» сначала создаёт его.
-    async function saveFf(el) {
-        var val = el.value, bulk = el.hasAttribute('data-ffbulk');
-        try {
-            if (val === '__new') {
-                var name = await root.FfProviders.ask('Новый фулфилмент', '', 'Название появится в списке ФФ и в блоке «Фулфилмент» на дашборде.');
-                if (!name) { render(); return; }
-                var created = await root.FfProviders.create(state.supabase, state.cabinetId, name);
-                state.providers.push(created);
-                val = created.id;
-            }
-            var rows;
-            if (bulk) {
-                if (val === '') { render(); return; }
-                var needle = (((document.getElementById('gg-search') || {}).value) || '').trim().toLowerCase();
-                rows = needle ? state.rows.filter(function (r) { return String(r.nmId).indexOf(needle) >= 0 || r.article.toLowerCase().indexOf(needle) >= 0; }) : state.rows;
-                if (rows.length > 1 && !root.confirm('Привязать ' + rows.length + ' товаров к этому ФФ?')) { render(); return; }
-            } else {
-                rows = state.rows.filter(function (r) { return r.nmId === Number(el.dataset.ffnm); });
-            }
-            await writeMd(rows, function (md) { var o = Object.assign({}, md); if (val) o.ff_id = val; else delete o.ff_id; return o; });
-            rows.forEach(function (r) { r.ff = val; });
-            render();
-        } catch (e) {
-            if (root.console) console.warn('[goods-fbs] ff failed', e && e.message);
-            el.style.outline = '2px solid #ef4444';
-        }
     }
 
     async function save(el) {
