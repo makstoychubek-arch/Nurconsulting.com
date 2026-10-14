@@ -7,7 +7,7 @@
     var doc = root.document;
     if (!doc) return;
     var DAYS = 14, PAL = ['#f3ecff', '#e8f2ff', '#e9f9ef', '#fff1e3', '#ffe9f1'];
-    var S = { sales: null, cab: '', loading: false, filter: 'all', busy: false, mo: null, q: '' };
+    var S = { sales: null, cab: '', loading: false, filter: 'all', busy: false, mo: null, q: '', limit: 60 };
 
     function num(t) {
         var v = parseFloat(String(t == null ? '' : t).replace(/[\s  ]/g, '').replace(',', '.'));
@@ -104,8 +104,14 @@
                 '<button type="button" class="ggx-chip b' + sel('b') + '" data-f="b">Много<b>' + t.b + '</b></button>' +
                 '<span class="ggx-note">«Хватит на» — остаток ФБО+ФБС ÷ заказы в день за 14 дней</span></div>';
             html += '<div class="ggx-groups">';
+            // Рисуем по 60 артикулов: сто с лишним карточек сразу тормозят телефон
+            var shown = 0, hidden = 0;
             groups.forEach(function (g, gi) {
                 var items = g.items.filter(function (a) { return f === 'all' || a.c === f; });
+                if (!items.length) return;
+                var room = Math.max(0, S.limit - shown);
+                if (items.length > room) { hidden += items.length - room; items = items.slice(0, room); }
+                shown += items.length;
                 if (!items.length) return;
                 var gs = g.items.reduce(function (s, a) { return s + a.stock; }, 0);
                 html += '<div class="ggx-grp" style="background:' + PAL[gi % PAL.length] + '"><div class="ggx-gh"><div class="ggx-strip">' +
@@ -114,6 +120,7 @@
                     items.map(function (a) { return row(a, ph); }).join('') + '</div>';
             });
             html += '</div>';
+            if (hidden) html += '<button type="button" class="ggx-more" data-more="1">Показать ещё ' + Math.min(60, hidden) + ' · осталось ' + hidden + '</button>';
             var box = doc.getElementById('ggx-cards');
             if (!box) {
                 box = doc.createElement('div'); box.id = 'ggx-cards';
@@ -159,8 +166,10 @@
     }
 
     function onClick(e) {
+        var more = e.target.closest('[data-more]');
+        if (more) { S.limit += 60; render(); return; }
         var b = e.target.closest('[data-f]'); if (!b) return;
-        S.filter = b.getAttribute('data-f'); render();
+        S.filter = b.getAttribute('data-f'); S.limit = 60; render();
     }
     function onChange(e) {
         var i = e.target.closest('input[data-field]'); if (!i) return;

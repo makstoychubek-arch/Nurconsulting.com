@@ -1064,3 +1064,7 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .acx-danger { border-color: #fecaca; background: #fff8f8; }
 .acx-drow { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; } .acx-drow small { color: var(--text-muted); font-size: 11.5px; line-height: 1.35; }
 @media (max-width: 640px) { .acx-tiles { grid-template-columns: 1fr; } .acx-drow { flex-direction: column; align-items: flex-start; gap: 4px; } }
+/* Товары: строки вне экрана не рисуются, пока до них не доскроллили (на телефоне заметно легче) */
+.ggx-row:not(.ggx-rh) { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+@media (max-width: 768px) { .ggx-row:not(.ggx-rh) { contain-intrinsic-size: auto 132px; } }
+.ggx-more { display: block; width: 100%; margin: 6px 0 14px; padding: 12px; border-radius: 14px; border: 1px dashed var(--border); background: var(--surface-solid); color: var(--accent); font-weight: 700; font-size: 13px; cursor: pointer; }
