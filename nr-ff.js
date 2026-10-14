@@ -1,11 +1,12 @@
 /* Дашборд → блок «Фулфилмент»: сколько мы должны каждому ФФ за период.
    Выплатить = хранение + отправка (тарифы по периодам из «Товары → FBS») − подмены МП − отмены.
-   ФФ в кабинете может быть несколько (до 10): товар привязан к ФФ в «Товары → FBS», блок переключается по ФФ.
+   ФФ — это склады продавца (FBS) из WB, например «АМАН ФФ 3»: список берётся автоматически из остатков FBS.
+   Если товар лежит на нескольких ФФ, его хранение и отправки делятся по доле остатка на каждом.
    Подмены (МП, не FBW) и отмены — штрафы WB по вине ФФ, которые ФФ нам возмещает (таблица ff_adjustments, вручную).
    Рядом — «Динамика заказов»: все заказы по дням и FBS-заказы выбранного ФФ. */
 (function (root) {
     'use strict';
-    var S = { db: null, cab: null, from: null, to: null, items: [], providers: [], byFf: {}, total: null, orders: [], daily: [], sel: 'all', readonly: false, changed: false };
+    var S = { db: null, cab: null, from: null, to: null, items: [], providers: [], shares: {}, byFf: {}, total: null, orders: [], daily: [], sel: 'all', readonly: false, changed: false };
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return Math.round(Number(n) || 0).toLocaleString('ru-RU').replace(/ /g, ' '); }
     function today() { return new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10); }
@@ -25,22 +26,26 @@
     }
 
     function blank() { return { storage: 0, ship: 0, swap: 0, cancel: 0, missing: 0, payable: 0 }; }
-    // Чистый расчёт (для тестов). Ключ ФФ: id из manual_data.ff_id (если такой ФФ есть в providerIds) или 'none'.
-    function compute(articles, orders, adjustments, from, to, todayStr, providerIds) {
+    // Чистый расчёт (для тестов). shares: { nm_id: [{k: 'АМАН ФФ 3', w: 0.7}, ...] } — доли остатка FBS по ФФ.
+    function compute(articles, orders, adjustments, from, to, todayStr, shares) {
         var end = to > todayStr ? todayStr : to;
-        var md = {}, key = {};
-        function keyOf(id) { return id && (!providerIds || providerIds.indexOf(id) >= 0) ? id : 'none'; }
-        (articles || []).forEach(function (a) { var m = a.manual_data || {}; md[Number(a.nm_id)] = m; key[Number(a.nm_id)] = keyOf(m.ff_id); });
+        var md = {};
+        (articles || []).forEach(function (a) { md[Number(a.nm_id)] = a.manual_data || {}; });
         var by = {};
         function slot(k) { return by[k] || (by[k] = blank()); }
-        if (end >= from) Object.keys(md).forEach(function (nm) { var v = R().sumDaily(md[nm], 'storage', from, end); if (v) slot(key[nm]).storage += v; });
+        function spread(nm, field, v) {
+            var sh = shares && shares[nm];
+            if (!sh || !sh.length) { slot('none')[field] += v; return; }
+            sh.forEach(function (x) { slot(x.k)[field] += v * x.w; });
+        }
+        if (end >= from) Object.keys(md).forEach(function (nm) { var v = R().sumDaily(md[nm], 'storage', from, end); if (v) spread(Number(nm), 'storage', v); });
         (orders || []).forEach(function (o) {
             if (o.d > end) return;
-            var nm = Number(o.nm_id), rate = R().rateOn(md[nm] || {}, 'ship', o.d), n = Number(o.orders_fbs) || 0, t = slot(key[nm] || 'none');
-            if (rate) t.ship += n * rate; else t.missing += n;
+            var nm = Number(o.nm_id), rate = R().rateOn(md[nm] || {}, 'ship', o.d), n = Number(o.orders_fbs) || 0;
+            if (rate) spread(nm, 'ship', n * rate); else spread(nm, 'missing', n);
         });
         (adjustments || []).forEach(function (a) {
-            var t = slot(keyOf(a.ff_id)), v = Number(a.amount) || 0;
+            var t = slot(a.ff_name || 'none'), v = Number(a.amount) || 0;
             if (a.kind === 'swap') t.swap += v; else t.cancel += v;
         });
         var total = blank();
@@ -53,7 +58,7 @@
     }
 
     function cur() { return S.sel === 'all' ? S.total : (S.byFf[S.sel] || blank()); }
-    function ffName(id) { var p = S.providers.filter(function (x) { return x.id === id; })[0]; return p ? p.name : 'Без ФФ'; }
+    function ffName(id) { return id && id !== 'none' ? id : 'Без ФФ'; }
 
     function renderSummary() {
         var el = $('ff-sum');
@@ -61,8 +66,7 @@
         var t = cur() || blank();
         var chips = '<button type="button" class="ff-chip' + (S.sel === 'all' ? ' on' : '') + '" data-ff="sel" data-id="all">Все</button>' +
             S.providers.map(function (p) { return '<button type="button" class="ff-chip' + (S.sel === p.id ? ' on' : '') + '" data-ff="sel" data-id="' + esc(p.id) + '">' + esc(p.name) + '</button>'; }).join('') +
-            (S.byFf.none ? '<button type="button" class="ff-chip' + (S.sel === 'none' ? ' on' : '') + '" data-ff="sel" data-id="none">Без ФФ</button>' : '') +
-            (S.readonly ? '' : '<button type="button" class="ff-chip ff-chip-add" data-ff="manage" title="Добавить или переименовать ФФ">＋</button>');
+            (S.byFf.none ? '<button type="button" class="ff-chip' + (S.sel === 'none' ? ' on' : '') + '" data-ff="sel" data-id="none">Без ФФ</button>' : '');
         el.innerHTML =
             '<div class="pnl-title">Фулфилмент</div><div class="ff-chips">' + chips + '</div>' +
             '<div class="pnl-rows">' +
@@ -77,10 +81,14 @@
     function renderChart() {
         var el = $('ff-chart');
         if (!el) return;
-        var fbs = {}, nmKey = S.nmKey || {};
+        var fbs = {};
         S.orders.forEach(function (o) {
-            if (S.sel !== 'all' && nmKey[Number(o.nm_id)] !== S.sel) return;
-            fbs[o.d] = (fbs[o.d] || 0) + (Number(o.orders_fbs) || 0);
+            var w = 1;
+            if (S.sel !== 'all') {
+                var sh = S.shares[Number(o.nm_id)];
+                w = sh ? (sh.filter(function (x) { return x.k === S.sel; })[0] || { w: 0 }).w : (S.sel === 'none' ? 1 : 0);
+            }
+            fbs[o.d] = (fbs[o.d] || 0) + (Number(o.orders_fbs) || 0) * w;
         });
         var days = (S.daily || []).map(function (d) { return { d: String(d.date).slice(0, 10), all: Number(d.count) || 0 }; });
         var max = Math.max.apply(null, days.map(function (x) { return Math.max(x.all, fbs[x.d] || 0); }).concat([1]));
@@ -103,9 +111,9 @@
     function modalHtml(kind) {
         var provs = S.providers;
         var defFf = S.sel !== 'all' && S.sel !== 'none' ? S.sel : (provs[0] && provs[0].id) || '';
-        var rows = S.items.filter(function (a) { return S.sel === 'all' || (a.ff_id || 'none') === S.sel; }).map(function (a) {
+        var rows = S.items.filter(function (a) { return S.sel === 'all' || (a.ff_name || 'none') === S.sel; }).map(function (a) {
             return '<div class="ff-it"><span class="ff-d">' + esc(R().fmtD(a.adj_date)) + '</span><span class="ff-k ' + a.kind + '">' + (a.kind === 'swap' ? 'Подмена' : 'Отмена') + '</span>' +
-                '<b>' + fmt(a.amount) + '</b><span class="ff-n">' + (S.sel === 'all' ? '<em>' + esc(ffName(a.ff_id)) + '</em> ' : '') + esc(a.note) + '</span>' +
+                '<b>' + fmt(a.amount) + '</b><span class="ff-n">' + (S.sel === 'all' ? '<em>' + esc(ffName(a.ff_name)) + '</em> ' : '') + esc(a.note) + '</span>' +
                 (S.readonly ? '' : '<button type="button" class="ff-x" data-ff="del" data-id="' + esc(a.id) + '" title="Удалить">×</button>') + '</div>';
         }).join('');
         var form = S.readonly ? '' :
@@ -118,7 +126,6 @@
             '<div class="fbr-btns"><button type="button" class="nx-b" data-ff="close">Закрыть</button></div>';
     }
     function openAdj(kind) {
-        if (!S.readonly && !S.providers.length) { manage(); return; }
         var ov = document.createElement('div');
         ov.className = 'nx-ov'; ov.id = 'ff-ov';
         ov.innerHTML = '<div class="nx-modal fbr-modal ff-modal">' + modalHtml(kind) + '</div>';
@@ -131,37 +138,15 @@
     }
     async function refresh() { await update(S.db, S.cab, S.from, S.to, S.daily); var ov = $('ff-ov'); if (ov) { var kind = ($('ff-kind') || {}).value; ov.firstChild.innerHTML = modalHtml(kind); } }
 
-    // Управление списком ФФ: добавить, переименовать, удалить.
-    async function manage() {
-        var P = root.FfProviders;
-        var ov = document.createElement('div');
-        ov.className = 'nx-ov'; ov.id = 'ff-mng';
-        function draw() {
-            ov.innerHTML = '<div class="nx-modal fbr-modal"><h3>Фулфилменты кабинета</h3><p class="nx-sm">До 10 ФФ. К каждому привязываются товары в «Товары → FBS».</p>' +
-                '<div class="ff-list">' + (S.providers.map(function (p) {
-                    return '<div class="ff-it"><span class="ff-n"><b>' + esc(p.name) + '</b></span><button type="button" class="nx-b" data-ff="ren" data-id="' + esc(p.id) + '">Переименовать</button><button type="button" class="ff-x" data-ff="rm" data-id="' + esc(p.id) + '" title="Удалить">×</button></div>';
-                }).join('') || '<div class="ff-empty">Пока нет ни одного ФФ.</div>') + '</div>' +
-                '<div class="fbr-btns"><button type="button" class="nx-go" data-ff="new"' + (S.providers.length >= 10 ? ' disabled' : '') + '>＋ Добавить ФФ</button><button type="button" class="nx-b" data-ff="mclose">Готово</button></div></div>';
+    async function fbsStocks(db, cab) {
+        var out = [];
+        for (var from = 0; ; from += 1000) {
+            var r = await db.from('wb_stocks').select('nm_id,quantity,warehouse_name').eq('cabinet_id', cab).eq('stock_scheme', 'fbs').range(from, from + 999);
+            if (r.error) throw r.error;
+            out = out.concat(r.data || []);
+            if (!r.data || r.data.length < 1000) break;
         }
-        draw();
-        document.body.appendChild(ov);
-        ov.addEventListener('click', async function (e) {
-            var b = e.target.closest('[data-ff]');
-            if (e.target === ov) { ov.remove(); return; }
-            if (!b) return;
-            try {
-                if (b.dataset.ff === 'mclose') { ov.remove(); return; }
-                if (b.dataset.ff === 'new') { var nm = await P.ask('Новый фулфилмент', ''); if (nm) { S.providers.push(await P.create(S.db, S.cab, nm)); } }
-                if (b.dataset.ff === 'ren') { var p = S.providers.filter(function (x) { return x.id === b.dataset.id; })[0]; var v = await P.ask('Переименовать ФФ', p && p.name); if (v && p) { await P.rename(S.db, p.id, v); p.name = v; } }
-                if (b.dataset.ff === 'rm') {
-                    if (!root.confirm('Удалить этот ФФ? Товары останутся без ФФ, записи подмен/отмен — тоже.')) return;
-                    await P.remove(S.db, b.dataset.id); S.providers = S.providers.filter(function (x) { return x.id !== b.dataset.id; }); if (S.sel === b.dataset.id) S.sel = 'all';
-                }
-                draw();
-                S.changed = true;
-                await update(S.db, S.cab, S.from, S.to, S.daily);
-            } catch (err) { root.alert('Не удалось сохранить: ' + String((err && err.message) || err)); }
-        });
+        return out;
     }
 
     async function update(db, cab, from, to, dailyOrders) {
@@ -173,18 +158,29 @@
             allArticles(db, cab),
             end >= from ? db.rpc('rnp_fbs_split', { p_cabinet: cab, p_from: from, p_to: end }) : Promise.resolve({ data: [] }),
             db.from('ff_adjustments').select('*').eq('cabinet_id', cab).gte('adj_date', from).lte('adj_date', to).order('adj_date', { ascending: false }).range(0, 999),
-            root.FfProviders ? root.FfProviders.load(db, cab).catch(function () { return []; }) : Promise.resolve([]),
+            fbsStocks(db, cab),
         ]);
         if (res[1].error) throw res[1].error;
         S.items = res[2].data || [];
-        S.providers = res[3];
         S.orders = res[1].data || [];
-        var ids = S.providers.map(function (p) { return p.id; });
-        S.nmKey = {};
-        res[0].forEach(function (a) { var id = (a.manual_data || {}).ff_id; S.nmKey[Number(a.nm_id)] = id && ids.indexOf(id) >= 0 ? id : 'none'; });
-        var t = compute(res[0], S.orders, S.items, from, to, today(), ids);
+        // ФФ = склады FBS; доля товара на каждом — по остатку
+        var per = {}, wh = {};
+        res[3].forEach(function (r) {
+            var nm = Number(r.nm_id), q = Number(r.quantity) || 0;
+            if (!nm || q <= 0 || !r.warehouse_name) return;
+            (per[nm] = per[nm] || {})[r.warehouse_name] = ((per[nm] || {})[r.warehouse_name] || 0) + q;
+            wh[r.warehouse_name] = (wh[r.warehouse_name] || 0) + q;
+        });
+        S.shares = {};
+        Object.keys(per).forEach(function (nm) {
+            var tot = Object.keys(per[nm]).reduce(function (a, k) { return a + per[nm][k]; }, 0);
+            S.shares[nm] = Object.keys(per[nm]).map(function (k) { return { k: k, w: per[nm][k] / tot }; });
+        });
+        S.items.forEach(function (a) { if (a.ff_name && !(a.ff_name in wh)) wh[a.ff_name] = 0; });
+        S.providers = Object.keys(wh).sort(function (a, b) { return wh[b] - wh[a] || (a < b ? -1 : 1); }).map(function (k) { return { id: k, name: k }; });
+        var t = compute(res[0], S.orders, S.items, from, to, today(), S.shares);
         S.total = t; S.byFf = t.byFf || {};
-        if (S.sel !== 'all' && S.sel !== 'none' && ids.indexOf(S.sel) < 0) S.sel = 'all';
+        if (S.sel !== 'all' && S.sel !== 'none' && !(S.sel in wh)) S.sel = 'all';
         renderSummary(); renderChart();
         return t;
     }
@@ -195,14 +191,13 @@
             if (!b || !S.db) return;
             var a = b.dataset.ff;
             if (a === 'sel') { S.sel = b.dataset.id; try { localStorage.setItem(selKey(), S.sel); } catch (x) {} renderSummary(); renderChart(); return; }
-            if (a === 'manage') { manage(); return; }
             if (a === 'adj') { openAdj(b.dataset.kind); return; }
             if (a === 'close') { closeAdj(); return; }
             try {
                 if (a === 'add') {
                     var amt = parseFloat(String($('ff-amt').value).replace(/\s/g, '').replace(',', '.'));
                     if (!(amt > 0)) { $('ff-amt').style.outline = '2px solid #ef4444'; return; }
-                    var r = await S.db.from('ff_adjustments').insert({ cabinet_id: S.cab, ff_id: $('ff-who').value || null, kind: $('ff-kind').value, amount: amt, adj_date: $('ff-date').value || today(), note: String($('ff-note').value || '').trim() });
+                    var r = await S.db.from('ff_adjustments').insert({ cabinet_id: S.cab, ff_name: $('ff-who').value || null, kind: $('ff-kind').value, amount: amt, adj_date: $('ff-date').value || today(), note: String($('ff-note').value || '').trim() });
                     if (r.error) throw r.error;
                     S.changed = true; await refresh();
                 } else if (a === 'del') {
