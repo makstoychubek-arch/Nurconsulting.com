@@ -38,8 +38,10 @@ function appCreds() {
         secret: (Deno.env.get('FACEBOOK_APP_SECRET') || Deno.env.get('IG_APP_SECRET') || '').trim(),
     };
 }
-function redirectUri(req: Request) {
-    return `${new URL(req.url).origin}/functions/v1/nr-ig-admin`;
+function redirectUri(_req: Request) {
+    // Внутри функции req.url может быть http:// и без /functions/v1, а Facebook требует точное совпадение с https-адресом из настроек.
+    const base = (Deno.env.get('SUPABASE_URL') || 'https://fiukyfyhotctvfdidktx.supabase.co').replace(/\/+$/, '').replace(/^http:/, 'https:');
+    return `${base}/functions/v1/nr-ig-admin`;
 }
 async function hmac(secret: string, msg: string) {
     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
