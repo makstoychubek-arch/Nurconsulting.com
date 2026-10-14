@@ -86,10 +86,17 @@
         }).join('');
         host.innerHTML = '<div class="gg-table-scroll"><table class="gg-table"><thead><tr>' +
             '<th class="gg-art">Артикул</th><th class="gg-col-nm gg-nm">WB</th><th class="gg-num">Остаток FBS</th>' +
-            '<th class="gg-num">Цена за 1 отправку</th><th class="gg-num">Хранение в день</th></tr></thead><tbody>' + body +
+            '<th class="gg-num">Цена за 1 отправку</th><th class="gg-num">Хранение в день</th></tr>' +
+            '<tr class="gg-bulk"><th colspan="3" class="gg-bulk-h">Для всех товаров сразу: впишите значение — применится ко всем</th>' +
+            '<th class="gg-num"><input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="ship" placeholder="для всех"></th>' +
+            '<th class="gg-num"><input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="storage" placeholder="для всех"></th></tr></thead><tbody>' + body +
             '</tbody><tfoot><tr class="gg-foot"><td class="gg-art">Итого</td><td class="gg-col-nm"></td><td class="gg-num">' + fmt(totQty) +
             '</td><td class="gg-num">—</td><td class="gg-num" id="gg-fbs-sto-total">' + fmt(totSto) + '</td></tr></tfoot></table></div>';
-        host.querySelectorAll('.gg-edit-input').forEach(function (el) {
+        host.querySelectorAll('.gg-bulk-in').forEach(function (el) {
+            el.addEventListener('change', function () { saveAll(el); });
+            el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+        });
+        host.querySelectorAll('.gg-edit-input:not(.gg-bulk-in)').forEach(function (el) {
             el.addEventListener('change', function () { save(el); });
             el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
         });
@@ -118,6 +125,47 @@
         } catch (e) {
             el.style.outline = '2px solid #ef4444';
             if (root.console) console.warn('[goods-fbs] save failed', e && e.message);
+        }
+    }
+
+    // Одно значение — всем видимым (с учётом поиска) товарам сразу.
+    var bulkBusy = false;
+    async function saveAll(el) {
+        if (bulkBusy) return;
+        var field = el.dataset.bulk === 'ship' ? 'fbs_ship_price' : 'fbs_storage_day';
+        var key = el.dataset.bulk;
+        var raw = String(el.value || '').trim();
+        if (raw === '') return;
+        var val = num(raw);
+        var needle = (((document.getElementById('gg-search') || {}).value) || '').trim().toLowerCase();
+        var rows = needle ? state.rows.filter(function (r) { return String(r.nmId).indexOf(needle) >= 0 || r.article.toLowerCase().indexOf(needle) >= 0; }) : state.rows;
+        if (!rows.length) return;
+        var differs = rows.some(function (r) { return r[key] !== undefined && r[key] !== null && r[key] !== '' && Number(r[key]) !== val; });
+        if (differs && !root.confirm('Поставить ' + fmt(val) + ' всем ' + rows.length + ' товарам? Уже введённые значения заменятся.')) { el.value = ''; return; }
+        bulkBusy = true; el.disabled = true;
+        try {
+            var cab = state.cabinetId, sb = state.supabase;
+            var ids = rows.map(function (r) { return r.nmId; });
+            var existing = {};
+            for (var i = 0; i < ids.length; i += 200) {
+                var ex = await sb.from('rnp_articles').select('nm_id, manual_data').eq('cabinet_id', cab).in('nm_id', ids.slice(i, i + 200));
+                if (ex.error) throw ex.error;
+                (ex.data || []).forEach(function (a) { existing[Number(a.nm_id)] = a.manual_data || {}; });
+            }
+            for (var j = 0; j < rows.length; j++) {
+                var r = rows[j], md = Object.assign({}, existing[r.nmId] || {});
+                md[field] = val;
+                var res = (r.nmId in existing)
+                    ? await sb.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', r.nmId)
+                    : await sb.from('rnp_articles').upsert({ cabinet_id: cab, nm_id: r.nmId, name: r.article, is_active: false, manual_data: md, cost_price: 0 });
+                if (res.error) throw res.error;
+                r[key] = val;
+            }
+            bulkBusy = false;
+            render();
+        } catch (e) {
+            bulkBusy = false; el.disabled = false; el.style.outline = '2px solid #ef4444';
+            if (root.console) console.warn('[goods-fbs] bulk failed', e && e.message);
         }
     }
 
