@@ -30,7 +30,7 @@ async function readToken(admin: any, id: string): Promise<string | null> {
 }
 
 const BACK = 'https://nurcon.kg/goods';
-const SCOPES = 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,business_management';
+const SCOPES = 'instagram_content_publish,pages_show_list,pages_read_engagement,business_management';
 
 function appCreds() {
     return {
