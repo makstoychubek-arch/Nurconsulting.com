@@ -210,7 +210,6 @@ const RNP = (() => {
         ]},
         { id: 'logistics', label: 'Логистика', color: '#0ea5e9', rows: [
             { key: 'delivery_sum',       label: 'Доставка (WB)',                    type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'logistics_per_unit', label: 'Логистика на ед',                  type: 'som',  src: 'auto',  hm: 'low' },
             { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
             { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
         ]},
@@ -224,7 +223,6 @@ const RNP = (() => {
             { key: 'acquiring_sum', label: 'Эквайринг', type: 'som', src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'compensation_sum', label: 'Компенсации WB (плюс)', type: 'som', src: 'auto', cabinetOnly: true },
             { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
-            { key: 'to_transfer_unit',   label: 'К перечислению на ед',             type: 'som',  src: 'auto' },
             { key: 'additional_sum', label: 'Доплаты WB (плюс)', type: 'som', src: 'auto', cabinetOnly: true },
             { key: 'acceptance_sum',     label: 'Обработка товара (WB)',            type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
@@ -234,10 +232,14 @@ const RNP = (() => {
         { id: 'profit', label: 'Прибыль', color: '#22c55e', rows: [
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
-            { key: 'profit_per_unit',    label: 'Прибыль на 1 ед',                  type: 'som',  src: 'calc',  bold: true },
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
             { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
+        ]},
+        { id: 'unit', label: 'На единицу', color: '#f97316', rows: [
+            { key: 'logistics_per_unit', label: 'Логистика на ед',                  type: 'som',  src: 'auto',  hm: 'low' },
+            { key: 'to_transfer_unit',   label: 'К перечислению на ед',             type: 'som',  src: 'auto' },
+            { key: 'profit_per_unit',    label: 'Прибыль на 1 ед',                  type: 'som',  src: 'calc',  bold: true },
         ]},
         { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
@@ -1053,6 +1055,7 @@ const RNP = (() => {
                 ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
                 : [],
             wbGroups: o.wbGroups === true,
+            responsibles: Array.isArray(o.responsibles) ? [...new Set(o.responsibles.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 20) : [],
         };
     }
 
@@ -1064,6 +1067,7 @@ const RNP = (() => {
             monthTo: _settings.monthTo,
             showGiveaways: _settings.showGiveaways,
             showCompetitor: _settings.showCompetitor,
+            responsibles: Array.isArray(_settings.responsibles) ? _settings.responsibles : [],
             hiddenGroups: _hiddenGroupList(),
             wbGroups: _settings.wbGroups === true,
         };
@@ -2912,7 +2916,7 @@ const RNP = (() => {
     async function saveNote(nmId, date, text, image) {
         const t = (text || '').trim();
         const img = String(image || '');
-        const art = _articles.find(a => a.nm_id == nmId);
+        const art = Number(nmId) === -1 ? CABINET_ART : _articles.find(a => a.nm_id == nmId);   // -1 — заметки «Общего» по кабинету
         if (!art) return;
         // Не пишем в базу, если текст не изменился; пустой текст очищает заметку дня.
         if (t === String(_notesCache[nmId]?.[date]?.text || '').trim() && img === String(_notesCache[nmId]?.[date]?.image || '')) return;
@@ -2923,6 +2927,7 @@ const RNP = (() => {
             });
             if (error) throw error;
         } catch (e) {
+            if (Number(nmId) === -1) { _nrDialog('Заметка не сохранена', String((e && e.message) || e)); return; }
             const md = { ...(art.manual_data || {}) };
             if (!md.notes) md.notes = {};
             const prev = md.notes[date];
@@ -3708,7 +3713,9 @@ const RNP = (() => {
         _metricRowSeq = 0;
         const cols = _buildCabinetCols(active, cal);
         const galleryCls = cal.mode === 'month' ? ' rnp-sheet-table--months' : '';
-        const headRows = 3;
+        const headRows = _notesVisible ? 4 : 3;
+        const notesRow = _notesVisible ? `<tr class="rnp-notes-head-row">${_buildNotesHeadCells(cols, CABINET_ART)}</tr>` : '';
+        const noNotesCls = _notesVisible ? '' : ' rnp-sheet-table--no-notes';
         const firstTimelineIdx = cols.findIndex(c => c.type === 'day' || c.type === 'month');
 
         if (cal.mode === 'month') {
@@ -3719,16 +3726,17 @@ const RNP = (() => {
             const totalSt = _stickyColAttrs(0, cols, 11, 31);
             const totalTh = `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`;
             const monthSubs = cal.months.map(m => `<th class="rnp-th-dow rnp-month-col${m.isCurrent ? ' is-current' : ''}">${m.dayCount} дн</th>`).join('');
-            return `<table class="${_sheetTableClass(` rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes`)}" style="${_sheetVarsStyle(cal)}">
+            return `<table class="${_sheetTableClass(` rnp-sheet-table--cabinet${galleryCls}${noNotesCls}`)}" style="${_sheetVarsStyle(cal)}">
           ${_colgroupHTML(cal)}
           <thead>
             <tr class="rnp-cal-quarter-row">
-              <th class="rnp-th-metric" rowspan="${headRows}"></th>
+              ${_buildGeneralHeadMeta()}
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               <th class="rnp-th-year-band" colspan="${cols.length}">${_monthStickLabel(cal.rangeLabel, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${totalTh}${monthThs}</tr>
             <tr class="rnp-dow-head-row"><th class="rnp-th-dow rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}></th>${monthSubs}</tr>
+            ${notesRow}
           </thead>
           <tbody>
             ${_buildCabinetMetaRows(cols)}
@@ -3756,17 +3764,18 @@ const RNP = (() => {
         const dowTotal = cal.weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
         const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
-        return `<table class="${_sheetTableClass(` rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes`)}" style="${_sheetVarsStyle(cal)}">
+        return `<table class="${_sheetTableClass(` rnp-sheet-table--cabinet${galleryCls}${noNotesCls}`)}" style="${_sheetVarsStyle(cal)}">
           ${_colgroupHTML(cal)}
           <thead>
             <tr class="rnp-cal-month-row">
-              <th class="rnp-th-metric" rowspan="${headRows}"></th>
+              ${_buildGeneralHeadMeta()}
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${weekThs}${totalTh}${dayThs}</tr>
             <tr class="rnp-dow-head-row">${dowWeeks}${dowTotal}${dowDays}</tr>
+            ${notesRow}
           </thead>
           <tbody>
             ${_buildCabinetMetaRows(cols)}
@@ -6084,6 +6093,47 @@ const RNP = (() => {
         </tr>`;
     }
 
+    /** «Общий»: ответственные за кабинет (с ручкой, чтобы добавить человека) и кнопка заметок по дням — как у отдельного артикула. */
+    function _buildGeneralHeadMeta() {
+        const names = Array.isArray(_settings.responsibles) ? _settings.responsibles : [];
+        const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const hasNotes = Object.values(_notesCache[-1] || {}).some(n => n && (n.text || n.image));
+        const on = _notesVisible ? ' is-on active' : '';
+        return `<th class="rnp-th-metric" rowspan="${_notesVisible ? 4 : 3}"><div class="rnp-head-meta rnp-head-meta--general">
+          <span class="rnp-resp-list" title="Ответственные за кабинет">${names.length ? names.map(n => `<i>${esc(n)}</i>`).join('') : '<em>Ответственный</em>'}</span>
+          <button type="button" class="rnp-resp-pen" title="Добавить или изменить ответственных" onclick="RNP.editResponsibles()">✎</button>
+          <button type="button" class="rnp-head-notes-btn${on}" title="${_notesVisible ? 'Скрыть заметки по дням' : 'Показать заметки по дням'}" onclick="RNP.toggleNotes(!RNP.notesVisible())">${_noteSvg()}<span>Заметки${hasNotes ? ' •' : ''}</span></button>
+        </div></th>`;
+    }
+
+    function editResponsibles() {
+        const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        let list = Array.isArray(_settings.responsibles) ? _settings.responsibles.slice() : [];
+        const ov = document.createElement('div');
+        ov.className = 'nx-ov'; ov.style.zIndex = 200030;
+        const draw = () => {
+            ov.innerHTML = `<div class="nx-modal fbr-modal"><h3>Ответственные за кабинет</h3><p class="nx-sm">Кто ведёт этот кабинет (цены, РНП). Показывается в левом верхнем углу «Общего».</p>
+              <div class="rnp-resp-edit">${list.map((n, i) => `<span class="rnp-resp-chip">${esc(n)}<button type="button" data-rm="${i}" title="Убрать">×</button></span>`).join('') || '<span class="rnp-resp-empty">Пока никого</span>'}</div>
+              <label class="fbr-l">Добавить человека<input type="text" id="rnp-resp-in" maxlength="40" placeholder="Имя"></label>
+              <div class="fbr-btns"><button type="button" class="nx-go" data-add="1">Добавить</button><button type="button" class="nx-b" data-done="1">Готово</button></div></div>`;
+            const inp = ov.querySelector('#rnp-resp-in'); if (inp) inp.focus();
+        };
+        const add = () => { const v = (ov.querySelector('#rnp-resp-in').value || '').trim(); if (v && list.length < 20 && !list.includes(v)) { list.push(v); } draw(); };
+        const done = async () => {
+            ov.remove();
+            await _saveSettings({ options: { responsibles: list } });
+            _renderActiveTable();
+        };
+        ov.addEventListener('click', (e) => {
+            if (e.target === ov || e.target.closest('[data-done]')) return done();
+            if (e.target.closest('[data-add]')) return add();
+            const rm = e.target.closest('[data-rm]'); if (rm) { list.splice(Number(rm.dataset.rm), 1); draw(); }
+        });
+        ov.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+        draw();
+        document.body.appendChild(ov);
+    }
+
     function _buildCabinetMetaRows(cols) {
         return `<tr class="rnp-meta-row">
           <td class="rnp-metric-col">Общий РНП</td>
@@ -7161,6 +7211,7 @@ const RNP = (() => {
         }
 
         if (_activeNm === GENERAL_TAB) {
+            if (_notesVisible && !_notesCache[-1]) { try { await _loadNotes([-1]); } catch (e) {} }
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
             _metricRowSeq = 0;
@@ -9074,7 +9125,7 @@ const RNP = (() => {
 
     return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
-             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, wbPhotoUrl: _wbPhotoUrl };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего
