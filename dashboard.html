@@ -6433,7 +6433,7 @@
                     <div class="pnl-rows" id="pnl-serv-rows"><div class="pnl-row"><span class="pnl-ghost-line" style="width:88px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:70px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:60px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:76px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div></div>
                 </div>
                 <div class="pnl-card">
-                    <div class="pnl-title" style="display:flex;justify-content:space-between;align-items:center">Налоги и затраты<button type="button" class="nx-b" onclick="window.NrCosts&&NrCosts.open()">Изменить</button></div>
+                    <div class="pnl-title">Налоги и затраты</div>
                     <div class="pnl-big"><span class="nr-skel" id="pnl-tax-total">—</span><em class="pnl-chip" id="pnl-tax-pct"></em></div>
                     <div class="pnl-bar" id="pnl-tax-bar"></div>
                     <div class="pnl-rows" id="pnl-tax-rows"><div class="pnl-row"><span class="pnl-ghost-line" style="width:40px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:96px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:64px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div></div>
@@ -14314,13 +14314,11 @@
         $('pnl-returns').textContent = '-' + fmtN(n(m.returnsSum));
         $('pnl-real-bar').style.width = m.salesSum > 0 ? Math.max(4, Math.round(real / m.salesSum * 100)) + '%' : '0';
 
-        const other = n(m.acceptanceSum) + n(m.deductionSum) - n(m.compensationSum);
+        const other = n(m.storageSum) + n(m.acceptanceSum) + n(m.penaltySum) + n(m.deductionSum) - n(m.compensationSum);
         const serv = [
             ['Комиссия', n(m.commissionSum) + n(m.acquiringSum), '#f59e0b'],
             ['Логистика', n(m.logisticsSum), '#7dd3fc'],
             ['Реклама', n(m.adsSum), '#a855f7'],
-            ['Хранение', n(m.storageSum), '#14b8a6'],
-            ['Штрафы', n(m.penaltySum), '#ef4444'],
             ['Остальные', other, '#6366f1'],
         ];
         const servTotal = serv.reduce((s, r) => s + r[1], 0);
@@ -14334,8 +14332,8 @@
         const taxes = [
             ['Налог', n(m.taxSum), '#fb923c'],
             ['Себестоимость продаж', n(m.costOfSalesSum), '#f9a8a0'],
-            ['Затраты', n(m.opexForPeriod), '#84cc16'],
         ];
+        if (n(m.opexForPeriod) > 0) taxes.push(['Затраты', n(m.opexForPeriod), '#84cc16']);
         const ffAmt = n(m.ffForPeriod), ffOn = !!m.ffIncluded;
         if (ffOn && ffAmt > 0) taxes.push(['Фулфилмент (ФФ)', ffAmt, '#38bdf8']);
         const taxTotal = taxes.reduce((s, r) => s + r[1], 0);
@@ -14348,7 +14346,7 @@
         const pen = n(m.penaltySum);
         if ($('pnl-extra-rows')) $('pnl-extra-rows').innerHTML =
             `<div class="pnl-row"><span class="pnl-dot" style="background:#ef4444"></span><span class="pnl-lbl">Штрафы WB</span><b>${fmtN(pen)}</b></div>` +
-            `<label class="pnl-row" style="cursor:pointer"><span class="pnl-dot" style="background:#38bdf8"></span><span class="pnl-lbl">Расходы ФФ${ffAmt > 0 ? '' : ' <a href="#" onclick="event.preventDefault();window.NrCosts&&NrCosts.open()" style="color:var(--accent)">указать</a>'}</span><b>${fmtN(ffAmt)}</b><input type="checkbox" id="pnl-ff-on" ${ffOn ? 'checked' : ''} ${ffAmt > 0 ? '' : 'disabled'} title="Учитывать ФФ в прибыли" style="width:16px;height:16px;margin-left:8px;accent-color:var(--accent)" onchange="window.NrCosts&&NrCosts.toggleFf(this.checked)"></label>`;
+            `<label class="pnl-row" style="cursor:pointer"><span class="pnl-dot" style="background:#38bdf8"></span><span class="pnl-lbl"><a href="#" onclick="event.preventDefault();event.stopPropagation();window.NrCosts&&NrCosts.open()" style="color:inherit;border-bottom:1px dashed var(--text-muted)" title="Ввести сумму ФФ">Расходы ФФ</a></span><b>${fmtN(ffAmt)}</b><input type="checkbox" id="pnl-ff-on" ${ffOn ? 'checked' : ''} ${ffAmt > 0 ? '' : 'disabled'} title="Учитывать ФФ в прибыли" style="width:16px;height:16px;margin-left:8px;accent-color:var(--accent)" onchange="window.NrCosts&&NrCosts.toggleFf(this.checked)"></label>`;
         const profit = n(m.profitFull);
         $('pnl-profit').textContent = fmtN(profit);
         $('pnl-profit').classList.toggle('is-neg', profit < 0);
