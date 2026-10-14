@@ -178,6 +178,8 @@
                 <button type="button" onclick="cancelTelegram()" class="w-full py-1 text-xs" style="color:var(--ink-dim)">Отмена</button>
             </div>
 
+            <p class="text-[11px] text-[#6B7682] text-center leading-snug">Продолжая вход через Google или Telegram, вы принимаете <a href="/terms" target="_blank" rel="noopener" class="underline">Соглашение</a>, <a href="/privacy" target="_blank" rel="noopener" class="underline">Политику</a> и даёте <a href="/consent" target="_blank" rel="noopener" class="underline">согласие на обработку данных</a>.</p>
+
             <!-- Вход по email/паролю скрыт (оставлены Google и Telegram); убрать display:none, чтобы вернуть -->
             <div id="email-auth" style="display:none">
             <div class="flex rounded-[12px] p-1 mb-6" style="background:var(--paper-2);border:1px solid var(--line)">
@@ -196,6 +198,7 @@
                 <span class="text-xs text-[#6B7682]">или через email</span>
                 <div class="flex-1 h-px bg-black/8"></div>
             </div>
+
 
             <!-- Форма ВХОД -->
             <div id="form-login" class="space-y-3">
@@ -216,6 +219,7 @@
                         Забыли пароль?
                     </button>
                 </div>
+                <div id="cap-login" class="flex justify-center"></div>
                 <div id="login-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <button onclick="handleLogin()"
                     class="vibe-btn w-full">
@@ -261,6 +265,15 @@
                     <li data-rule="letter"><span data-icon>•</span> Есть буква</li>
                     <li data-rule="match"><span data-icon>•</span> Пароли совпадают</li>
                 </ul>
+                <label class="flex items-start gap-2 text-xs text-[#3E434F] leading-snug cursor-pointer">
+                    <input type="checkbox" id="reg-agree-terms" class="mt-0.5 shrink-0">
+                    <span>Я принимаю <a href="/terms" target="_blank" rel="noopener" class="underline">Пользовательское соглашение</a> и <a href="/privacy" target="_blank" rel="noopener" class="underline">Политику конфиденциальности</a></span>
+                </label>
+                <label class="flex items-start gap-2 text-xs text-[#3E434F] leading-snug cursor-pointer">
+                    <input type="checkbox" id="reg-agree-pd" class="mt-0.5 shrink-0">
+                    <span>Я даю <a href="/consent" target="_blank" rel="noopener" class="underline">согласие на обработку персональных данных</a></span>
+                </label>
+                <div id="cap-register" class="flex justify-center"></div>
                 <div id="reg-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="reg-success" class="hidden text-xs text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
                     Письмо с подтверждением отправлено на вашу почту.
@@ -276,6 +289,7 @@
                 <p class="text-sm text-[#3E434F] text-center mb-2">Введите email — пришлём ссылку для сброса пароля</p>
                 <input type="email" id="forgot-email" placeholder="Ваш email адрес"
                     class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
+                <div id="cap-forgot" class="flex justify-center"></div>
                 <div id="forgot-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="forgot-success" class="hidden text-xs text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
                     Письмо отправлено. Проверьте почту.
@@ -517,6 +531,34 @@
             // дальше onAuthStateChange(SIGNED_IN) проверит доступ и откроет /space
         }
 
+        // Проверка «я не робот» (Cloudflare Turnstile). Пока ключ пустой, проверка выключена и вход работает как раньше.
+        // Включение: вписать ключ сайта сюда и включить Captcha в Supabase → Authentication → Attack Protection (тот же провайдер).
+        const TURNSTILE_SITEKEY = '';
+        const CONSENT_VERSION = '2026-10-14';
+        const _capIds = {};
+        function loadTurnstile() {
+            if (!TURNSTILE_SITEKEY || window.__nrTsLoading) return;
+            window.__nrTsLoading = true;
+            const s = document.createElement('script');
+            s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+            s.async = true; s.defer = true;
+            s.onload = function () {
+                ['login', 'register', 'forgot'].forEach(function (k) {
+                    const box = document.getElementById('cap-' + k);
+                    if (box && window.turnstile) _capIds[k] = window.turnstile.render(box, { sitekey: TURNSTILE_SITEKEY, theme: 'light', language: 'ru' });
+                });
+            };
+            document.head.appendChild(s);
+        }
+        function capToken(k) {
+            if (!TURNSTILE_SITEKEY) return { ok: true, token: undefined };
+            const id = _capIds[k];
+            const t = id !== undefined && window.turnstile ? window.turnstile.getResponse(id) : '';
+            return t ? { ok: true, token: t } : { ok: false, token: '' };
+        }
+        function capReset(k) { try { if (_capIds[k] !== undefined && window.turnstile) window.turnstile.reset(_capIds[k]); } catch (_) {} }
+        document.addEventListener('DOMContentLoaded', loadTurnstile);
+
         async function handleLogin() {
             const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
             const password = document.getElementById('login-password')?.value || '';
@@ -527,8 +569,10 @@
             }
             if (!email || !password) { showError('login-error', 'Введите email и пароль.'); return; }
             try { sessionStorage.removeItem('nr_logged_out'); } catch (_) {}
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) { showError('login-error', authErrorText(error)); return; }
+            const cap = capToken('login');
+            if (!cap.ok) { showError('login-error', 'Подтвердите, что вы не робот.'); return; }
+            const { error } = await supabase.auth.signInWithPassword({ email, password, options: cap.token ? { captchaToken: cap.token } : undefined });
+            if (error) { capReset('login'); showError('login-error', authErrorText(error)); return; }
             // Дальше работает onAuthStateChange(SIGNED_IN): проверка доступа и переход в /space.
         }
 
@@ -546,12 +590,20 @@
                 return;
             }
             if (password !== confirm) { showError('reg-error', 'Пароли не совпадают.'); return; }
+            if (!document.getElementById('reg-agree-terms')?.checked) { showError('reg-error', 'Примите Пользовательское соглашение и Политику конфиденциальности.'); return; }
+            if (!document.getElementById('reg-agree-pd')?.checked) { showError('reg-error', 'Нужно согласие на обработку персональных данных, без него регистрация невозможна.'); return; }
+            const cap = capToken('register');
+            if (!cap.ok) { showError('reg-error', 'Подтвердите, что вы не робот.'); return; }
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
-                options: { data: { full_name: name }, emailRedirectTo: window.location.origin + '/login' },
+                options: {
+                    data: { full_name: name, consent_terms: true, consent_personal_data: true, consent_version: CONSENT_VERSION, consent_at: new Date().toISOString() },
+                    emailRedirectTo: window.location.origin + '/login',
+                    ...(cap.token ? { captchaToken: cap.token } : {}),
+                },
             });
-            if (error) { showError('reg-error', authErrorText(error)); return; }
+            if (error) { capReset('register'); showError('reg-error', authErrorText(error)); return; }
             // Пустой список identities — Supabase так сообщает, что email уже занят.
             if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
                 showError('reg-error', authErrorText('already registered'));
@@ -569,12 +621,15 @@
             const email = document.getElementById('forgot-email').value.trim();
             if (!email) { showError('forgot-error', 'Введите email'); return; }
             const btn = event.currentTarget;
+            const cap = capToken('forgot');
+            if (!cap.ok) { showError('forgot-error', 'Подтвердите, что вы не робот.'); return; }
             btn.textContent = 'Отправляем...'; btn.disabled = true;
             hideMsg('forgot-error'); hideMsg('forgot-success');
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.origin + '/reset-password'
+                redirectTo: window.location.origin + '/reset-password',
+                ...(cap.token ? { captchaToken: cap.token } : {}),
             });
-            if (error) { showError('forgot-error', authErrorText(error)); }
+            if (error) { capReset('forgot'); showError('forgot-error', authErrorText(error)); }
             else { document.getElementById('forgot-success').classList.remove('hidden'); }
             btn.textContent = 'Отправить ссылку'; btn.disabled = false;
         }

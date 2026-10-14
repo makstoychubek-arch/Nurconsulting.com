@@ -80,7 +80,9 @@ console.log('site_vibe_test: ok');
 // Вход и регистрация по email и паролю, сброс пароля
 {
     const l = fs.readFileSync(path.join(root, 'login.html'), 'utf8');
-    assert.ok(l.includes('signInWithPassword({ email, password })') && l.includes('supabase.auth.signUp('), 'email login and registration work');
+    assert.ok(l.includes('signInWithPassword({ email, password') && l.includes('supabase.auth.signUp('), 'email login and registration work');
+    assert.ok(l.includes('reg-agree-pd') && l.includes('reg-agree-terms') && l.includes('consent_personal_data'), 'регистрация требует согласий и сохраняет их');
+    assert.ok(l.includes('captchaToken') && l.includes('TURNSTILE_SITEKEY'), 'вход, регистрация и сброс пароля готовы к проверке «я не робот»');
     assert.ok(!l.includes('Регистрация через email недоступна'), 'registration is no longer a stub');
     assert.ok(l.includes("SUPER_ADMIN_EMAIL) {\n                showError('login-error', 'Для Super Admin"), 'super admin stays Google-only');
     assert.ok(l.includes("redirectTo: window.location.origin + '/reset-password'"), 'reset link goes to the reset page');
