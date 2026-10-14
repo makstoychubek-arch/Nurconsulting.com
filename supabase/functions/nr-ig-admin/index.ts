@@ -9,6 +9,7 @@
 import { adminClient, CORS, json, userFromRequest } from '../_shared/akylai-server.ts';
 import { isSuperAdminUser } from '../_shared/cabinet-access.ts';
 import { GRAPH_HOST, GRAPH_VERSION } from '../_shared/content-ig-publish.ts';
+import { readAdvTokenFromVault } from '../_shared/wb-adv-proxy.ts';
 
 async function isSuper(admin: any, user: { id: string; email: string }) {
     if (isSuperAdminUser(user)) return true;
@@ -25,8 +26,7 @@ function view(row: any) {
 }
 
 async function readToken(admin: any, id: string): Promise<string | null> {
-    const { data } = await admin.schema('vault').from('decrypted_secrets').select('decrypted_secret').eq('id', id).maybeSingle();
-    return data?.decrypted_secret ?? null;
+    return await readAdvTokenFromVault(admin, id);
 }
 
 const BACK = 'https://nurcon.kg/goods';
@@ -91,7 +91,7 @@ async function callbackInner(admin: any, req: Request, url: URL) {
     }
     const { data: row } = await admin.from('nr_instagram').select('token_secret_id').eq('id', true).maybeSingle();
     let secretId: string | null = row?.token_secret_id ?? null;
-    if (secretId && await readToken(admin, secretId) != null) {
+    if (secretId) {
         await admin.rpc('update_vault_secret', { p_id: secretId, p_secret: token });
     } else {
         const { data } = await admin.rpc('store_vault_secret', { p_name: 'nr-instagram-token', p_secret: token });
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
                 }
             }
             let secretId: string | null = row?.token_secret_id ?? null;
-            if (secretId && await readToken(admin, secretId) != null) {
+            if (secretId) {
                 const { error } = await admin.rpc('update_vault_secret', { p_id: secretId, p_secret: token });
                 if (error) return json({ error: 'Vault: ' + error.message }, 500);
             } else {
