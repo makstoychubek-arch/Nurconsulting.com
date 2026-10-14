@@ -69,10 +69,24 @@ async function callbackInner(admin: any, req: Request, url: URL) {
     const long = await gj(`${g}/oauth/access_token?grant_type=fb_exchange_token&client_id=${id}&client_secret=${secret}&fb_exchange_token=${encodeURIComponent(short.access_token)}`);
     const token = String(long.access_token || short.access_token);
     const pages = await gj(`${g}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(token)}`);
-    const hit = (pages.data || []).find((p: any) => p?.instagram_business_account?.id);
+    let hit = (pages.data || []).find((p: any) => p?.instagram_business_account?.id);
+    let dbg = '';
+    if (!hit) {
+        // Запасной путь: какие объекты человек реально выбрал в окне Facebook (granular_scopes).
+        const dt = await gj(`${g}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${id}|${secret}`);
+        const gs: any[] = dt?.data?.granular_scopes || [];
+        const ids = (sc: string) => (gs.find((x) => x.scope === sc)?.target_ids || []).map(String);
+        const igIds = ids('instagram_content_publish').concat(ids('instagram_basic'));
+        const pageIds = ids('pages_show_list').concat(ids('pages_read_engagement'));
+        dbg = `выбрано в окне Facebook: страниц ${pageIds.length}, Instagram ${igIds.length}; права: ${(dt?.data?.scopes || []).join(',') || 'нет'}`;
+        for (const igId of igIds) {
+            const me = await gj(`${g}/${igId}?fields=id,username&access_token=${encodeURIComponent(token)}`);
+            if (me?.id) { hit = { id: pageIds[0] || '', name: '', instagram_business_account: { id: me.id, username: me.username ?? null } }; break; }
+        }
+    }
     if (!hit) {
         const names = (pages.data || []).map((p: any) => p.name).filter(Boolean).join(', ');
-        const why = pages.error?.message ? `ответ Facebook: ${pages.error.message}` : (names ? `страницы найдены (${names}), но Instagram к ним не привязан` : 'Facebook не отдал ни одной страницы: при входе не выбрана страница или нет прав на неё');
+        const why = dbg ? dbg : pages.error?.message ? `ответ Facebook: ${pages.error.message}` : (names ? `страницы найдены (${names}), но Instagram к ним не привязан` : 'Facebook не отдал ни одной страницы: при входе не выбрана страница или нет прав на неё');
         return back('ig=error&msg=' + encodeURIComponent(('Не найдена страница с Instagram Business — ' + why).slice(0, 280)));
     }
     const { data: row } = await admin.from('nr_instagram').select('token_secret_id').eq('id', true).maybeSingle();
@@ -84,7 +98,7 @@ async function callbackInner(admin: any, req: Request, url: URL) {
         secretId = data ? String(data) : null;
     }
     await admin.from('nr_instagram').upsert({
-        id: true, ig_user_id: String(hit.instagram_business_account.id), page_id: String(hit.id),
+        id: true, ig_user_id: String(hit.instagram_business_account.id), page_id: hit.id ? String(hit.id) : null,
         ig_username: hit.instagram_business_account.username ?? null, token_secret_id: secretId,
         token_set_at: new Date().toISOString(), verified_at: new Date().toISOString(), verify_error: null, updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
