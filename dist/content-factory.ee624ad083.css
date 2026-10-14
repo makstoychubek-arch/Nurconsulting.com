@@ -85,3 +85,5 @@
 }
 @media (prefers-reduced-motion: reduce) { .cf-screen, .cf-pill, .cf-kc { animation: none; transition: none; } }
 .cf-steps > * { flex: none; }
+.cf-i-r::after { left: auto; right: -4px; transform: none; max-width: 300px; }
+.cf-stat-l .cf-i { margin-left: 0; }

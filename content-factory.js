@@ -1363,10 +1363,11 @@
         const ms = monthStats(state.posts, now.getFullYear(), now.getMonth());
         const loaded = state.own ? state.ownIg !== null : state.accLoaded;
         const tone = !loaded ? 'g' : !ok ? 'r' : ts.level === 'bad' ? 'r' : ts.level === 'warn' ? 'a' : '';
-        const who = !loaded ? 'Проверяем…' : ok ? '@' + escapeHtml(r.ig_username || 'instagram') : 'Instagram не подключён';
+        const who = !loaded ? 'Проверяем подключение…' : ok ? '@' + (r.ig_username || 'instagram') : 'Instagram не подключён';
         const tok = ok && ts.days != null ? ` · ${ts.level === 'bad' ? 'токен истёк' : 'токен ещё ' + ts.days + ' дн.'}` : '';
-        return `<div class="cf-stat-l"><i class="cf-dot ${tone}"></i><span>${who}${tok}</span>
-            <span class="cf-sep">${ms.published} опубл. · ${ms.planned} в плане · ${ms.views.toLocaleString('ru-RU')} просм.</span>
+        const text = `${who}${tok} · ${ms.published} опубл. · ${ms.planned} в плане · ${ms.views.toLocaleString('ru-RU')} просм.`;
+        const t = escapeHtml(text);
+        return `<div class="cf-stat-l"><i class="cf-dot ${tone}"></i><span class="cf-i cf-i-r" tabindex="0" data-tip="${t}" aria-label="${t}">?</span>
             <button type="button" class="cf-gear" data-cf="${state.own ? 'own-settings' : 'view'}" data-id="instagram" title="Настройки Instagram" aria-label="Настройки Instagram">⚙</button></div>`;
     }
     function navHtml() {
