@@ -17,7 +17,7 @@
     function T() { return root.FfTerms; }
     function today() { return new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10); }
 
-    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], host: null, rnpShip: true, rnpStorage: true };
+    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], host: null, rnpShip: true, rnpStorage: true, rub: 1 };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -33,7 +33,7 @@
     }
 
     async function loadTerms() {
-        var r = await state.supabase.from('ff_terms').select('id,ff_name,kind,value,daily_cap,date_from,date_to').eq('cabinet_id', state.cabinetId).order('date_from', { ascending: true }).range(0, 999);
+        var r = await state.supabase.from('ff_terms').select('id,ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', state.cabinetId).order('date_from', { ascending: true }).range(0, 999);
         state.terms = r.error ? [] : (r.data || []);
     }
 
@@ -57,6 +57,10 @@
         var arts = {};
         res[1].forEach(function (a) { arts[Number(a.nm_id)] = a; });
         try { await loadTerms(); } catch (e) { state.terms = []; }
+        try {
+            var rr = await state.supabase.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).range(0, 0);
+            state.rub = rr.data && rr.data[0] ? Number(rr.data[0].rate) || 1 : 1;
+        } catch (e) { state.rub = 1; }
         try {
             var st = await state.supabase.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', cab).maybeSingle();
             state.rnpShip = st && st.data ? st.data.rnp_ship_costs !== false : true;
@@ -88,7 +92,7 @@
         var first = list.length ? list[list.length - 1].date_from : null;
         var gaps = first ? T().gaps(idx, ff.name, kind, first, t) : [];
         var now = cur
-            ? 'Сейчас: <b>' + fmt(cur.value) + ' ₽</b>' + (isSto ? ' за шт/сутки' + (cur.daily_cap != null ? ', лимит ' + fmt(cur.daily_cap) + ' ₽/сутки' : '') : ' за заказ')
+            ? 'Сейчас: <b>' + fmt(cur.value) + ' ₽</b>' + (isSto ? ' за шт/сутки' + (cur.daily_cap != null ? ', лимит ' + fmt(cur.daily_cap) + ' ₽/сутки' : '') : ' за заказ') + ' · курс ' + (cur.fx_rate ? fmt(cur.fx_rate) + ' (ФФ)' : fmt(state.rub) + ' (НБКР)') + ' → ' + fmt(Number(cur.value) * (Number(cur.fx_rate) || state.rub)) + ' сом'
             : '<span class="fbf-none">Цена не задана</span>';
         var hist = list.map(function (x) {
             return '<div class="fbf-h"><span>с ' + esc(T().fmtD(x.date_from)) + (x.date_to ? ' по ' + esc(T().fmtD(x.date_to)) : ' и дальше') + '</span><b>' + fmt(x.value) + ' ₽' + (x.daily_cap != null ? ' · лимит ' + fmt(x.daily_cap) : '') + '</b>' +
@@ -98,6 +102,7 @@
         return '<div class="fbf-blk" data-ff="' + esc(ff.name) + '" data-kind="' + kind + '"><div class="fbf-bt">' + (isSto ? 'Хранение' : 'Отправка') + '</div><div class="fbf-now">' + now + '</div>' + warn +
             '<div class="fbf-f"><label>' + (isSto ? '₽ за шт в сутки' : '₽ за 1 заказ') + '<input type="text" inputmode="decimal" class="fbf-v" placeholder="0"></label>' +
             (isSto ? '<label>Лимит ₽/сутки<input type="text" inputmode="decimal" class="fbf-c" placeholder="без лимита"></label>' : '') +
+            '<label title="Курс, по которому ФФ переводит рубли в сомы. Пусто — курс НБКР на день">Курс ФФ ₽→сом<input type="text" inputmode="decimal" class="fbf-x" placeholder="НБКР"></label>' +
             '<label>С даты<input type="date" class="fbf-d" value="' + t + '"></label>' +
             '<label>По дату<input type="date" class="fbf-t" title="Пусто — «и дальше»"></label>' +
             '<button type="button" class="nx-go" data-term-save="1">Сохранить</button></div>' +
@@ -120,7 +125,7 @@
         state.rows.forEach(function (r) { totQty += r.qty; });
         state.ffs.forEach(function (f) {
             var st = T().at(idx, f.name, 'storage', t);
-            if (st) { var c = f.qty * Number(st.value); if (st.daily_cap != null && c > Number(st.daily_cap)) c = Number(st.daily_cap); stoDay += c; }
+            if (st) { var c = f.qty * Number(st.value); if (st.daily_cap != null && c > Number(st.daily_cap)) c = Number(st.daily_cap); stoDay += c * (Number(st.fx_rate) || state.rub); }
         });
         var cards = state.ffs.map(function (f) {
             return '<div class="fbf"><div class="fbf-h0"><b>' + esc(f.name) + '</b><small>' + fmt(f.qty) + ' шт · ' + fmt(f.arts) + ' арт.</small></div>' +
@@ -134,7 +139,7 @@
         }).join('');
         host.innerHTML = '<div class="fbx">' +
             '<div class="ggx-kp fbx-kp"><div class="ggx-k k1"><small>Товаров на FBS</small><b>' + fmt(state.rows.length) + '</b></div><div class="ggx-k k2"><small>Остаток FBS, шт</small><b>' + fmt(totQty) + '</b></div>' +
-            '<div class="ggx-k k3"><small>Хранение в день, ₽ (по тарифам ФФ)</small><b id="gg-fbs-sto-total">' + fmt(stoDay) + '</b></div></div>' +
+            '<div class="ggx-k k3"><small>Хранение в день, сом (по тарифам ФФ)</small><b id="gg-fbs-sto-total">' + fmt(stoDay) + '</b></div></div>' +
             '<div class="fbx-incs">' +
             '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><span><b>Учитывать отправку ФФ в РНП</b><small>Выключите, если отправка уже входит в себестоимость (как у Zevina), чтобы не считать дважды.</small></span></label>' +
             '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><span><b>Учитывать хранение ФФ в РНП</b><small>Хранение обычно в себестоимость не закладывают. На дашборде отправка и хранение учитываются всегда.</small></span></label></div>' +
@@ -167,7 +172,8 @@
         if (raw === '' || !from || (to && to < from)) { vEl.style.outline = '2px solid #ef4444'; return; }
         var sb = state.supabase, cab = state.cabinetId;
         try {
-            var p = T().plan(state.terms, ff, kind, num(raw), cap, from, to);
+            var fxEl = blk.querySelector('.fbf-x'), fx = fxEl && String(fxEl.value).trim() !== '' ? num(fxEl.value) : null;
+            var p = T().plan(state.terms, ff, kind, num(raw), cap, from, to, fx);
             if (p.remove.length) { var d = await sb.from('ff_terms').delete().in('id', p.remove); if (d.error) throw d.error; }
             for (var i = 0; i < p.update.length; i++) { var u = await sb.from('ff_terms').update({ date_to: p.update[i].date_to }).eq('id', p.update[i].id); if (u.error) throw u.error; }
             var ins = p.add.concat([p.insert]).map(function (r) { return Object.assign({ cabinet_id: cab }, r); });

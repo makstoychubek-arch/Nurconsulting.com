@@ -35,4 +35,11 @@ assert.deepStrictEqual(T.distFor(oi, 7, '2026-10-10'), [{ k: 'A', w: 0.75 }, { k
 assert.deepStrictEqual(T.distFor(oi, 7, '2026-10-11'), [{ k: 'A', w: 0.75 }, { k: 'B', w: 0.25 }]);   // день раньше
 assert.strictEqual(T.distFor(oi, 7, '2026-10-13'), null);
 assert.strictEqual(T.distFor(oi, 8, '2026-10-10'), null);
+// курс: свой у ФФ важнее курса НБКР; без курсов — 1
+assert.strictEqual(T.fxFor({ fx_rate: 1.06 }, { '2026-10-10': 1.03 }, '2026-10-10'), 1.06);
+assert.strictEqual(T.fxFor({}, { '2026-10-10': 1.03 }, '2026-10-10'), 1.03);
+assert.strictEqual(T.fxFor({}, { '2026-10-08': 1.02 }, '2026-10-10'), 1.02);   // ближайший прошлый
+assert.strictEqual(T.fxFor({}, {}, '2026-10-10'), 1);
+// цена отправки 50 ₽ × курс ФФ 1,06 = 53 сом
+assert.strictEqual(T.shipFor(T.index([{ ff_name: 'A', kind: 'ship', value: 50, fx_rate: 1.06, date_from: '2026-09-01', date_to: null }]), [{ k: 'A', w: 1 }], '2026-10-01', {}), 53);
 console.log('ff-terms_test: ok');
