@@ -13,10 +13,10 @@ begin
     if not public.can_access_cabinet(p_cabinet_id) then
         raise exception 'Нет доступа к кабинету' using errcode = '42501';
     end if;
-    select coalesce(jsonb_agg(jsonb_build_object('nm_id', g.nm_id, 'kind', g.kind, 'amount', g.amount, 'cnt', g.cnt)), '[]'::jsonb)
+    select coalesce(jsonb_agg(jsonb_build_object('nm_id', g.nm_id, 'd', g.d, 'kind', g.kind, 'amount', g.amount, 'cnt', g.cnt)), '[]'::jsonb)
     into v
     from (
-        select f.nm_id,
+        select f.nm_id, coalesce(f.sale_dt, f.rr_dt) as d,
                case when f.bonus_type_name ilike '%отправка товара отличного от заявленного%' then 'swap' else 'cancel' end as kind,
                sum(f.penalty) as amount,
                count(*) as cnt
@@ -26,7 +26,7 @@ begin
           and f.penalty <> 0
           and f.bonus_type_name ilike 'Штраф МП. Невыполненный заказ%'
           and (f.bonus_type_name ilike '%отправка товара отличного от заявленного%' or f.bonus_type_name ilike '%отмена продавцом%')
-        group by 1, 2
+        group by 1, 2, 3
     ) g;
     return v;
 end;

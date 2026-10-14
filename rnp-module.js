@@ -5057,7 +5057,23 @@ const RNP = (() => {
                     }
                 } catch (e) { console.warn('[RNP] ff terms:', e.message); }
             }
-            const shipPrice = (nm, d) => (FT ? FT.shipFor(idx, shares[nm], d) : null) || 0;
+            // Точный ФФ заказа — из fbs_orders (склад, на который WB отдал заказ); если за день данных нет — по доле остатка.
+            let oidx = null;
+            if (FT && includeShip) {
+                try {
+                    const fo = await _fetchAllRows('fbs_orders', [
+                        { op: 'eq', column: 'cabinet_id', value: _cab },
+                        { op: 'gte', column: 'order_date', value: FT.addDays(allDates[0], -1) },
+                        { op: 'lte', column: 'order_date', value: allDates[allDates.length - 1] },
+                    ]);
+                    oidx = FT.ordersIndex(fo);
+                } catch (e) { oidx = null; }
+            }
+            const shipPrice = (nm, d) => {
+                if (!FT) return 0;
+                const sh = (oidx && oidx.days[d] && FT.distFor(oidx, nm, d)) || shares[nm];
+                return FT.shipFor(idx, (sh || []).filter(x => x.k !== 'none'), d) || 0;
+            };
             // Хранение: на день остаток ФФ × его ставка, но не больше его суточного лимита; на товар — по доле его остатка.
             const stoCache = {};
             const storageOf = (nm, d) => {

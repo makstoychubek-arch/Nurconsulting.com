@@ -26,6 +26,10 @@ assert.strictEqual(Math.round(t.byFf.B.storage), 700);
 assert.strictEqual(Math.round(t.byFf.A.payable), 360 + 275 - 100);
 assert.strictEqual(Math.round(t.byFf.B.payable), 360 + 700 - 40);
 assert.ok(Math.abs(t.payable - (t.byFf.A.payable + t.byFf.B.payable + t.byFf.none.payable)) < 1e-6);
+// точные заказы WB важнее остатков: товар 1 в день 10.10 целиком ушёл на B (цена 30), не 75/25
+const oi = T.ordersIndex([{ nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }, { nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }]);
+const te = compute([{ nm_id: 1, d: '2026-10-10', orders_fbs: 4 }], [], '2026-10-10', '2026-10-10', '2026-10-12', shares, { daily: {}, snapshot: {} }, terms, oi);
+assert.strictEqual(Math.round(te.byFf.B.ship), 120); assert.ok(!te.byFf.A);
 // будущее не считается
 assert.strictEqual(compute([], [], '2026-10-20', '2026-10-31', '2026-10-12', shares, stock, terms).storage, 0);
 // профит: ФФ готовой суммой за период

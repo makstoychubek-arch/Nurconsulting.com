@@ -29,4 +29,10 @@ assert.deepStrictEqual(T.gaps(idx, 'A', 'ship', '2026-09-01', '2026-10-05'), [{ 
 idx = T.index(rows);
 assert.strictEqual(T.shipFor(idx, [{ k: 'A', w: 0.75 }, { k: 'B', w: 0.25 }], '2026-10-01'), 45);
 assert.strictEqual(T.shipFor(idx, [{ k: 'Z', w: 1 }], '2026-10-01'), null);
+// заказы: товар 7 в день 10.10 — 3 заказа на A и 1 на B
+const oi = T.ordersIndex([{ nm_id: 7, order_date: '2026-10-10', ff_name: 'A' }, { nm_id: 7, order_date: '2026-10-10', ff_name: 'A' }, { nm_id: 7, order_date: '2026-10-10', ff_name: 'A' }, { nm_id: 7, order_date: '2026-10-10', ff_name: 'B' }]);
+assert.deepStrictEqual(T.distFor(oi, 7, '2026-10-10'), [{ k: 'A', w: 0.75 }, { k: 'B', w: 0.25 }]);
+assert.deepStrictEqual(T.distFor(oi, 7, '2026-10-11'), [{ k: 'A', w: 0.75 }, { k: 'B', w: 0.25 }]);   // день раньше
+assert.strictEqual(T.distFor(oi, 7, '2026-10-13'), null);
+assert.strictEqual(T.distFor(oi, 8, '2026-10-10'), null);
 console.log('ff-terms_test: ok');

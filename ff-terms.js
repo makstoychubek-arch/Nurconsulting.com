@@ -50,7 +50,32 @@
         shares.forEach(function (x) { var t = at(idx, x.k, 'ship', d); if (t) { sum += x.w * Number(t.value); has = true; } });
         return has ? sum : null;
     }
-    var api = { addDays: addDays, fmtD: fmtD, index: index, at: at, plan: plan, gaps: gaps, shipFor: shipFor };
+    // Заказы FBS с номером склада (fbs_orders) → индекс: на какие ФФ упали заказы товара в день.
+    function ordersIndex(rows) {
+        var by = {}, days = {};
+        (rows || []).forEach(function (r) {
+            if (!r.order_date || !r.nm_id) return;
+            days[r.order_date] = true;
+            var k = r.nm_id + '|' + r.order_date, m = by[k] = by[k] || {};
+            var ff = r.ff_name || 'none';
+            m[ff] = (m[ff] || 0) + 1;
+        });
+        return { by: by, days: days };
+    }
+    // Доли ФФ по заказам товара за день (и за день раньше, если в этот день заказов нет); null — данных нет.
+    function distFor(oidx, nm, d) {
+        if (!oidx) return null;
+        var m = oidx.by[nm + '|' + d];
+        if (!m) m = oidx.by[nm + '|' + addDays(d, -1)];
+        if (!m) return null;
+        var tot = 0, k;
+        for (k in m) tot += m[k];
+        if (!tot) return null;
+        var out = [];
+        for (k in m) out.push({ k: k, w: m[k] / tot });
+        return out;
+    }
+    var api = { ordersIndex: ordersIndex, distFor: distFor, addDays: addDays, fmtD: fmtD, index: index, at: at, plan: plan, gaps: gaps, shipFor: shipFor };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.FfTerms = api;
 })(typeof window !== 'undefined' ? window : globalThis);
