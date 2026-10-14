@@ -41,8 +41,7 @@
     <title>NR Space</title>
     <script defer src="/nr-monitor.js"></script>
     <script defer src="/nr-perf.js"></script>
-    <script defer src="/nr-mascot.js"></script>
-    <link rel="stylesheet" href="/dist/tailwind.481371f943.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.9d8206b5c9.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -8404,7 +8403,7 @@
         clearTimeout(hideTimer);
         if (!p || p.state === 'none' || p.state === 'forbidden' || p.state === 'no_token') { b.innerHTML = ''; return; }
         if (p.state === 'running') {
-            b.innerHTML = '<div class="nr-sync"><img src="/img/leopard-mini.svg" width="26" height="26" alt="" aria-hidden="true" style="vertical-align:middle;margin-right:8px"><b>Загружаем данные из Wildberries</b> — ' + p.percent + '%, осталось ' + etaText(p.eta_minutes) +
+            b.innerHTML = '<div class="nr-sync"><b>Загружаем данные из Wildberries</b> — ' + p.percent + '%, осталось ' + etaText(p.eta_minutes) +
                 '<div class="nr-sync-bar"><i style="width:' + Math.max(2, p.percent) + '%"></i></div>' +
                 '<small>Можно закрыть страницу: загрузка продолжится на сервере. Свежие дни появляются в таблице первыми.</small></div>';
         } else if (p.state === 'error') {
@@ -8485,7 +8484,7 @@
 <script src="/dist/ad-autopilot-ui.ef28a17b6a.min.js"></script>
 <script src="/dist/ads-campaign-detail.a424906d17.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
-<script src="/dist/nr-skeleton.c8c5c8be36.min.js"></script>
+<script src="/dist/nr-skeleton.c725fa0ddd.min.js"></script>
 <script src="/dist/nr-themes.fdc7bec148.min.js"></script>
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.2db357b49f.min.js"></script>
