@@ -1201,3 +1201,7 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .ff-auto { display: grid; gap: 2px; padding: 10px 12px; margin: 6px 0 4px; border-radius: 12px; background: #eef3ff; color: #1f2547; font-size: 12.5px; text-align: left; } .ff-auto b { font-size: 13px; } .ff-auto small { color: #5b6475; font-size: 11px; margin-top: 2px; }
 
 .gs-delbatch { margin-left: 8px; padding: 2px 10px; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: transparent; color: #fff; font: inherit; font-size: 11px; cursor: pointer; } .gs-delbatch:hover { background: #dc2626; border-color: #dc2626; }
+/* Логистика: ФФ и коробов в шапке партии */
+.gs-ffbox { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; } .gs-ffsel { width: 150px; } .gs-boxes { width: 84px; }
+
+.fbf-blk[data-kind=box] { background: #eefaf3; color: #14361f; }

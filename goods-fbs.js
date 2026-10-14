@@ -87,20 +87,20 @@
 
     // Один блок тарифа ФФ: вид (ship | storage), текущее значение, форма «с даты», история и дыры.
     function termBlock(ff, kind, idx) {
-        var t = today(), cur = T().at(idx, ff.name, kind, t), isSto = kind === 'storage';
+        var t = today(), cur = T().at(idx, ff.name, kind, t), isSto = kind === 'storage', isBox = kind === 'box';
         var list = (idx[ff.name + '|' + kind] || []).slice().reverse();
         var first = list.length ? list[list.length - 1].date_from : null;
         var gaps = first ? T().gaps(idx, ff.name, kind, first, t) : [];
         var now = cur
-            ? 'Сейчас: <b>' + fmt(cur.value) + ' ₽</b>' + (isSto ? ' за шт/сутки' + (cur.daily_cap != null ? ', лимит ' + fmt(cur.daily_cap) + ' ₽/сутки' : '') : ' за заказ') + ' · курс ' + (cur.fx_rate ? fmt(cur.fx_rate) + ' (ФФ)' : fmt(state.rub) + ' (НБКР)') + ' → ' + fmt(Number(cur.value) * (Number(cur.fx_rate) || state.rub)) + ' сом'
+            ? 'Сейчас: <b>' + fmt(cur.value) + ' ₽</b>' + (isSto ? ' за шт/сутки' + (cur.daily_cap != null ? ', лимит ' + fmt(cur.daily_cap) + ' ₽/сутки' : '') : (isBox ? ' за короб' : ' за заказ')) + ' · курс ' + (cur.fx_rate ? fmt(cur.fx_rate) + ' (ФФ)' : fmt(state.rub) + ' (НБКР)') + ' → ' + fmt(Number(cur.value) * (Number(cur.fx_rate) || state.rub)) + ' сом'
             : '<span class="fbf-none">Цена не задана</span>';
         var hist = list.map(function (x) {
             return '<div class="fbf-h"><span>с ' + esc(T().fmtD(x.date_from)) + (x.date_to ? ' по ' + esc(T().fmtD(x.date_to)) : ' и дальше') + '</span><b>' + fmt(x.value) + ' ₽' + (x.daily_cap != null ? ' · лимит ' + fmt(x.daily_cap) : '') + '</b>' +
                 '<button type="button" class="fbx-tx" data-term-del="' + esc(x.id) + '" title="Удалить период">×</button></div>';
         }).join('');
         var warn = gaps.length ? '<div class="fbf-warn">Нет цены: ' + gaps.map(function (g) { return esc(T().fmtD(g.from)) + (g.to !== g.from ? '–' + esc(T().fmtD(g.to)) : ''); }).join(', ') + '</div>' : '';
-        return '<div class="fbf-blk" data-ff="' + esc(ff.name) + '" data-kind="' + kind + '"><div class="fbf-bt">' + (isSto ? 'Хранение' : 'Отправка') + '</div><div class="fbf-now">' + now + '</div>' + warn +
-            '<div class="fbf-f"><label>' + (isSto ? '₽ за шт в сутки' : '₽ за 1 заказ') + '<input type="text" inputmode="decimal" class="fbf-v" placeholder="0"></label>' +
+        return '<div class="fbf-blk" data-ff="' + esc(ff.name) + '" data-kind="' + kind + '"><div class="fbf-bt">' + (isSto ? 'Хранение' : (isBox ? 'Отправка поставок' : 'Отправка')) + '</div><div class="fbf-now">' + now + '</div>' + warn +
+            '<div class="fbf-f"><label>' + (isSto ? '₽ за шт в сутки' : (isBox ? '₽ за короб' : '₽ за 1 заказ')) + '<input type="text" inputmode="decimal" class="fbf-v" placeholder="0"></label>' +
             (isSto ? '<label>Лимит ₽/сутки<input type="text" inputmode="decimal" class="fbf-c" placeholder="без лимита"></label>' : '') +
             '<label title="Курс, по которому ФФ переводит рубли в сомы. Пусто — курс НБКР на день">Курс ФФ ₽→сом<input type="text" inputmode="decimal" class="fbf-x" placeholder="НБКР"></label>' +
             '<label>С даты<input type="date" class="fbf-d" value="' + t + '"></label>' +
@@ -129,7 +129,7 @@
         });
         var cards = state.ffs.map(function (f) {
             return '<div class="fbf"><div class="fbf-h0"><b>' + esc(f.name) + '</b><small>' + fmt(f.qty) + ' шт · ' + fmt(f.arts) + ' арт.</small></div>' +
-                termBlock(f, 'ship', idx) + termBlock(f, 'storage', idx) + '</div>';
+                termBlock(f, 'ship', idx) + termBlock(f, 'storage', idx) + termBlock(f, 'box', idx) + '</div>';
         }).join('');
         var body = rows.map(function (r) {
             return '<div class="fbx-row">' + photoOf(r) +
