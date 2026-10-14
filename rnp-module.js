@@ -5027,12 +5027,18 @@ const RNP = (() => {
             const rate = (nm, kind, d) => FR
                 ? FR.rateOn(price[nm] || {}, kind, d)
                 : Number((price[nm] || {})[kind === 'ship' ? 'fbs_ship_price' : 'fbs_storage_day']) || 0;
+            // Если отправка ФФ уже входит в себестоимость товара (по умолчанию), второй раз в расходы РНП её не добавляем.
+            let shipInCost = true;
+            try {
+                const st = await _db.from('ff_settings').select('ship_in_cost').eq('cabinet_id', _cab).maybeSingle();
+                if (st && st.data) shipInCost = st.data.ship_in_cost !== false;
+            } catch (e) { /* нет настройки — отправка в себестоимости */ }
             const apply = (row, nm, o, d) => {
-                const p = { ship: rate(nm, 'ship', d) };
+                const p = { ship: shipInCost ? 0 : rate(nm, 'ship', d) };
                 const cost = o * p.ship;
                 row.delivery_sum = (row.delivery_sum || 0) - (row.fbs_ship_cost || 0) + cost;
                 row.fbs_ship_cost = cost;
-                row.fbs_ship_missing = o > 0 && !p.ship ? o : 0;
+                row.fbs_ship_missing = !shipInCost && o > 0 && !p.ship ? o : 0;
             };
             const seen = new Set();
             (data || []).forEach(r => {

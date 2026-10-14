@@ -1161,3 +1161,6 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .fbx-term-f .nx-go { margin: 0; padding: 9px 18px; font-size: 13px; }
 .fbx-tlist { margin-top: 10px; border-top: 1px solid rgba(240,140,60,.25); } .fbx-tl { display: flex; align-items: center; gap: 14px; padding: 6px 0; font-size: 12.5px; } .fbx-tl b { font-variant-numeric: tabular-nums; } .fbx-tl span:last-of-type { margin-left: auto; color: #7a5a3c; }
 .fbx-tx { border: 0; background: transparent; cursor: pointer; font-size: 16px; color: #9a6b4a; } .fbx-tx:hover { color: #e5484d; }
+
+.fbx-inc { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; margin-bottom: 10px; border-radius: 14px; background: var(--surface-solid); border: 1px solid var(--border); cursor: pointer; }
+.fbx-inc input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: none; } .fbx-inc b { display: block; font-size: 13px; } .fbx-inc small { display: block; color: var(--text-muted); font-size: 11.5px; line-height: 1.4; margin-top: 2px; }
