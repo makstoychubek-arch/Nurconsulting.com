@@ -568,15 +568,15 @@ html[data-bg] #nr-bg { display: block; }
 #nr-bg i { position: absolute; border-radius: 50%; will-change: transform; }
 html[data-bg="live"] { background: #f4f5f8; }
 html[data-bg] body { background: transparent !important; background-image: none !important; }
-html[data-bg="live"] #nr-bg i { filter: blur(120px); opacity: .42; }
-html[data-bg="live"] #nr-bg i:nth-child(1) { width: 56vw; height: 56vw; left: -10vw; top: -18vw; background: #8ec5ff; animation: nrbg1 48s ease-in-out infinite alternate; }
-html[data-bg="live"] #nr-bg i:nth-child(2) { width: 48vw; height: 48vw; right: -12vw; top: 6vw; background: #c9b6ff; animation: nrbg2 58s ease-in-out infinite alternate; }
-html[data-bg="live"] #nr-bg i:nth-child(3) { width: 44vw; height: 44vw; left: 22vw; bottom: -20vw; background: #ffd7b0; animation: nrbg3 66s ease-in-out infinite alternate; }
+/* Без filter: blur — размытие на движущихся слоях тормозило всю страницу. Мягкий край даёт radial-gradient. */
+#nr-bg i { filter: none; background-repeat: no-repeat; }
+html[data-bg="live"] #nr-bg i:nth-child(1) { width: 62vw; height: 62vw; left: -14vw; top: -22vw; background: radial-gradient(closest-side, rgba(142,197,255,.62), rgba(142,197,255,0)); animation: nrbg1 48s ease-in-out infinite alternate; }
+html[data-bg="live"] #nr-bg i:nth-child(2) { width: 54vw; height: 54vw; right: -16vw; top: 2vw; background: radial-gradient(closest-side, rgba(201,182,255,.62), rgba(201,182,255,0)); animation: nrbg2 58s ease-in-out infinite alternate; }
+html[data-bg="live"] #nr-bg i:nth-child(3) { width: 50vw; height: 50vw; left: 18vw; bottom: -24vw; background: radial-gradient(closest-side, rgba(255,215,176,.7), rgba(255,215,176,0)); animation: nrbg3 66s ease-in-out infinite alternate; }
 html[data-bg="flow"] { background: #050506; }
-html[data-bg="flow"] #nr-bg i { filter: blur(150px); opacity: .30; }
-html[data-bg="flow"] #nr-bg i:nth-child(1) { width: 60vw; height: 44vw; left: -14vw; top: -12vw; background: #7a4a1e; animation: nrbg1 52s ease-in-out infinite alternate; }
-html[data-bg="flow"] #nr-bg i:nth-child(2) { width: 58vw; height: 48vw; right: -16vw; bottom: -18vw; background: #1c3a66; animation: nrbg2 60s ease-in-out infinite alternate; }
-html[data-bg="flow"] #nr-bg i:nth-child(3) { width: 36vw; height: 30vw; left: 34vw; top: 20vw; background: #4a2f5e; opacity: .18; animation: nrbg3 70s ease-in-out infinite alternate; }
+html[data-bg="flow"] #nr-bg i:nth-child(1) { width: 68vw; height: 50vw; left: -18vw; top: -16vw; background: radial-gradient(closest-side, rgba(122,74,30,.5), rgba(122,74,30,0)); animation: nrbg1 52s ease-in-out infinite alternate; }
+html[data-bg="flow"] #nr-bg i:nth-child(2) { width: 66vw; height: 54vw; right: -20vw; bottom: -22vw; background: radial-gradient(closest-side, rgba(28,58,102,.55), rgba(28,58,102,0)); animation: nrbg2 60s ease-in-out infinite alternate; }
+html[data-bg="flow"] #nr-bg i:nth-child(3) { width: 42vw; height: 36vw; left: 30vw; top: 16vw; background: radial-gradient(closest-side, rgba(74,47,94,.4), rgba(74,47,94,0)); animation: nrbg3 70s ease-in-out infinite alternate; }
 @keyframes nrbg1 { to { transform: translate(18vw, 14vw) scale(1.15); } }
 @keyframes nrbg2 { to { transform: translate(-22vw, 10vw) scale(.9); } }
 @keyframes nrbg3 { to { transform: translate(-16vw, -12vw) scale(1.2); } }
@@ -586,9 +586,9 @@ html[data-bg] .main-content, html[data-bg] .rnp-workspace { background: transpar
 html[data-bg] .sidebar-rail, html[data-bg] header.app-header, html[data-bg] .rnp-gh-card, html[data-bg] .rnp-head-marquee-pin,
 html[data-bg] .metric-card, html[data-bg] .widget-card, html[data-bg] .kpi-hero-card, html[data-bg] .ak-agent {
     background: var(--nrt-glass) !important; border-color: var(--nrt-glass-b) !important;
-    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
 }
-html[data-bg="live"] { --nrt-glass: rgba(255,255,255,.62); --nrt-glass-b: rgba(255,255,255,.7); }
+/* Стекло без backdrop-filter (он пересчитывался на каждый кадр и тормозил весь сайт): просто плотнее заливка. */
+html[data-bg="live"] { --nrt-glass: rgba(255,255,255,.78); --nrt-glass-b: rgba(255,255,255,.85); }
 html[data-bg="flow"] { --nrt-glass: rgba(255,255,255,.025); --nrt-glass-b: rgba(255,255,255,.13); --radius-card: 24px; }
 html[data-bg="flow"] .sidebar-rail { border-right: 1px solid var(--nrt-glass-b); }
 /* выбор темы */
@@ -599,12 +599,11 @@ html[data-bg="flow"] .sidebar-rail { border-right: 1px solid var(--nrt-glass-b);
 .nrt-opt b { margin-left: auto; opacity: 0; font-size: 12px; } .nrt-opt.on b { opacity: 1; }
 .nrt-sw { width: 30px; height: 22px; border-radius: 7px; border: 1px solid var(--border, rgba(0,0,0,.1)); flex: none; }
 /* Рабочая область («белый блок») и карточки в ней — стекло в живых темах */
-html[data-bg="live"] { --nrt-area: rgba(255,255,255,.55); --nrt-card: rgba(255,255,255,.72); }
+html[data-bg="live"] { --nrt-area: rgba(255,255,255,.66); --nrt-card: rgba(255,255,255,.86); }
 html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,255,255,.035); }
 @media (min-width: 769px) {
   html[data-bg] body .main-rail > .main-content:not(.rnp-compact) {
     background: var(--nrt-area) !important; border-color: var(--nrt-glass-b);
-    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
   }
   html[data-bg] body .main-content:not(.rnp-compact) :is(.widget-card, .metric-card, .pnl-card, .pnl-mini, .pnl-chart-card, .dash-cost-card, .kpi-hero-card, .pricing-card, .chart-box) {
     background: var(--nrt-card) !important; border-color: var(--nrt-glass-b);
@@ -1012,3 +1011,25 @@ body.ggx-on #gg-view-now { display: none !important; }
 #tab-goods-groups #gg-daily-table thead th, #tab-goods-groups #gg-cost-table thead th { background: transparent !important; color: var(--text-muted); font-size: 10.5px; letter-spacing: .05em; }
 body:not(.ggx-on) #ggx-cards { display: none !important; }
 html body #tab-goods-groups #gg-cost-table { display: table !important; width: 100% !important; }
+
+/* Настройки → Безопасность → доступ к NR Space: кнопки действий */
+.admin-space-actions.ax-box, .ax-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ax { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 1; cursor: pointer; white-space: nowrap; border: 1px solid transparent; transition: transform .12s ease, box-shadow .15s ease, background .15s ease; }
+.ax svg { width: 14px; height: 14px; flex: none; }
+.ax:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(40,30,90,.16); }
+.ax:disabled { opacity: .5; cursor: default; }
+.ax-test { background: linear-gradient(135deg, #22c55e, #10b981); color: #fff; box-shadow: 0 4px 12px rgba(16,185,129,.35); }
+.ax-view { background: #e8f0ff; color: #1d4ed8; border-color: #c9dbff; }
+.ax-staff { background: #f3efff; color: #5b3fd4; border-color: #ddd3ff; }
+.ax-staff.on { background: linear-gradient(135deg, #7a5cf0, #5b3fd4); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(91,63,212,.35); }
+.ax-full { background: #fff4dc; color: #b45309; border-color: #fde2a6; }
+.ax-full.on { background: linear-gradient(135deg, #f59e0b, #ef7a2a); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(239,122,42,.35); }
+.ax-ok { background: linear-gradient(135deg, #22c55e, #10b981); color: #fff; box-shadow: 0 4px 12px rgba(16,185,129,.35); }
+.ax-danger { background: transparent; color: #dc2626; border-color: #fecaca; padding: 6px 10px 6px 8px; font-weight: 600; }
+.ax-danger:hover:not(:disabled) { background: #fef2f2; }
+.ax-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; flex: none; }
+html[data-theme="neon"] .ax-view { background: rgba(59,130,246,.18); color: #93c5fd; border-color: rgba(59,130,246,.35); }
+html[data-theme="neon"] .ax-staff { background: rgba(122,92,240,.18); color: #c4b5fd; border-color: rgba(122,92,240,.4); }
+html[data-theme="neon"] .ax-full { background: rgba(245,158,11,.16); color: #fcd34d; border-color: rgba(245,158,11,.4); }
+html[data-theme="neon"] .ax-danger { color: #fca5a5; border-color: rgba(248,113,113,.4); }
+html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,113,113,.12); }
