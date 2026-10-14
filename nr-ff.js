@@ -14,10 +14,10 @@
     function $(id) { return document.getElementById(id); }
     function selKey() { return 'ff_sel_' + S.cab; }
 
-    function blank() { return { storage: 0, ship: 0, swap: 0, cancel: 0, missing: 0, payable: 0 }; }
+    function blank() { return { storage: 0, ship: 0, box: 0, boxMissing: 0, swap: 0, cancel: 0, missing: 0, payable: 0 }; }
     // Чистый расчёт (для тестов). shares: { nm: [{k: 'АМАН ФФ 3', w: 0.7}] } — доли остатка FBS по ФФ; terms — строки ff_terms.
     // stock: { daily: {дата: {nm: шт}}, snapshot: {nm: шт} }.
-    function compute(orders, adjustments, from, to, todayStr, shares, stock, terms, oidx, rates) {
+    function compute(orders, adjustments, from, to, todayStr, shares, stock, terms, oidx, rates, boxes) {
         var T = root.FfTerms, idx = T.index(terms), end = to > todayStr ? todayStr : to;
         var by = {};
         function slot(k) { return by[k] || (by[k] = blank()); }
@@ -50,13 +50,18 @@
                 slot(k).storage += charge * T.fxFor(t, rates, d);
             });
         }
+        // поставки: коробов × цена за короб ФФ на дату отправки
+        (boxes || []).forEach(function (b) {
+            var t = T.at(idx, b.ff, 'box', b.d), sl = slot(b.ff || 'none');
+            if (t) sl.box += b.boxes * Number(t.value) * T.fxFor(t, rates, b.d); else sl.boxMissing += b.boxes;
+        });
         (adjustments || []).forEach(function (a) {
             var t = slot(a.ff_name || 'none'), v = Number(a.amount) || 0;
             if (a.kind === 'swap') t.swap += v; else t.cancel += v;
         });
         var total = blank();
         Object.keys(by).forEach(function (k) {
-            var t = by[k]; t.payable = t.storage + t.ship - t.swap - t.cancel;
+            var t = by[k]; t.payable = t.storage + t.ship + t.box - t.swap - t.cancel;
             Object.keys(total).forEach(function (f) { total[f] += t[f]; });
         });
         total.byFf = by;
@@ -70,6 +75,20 @@
             (r.data || []).forEach(function (x) { out[x.date] = Number(x.rate); });
         } catch (e) { /* курсов нет — 1 */ }
         return out;
+    }
+    // Поставки периода с ФФ и коробами: одна запись на партию (короба берём один раз).
+    async function shipmentBoxes(db, cab, from, to) {
+        var by = {};
+        try {
+            var r = await db.from('goods_shipments').select('batch,ff_name,boxes,sent_date').eq('cabinet_id', cab).gte('sent_date', from).lte('sent_date', to).gt('boxes', 0).range(0, 4999);
+            (r.data || []).forEach(function (x) {
+                var k = (x.batch || '') + '|' + (x.ff_name || '');
+                var cur = by[k];
+                if (!cur) by[k] = { ff: x.ff_name || 'none', boxes: Number(x.boxes) || 0, d: x.sent_date, batch: x.batch || '' };
+                else { cur.boxes = Math.max(cur.boxes, Number(x.boxes) || 0); if (x.sent_date < cur.d) cur.d = x.sent_date; }
+            });
+        } catch (e) { /* нет колонок — без поставок */ }
+        return Object.keys(by).map(function (k) { return by[k]; });
     }
     function T0() { return root.FfTerms; }
     async function fbsOrders(db, cab, from, to) {
@@ -102,7 +121,8 @@
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + '</b></div></div>' +
             '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payable) + '</div>' +
             '<div class="ff-sub" title="Выплатить = хранение + отправка − подмены − отмены">хранение ' + fmt(t.storage) + ' + отправка ' + fmt(t.ship) + '</div>' +
-            (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите цену ФФ в «Товары → FBS»</div>' : '');
+            (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите цену ФФ в «Товары → FBS»</div>' : '') +
+            (t.boxMissing ? '<div class="ff-warn">Нет цены за короб: ' + fmt(t.boxMissing) + ' коробов — укажите в «Товары → FBS»</div>' : '');
     }
 
     // «Динамика заказов»: столбик — все заказы дня, синяя часть — FBS-заказы выбранного ФФ.
@@ -206,6 +226,7 @@
             termsData(db, cab, from, end).catch(function () { return { terms: [], daily: {} }; }),
             fbsOrders(db, cab, T0().addDays(from, -1), end),
             rubRates(db, from, end),
+            shipmentBoxes(db, cab, from, to),
             db.rpc('dashboard_ff_penalties', { p_cabinet_id: cab, p_from: from, p_to: to }).then(function (r) { return r.error ? [] : (r.data || []); }, function () { return []; }),
         ]);
         if (res[0].error) throw res[0].error;
@@ -227,11 +248,12 @@
         });
         S.items.forEach(function (a) { if (a.ff_name && !(a.ff_name in wh)) wh[a.ff_name] = 0; });
         res[4].forEach(function (o) { if (o.ff_name && !(o.ff_name in wh)) wh[o.ff_name] = 0; });
+        res[6].forEach(function (b) { if (b.ff && b.ff !== 'none' && !(b.ff in wh)) wh[b.ff] = 0; });
         S.providers = Object.keys(wh).sort(function (a, b) { return wh[b] - wh[a] || (a < b ? -1 : 1); }).map(function (k) { return { id: k, name: k }; });
         // Штрафы WB «подмена МП» и «отмена продавцом» берём из финотчёта автоматически и делим по ФФ товара; ручные записи — сверху.
         S.auto = { swap: 0, cancel: 0, swapN: 0, cancelN: 0 };
         var oidx = T0().ordersIndex(res[4]), autoAdj = [];
-        (res[6] || []).forEach(function (p) {
+        (res[7] || []).forEach(function (p) {
             var amt = Number(p.amount) || 0, n = Number(p.cnt) || 0, nm = Number(p.nm_id);
             S.auto[p.kind] += amt; S.auto[p.kind + 'N'] += n;
             // ФФ штрафа — по заказам этого товара в день (WB), иначе по остатку, иначе «Без ФФ»
@@ -239,7 +261,7 @@
             if (sh && sh.length) sh.forEach(function (x) { autoAdj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k === 'none' ? null : x.k }); });
             else autoAdj.push({ kind: p.kind, amount: amt, ff_name: null });
         });
-        var t = compute(S.orders, autoAdj.concat(S.items), from, to, today(), S.shares, { daily: res[3].daily, snapshot: snapshot }, res[3].terms, oidx, res[5]);
+        var t = compute(S.orders, autoAdj.concat(S.items), from, to, today(), S.shares, { daily: res[3].daily, snapshot: snapshot }, res[3].terms, oidx, res[5], res[6]);
         S.total = t; S.byFf = t.byFf || {};
         if (S.sel !== 'all' && S.sel !== 'none' && !(S.sel in wh)) S.sel = 'all';
         renderSummary(); renderChart();

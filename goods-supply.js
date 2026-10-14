@@ -19,7 +19,7 @@
             statuses: [['plan', 'В плане'], ['sewing', 'В пошиве'], ['done', 'Готово']], openStatus: ['plan', 'sewing'],
         },
     };
-    var st = { arts: [], draftBatches: [], rows: { ship: [], prod: [] }, cab: null, showDone: { ship: false, prod: false }, loadedCab: null };
+    var st = { ffs: [], arts: [], draftBatches: [], rows: { ship: [], prod: [] }, cab: null, showDone: { ship: false, prod: false }, loadedCab: null };
 
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function sb() { return typeof supabase !== 'undefined' ? supabase : root.supabase; }
@@ -43,6 +43,18 @@
         if (!cab || !sb()) return;
         var a = await sb().from('rnp_articles').select('nm_id,name,manual_data,is_active,photo_url').eq('cabinet_id', cab).order('nm_id').range(0, 1999);
         st.arts = (a.data || []).filter(function (x) { return x.is_active !== false; });
+        // ФФ кабинета (склады продавца FBS) — для выбора «кто отправлял» в поставке
+        try {
+            var names = {};
+            for (var f = 0; ; f += 1000) {
+                var w = await sb().from('wb_stocks').select('warehouse_name').eq('cabinet_id', cab).eq('stock_scheme', 'fbs').range(f, f + 999);
+                (w.data || []).forEach(function (x) { if (x.warehouse_name) names[x.warehouse_name] = true; });
+                if (!w.data || w.data.length < 1000) break;
+            }
+            var tn = await sb().from('ff_terms').select('ff_name').eq('cabinet_id', cab).range(0, 999);
+            (tn.data || []).forEach(function (x) { if (x.ff_name) names[x.ff_name] = true; });
+            st.ffs = Object.keys(names).sort();
+        } catch (e) { st.ffs = []; }
         var s = await sb().from('goods_shipments').select('*').eq('cabinet_id', cab).order('sort_idx', { ascending: true }).order('created_at', { ascending: true }).range(0, 1999);
         var p = await sb().from('production_orders').select('*').eq('cabinet_id', cab).order('created_at', { ascending: false }).range(0, 1999);
         st.rows.ship = s.data || [];
@@ -92,6 +104,12 @@
         return { order: order, map: map };
     }
 
+    function ffOptions(cur) {
+        var list = st.ffs.slice();
+        if (cur && list.indexOf(cur) < 0) list.unshift(cur);
+        return list.map(function (n) { return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+    }
+
     function renderShip() {
         var host = pane('ship');
         if (!host) return;
@@ -112,6 +130,8 @@
             var noNm = all.filter(function (r) { return !r.nm_id; }).length;
             body += '<tr class="gs-grp" data-batch="' + esc(b) + '"><td colspan="' + colspan + '"><input class="gs-batch gs-in" value="' + esc(b) + '" placeholder="Название партии (например «№7 ИП Уркунбаев 100%»)">' +
                 '<span class="gs-gtot">' + (tot ? 'всего ' + tot.toLocaleString('ru') + ' шт' : '') + '</span>' +
+                '<span class="gs-ffbox"><select class="gs-in gs-ffsel gs-edit" data-bf="ff_name" title="Кто отправлял (ФФ)"><option value="">ФФ: не выбран</option>' + ffOptions(all[0] && all[0].ff_name) + '</select>' +
+                '<input class="gs-in gs-boxes gs-edit" data-bf="boxes" type="number" min="0" placeholder="коробов" title="Сколько коробов в поставке (оплата ФФ — за короб)" value="' + (all[0] && all[0].boxes ? all[0].boxes : '') + '"></span>' +
                 '<button type="button" class="gs-rnp-sw gs-edit' + (onAll ? ' is-on' : (onSome ? ' is-part' : '')) + '" data-act="rnpbatch" title="' + esc((onAll ? 'Поставка показывается в РНП (строка «В пути»). Нажмите, чтобы убрать.' : 'Показать эту поставку в РНП (строка «В пути»).') + (noNm ? ' Строк без артикула WB: ' + noNm + ': они в РНП не попадут.' : '')) + '">' + (onAll ? '✓ В РНП' : (onSome ? '◐ В РНП' : 'В РНП')) + '</button>' +
                 '<button type="button" class="gs-addrow gs-edit" data-act="addrow">+ строка</button>' +
                 '<button type="button" class="gs-delbatch gs-edit" data-act="delbatch" title="Удалить партию целиком">Удалить партию</button></td></tr>';
@@ -176,6 +196,8 @@
             var el = e.target;
             if (el.getAttribute('data-act') === 'done') { st.showDone.ship = el.checked; renderShip(); return; }
             var tr = el.closest('tr');
+            var bf = el.getAttribute('data-bf');
+            if (bf && tr) { batchField(tr.getAttribute('data-batch') || '', bf, el.value); return; }
             if (el.classList.contains('gs-batch')) { renameBatch(tr.getAttribute('data-batch') || '', String(el.value || '').trim()); return; }
             var f = el.getAttribute('data-f');
             if (!f || !tr) return;
@@ -288,8 +310,19 @@
         changed();
     }
 
+    // ФФ и число коробов относятся ко всей поставке: пишем во все её строки (в расчёте короба берутся один раз на партию).
+    function batchField(batch, f, val) {
+        var rows = st.rows.ship.filter(function (r) { return (r.batch || '') === batch; });
+        rows.forEach(function (r) {
+            if (f === 'boxes') r.boxes = val === '' ? null : Math.max(0, parseInt(val, 10) || 0); else r.ff_name = val || null;
+            var tr = pane('ship').querySelector('tr.gs-row[data-id="' + (r.id || '') + '"]') || pane('ship').querySelector('tr.gs-row[data-tmp="' + (r._tmp || '') + '"]');
+            if (tr) saveShip(r, tr);
+        });
+    }
+
     function addShipRow(batch) {
-        var r = { _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, article: '', in_rnp: true, batch: batch, method: '', product: '', origin: 'Бишкек', cargo: '', delivery: 'АВТО', price: null, sizes: {}, status: 'в пути', note: '', sent_date: new Date().toISOString().slice(0, 10) };
+        var sib = st.rows.ship.filter(function (x) { return (x.batch || '') === batch; })[0] || {};
+        var r = { ff_name: sib.ff_name || null, boxes: sib.boxes || null, _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, article: '', in_rnp: true, batch: batch, method: '', product: '', origin: 'Бишкек', cargo: '', delivery: 'АВТО', price: null, sizes: {}, status: 'в пути', note: '', sent_date: new Date().toISOString().slice(0, 10) };
         var idx = -1;
         st.rows.ship.forEach(function (x, i) { if ((x.batch || '') === batch) idx = i; });
         if (idx >= 0) st.rows.ship.splice(idx + 1, 0, r); else st.rows.ship.push(r);
@@ -301,7 +334,7 @@
     async function saveShip(r, tr) {
         if (!r.nm_id && !r.article) { tr.classList.add('gs-incomplete'); return; }
         tr.classList.remove('gs-incomplete');
-        var payload = { cabinet_id: st.cab, nm_id: r.nm_id || null, article: r.article || '', in_rnp: r.in_rnp === true, size: '', qty: shipTotal(r), sizes: r.sizes || {}, status: r.status || '', note: r.note || '', batch: r.batch || '', method: r.method || '', product: r.product || '', origin: r.origin || '', cargo: r.cargo || '', delivery: r.delivery || '', price: r.price == null ? null : r.price, sent_date: r.sent_date || null, updated_at: new Date().toISOString() };
+        var payload = { cabinet_id: st.cab, nm_id: r.nm_id || null, article: r.article || '', in_rnp: r.in_rnp === true, size: '', qty: shipTotal(r), sizes: r.sizes || {}, status: r.status || '', note: r.note || '', batch: r.batch || '', method: r.method || '', product: r.product || '', origin: r.origin || '', cargo: r.cargo || '', delivery: r.delivery || '', price: r.price == null ? null : r.price, sent_date: r.sent_date || null, ff_name: r.ff_name || null, boxes: r.boxes == null ? null : r.boxes, updated_at: new Date().toISOString() };
         try {
             var res;
             if (r.id) res = await sb().from('goods_shipments').update(payload).eq('id', r.id);

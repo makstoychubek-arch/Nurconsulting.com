@@ -34,6 +34,10 @@ assert.strictEqual(Math.round(te.byFf.B.ship), 120); assert.ok(!te.byFf.A);
 const fxT = [{ ff_name: 'B', kind: 'ship', value: 50, fx_rate: 1.06, date_from: '2026-09-01', date_to: null }, { ff_name: 'A', kind: 'ship', value: 50, fx_rate: null, date_from: '2026-09-01', date_to: null }];
 const fx = compute([{ nm_id: 2, d: '2026-10-10', orders_fbs: 10 }, { nm_id: 9, d: '2026-10-10', orders_fbs: 10 }], [], '2026-10-10', '2026-10-10', '2026-10-12', { 2: [{ k: 'B', w: 1 }], 9: [{ k: 'A', w: 1 }] }, { daily: {}, snapshot: {} }, fxT, null, { '2026-10-10': 1.04 });
 assert.strictEqual(Math.round(fx.byFf.B.ship), 530); assert.strictEqual(Math.round(fx.byFf.A.ship), 520);
+// поставки: 57 коробов × 1100 ₽ × курс ФФ 1,06 = 66 462 сом; без цены за короб — в «нет цены»
+const bx = compute([], [], '2026-10-01', '2026-10-12', '2026-10-12', {}, { daily: {}, snapshot: {} }, [{ ff_name: 'A', kind: 'box', value: 1100, fx_rate: 1.06, date_from: '2026-09-01', date_to: null }], null, {}, [{ ff: 'A', boxes: 57, d: '2026-10-05' }, { ff: 'B', boxes: 10, d: '2026-10-05' }]);
+assert.strictEqual(Math.round(bx.byFf.A.box), 66462); assert.strictEqual(bx.byFf.B.boxMissing, 10);
+assert.strictEqual(Math.round(bx.byFf.A.payable), 66462);
 // будущее не считается
 assert.strictEqual(compute([], [], '2026-10-20', '2026-10-31', '2026-10-12', shares, stock, terms).storage, 0);
 // профит: ФФ готовой суммой за период
