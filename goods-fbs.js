@@ -41,7 +41,7 @@
         var cab = state.cabinetId;
         var res = await Promise.all([
             fetchAll('wb_stocks', cab, 'nm_id, quantity, stock_scheme, warehouse_name', function (q) { return q.eq('stock_scheme', 'fbs'); }),
-            fetchAll('rnp_articles', cab, 'nm_id, name, manual_data'),
+            fetchAll('rnp_articles', cab, 'nm_id, name, manual_data, photo_url'),
         ]);
         var qty = {}, whs = {};
         res[0].forEach(function (s) {
@@ -60,6 +60,7 @@
                 article: String(md.seller_article || md.sa_name || a.name || '').trim(),
                 qty: qty[id],
                 md: md,
+                photo: a.photo_url || '',
                 ffs: Object.keys(whs[id] || {}).sort(function (a, b) { return whs[id][b] - whs[id][a]; }),
                 ship: R().rateOn(md, 'ship', today()) || null,
                 storage: R().rateOn(md, 'storage', today()) || null,
@@ -70,8 +71,13 @@
     function inputCell(r, field, value) {
         var shown = value === undefined || value === null || value === '' ? '' : String(value);
         var hist = R().describe(r.md, field);
-        return '<td class="gg-num gg-edit"><input class="gg-edit-input" type="text" inputmode="decimal" data-nm="' + r.nmId +
-            '" data-field="' + field + '" value="' + esc(shown) + '" placeholder="—" title="' + esc(hist || 'Не задано') + '"></td>';
+        return '<div class="fbx-ed"><input class="gg-edit-input" type="text" inputmode="decimal" data-nm="' + r.nmId +
+            '" data-field="' + field + '" value="' + esc(shown) + '" placeholder="—" title="' + esc(hist || 'Не задано') + '"></div>';
+    }
+    function photoOf(r) {
+        var u = r.photo;
+        if (!u && root.RNP && root.RNP.wbPhotoUrl) { try { u = root.RNP.wbPhotoUrl(r.nmId) || ''; } catch (e) {} }
+        return '<span class="ggx-ph" style="width:40px;height:40px"><i>' + esc((r.article || '?').charAt(0).toUpperCase()) + '</i>' + (u ? '<img src="' + esc(u) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
     }
 
     function render() {
@@ -89,22 +95,19 @@
         var totQty = 0, totSto = 0;
         var body = rows.map(function (r) {
             totQty += r.qty; totSto += num(r.storage);
-            return '<tr><td class="gg-art" title="' + esc(r.article) + '">' + esc(r.article || '—') + '</td>' +
-                '<td class="gg-col-nm gg-nm">' + r.nmId + '</td>' +
-                '<td class="gg-num">' + fmt(r.qty) + '</td>' +
-                '<td class="gg-ff" title="' + esc(r.ffs.join(', ')) + '">' + esc(r.ffs.join(', ') || '—') + '</td>' +
-                inputCell(r, 'ship', r.ship) + inputCell(r, 'storage', r.storage) + '</tr>';
+            return '<div class="fbx-row">' + photoOf(r) +
+                '<div class="fbx-nm"><b title="' + esc(r.article) + '">' + esc(r.article || '—') + '</b><small>WB ' + r.nmId + '</small></div>' +
+                '<div class="fbx-ff" title="' + esc(r.ffs.join(', ')) + '">' + (r.ffs.length ? r.ffs.map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') : '<em>—</em>') + '</div>' +
+                '<div class="fbx-q">' + fmt(r.qty) + '</div>' + inputCell(r, 'ship', r.ship) + inputCell(r, 'storage', r.storage) + '</div>';
         }).join('');
-        host.innerHTML = '<div class="gg-fbs-note">Значения действуют по периодам: после ввода сайт спросит, с какой даты. Показан тариф на сегодня, история — во всплывающей подсказке.</div>' +
-            '<div class="gg-table-scroll"><table class="gg-table"><thead><tr>' +
-            '<th class="gg-art">Артикул</th><th class="gg-col-nm gg-nm">WB</th><th class="gg-num">Остаток FBS</th><th class="gg-ff">ФФ</th>' +
-            '<th class="gg-num">Цена за 1 отправку</th><th class="gg-num">Хранение в день</th></tr>' +
-            '<tr class="gg-bulk"><th colspan="3" class="gg-bulk-h">Для всех товаров сразу: впишите значение — применится ко всем</th>' +
-            '<th class="gg-ff"></th>' +
-            '<th class="gg-num"><input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="ship" placeholder="для всех"></th>' +
-            '<th class="gg-num"><input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="storage" placeholder="для всех"></th></tr></thead><tbody>' + body +
-            '</tbody><tfoot><tr class="gg-foot"><td class="gg-art">Итого</td><td class="gg-col-nm"></td><td class="gg-num">' + fmt(totQty) +
-            '</td><td></td><td class="gg-num">—</td><td class="gg-num" id="gg-fbs-sto-total">' + fmt(totSto) + '</td></tr></tfoot></table></div>';
+        host.innerHTML = '<div class="fbx">' +
+            '<div class="ggx-kp fbx-kp"><div class="ggx-k k1"><small>Товаров на FBS</small><b>' + fmt(rows.length) + '</b></div><div class="ggx-k k2"><small>Остаток FBS, шт</small><b>' + fmt(totQty) + '</b></div>' +
+            '<div class="ggx-k k3"><small>Хранение в день, ₽</small><b id="gg-fbs-sto-total">' + fmt(totSto) + '</b></div></div>' +
+            '<div class="fbx-note">Значения действуют по периодам: после ввода сайт спросит, с какой даты. Показан тариф на сегодня, история — во всплывающей подсказке.</div>' +
+            '<div class="fbx-bulk"><div><b>Для всех товаров сразу</b><small>впишите значение — применится ко всем' + (needle ? ' найденным' : '') + '</small></div>' +
+            '<label>Цена за 1 отправку<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="ship" placeholder="для всех"></label>' +
+            '<label>Хранение в день<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="storage" placeholder="для всех"></label></div>' +
+            '<div class="fbx-row fbx-h"><span></span><span>АРТИКУЛ</span><span>ФФ</span><span class="n">ОСТАТОК</span><span class="n">ОТПРАВКА</span><span class="n">ХРАНЕНИЕ / ДЕНЬ</span></div>' + body + '</div>';
         host.querySelectorAll('.gg-bulk-in').forEach(function (el) {
             el.addEventListener('change', function () { saveAll(el); });
             el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
@@ -168,14 +171,25 @@
             if (ex.error) throw ex.error;
             (ex.data || []).forEach(function (a) { existing[Number(a.nm_id)] = a.manual_data || {}; });
         }
-        for (var j = 0; j < rows.length; j++) {
-            var r = rows[j];
+        var failed = [], lastErr = null;
+        async function one(r) {
             var md = mutate(existing[r.nmId] !== undefined ? existing[r.nmId] : r.md);
-            var res = (r.nmId in existing)
-                ? await sb.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', r.nmId)
-                : await sb.from('rnp_articles').upsert({ cabinet_id: cab, nm_id: r.nmId, name: r.article, is_active: false, manual_data: md, cost_price: 0 });
-            if (res.error) throw res.error;
-            r.md = md; r.ship = R().rateOn(md, 'ship', today()) || null; r.storage = R().rateOn(md, 'storage', today()) || null;
+            for (var attempt = 0; attempt < 3; attempt++) {
+                var res = (r.nmId in existing)
+                    ? await sb.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', r.nmId)
+                    : await sb.from('rnp_articles').upsert({ cabinet_id: cab, nm_id: r.nmId, name: r.article, is_active: false, manual_data: md, cost_price: 0 });
+                if (!res.error) { r.md = md; r.ship = R().rateOn(md, 'ship', today()) || null; r.storage = R().rateOn(md, 'storage', today()) || null; return; }
+                lastErr = res.error;
+                await new Promise(function (ok) { setTimeout(ok, 400 * (attempt + 1)); });
+            }
+            failed.push(r);
+        }
+        // по 6 параллельно: быстро и без перегруза; ошибки не обрывают остальные товары
+        for (var j = 0; j < rows.length; j += 6) await Promise.all(rows.slice(j, j + 6).map(one));
+        if (failed.length) {
+            var err = new Error('Не записалось ' + failed.length + ' из ' + rows.length + ' товаров: ' + String((lastErr && lastErr.message) || lastErr));
+            err.partial = true;
+            throw err;
         }
     }
     async function applyRate(rows, kind, value, from, to) {
@@ -211,6 +225,7 @@
         } catch (e) {
             el.style.outline = '2px solid #ef4444';
             if (root.console) console.warn('[goods-fbs] save failed', e && e.message);
+            root.alert(String((e && e.message) || e));
         }
     }
 
@@ -234,6 +249,8 @@
         } catch (e) {
             bulkBusy = false; el.disabled = false; el.style.outline = '2px solid #ef4444';
             if (root.console) console.warn('[goods-fbs] bulk failed', e && e.message);
+            root.alert(String((e && e.message) || e));
+            render();
         }
     }
 
