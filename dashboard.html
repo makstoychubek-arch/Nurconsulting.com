@@ -8471,7 +8471,7 @@
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.0a4d49f277.min.js"></script>
+<script src="/dist/ads-command-center.d6d64540f7.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/goods-fbs.0d864810cc.min.js"></script><script src="/dist/goods-supply.5e12c6a9cc.min.js"></script>
@@ -9521,7 +9521,8 @@
             const tokenish = (window.NrAuth && window.NrAuth.isWbTokenError && window.NrAuth.isWbTokenError(msg))
                 || /token|unauthorized|invalid session/i.test(msg)
                 || res.status === 401;
-            const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied || res.status === 402;
+            if (window._nrBulkQuiet) window._nrBulkErr = msg;
+            const quiet = window._nrBulkQuiet || bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied || res.status === 402;
             if (quiet) {
                 // Отозванный или просроченный токен — единственная причина, по
                 // которой клиенту есть что сделать самому. Помечаем, чтобы
