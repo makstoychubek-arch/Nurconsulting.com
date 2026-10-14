@@ -5036,18 +5036,18 @@ const RNP = (() => {
             const rate = (nm, kind, d) => FR
                 ? FR.rateOn(price[nm] || {}, kind, d)
                 : Number((price[nm] || {})[kind === 'ship' ? 'fbs_ship_price' : 'fbs_storage_day']) || 0;
-            // «Учитывать отправку и хранение в РНП» (Товары → FBS): выключают, если отправка уже в себестоимости (как у Zevina). На дашборде они учитываются всегда.
-            let includeFf = true;
+            // «Учитывать отправку / хранение ФФ в РНП» (Товары → FBS), по отдельности. Отправку выключают, если она уже в себестоимости (как у Zevina). На дашборде они учитываются всегда.
+            let includeShip = true, includeStorage = true;
             try {
-                const st = await _db.from('ff_settings').select('rnp_ff_costs').eq('cabinet_id', _cab).maybeSingle();
-                if (st && st.data) includeFf = st.data.rnp_ff_costs !== false;
+                const st = await _db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle();
+                if (st && st.data) { includeShip = st.data.rnp_ship_costs !== false; includeStorage = st.data.rnp_storage_costs !== false; }
             } catch (e) { /* нет настройки — учитываем */ }
             const apply = (row, nm, o, d) => {
-                const p = { ship: includeFf ? rate(nm, 'ship', d) : 0 };
+                const p = { ship: includeShip ? rate(nm, 'ship', d) : 0 };
                 const cost = o * p.ship;
                 row.delivery_sum = (row.delivery_sum || 0) - (row.fbs_ship_cost || 0) + cost;
                 row.fbs_ship_cost = cost;
-                row.fbs_ship_missing = includeFf && o > 0 && !p.ship ? o : 0;
+                row.fbs_ship_missing = includeShip && o > 0 && !p.ship ? o : 0;
             };
             const seen = new Set();
             (data || []).forEach(r => {
@@ -5065,7 +5065,7 @@ const RNP = (() => {
                     const row = _dataCache[nm]?.[d];
                     if (!row || d > today) return;
                     if (!seen.has(`${nm}:${d}`)) apply(row, nm, 0, d);
-                    const c = includeFf ? rate(nm, 'storage', d) : 0;
+                    const c = includeStorage ? rate(nm, 'storage', d) : 0;
                     if (c > 0 || row.fbs_storage_cost) {
                         row.storage_sum = (row.storage_sum || 0) - (row.fbs_storage_cost || 0) + c;
                         row.fbs_storage_cost = c;

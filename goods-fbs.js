@@ -22,7 +22,7 @@
         var d = new Date(Date.now() + 6 * 3600 * 1000); // Бишкек, UTC+6
         return d.toISOString().slice(0, 10);
     }
-    var state = { supabase: null, cabinetId: null, rows: [], host: null, terms: [], rnpCosts: true };
+    var state = { supabase: null, cabinetId: null, rows: [], host: null, terms: [], rnpShip: true, rnpStorage: true };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -57,9 +57,10 @@
             state.terms = tr.error ? [] : (tr.data || []);
         } catch (e) { state.terms = []; }
         try {
-            var st = await state.supabase.from('ff_settings').select('rnp_ff_costs').eq('cabinet_id', cab).maybeSingle();
-            state.rnpCosts = st && st.data ? st.data.rnp_ff_costs !== false : true;
-        } catch (e) { state.rnpCosts = true; }
+            var st = await state.supabase.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', cab).maybeSingle();
+            state.rnpShip = st && st.data ? st.data.rnp_ship_costs !== false : true;
+            state.rnpStorage = st && st.data ? st.data.rnp_storage_costs !== false : true;
+        } catch (e) { state.rnpShip = true; state.rnpStorage = true; }
         state.rows = Object.keys(qty).filter(function (id) { return qty[id] > 0; }).map(function (id) {
             var a = arts[id] || {};
             var md = a.manual_data || {};
@@ -157,20 +158,26 @@
         host.innerHTML = '<div class="fbx">' +
             '<div class="ggx-kp fbx-kp"><div class="ggx-k k1"><small>Товаров на FBS</small><b>' + fmt(rows.length) + '</b></div><div class="ggx-k k2"><small>Остаток FBS, шт</small><b>' + fmt(totQty) + '</b></div>' +
             '<div class="ggx-k k3"><small>Хранение в день, ₽</small><b id="gg-fbs-sto-total">' + fmt(totSto) + '</b></div></div>' +
-            '<label class="fbx-inc"><input type="checkbox" id="fbx-inc"' + (state.rnpCosts ? ' checked' : '') + '><span><b>Учитывать отправку и хранение ФФ в РНП</b><small>На дашборде они учитываются всегда. Выключите, если у клиента отправка уже входит в себестоимость товаров (как у Zevina), чтобы не считать дважды.</small></span></label>' +
+            '<div class="fbx-incs">' +
+            '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><span><b>Учитывать отправку ФФ в РНП</b><small>Выключите, если отправка уже входит в себестоимость (как у Zevina), чтобы не считать дважды.</small></span></label>' +
+            '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><span><b>Учитывать хранение ФФ в РНП</b><small>Хранение обычно в себестоимость не закладывают. На дашборде отправка и хранение учитываются всегда.</small></span></label></div>' +
             '<div class="fbx-note">Значения действуют по периодам: после ввода сайт спросит, с какой даты. Показан тариф на сегодня, история — во всплывающей подсказке.</div>' +
             '<div class="fbx-bulk"><div><b>Для всех товаров сразу</b><small>впишите значение — применится ко всем' + (needle ? ' найденным' : '') + '</small></div>' +
             '<label>Цена за 1 отправку<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="ship" placeholder="для всех"></label>' +
             '<label>Хранение в день<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="storage" placeholder="для всех"></label></div>' +
             termCard(totQty) +
             '<div class="fbx-row fbx-h"><span></span><span>АРТИКУЛ</span><span>ФФ</span><span class="n">ОСТАТОК</span><span class="n">ОТПРАВКА</span><span class="n">ХРАНЕНИЕ / ДЕНЬ</span></div>' + body + '</div>';
-        var inc = host.querySelector('#fbx-inc');
-        if (inc) inc.addEventListener('change', async function () {
-            try {
-                var r = await state.supabase.from('ff_settings').upsert({ cabinet_id: state.cabinetId, rnp_ff_costs: inc.checked, updated_at: new Date().toISOString() });
-                if (r.error) throw r.error;
-                state.rnpCosts = inc.checked;
-            } catch (e) { inc.checked = state.rnpCosts; root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
+        host.querySelectorAll('[data-inc]').forEach(function (inc) {
+            inc.addEventListener('change', async function () {
+                var col = inc.getAttribute('data-inc'), key = col === 'rnp_ship_costs' ? 'rnpShip' : 'rnpStorage';
+                try {
+                    var row = { cabinet_id: state.cabinetId, updated_at: new Date().toISOString() };
+                    row[col] = inc.checked;
+                    var r = await state.supabase.from('ff_settings').upsert(row);
+                    if (r.error) throw r.error;
+                    state[key] = inc.checked;
+                } catch (e) { inc.checked = state[key]; root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
+            });
         });
         host.querySelectorAll('[data-term-save]').forEach(function (b) { b.addEventListener('click', saveTerm); });
         host.querySelectorAll('[data-term-del]').forEach(function (b) { b.addEventListener('click', function () { delTerm(b.getAttribute('data-term-del')); }); });
