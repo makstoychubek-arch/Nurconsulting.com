@@ -8461,7 +8461,7 @@
 </script>
 
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
-<script src="/dist/wb-formulas.b919517517.min.js"></script>
+<script src="/dist/wb-formulas.4015b764d2.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.0a4d49f277.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
@@ -8483,7 +8483,7 @@
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.2db357b49f.min.js"></script>
 <script src="/dist/nr-next.daaf10e9e4.min.js"></script>
-<script src="/dist/nr-costs.643aab1f76.min.js"></script>
+<script src="/dist/nr-costs.6af7858065.min.js"></script>
 <script src="/dist/nr-goods-ui.fc42544245.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -13910,6 +13910,7 @@
                     taxRate: Number(localStorage.getItem('tax_rate_v2') || 0),
                     opex: Number(localStorage.getItem('opex') || 0),
                     ffCost: Number(localStorage.getItem('ff_cost_' + snapshotCabinet) || 0),
+                    ffInclude: localStorage.getItem('ff_on_' + snapshotCabinet) === '1',
                     adsSum: Number(adsCur && adsCur.spend || 0),
                     costOfGoods: {},
                 };
@@ -14331,13 +14332,15 @@
             ['Налог', n(m.taxSum), '#fb923c'],
             ['Себестоимость продаж', n(m.costOfSalesSum), '#f9a8a0'],
             ['Затраты', n(m.opexForPeriod), '#84cc16'],
-            ['Фулфилмент (ФФ)', n(m.ffForPeriod), '#38bdf8'],
         ];
+        const ffAmt = n(m.ffForPeriod), ffOn = !!m.ffIncluded;
+        if (ffOn) taxes.push(['Фулфилмент (ФФ)', ffAmt, '#38bdf8']);
         const taxTotal = taxes.reduce((s, r) => s + r[1], 0);
         $('pnl-tax-total').textContent = fmtN(taxTotal);
         $('pnl-tax-pct').textContent = pct(taxTotal);
         $('pnl-tax-bar').innerHTML = bar(taxes, taxTotal);
-        $('pnl-tax-rows').innerHTML = taxes.map(r => row(r[0], r[1], r[2])).join('');
+        $('pnl-tax-rows').innerHTML = taxes.map(r => row(r[0], r[1], r[2])).join('') +
+            (ffAmt > 0 || ffOn ? `<label class="pnl-row" style="cursor:pointer"><span class="pnl-dot" style="background:#38bdf8"></span><span class="pnl-lbl">ФФ: ${fmtN(ffAmt)} <small style="color:var(--text-muted)">учитывать</small></span><input type="checkbox" id="pnl-ff-on" ${ffOn ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--accent)" onchange="window.NrCosts&&NrCosts.toggleFf(this.checked)"></label>` : '');
 
         const profit = n(m.profitFull);
         $('pnl-profit').textContent = fmtN(profit);
