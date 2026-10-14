@@ -5,6 +5,9 @@
  */
 (function (root) {
     'use strict';
+    // Единые окна вместо системных alert/confirm (nr-ui.js); без него работает как раньше.
+    function ask(msg) { return root.NrUi ? root.NrUi.ask(msg) : Promise.resolve(root.confirm(msg)); }
+    function say(msg) { if (root.NrUi) root.NrUi.alert(msg); else root.alert(msg); }
     var KINDS = {
         ship: {
             view: 'ship', btn: 'gg-view-ship-btn', pane: 'gg-view-ship', table: 'goods_shipments', title: 'Логистика',
@@ -299,10 +302,10 @@
         var ids = rows.filter(function (r) { return r.id; }).map(function (r) { return r.id; });
         var pcs = rows.reduce(function (sum, r) { return sum + shipTotal(r); }, 0);
         var msg = rows.length ? 'Удалить партию «' + (batch || 'без названия') + '» целиком: ' + rows.length + ' строк, ' + pcs.toLocaleString('ru') + ' шт? Это нельзя отменить.' : 'Удалить пустую партию «' + (batch || 'без названия') + '»?';
-        if (!root.confirm(msg)) return;
+        if (!(await ask(msg))) return;
         if (ids.length) {
             var res = await sb().from('goods_shipments').delete().in('id', ids);
-            if (res.error) { root.alert('Не удалось удалить: ' + res.error.message); return; }
+            if (res.error) { say('Не удалось удалить: ' + res.error.message); return; }
         }
         st.rows.ship = st.rows.ship.filter(function (r) { return (r.batch || '') !== batch; });
         st.draftBatches = st.draftBatches.filter(function (b) { return b !== batch; });
@@ -363,7 +366,7 @@
         } catch (e) {
             rows.forEach(function (r) { r.in_rnp = !on; });
             renderShip();
-            root.alert('Не удалось переключить: ' + String((e && e.message) || e));
+            say('Не удалось переключить: ' + String((e && e.message) || e));
         }
     }
 
@@ -379,7 +382,7 @@
         var r = shipRow(tr);
         if (!r) return;
         if (r.id) {
-            if (!root.confirm('Удалить строку?')) return;
+            if (!(await ask('Удалить строку?'))) return;
             var res = await sb().from('goods_shipments').delete().eq('id', r.id);
             if (res.error) { tr.style.outline = '2px solid #ef4444'; tr.title = res.error.message; return; }
         }
@@ -519,7 +522,7 @@
             }
             changed();
         } catch (e) {
-            root.alert('Не удалось сохранить заказ: ' + String((e && e.message) || e));
+            say('Не удалось сохранить заказ: ' + String((e && e.message) || e));
         }
     }
 
@@ -599,7 +602,7 @@
         if (g && g.rows.length <= 1) return;
         if (r.id) {
             var res = await sb().from('production_orders').delete().eq('id', r.id);
-            if (res.error) { root.alert(res.error.message); return; }
+            if (res.error) { say(res.error.message); return; }
         }
         st.rows.prod = st.rows.prod.filter(function (x) { return x !== r; });
         g = groupByKey(r.grp || r.id || r._tmp);
@@ -611,10 +614,10 @@
         var g = groupByKey(key);
         if (!g) return;
         var ids = g.rows.filter(function (r) { return r.id; }).map(function (r) { return r.id; });
-        if (ids.length && !root.confirm('Удалить заказ целиком?')) return;
+        if (ids.length && !(await ask('Удалить заказ целиком?'))) return;
         if (ids.length) {
             var res = await sb().from('production_orders').delete().in('id', ids);
-            if (res.error) { root.alert(res.error.message); return; }
+            if (res.error) { say(res.error.message); return; }
         }
         st.rows.prod = st.rows.prod.filter(function (r) { return (r.grp || r.id || r._tmp) !== key; });
         renderProd();
