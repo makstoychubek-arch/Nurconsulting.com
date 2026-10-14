@@ -1,7 +1,10 @@
 /* NR Space — network-first shell, offline fallback for navigations only. */
-const CACHE = 'nr-space-pwa-v3';
+const CACHE = 'nr-space-pwa-v4';
 const PRECACHE = [
     '/offline.html',
+    '/nr-fox.js',
+    '/img/fox-directions.webp',
+    '/img/fox-reactions.webp',
     '/manifest.json',
     '/favicon.ico',
     '/icons/logo-nr.svg',
