@@ -5025,25 +5025,62 @@ const RNP = (() => {
                 p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
             });
             if (error) throw error;
-            // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт — их вносят вручную в «Товары → FBS».
-            const price = {};
-            _articles.forEach(a => {
-                const md = a.manual_data || {};
-                price[Number(a.nm_id)] = md;
-            });
-            // Тарифы действуют по периодам (fbs-rates.js): ставка берётся на конкретный день.
-            const FR = (typeof window !== 'undefined' && window.FbsRates) || null;
-            const rate = (nm, kind, d) => FR
-                ? FR.rateOn(price[nm] || {}, kind, d)
-                : Number((price[nm] || {})[kind === 'ship' ? 'fbs_ship_price' : 'fbs_storage_day']) || 0;
-            // «Учитывать отправку / хранение ФФ в РНП» (Товары → FBS), по отдельности. Отправку выключают, если она уже в себестоимости (как у Zevina). На дашборде они учитываются всегда.
+            // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт: тарифы КАЖДОГО ФФ вносят в «Товары → FBS» (ff_terms, по периодам).
+            const FT = (typeof window !== 'undefined' && window.FfTerms) || null;
             let includeShip = true, includeStorage = true;
             try {
                 const st = await _db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle();
                 if (st && st.data) { includeShip = st.data.rnp_ship_costs !== false; includeStorage = st.data.rnp_storage_costs !== false; }
             } catch (e) { /* нет настройки — учитываем */ }
+            let idx = {}, shares = {}, dailyQty = {};
+            if (FT && (includeShip || includeStorage)) {
+                try {
+                    const tr = await _db.from('ff_terms').select('ff_name,kind,value,daily_cap,date_from,date_to').eq('cabinet_id', _cab).range(0, 999);
+                    idx = FT.index(tr.error ? [] : (tr.data || []));
+                    const st = await _fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: _cab }, { op: 'eq', column: 'stock_scheme', value: 'fbs' }]);
+                    const per = {};
+                    (st || []).forEach(x => {
+                        const q = Number(x.quantity) || 0, nm = Number(x.nm_id);
+                        if (q > 0 && nm && x.warehouse_name) (per[nm] = per[nm] || {})[x.warehouse_name] = ((per[nm] || {})[x.warehouse_name] || 0) + q;
+                    });
+                    Object.keys(per).forEach(nm => {
+                        const tot = Object.values(per[nm]).reduce((a2, v) => a2 + v, 0);
+                        shares[nm] = Object.keys(per[nm]).map(k => ({ k, w: per[nm][k] / tot }));
+                    });
+                    if (includeStorage && Object.keys(idx).some(k => k.endsWith('|storage'))) {
+                        const ds = await _fetchAllRows('goods_daily_stocks', [
+                            { op: 'eq', column: 'cabinet_id', value: _cab },
+                            { op: 'gte', column: 'date', value: allDates[0] },
+                            { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
+                        ]);
+                        (ds || []).forEach(x => { (dailyQty[x.date] = dailyQty[x.date] || {})[Number(x.nm_id)] = Number(x.fbs) || 0; });
+                    }
+                } catch (e) { console.warn('[RNP] ff terms:', e.message); }
+            }
+            const shipPrice = (nm, d) => (FT ? FT.shipFor(idx, shares[nm], d) : null) || 0;
+            // Хранение: на день остаток ФФ × его ставка, но не больше его суточного лимита; на товар — по доле его остатка.
+            const stoCache = {};
+            const storageOf = (nm, d) => {
+                if (!FT) return 0;
+                let day = stoCache[d];
+                if (!day) {
+                    const qty = {};
+                    Object.keys(dailyQty[d] || {}).forEach(n => { (shares[n] || []).forEach(x => { qty[x.k] = (qty[x.k] || 0) + dailyQty[d][n] * x.w; }); });
+                    const f = {};
+                    Object.keys(qty).forEach(k => {
+                        const t = FT.at(idx, k, 'storage', d);
+                        if (!t) { f[k] = null; return; }
+                        const raw = qty[k] * Number(t.value);
+                        f[k] = { rate: Number(t.value), factor: t.daily_cap != null && raw > Number(t.daily_cap) ? Number(t.daily_cap) / raw : 1 };
+                    });
+                    day = stoCache[d] = f;
+                }
+                const q = (dailyQty[d] || {})[nm] || 0;
+                if (!q) return 0;
+                return (shares[nm] || []).reduce((a2, x) => { const t = day[x.k]; return t ? a2 + q * x.w * t.rate * t.factor : a2; }, 0);
+            };
             const apply = (row, nm, o, d) => {
-                const p = { ship: includeShip ? rate(nm, 'ship', d) : 0 };
+                const p = { ship: includeShip ? shipPrice(nm, d) : 0 };
                 const cost = o * p.ship;
                 row.delivery_sum = (row.delivery_sum || 0) - (row.fbs_ship_cost || 0) + cost;
                 row.fbs_ship_cost = cost;
@@ -5065,7 +5102,7 @@ const RNP = (() => {
                     const row = _dataCache[nm]?.[d];
                     if (!row || d > today) return;
                     if (!seen.has(`${nm}:${d}`)) apply(row, nm, 0, d);
-                    const c = includeStorage ? rate(nm, 'storage', d) : 0;
+                    const c = includeStorage ? storageOf(nm, d) : 0;
                     if (c > 0 || row.fbs_storage_cost) {
                         row.storage_sum = (row.storage_sum || 0) - (row.fbs_storage_cost || 0) + c;
                         row.fbs_storage_cost = c;

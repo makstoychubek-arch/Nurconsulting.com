@@ -1,7 +1,7 @@
 /**
- * Раздел «Товары → FBS»: товары, у которых есть остаток на складе продавца.
- * Цена за 1 отправку и хранение в день вносятся вручную и действуют по периодам
- * (rnp_articles.manual_data.fbs_rates, см. fbs-rates.js); автоматически ничего не считается.
+ * Раздел «Товары → FBS»: товары на складах продавца (ФФ) и тарифы КАЖДОГО ФФ.
+ * У каждого ФФ своя цена отправки (₽ за 1 заказ) и своё хранение (₽ за 1 шт в сутки, лимит ₽ в сутки), по периодам:
+ * таблица ff_terms (см. ff-terms.js). Из них считается блок «Фулфилмент» на дашборде и РНП.
  */
 (function (root) {
     function esc(s) {
@@ -13,16 +13,11 @@
         var n = parseFloat(String(v == null ? '' : v).replace(/\s/g, '').replace(',', '.'));
         return isNaN(n) ? 0 : n;
     }
-    function fmt(n) {
-        return Number(n || 0).toLocaleString('ru', { maximumFractionDigits: 2 });
-    }
+    function fmt(n) { return Number(n || 0).toLocaleString('ru', { maximumFractionDigits: 2 }); }
+    function T() { return root.FfTerms; }
+    function today() { return new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10); }
 
-    function R() { return root.FbsRates; }
-    function today() {
-        var d = new Date(Date.now() + 6 * 3600 * 1000); // Бишкек, UTC+6
-        return d.toISOString().slice(0, 10);
-    }
-    var state = { supabase: null, cabinetId: null, rows: [], host: null, terms: [], rnpShip: true, rnpStorage: true };
+    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], host: null, rnpShip: true, rnpStorage: true };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -37,102 +32,76 @@
         return out;
     }
 
+    async function loadTerms() {
+        var r = await state.supabase.from('ff_terms').select('id,ff_name,kind,value,daily_cap,date_from,date_to').eq('cabinet_id', state.cabinetId).order('date_from', { ascending: true }).range(0, 999);
+        state.terms = r.error ? [] : (r.data || []);
+    }
+
     async function load() {
         var cab = state.cabinetId;
         var res = await Promise.all([
             fetchAll('wb_stocks', cab, 'nm_id, quantity, stock_scheme, warehouse_name', function (q) { return q.eq('stock_scheme', 'fbs'); }),
             fetchAll('rnp_articles', cab, 'nm_id, name, manual_data, photo_url'),
         ]);
-        var qty = {}, whs = {};
+        var qty = {}, whs = {}, perFf = {};
         res[0].forEach(function (s) {
-            var id = Number(s.nm_id);
+            var id = Number(s.nm_id), q = Number(s.quantity || 0);
             if (!id) return;
-            qty[id] = (qty[id] || 0) + Number(s.quantity || 0);
-            if (Number(s.quantity) > 0 && s.warehouse_name) (whs[id] = whs[id] || {})[s.warehouse_name] = ((whs[id] || {})[s.warehouse_name] || 0) + Number(s.quantity);
+            qty[id] = (qty[id] || 0) + q;
+            if (q > 0 && s.warehouse_name) {
+                (whs[id] = whs[id] || {})[s.warehouse_name] = ((whs[id] || {})[s.warehouse_name] || 0) + q;
+                var f = perFf[s.warehouse_name] = perFf[s.warehouse_name] || { name: s.warehouse_name, qty: 0, arts: {} };
+                f.qty += q; f.arts[id] = true;
+            }
         });
         var arts = {};
         res[1].forEach(function (a) { arts[Number(a.nm_id)] = a; });
-        try {
-            var tr = await state.supabase.from('ff_storage_terms').select('id,rate,daily_cap,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 99);
-            state.terms = tr.error ? [] : (tr.data || []);
-        } catch (e) { state.terms = []; }
+        try { await loadTerms(); } catch (e) { state.terms = []; }
         try {
             var st = await state.supabase.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', cab).maybeSingle();
             state.rnpShip = st && st.data ? st.data.rnp_ship_costs !== false : true;
             state.rnpStorage = st && st.data ? st.data.rnp_storage_costs !== false : true;
         } catch (e) { state.rnpShip = true; state.rnpStorage = true; }
+        state.ffs = Object.keys(perFf).map(function (k) { return { name: k, qty: perFf[k].qty, arts: Object.keys(perFf[k].arts).length }; }).sort(function (a, b) { return b.qty - a.qty; });
         state.rows = Object.keys(qty).filter(function (id) { return qty[id] > 0; }).map(function (id) {
-            var a = arts[id] || {};
-            var md = a.manual_data || {};
+            var a = arts[id] || {}, md = a.manual_data || {};
             return {
                 nmId: Number(id),
                 article: String(md.seller_article || md.sa_name || a.name || '').trim(),
                 qty: qty[id],
-                md: md,
                 photo: a.photo_url || '',
-                ffs: Object.keys(whs[id] || {}).sort(function (a, b) { return whs[id][b] - whs[id][a]; }),
-                ship: R().rateOn(md, 'ship', today()) || null,
-                storage: R().rateOn(md, 'storage', today()) || null,
+                ffs: Object.keys(whs[id] || {}).sort(function (x, y) { return whs[id][y] - whs[id][x]; }).map(function (k) { return { k: k, q: whs[id][k] }; }),
             };
         }).sort(function (a, b) { return a.article.localeCompare(b.article, 'ru') || a.nmId - b.nmId; });
     }
 
-    function inputCell(r, field, value) {
-        var shown = value === undefined || value === null || value === '' ? '' : String(value);
-        var hist = R().describe(r.md, field);
-        return '<div class="fbx-ed"><input class="gg-edit-input" type="text" inputmode="decimal" data-nm="' + r.nmId +
-            '" data-field="' + field + '" value="' + esc(shown) + '" placeholder="—" title="' + esc(hist || 'Не задано') + '"></div>';
-    }
     function photoOf(r) {
         var u = r.photo;
         if (!u && root.RNP && root.RNP.wbPhotoUrl) { try { u = root.RNP.wbPhotoUrl(r.nmId) || ''; } catch (e) {} }
         return '<span class="ggx-ph" style="width:40px;height:40px"><i>' + esc((r.article || '?').charAt(0).toUpperCase()) + '</i>' + (u ? '<img src="' + esc(u) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
     }
 
-    // Хранение у ФФ по остатку: ставка за 1 шт в сутки, лимит в сутки, с даты. Действует вместо тарифа «за артикул».
-    function termCard(totQty) {
-        var t = today();
-        var cur = state.terms.filter(function (x) { return x.date_from <= t && (!x.date_to || x.date_to >= t); })[0];
-        var today_ = cur ? (function () {
-            var raw = totQty * Number(cur.rate), cap = cur.daily_cap == null ? null : Number(cur.daily_cap), pay = cap != null ? Math.min(raw, cap) : raw;
-            return 'Сегодня: ' + fmt(totQty) + ' шт × ' + fmt(cur.rate) + ' = ' + fmt(raw) + ' ₽' + (cap != null ? ' (лимит ' + fmt(cap) + ' ₽' + (raw > cap ? ', лимит сработал: ' + fmt(pay) + ' ₽' : '') + ')' : '') + ' в сутки';
-        })() : 'Пока не задано: хранение считается по тарифу «за артикул» из таблицы ниже.';
-        var list = state.terms.map(function (x) {
-            return '<div class="fbx-tl"><span>с ' + esc(R().fmtD(x.date_from)) + (x.date_to ? ' по ' + esc(R().fmtD(x.date_to)) : ' и дальше') + '</span><b>' + fmt(x.rate) + ' ₽/шт</b><span>' + (x.daily_cap == null ? 'без лимита' : 'лимит ' + fmt(x.daily_cap) + ' ₽/сутки') + '</span>' +
+    // Один блок тарифа ФФ: вид (ship | storage), текущее значение, форма «с даты», история и дыры.
+    function termBlock(ff, kind, idx) {
+        var t = today(), cur = T().at(idx, ff.name, kind, t), isSto = kind === 'storage';
+        var list = (idx[ff.name + '|' + kind] || []).slice().reverse();
+        var first = list.length ? list[list.length - 1].date_from : null;
+        var gaps = first ? T().gaps(idx, ff.name, kind, first, t) : [];
+        var now = cur
+            ? 'Сейчас: <b>' + fmt(cur.value) + ' ₽</b>' + (isSto ? ' за шт/сутки' + (cur.daily_cap != null ? ', лимит ' + fmt(cur.daily_cap) + ' ₽/сутки' : '') : ' за заказ')
+            : '<span class="fbf-none">Цена не задана</span>';
+        var hist = list.map(function (x) {
+            return '<div class="fbf-h"><span>с ' + esc(T().fmtD(x.date_from)) + (x.date_to ? ' по ' + esc(T().fmtD(x.date_to)) : ' и дальше') + '</span><b>' + fmt(x.value) + ' ₽' + (x.daily_cap != null ? ' · лимит ' + fmt(x.daily_cap) : '') + '</b>' +
                 '<button type="button" class="fbx-tx" data-term-del="' + esc(x.id) + '" title="Удалить период">×</button></div>';
         }).join('');
-        return '<div class="fbx-term"><div class="fbx-term-h"><b>Хранение у ФФ — по остатку</b><small>Ставка за 1 шт в сутки × остаток FBS за день, но не больше лимита. На эти дни заменяет тариф «за артикул». ' + esc(today_) + '</small></div>' +
-            '<div class="fbx-term-f"><label>Ставка, ₽ за шт/сутки<input id="fbt-rate" type="text" inputmode="decimal" placeholder="0,40"></label>' +
-            '<label>Лимит, ₽ в сутки<input id="fbt-cap" type="text" inputmode="decimal" placeholder="6000"></label>' +
-            '<label>С даты<input id="fbt-from" type="date" value="' + t + '"></label><button type="button" class="nx-go" data-term-save="1">Сохранить</button></div>' +
-            (list ? '<div class="fbx-tlist">' + list + '</div>' : '') + '</div>';
-    }
-    async function saveTerm() {
-        var rate = num((document.getElementById('fbt-rate') || {}).value), capRaw = String((document.getElementById('fbt-cap') || {}).value || '').trim();
-        var from = (document.getElementById('fbt-from') || {}).value;
-        if (!(rate > 0) || !from) { var f = document.getElementById('fbt-rate'); if (f) f.style.outline = '2px solid #ef4444'; return; }
-        var cap = capRaw === '' ? null : num(capRaw), sb = state.supabase, cab = state.cabinetId;
-        try {
-            // новый период с даты from: открытый предыдущий закрывается днём раньше, будущие периоды заменяются
-            var prev = state.terms.filter(function (x) { return x.date_from < from && (!x.date_to || x.date_to >= from); });
-            for (var i = 0; i < prev.length; i++) { var u = await sb.from('ff_storage_terms').update({ date_to: R().addDays(from, -1) }).eq('id', prev[i].id); if (u.error) throw u.error; }
-            var later = state.terms.filter(function (x) { return x.date_from >= from; });
-            for (var j = 0; j < later.length; j++) { var d = await sb.from('ff_storage_terms').delete().eq('id', later[j].id); if (d.error) throw d.error; }
-            var ins = await sb.from('ff_storage_terms').insert({ cabinet_id: cab, rate: rate, daily_cap: cap, date_from: from });
-            if (ins.error) throw ins.error;
-            var tr = await sb.from('ff_storage_terms').select('id,rate,daily_cap,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 99);
-            state.terms = tr.data || [];
-            render();
-        } catch (e) { root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
-    }
-    async function delTerm(id) {
-        if (!root.confirm('Удалить этот период хранения?')) return;
-        try {
-            var r = await state.supabase.from('ff_storage_terms').delete().eq('id', id);
-            if (r.error) throw r.error;
-            state.terms = state.terms.filter(function (x) { return x.id !== id; });
-            render();
-        } catch (e) { root.alert('Не удалось удалить: ' + String((e && e.message) || e)); }
+        var warn = gaps.length ? '<div class="fbf-warn">Нет цены: ' + gaps.map(function (g) { return esc(T().fmtD(g.from)) + (g.to !== g.from ? '–' + esc(T().fmtD(g.to)) : ''); }).join(', ') + '</div>' : '';
+        return '<div class="fbf-blk" data-ff="' + esc(ff.name) + '" data-kind="' + kind + '"><div class="fbf-bt">' + (isSto ? 'Хранение' : 'Отправка') + '</div><div class="fbf-now">' + now + '</div>' + warn +
+            '<div class="fbf-f"><label>' + (isSto ? '₽ за шт в сутки' : '₽ за 1 заказ') + '<input type="text" inputmode="decimal" class="fbf-v" placeholder="0"></label>' +
+            (isSto ? '<label>Лимит ₽/сутки<input type="text" inputmode="decimal" class="fbf-c" placeholder="без лимита"></label>' : '') +
+            '<label>С даты<input type="date" class="fbf-d" value="' + t + '"></label>' +
+            '<label>По дату<input type="date" class="fbf-t" title="Пусто — «и дальше»"></label>' +
+            '<button type="button" class="nx-go" data-term-save="1">Сохранить</button></div>' +
+            (hist ? '<div class="fbf-hl">' + hist + '</div>' : '') + '</div>';
     }
 
     function render() {
@@ -147,26 +116,34 @@
         var rows = needle ? state.rows.filter(function (r) {
             return String(r.nmId).indexOf(needle) >= 0 || r.article.toLowerCase().indexOf(needle) >= 0;
         }) : state.rows;
-        var totQty = 0, totSto = 0;
+        var idx = T().index(state.terms), t = today(), totQty = 0, stoDay = 0;
+        state.rows.forEach(function (r) { totQty += r.qty; });
+        state.ffs.forEach(function (f) {
+            var st = T().at(idx, f.name, 'storage', t);
+            if (st) { var c = f.qty * Number(st.value); if (st.daily_cap != null && c > Number(st.daily_cap)) c = Number(st.daily_cap); stoDay += c; }
+        });
+        var cards = state.ffs.map(function (f) {
+            return '<div class="fbf"><div class="fbf-h0"><b>' + esc(f.name) + '</b><small>' + fmt(f.qty) + ' шт · ' + fmt(f.arts) + ' арт.</small></div>' +
+                termBlock(f, 'ship', idx) + termBlock(f, 'storage', idx) + '</div>';
+        }).join('');
         var body = rows.map(function (r) {
-            totQty += r.qty; totSto += num(r.storage);
             return '<div class="fbx-row">' + photoOf(r) +
                 '<div class="fbx-nm"><b title="' + esc(r.article) + '">' + esc(r.article || '—') + '</b><small>WB ' + r.nmId + '</small></div>' +
-                '<div class="fbx-ff" title="' + esc(r.ffs.join(', ')) + '">' + (r.ffs.length ? r.ffs.map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') : '<em>—</em>') + '</div>' +
-                '<div class="fbx-q">' + fmt(r.qty) + '</div>' + inputCell(r, 'ship', r.ship) + inputCell(r, 'storage', r.storage) + '</div>';
+                '<div class="fbx-ff">' + (r.ffs.length ? r.ffs.map(function (f) { return '<span title="' + esc(f.k) + '">' + esc(f.k) + ' · ' + fmt(f.q) + '</span>'; }).join('') : '<em>—</em>') + '</div>' +
+                '<div class="fbx-q">' + fmt(r.qty) + '</div></div>';
         }).join('');
         host.innerHTML = '<div class="fbx">' +
-            '<div class="ggx-kp fbx-kp"><div class="ggx-k k1"><small>Товаров на FBS</small><b>' + fmt(rows.length) + '</b></div><div class="ggx-k k2"><small>Остаток FBS, шт</small><b>' + fmt(totQty) + '</b></div>' +
-            '<div class="ggx-k k3"><small>Хранение в день, ₽</small><b id="gg-fbs-sto-total">' + fmt(totSto) + '</b></div></div>' +
+            '<div class="ggx-kp fbx-kp"><div class="ggx-k k1"><small>Товаров на FBS</small><b>' + fmt(state.rows.length) + '</b></div><div class="ggx-k k2"><small>Остаток FBS, шт</small><b>' + fmt(totQty) + '</b></div>' +
+            '<div class="ggx-k k3"><small>Хранение в день, ₽ (по тарифам ФФ)</small><b id="gg-fbs-sto-total">' + fmt(stoDay) + '</b></div></div>' +
             '<div class="fbx-incs">' +
             '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><span><b>Учитывать отправку ФФ в РНП</b><small>Выключите, если отправка уже входит в себестоимость (как у Zevina), чтобы не считать дважды.</small></span></label>' +
             '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><span><b>Учитывать хранение ФФ в РНП</b><small>Хранение обычно в себестоимость не закладывают. На дашборде отправка и хранение учитываются всегда.</small></span></label></div>' +
-            '<div class="fbx-note">Значения действуют по периодам: после ввода сайт спросит, с какой даты. Показан тариф на сегодня, история — во всплывающей подсказке.</div>' +
-            '<div class="fbx-bulk"><div><b>Для всех товаров сразу</b><small>впишите значение — применится ко всем' + (needle ? ' найденным' : '') + '</small></div>' +
-            '<label>Цена за 1 отправку<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="ship" placeholder="для всех"></label>' +
-            '<label>Хранение в день<input class="gg-edit-input gg-bulk-in" type="text" inputmode="decimal" data-bulk="storage" placeholder="для всех"></label></div>' +
-            termCard(totQty) +
-            '<div class="fbx-row fbx-h"><span></span><span>АРТИКУЛ</span><span>ФФ</span><span class="n">ОСТАТОК</span><span class="n">ОТПРАВКА</span><span class="n">ХРАНЕНИЕ / ДЕНЬ</span></div>' + body + '</div>';
+            '<div class="fbf-grid">' + cards + '</div>' +
+            '<div class="fbx-row fbx-h"><span></span><span>АРТИКУЛ</span><span>ГДЕ ЛЕЖИТ (ФФ · шт)</span><span class="n">ОСТАТОК</span></div>' + body + '</div>';
+        bind(host);
+    }
+
+    function bind(host) {
         host.querySelectorAll('[data-inc]').forEach(function (inc) {
             inc.addEventListener('change', async function () {
                 var col = inc.getAttribute('data-inc'), key = col === 'rnp_ship_costs' ? 'rnpShip' : 'rnpStorage';
@@ -179,152 +156,36 @@
                 } catch (e) { inc.checked = state[key]; root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
             });
         });
-        host.querySelectorAll('[data-term-save]').forEach(function (b) { b.addEventListener('click', saveTerm); });
+        host.querySelectorAll('[data-term-save]').forEach(function (b) { b.addEventListener('click', function () { saveTerm(b.closest('.fbf-blk')); }); });
         host.querySelectorAll('[data-term-del]').forEach(function (b) { b.addEventListener('click', function () { delTerm(b.getAttribute('data-term-del')); }); });
-        host.querySelectorAll('.gg-bulk-in').forEach(function (el) {
-            el.addEventListener('change', function () { saveAll(el); });
-            el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
-        });
-        host.querySelectorAll('.gg-edit-input:not(.gg-bulk-in)').forEach(function (el) {
-            el.addEventListener('change', function () { save(el); });
-            el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
-        });
     }
 
-    // ─── Окно «С какой даты действует значение» ─────────────────────────────────────
-    function dialog(html, wire) {
-        return new Promise(function (resolve) {
-            var ov = document.createElement('div');
-            ov.className = 'nx-ov';
-            ov.innerHTML = '<div class="nx-modal fbr-modal">' + html + '</div>';
-            function done(v) { ov.remove(); resolve(v); }
-            ov.addEventListener('click', function (e) {
-                if (e.target === ov || e.target.closest('[data-x]')) return done(null);
-                if (e.target.closest('[data-ok]')) { var v = wire(ov); if (v) done(v); }
-            });
-            document.body.appendChild(ov);
-            var f = ov.querySelector('input'); if (f) f.focus();
-        });
-    }
-    var KIND_NAME = { ship: 'цена за 1 отправку', storage: 'хранение в день' };
-    function askPeriod(kind, value, count) {
-        var t = today();
-        var html = '<h3>' + fmt(value) + ' ₽: с какой даты?</h3>' +
-            '<p class="nx-sm">' + KIND_NAME[kind][0].toUpperCase() + KIND_NAME[kind].slice(1) + (count > 1 ? ' — для ' + count + ' товаров' : '') + '. Старые значения на эти даты заменятся, остальные периоды не тронутся.</p>' +
-            '<label class="fbr-l">С даты<input type="date" id="fbr-from" value="' + t + '"></label>' +
-            '<label class="fbr-r"><input type="radio" name="fbr-m" value="open" checked> и дальше (пока не поменяю)</label>' +
-            '<label class="fbr-r"><input type="radio" name="fbr-m" value="to"> только по дату <input type="date" id="fbr-to" value="' + t + '"></label>' +
-            '<div class="fbr-btns"><button type="button" class="nx-go" data-ok="1">Применить</button><button type="button" class="nx-b" data-x="1">Отмена</button></div>';
-        return dialog(html, function (ov) {
-            var from = ov.querySelector('#fbr-from').value;
-            var mode = ov.querySelector('input[name=fbr-m]:checked').value;
-            var to = mode === 'to' ? ov.querySelector('#fbr-to').value : null;
-            if (!from || (mode === 'to' && (!to || to < from))) { ov.querySelector('#fbr-from').style.outline = '2px solid #ef4444'; return null; }
-            return { from: from, to: to };
-        });
-    }
-    function askGap(kind, from, to) {
-        var html = '<h3>А дальше?</h3><p class="nx-sm">С ' + R().fmtD(from) + (to ? ' по ' + R().fmtD(to) : '') + ' значение («' + KIND_NAME[kind] + '») не задано. Укажите, сколько было с этой даты (можно пропустить).</p>' +
-            '<label class="fbr-l">' + KIND_NAME[kind] + ', ₽<input type="text" inputmode="decimal" id="fbr-v" placeholder="0"></label>' +
-            '<div class="fbr-btns"><button type="button" class="nx-go" data-ok="1">Применить</button><button type="button" class="nx-b" data-x="1">Пропустить</button></div>';
-        return dialog(html, function (ov) {
-            var raw = ov.querySelector('#fbr-v').value.trim();
-            if (!raw) { ov.querySelector('#fbr-v').style.outline = '2px solid #ef4444'; return null; }
-            return { value: num(raw) };
-        });
-    }
-
-    // Записать значение для списка артикулов на период; закрытый период → спросить про оставшиеся дни до сегодня.
-    async function writeMd(rows, mutate) {
-        var cab = state.cabinetId, sb = state.supabase;
-        var ids = rows.map(function (r) { return r.nmId; });
-        var existing = {};
-        for (var i = 0; i < ids.length; i += 200) {
-            var ex = await sb.from('rnp_articles').select('nm_id, manual_data').eq('cabinet_id', cab).in('nm_id', ids.slice(i, i + 200));
-            if (ex.error) throw ex.error;
-            (ex.data || []).forEach(function (a) { existing[Number(a.nm_id)] = a.manual_data || {}; });
-        }
-        var failed = [], lastErr = null;
-        async function one(r) {
-            var md = mutate(existing[r.nmId] !== undefined ? existing[r.nmId] : r.md);
-            for (var attempt = 0; attempt < 3; attempt++) {
-                var res = (r.nmId in existing)
-                    ? await sb.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', r.nmId)
-                    : await sb.from('rnp_articles').upsert({ cabinet_id: cab, nm_id: r.nmId, name: r.article, is_active: false, manual_data: md, cost_price: 0 });
-                if (!res.error) { r.md = md; r.ship = R().rateOn(md, 'ship', today()) || null; r.storage = R().rateOn(md, 'storage', today()) || null; return; }
-                lastErr = res.error;
-                await new Promise(function (ok) { setTimeout(ok, 400 * (attempt + 1)); });
-            }
-            failed.push(r);
-        }
-        // по 6 параллельно: быстро и без перегруза; ошибки не обрывают остальные товары
-        for (var j = 0; j < rows.length; j += 6) await Promise.all(rows.slice(j, j + 6).map(one));
-        if (failed.length) {
-            var err = new Error('Не записалось ' + failed.length + ' из ' + rows.length + ' товаров: ' + String((lastErr && lastErr.message) || lastErr));
-            err.partial = true;
-            throw err;
-        }
-    }
-    async function applyRate(rows, kind, value, from, to) {
-        await writeMd(rows, function (md) { return R().setRange(md, kind, value, from, to); });
-    }
-    async function setWithPeriod(rows, kind, value) {
-        var p = await askPeriod(kind, value, rows.length);
-        if (!p) return false;
-        await applyRate(rows, kind, value, p.from, p.to);
-        // закрытый период закончился раньше сегодняшнего дня — спрашиваем про оставшиеся дни
-        var t = today();
-        if (p.to && p.to < t) {
-            var next = R().addDays(p.to, 1), g = await askGap(kind, next, t);
-            if (g) await applyRate(rows, kind, g.value, next, null);
-        }
-        return true;
-    }
-
-    async function save(el) {
-        var nmId = Number(el.dataset.nm), kind = el.dataset.field;
-        var row = state.rows.filter(function (r) { return r.nmId === nmId; })[0];
-        if (!row) return;
-        var raw = String(el.value || '').trim();
-        var prev = row[kind];
-        if (raw === '') { if (!prev) return; el.value = prev; return; }   // стереть значение нельзя: тариф закрывается новым периодом
-        var val = num(raw);
-        if (val === Number(prev)) return;
+    async function saveTerm(blk) {
+        var ff = blk.getAttribute('data-ff'), kind = blk.getAttribute('data-kind'), vEl = blk.querySelector('.fbf-v');
+        var raw = String(vEl.value || '').trim(), from = blk.querySelector('.fbf-d').value, to = blk.querySelector('.fbf-t').value || null;
+        var capEl = blk.querySelector('.fbf-c'), cap = capEl && String(capEl.value).trim() !== '' ? num(capEl.value) : null;
+        if (raw === '' || !from || (to && to < from)) { vEl.style.outline = '2px solid #ef4444'; return; }
+        var sb = state.supabase, cab = state.cabinetId;
         try {
-            var ok = await setWithPeriod([row], kind, val);
-            if (!ok) { el.value = prev == null ? '' : prev; return; }
-            el.style.outline = '';
+            var p = T().plan(state.terms, ff, kind, num(raw), cap, from, to);
+            if (p.remove.length) { var d = await sb.from('ff_terms').delete().in('id', p.remove); if (d.error) throw d.error; }
+            for (var i = 0; i < p.update.length; i++) { var u = await sb.from('ff_terms').update({ date_to: p.update[i].date_to }).eq('id', p.update[i].id); if (u.error) throw u.error; }
+            var ins = p.add.concat([p.insert]).map(function (r) { return Object.assign({ cabinet_id: cab }, r); });
+            var r = await sb.from('ff_terms').insert(ins);
+            if (r.error) throw r.error;
+            await loadTerms();
             render();
-        } catch (e) {
-            el.style.outline = '2px solid #ef4444';
-            if (root.console) console.warn('[goods-fbs] save failed', e && e.message);
-            root.alert(String((e && e.message) || e));
-        }
+        } catch (e) { root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
     }
 
-    // Одно значение — всем видимым (с учётом поиска) товарам сразу.
-    var bulkBusy = false;
-    async function saveAll(el) {
-        if (bulkBusy) return;
-        var kind = el.dataset.bulk;
-        var raw = String(el.value || '').trim();
-        if (raw === '') return;
-        var val = num(raw);
-        var needle = (((document.getElementById('gg-search') || {}).value) || '').trim().toLowerCase();
-        var rows = needle ? state.rows.filter(function (r) { return String(r.nmId).indexOf(needle) >= 0 || r.article.toLowerCase().indexOf(needle) >= 0; }) : state.rows;
-        if (!rows.length) return;
-        bulkBusy = true; el.disabled = true;
+    async function delTerm(id) {
+        if (!root.confirm('Удалить этот период тарифа?')) return;
         try {
-            var ok = await setWithPeriod(rows, kind, val);
-            bulkBusy = false;
-            if (!ok) { el.disabled = false; el.value = ''; return; }
+            var r = await state.supabase.from('ff_terms').delete().eq('id', id);
+            if (r.error) throw r.error;
+            await loadTerms();
             render();
-        } catch (e) {
-            bulkBusy = false; el.disabled = false; el.style.outline = '2px solid #ef4444';
-            if (root.console) console.warn('[goods-fbs] bulk failed', e && e.message);
-            root.alert(String((e && e.message) || e));
-            render();
-        }
+        } catch (e) { root.alert('Не удалось удалить: ' + String((e && e.message) || e)); }
     }
 
     async function show(opts) {
