@@ -29,7 +29,7 @@ async function readToken(admin: any, id: string): Promise<string | null> {
     return await readAdvTokenFromVault(admin, id);
 }
 
-const BACK = 'https://nurcon.kg/goods';
+const BACK = 'https://nurcon.kg/content';
 const SCOPES = 'instagram_content_publish,pages_show_list,pages_read_engagement,business_management';
 
 function appCreds() {
