@@ -14313,11 +14313,13 @@
         $('pnl-returns').textContent = '-' + fmtN(n(m.returnsSum));
         $('pnl-real-bar').style.width = m.salesSum > 0 ? Math.max(4, Math.round(real / m.salesSum * 100)) + '%' : '0';
 
-        const other = n(m.storageSum) + n(m.acceptanceSum) + n(m.penaltySum) + n(m.deductionSum) - n(m.compensationSum);
+        const other = n(m.acceptanceSum) + n(m.deductionSum) - n(m.compensationSum);
         const serv = [
             ['Комиссия', n(m.commissionSum) + n(m.acquiringSum), '#f59e0b'],
             ['Логистика', n(m.logisticsSum), '#7dd3fc'],
             ['Реклама', n(m.adsSum), '#a855f7'],
+            ['Хранение', n(m.storageSum), '#14b8a6'],
+            ['Штрафы', n(m.penaltySum), '#ef4444'],
             ['Остальные', other, '#6366f1'],
         ];
         const servTotal = serv.reduce((s, r) => s + r[1], 0);
