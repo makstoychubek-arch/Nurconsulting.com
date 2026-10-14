@@ -1172,3 +1172,8 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .nh-i:hover { filter: brightness(1.12); }
 .nh-pop { position: fixed; z-index: 200020; padding: 12px 14px; border-radius: 14px; background: var(--surface-solid); color: var(--text-primary); border: 1px solid var(--border); box-shadow: 0 16px 48px rgba(30,20,80,.22); font-size: 12.5px; line-height: 1.5; }
 .nh-pop b { display: block; font-size: 13.5px; margin-bottom: 4px; } .nh-pop p { margin: 0; color: var(--text-secondary); }
+
+/* Логистика: квадратик-«плюсик» для протягивания значения вниз, как в Google Таблицах */
+.gs-fill { position: fixed; z-index: 9999; width: 11px; height: 11px; border-radius: 2px; background: var(--accent, #6d4fe8); border: 2px solid #fff; box-sizing: border-box; cursor: crosshair; box-shadow: 0 1px 4px rgba(0,0,0,.35); touch-action: none; }
+.gs-fill[hidden] { display: none; } .gs-fill.is-drag { pointer-events: none; }
+.gs-table td.gs-fillsel { background: color-mix(in srgb, var(--accent, #6d4fe8) 14%, transparent) !important; outline: 1px dashed var(--accent, #6d4fe8); outline-offset: -1px; }
