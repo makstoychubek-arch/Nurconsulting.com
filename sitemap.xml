@@ -5,4 +5,5 @@
   <url><loc>https://nurcon.kg/login</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://nurcon.kg/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://nurcon.kg/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://nurcon.kg/consent</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>
