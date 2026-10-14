@@ -98,6 +98,7 @@
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + '</b></div></div>' +
             '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payable) + '</div>' +
             '<div class="ff-sub" title="Выплатить = хранение + отправка − подмены − отмены">хранение ' + fmt(t.storage) + ' + отправка ' + fmt(t.ship) + '</div>' +
+            (S.shipInCost ? '<div class="ff-sub">отправка уже в себестоимости — в прибыль не вычитается</div>' : '') +
             (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите в «Товары → FBS»</div>' : '');
     }
 
@@ -199,6 +200,7 @@
             db.from('ff_adjustments').select('*').eq('cabinet_id', cab).gte('adj_date', from).lte('adj_date', to).order('adj_date', { ascending: false }).range(0, 999),
             fbsStocks(db, cab),
             storageData(db, cab, from, end).catch(function () { return { terms: [], daily: {}, snapshot: {} }; }),
+            db.from('ff_settings').select('ship_in_cost').eq('cabinet_id', cab).maybeSingle().then(function (r) { return r && r.data ? r.data.ship_in_cost !== false : true; }, function () { return true; }),
         ]);
         if (res[1].error) throw res[1].error;
         S.items = res[2].data || [];
@@ -221,6 +223,10 @@
         var stock = res[4];
         res[3].forEach(function (r) { var q = Number(r.quantity) || 0; if (q > 0) stock.snapshot[Number(r.nm_id)] = (stock.snapshot[Number(r.nm_id)] || 0) + q; });
         var t = compute(res[0], S.orders, S.items, from, to, today(), S.shares, stock);
+        S.shipInCost = res[5] !== false;
+        t.shipInCost = S.shipInCost;
+        // В прибыль идёт только то, что не входит в себестоимость: если отправка уже в себесе — она вычитается из ФФ-расхода
+        t.profitFf = t.payable - (S.shipInCost ? t.ship : 0);
         S.total = t; S.byFf = t.byFf || {};
         if (S.sel !== 'all' && S.sel !== 'none' && !(S.sel in wh)) S.sel = 'all';
         renderSummary(); renderChart();
