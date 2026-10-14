@@ -2539,7 +2539,7 @@ assert.ok(
         'schema covers calendar, bloggers, payouts, vault token slot and cron');
     assert.ok(igPub.includes("media_type: 'CAROUSEL'") && igPub.includes('is_carousel_item') && igPub.includes('media_publish'),
         'Instagram publish is container → carousel → publish');
-    assert.ok(igFn.includes('approved_at') && igFn.includes('Подтверждено'),
+    assert.ok(igFn.includes('approved_at') && igFn.includes('Подтвердить'),
         'Graph publish rejects posts without queue confirmation');
     assert.ok(tick.includes("if (deps.dryRun)") && tick.includes("action: 'would_publish'"),
         'scheduler dry_run does not publish to Instagram');

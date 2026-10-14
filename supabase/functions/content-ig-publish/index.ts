@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
-import { hasAllCabinetsAccess } from '../_shared/cabinet-access.ts';
+import { hasAllCabinetsAccess, isSuperAdminUser } from '../_shared/cabinet-access.ts';
 import { readAdvTokenFromVault } from '../_shared/wb-adv-proxy.ts';
 import {
     parseIgDryRun,
@@ -54,13 +54,19 @@ Deno.serve(async (req) => {
         user = u;
     }
 
+    // own=true: собственный календарь NR Space (nr_content_posts), токен из nr_instagram, только супер-админ.
+    const own = body.own === true;
+    if (own && !isService && !isSuperAdminUser(user)) return json({ error: 'Только для супер-админа' }, 403);
+    const table = own ? 'nr_content_posts' : 'content_posts';
     const { data: post, error: postErr } = await admin
-        .from('content_posts')
-        .select('id, cabinet_id, platform, status, slide_urls, file_url, caption, approved_at, post_kind')
+        .from(table)
+        .select(own
+            ? 'id, platform, status, slide_urls, file_url, caption, approved_at, post_kind'
+            : 'id, cabinet_id, platform, status, slide_urls, file_url, caption, approved_at, post_kind')
         .eq('id', postId)
         .maybeSingle();
     if (postErr || !post) return json({ error: 'post not found' }, 404);
-    if (!isService) {
+    if (!own && !isService) {
         const ok = user && (
             await hasAllCabinetsAccess(admin, user)
             || !!(await admin.from('cabinets').select('id').eq('id', post.cabinet_id).eq('user_id', user.id).maybeSingle()).data
@@ -71,13 +77,15 @@ Deno.serve(async (req) => {
         return json({ error: 'Публикация через API только для Instagram' }, 400);
     }
     if (!post.approved_at) {
-        return json({ error: 'Сначала подтвердите пост в очереди (кнопка «Подтверждено»)' }, 400);
+        return json({ error: 'Сначала подтвердите пост в очереди (кнопка «Подтвердить»)' }, 400);
     }
 
-    const { data: acc } = await admin.from('content_ig_accounts')
-        .select('ig_user_id, token_secret_id')
-        .eq('cabinet_id', post.cabinet_id)
-        .maybeSingle();
+    const { data: acc } = own
+        ? await admin.from('nr_instagram').select('ig_user_id, token_secret_id').eq('id', true).maybeSingle()
+        : await admin.from('content_ig_accounts')
+            .select('ig_user_id, token_secret_id')
+            .eq('cabinet_id', post.cabinet_id)
+            .maybeSingle();
     const token = acc?.token_secret_id ? await readAdvTokenFromVault(admin, acc.token_secret_id) : null;
     const igUserId = String(acc?.ig_user_id || '');
     const slides = Array.isArray(post.slide_urls)
@@ -98,7 +106,7 @@ Deno.serve(async (req) => {
     if (dryRun) return json({ ok: true, ...result });
 
     if (!result.published) {
-        await admin.from('content_posts').update({
+        await admin.from(table).update({
             status: 'error',
             error_text: result.error || 'Ошибка публикации Instagram',
             updated_at: new Date().toISOString(),
@@ -106,7 +114,7 @@ Deno.serve(async (req) => {
         return json({ ok: false, ...result }, 400);
     }
 
-    await admin.from('content_posts').update({
+    await admin.from(table).update({
         status: 'published',
         error_text: null,
         post_url: result.permalink || null,

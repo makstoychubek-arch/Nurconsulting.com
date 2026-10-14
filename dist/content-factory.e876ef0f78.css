@@ -72,3 +72,4 @@
 .cf-li .cf-th { width: 44px; height: 56px; max-width: 44px; flex: none; }
 .cf-li > span { min-width: 0; flex: 1; }
 .cf-li b { display: block; }
+.cf-fmt2 { grid-template-columns: repeat(2, 1fr); }
