@@ -73,7 +73,8 @@ function calculateMetrics(rows, settings = {}) {
         ? Math.max(1, Math.round((new Date(dates[dates.length-1]) - new Date(dates[0])) / 86400000) + 1)
         : 30;
     const opexForPeriod = Math.round(opexMonthly * periodDays / 30);
-    const ffForPeriod = Math.round(ffMonthly * periodDays / 30);
+    // ffPeriod — готовая сумма «Выплатить ФФ» за период (блок «Фулфилмент»); иначе месячная ставка по дням.
+    const ffForPeriod = settings.ffPeriod != null && isFinite(Number(settings.ffPeriod)) ? Math.round(Number(settings.ffPeriod)) : Math.round(ffMonthly * periodDays / 30);
 
     // Накопители
     let salesSum = 0;          // Продажи (после СПП) — retail_price_withdisc_rub для Продаж

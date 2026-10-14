@@ -5020,10 +5020,15 @@ const RNP = (() => {
             const price = {};
             _articles.forEach(a => {
                 const md = a.manual_data || {};
-                price[Number(a.nm_id)] = { ship: Number(md.fbs_ship_price) || 0, sto: Number(md.fbs_storage_day) || 0 };
+                price[Number(a.nm_id)] = md;
             });
-            const apply = (row, nm, o) => {
-                const p = price[nm] || { ship: 0, sto: 0 };
+            // Тарифы действуют по периодам (fbs-rates.js): ставка берётся на конкретный день.
+            const FR = (typeof window !== 'undefined' && window.FbsRates) || null;
+            const rate = (nm, kind, d) => FR
+                ? FR.rateOn(price[nm] || {}, kind, d)
+                : Number((price[nm] || {})[kind === 'ship' ? 'fbs_ship_price' : 'fbs_storage_day']) || 0;
+            const apply = (row, nm, o, d) => {
+                const p = { ship: rate(nm, 'ship', d) };
                 const cost = o * p.ship;
                 row.delivery_sum = (row.delivery_sum || 0) - (row.fbs_ship_cost || 0) + cost;
                 row.fbs_ship_cost = cost;
@@ -5036,18 +5041,17 @@ const RNP = (() => {
                 if (!row) return;
                 row.orders_fbs = Number(r.orders_fbs || 0);
                 row.sales_fbs = Number(r.sales_fbs || 0);
-                apply(row, Number(r.nm_id), row.orders_fbs);
+                apply(row, Number(r.nm_id), row.orders_fbs, r.d);
                 seen.add(`${r.nm_id}:${r.d}`);
             });
             const today = cal?.todayStr || _wbTodayStr();
             idSet.forEach(nm => {
-                const p = price[nm];
                 allDates.forEach(d => {
                     const row = _dataCache[nm]?.[d];
                     if (!row || d > today) return;
-                    if (!seen.has(`${nm}:${d}`)) apply(row, nm, 0);
-                    if (p && p.sto > 0 || row.fbs_storage_cost) {
-                        const c = p ? p.sto : 0;
+                    if (!seen.has(`${nm}:${d}`)) apply(row, nm, 0, d);
+                    const c = rate(nm, 'storage', d);
+                    if (c > 0 || row.fbs_storage_cost) {
                         row.storage_sum = (row.storage_sum || 0) - (row.fbs_storage_cost || 0) + c;
                         row.fbs_storage_cost = c;
                     }
