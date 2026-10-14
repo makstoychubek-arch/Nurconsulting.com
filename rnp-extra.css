@@ -1010,3 +1010,5 @@ body.ggx-on #gg-view-now { display: none !important; }
 #tab-goods-groups #gg-daily-table tbody tr:not(.gg-sec-row) td:last-child, #tab-goods-groups #gg-cost-table tbody tr:not(.gg-sec-row) td:last-child { border-radius: 0 12px 12px 0; }
 #tab-goods-groups #gg-daily-table tr.gg-sec-row td, #tab-goods-groups #gg-cost-table tr.gg-sec-row td { background: #efe8ff !important; color: #4c2fb3; font-weight: 800; border-radius: 12px; padding: 9px 12px !important; }
 #tab-goods-groups #gg-daily-table thead th, #tab-goods-groups #gg-cost-table thead th { background: transparent !important; color: var(--text-muted); font-size: 10.5px; letter-spacing: .05em; }
+body:not(.ggx-on) #ggx-cards { display: none !important; }
+html body #tab-goods-groups #gg-cost-table { display: table !important; width: 100% !important; }
