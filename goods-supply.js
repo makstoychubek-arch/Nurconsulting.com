@@ -153,6 +153,7 @@
     function bindShip(host) {
         if (host._gsShipBound) return;
         host._gsShipBound = true;
+        bindFill(host);
         host.addEventListener('click', function (e) {
             var b = e.target.closest('[data-act]');
             if (!b) return;
@@ -198,6 +199,73 @@
             }
             saveShip(r, tr);
         });
+    }
+
+    // ─── Как в Google Таблицах: у выбранной ячейки квадратик, тянем вниз (или вверх) — значение копируется ───
+    function bindFill(host) {
+        var handle = null, srcEl = null, dragging = false, targets = [];
+        function ensure() {
+            if (handle) return handle;
+            handle = document.createElement('div');
+            handle.className = 'gs-fill'; handle.hidden = true; handle.title = 'Потяните вниз, чтобы скопировать значение';
+            document.body.appendChild(handle);
+            handle.addEventListener('pointerdown', start);
+            return handle;
+        }
+        function place() {
+            if (!handle || !srcEl || !document.body.contains(srcEl)) { if (handle) handle.hidden = true; return; }
+            var td = srcEl.closest('td'), r = (td || srcEl).getBoundingClientRect(), box = host.querySelector('.gs-sheet');
+            var sb = box ? box.getBoundingClientRect() : null;
+            if (sb && (r.bottom > sb.bottom + 1 || r.bottom < sb.top || r.right > sb.right + 1 || r.right < sb.left)) { handle.hidden = true; return; }
+            handle.hidden = false;
+            handle.style.left = (r.right - 6) + 'px'; handle.style.top = (r.bottom - 6) + 'px';
+        }
+        function colOf(el) { var td = el.closest('td'); return td ? td.cellIndex : -1; }
+        function clearSel() { targets.forEach(function (t) { var td = t.closest('td'); if (td) td.classList.remove('gs-fillsel'); }); targets = []; }
+        function cellInput(tr, col) { var td = tr.cells[col]; return td ? td.querySelector('input:not([type=checkbox]),select') : null; }
+        function rowsBetween(a, b) {
+            var all = Array.prototype.slice.call(host.querySelectorAll('tbody tr.gs-row')), i = all.indexOf(a), j = all.indexOf(b);
+            if (i < 0 || j < 0 || i === j) return [];
+            return i < j ? all.slice(i + 1, j + 1) : all.slice(j, i).reverse();
+        }
+        function start(e) {
+            if (!srcEl) return;
+            e.preventDefault();
+            dragging = true; handle.classList.add('is-drag');
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', end, { once: true });
+        }
+        function move(e) {
+            var under = document.elementFromPoint(e.clientX, e.clientY), tr = under && under.closest ? under.closest('tr.gs-row') : null;
+            clearSel();
+            if (!tr) return;
+            var src = srcEl.closest('tr.gs-row'), col = colOf(srcEl);
+            rowsBetween(src, tr).forEach(function (r) { var inp = cellInput(r, col); if (inp) { targets.push(inp); inp.closest('td').classList.add('gs-fillsel'); } });
+        }
+        function end() {
+            document.removeEventListener('pointermove', move);
+            dragging = false; handle.classList.remove('is-drag');
+            var val = srcEl ? srcEl.value : '', list = targets.slice();
+            clearSel();
+            list.forEach(function (inp) {
+                if (inp.tagName === 'SELECT' && !Array.prototype.some.call(inp.options, function (o) { return o.value === val; })) {
+                    var o = document.createElement('option'); o.value = val; o.textContent = val; inp.appendChild(o);
+                }
+                inp.value = val;
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            place();
+        }
+        host.addEventListener('focusin', function (e) {
+            var el = e.target;
+            if (!el.closest || !el.closest('tbody tr.gs-row') || el.classList.contains('gs-batch') || !(el.matches('input:not([type=checkbox]),select'))) return;
+            srcEl = el; ensure(); place();
+        });
+        host.addEventListener('focusout', function (e) {
+            setTimeout(function () { if (!dragging && handle && document.activeElement && !host.contains(document.activeElement)) handle.hidden = true; }, 50);
+        });
+        host.addEventListener('scroll', place, true);
+        window.addEventListener('resize', place);
     }
 
     function addShipRow(batch) {
