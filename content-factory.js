@@ -1298,7 +1298,6 @@
         if (!el) return;
         el.innerHTML = [
             accountsHtml(),
-            headHtml(),
             navHtml(),
             state.err ? `<div class="cf-err">${escapeHtml(state.err)}</div>` : '',
             `<div class="cf-screen" data-view="${state.view}">`,
@@ -1315,7 +1314,13 @@
         placePill();
     }
 
-    /* ── Шаг 1: выбор Instagram (кабинет) ── */
+    /* Пояснение прячем за значком «?»: видно при наведении и нажатии, место не занимает */
+    function tip(text) {
+        const t = escapeHtml(text);
+        return `<span class="cf-i" tabindex="0" data-tip="${t}" aria-label="${t}">?</span>`;
+    }
+
+    /* ── Выбор Instagram (кабинет) ── */
     const AV = ['', 'b', 'c', 'd'];
     function avClass(id) { let h = 0; String(id).split('').forEach((ch) => { h = (h * 31 + ch.charCodeAt(0)) >>> 0; }); return AV[h % AV.length]; }
     function initial(name) { return escapeHtml(String(name || '?').trim().charAt(0).toUpperCase() || '?'); }
@@ -1339,43 +1344,36 @@
             const ok = igConnected(a.id);
             const ts = ok ? tokenState(r.token_expires_at) : { level: 'none' };
             const dot = !ok ? 'g' : (ts.level === 'bad' ? 'r' : ts.level === 'warn' ? 'a' : '');
-            const sub = !state.accLoaded ? '…' : ok ? ('@' + escapeHtml(r.ig_username || 'instagram') + (ts.level === 'warn' ? ' · токен истекает' : ts.level === 'bad' ? ' · токен истёк' : '')) : 'не подключён';
-            return `<button type="button" class="cf-acc${a.id === cab && !state.own ? ' on' : ''}" data-cf="acc" data-id="${escapeHtml(a.id)}">
-                <span class="cf-av ${avClass(a.id)}">${initial(a.name)}</span>
-                <span class="cf-acc-t"><b>${escapeHtml(a.name)}</b><small><i class="cf-dot ${dot}"></i>${sub}</small></span>
+            const title = !state.accLoaded ? '' : ok ? ('@' + (r.ig_username || 'instagram') + (ts.level === 'warn' ? ' · токен истекает' : ts.level === 'bad' ? ' · токен истёк' : '')) : 'Instagram не подключён';
+            return `<button type="button" class="cf-acc${a.id === cab && !state.own ? ' on' : ''}" data-cf="acc" data-id="${escapeHtml(a.id)}" title="${escapeHtml(title)}">
+                <span class="cf-av ${avClass(a.id)}">${initial(a.name)}</span><b>${escapeHtml(a.name)}</b><i class="cf-dot ${dot}"></i>
             </button>`;
         }).join('');
         const own = isSuperAdminUi()
-            ? `<button type="button" class="cf-acc cf-acc-own${state.own ? ' on' : ''}" data-cf="acc-own"><span class="cf-av">N</span><span class="cf-acc-t"><b>NR Space</b><small><i class="cf-dot ${ownTokenRow() ? '' : 'g'}"></i>${ownTokenRow() ? '@' + escapeHtml(ownTokenRow().ig_username || 'nurcon.kg') + ' · наш' : '@nurcon.kg · наш'}</small></span></button>` : '';
-        const more = many && !q ? `<button type="button" class="cf-acc cf-acc-add" data-cf="acc-more"><b>${state.accAll ? 'Свернуть' : 'Все (' + list.length + ')'}</b></button>` : '';
-        const search = many && state.accAll ? `<input class="cf-acc-q" id="cf-acc-q" placeholder="Найти кабинет" value="${escapeHtml(state.accQuery || '')}" data-cf-input="acc-q">` : '';
-        return `<div class="cf-step-t">Шаг 1 · выберите Instagram</div>${search}<div class="cf-accs">${own}${cards}${more}</div>`;
+            ? `<button type="button" class="cf-acc cf-acc-own${state.own ? ' on' : ''}" data-cf="acc-own" title="@${escapeHtml((ownTokenRow() && ownTokenRow().ig_username) || 'nurcon.kg')} · наш аккаунт"><span class="cf-av">N</span><b>NR Space</b><i class="cf-dot ${ownTokenRow() ? '' : 'g'}"></i></button>` : '';
+        const more = many && !q ? `<button type="button" class="cf-acc cf-acc-add" data-cf="acc-more"><b>${state.accAll ? 'Свернуть' : 'Все ' + list.length}</b></button>` : '';
+        const search = many && state.accAll ? `<input class="cf-acc-q" id="cf-acc-q" placeholder="Найти кабинет" value="${escapeHtml(state.accQuery || '')}">` : '';
+        return `${search}<div class="cf-accs">${own}${cards}${more}</div>`;
     }
-    function headHtml() {
-        const a = state.own ? { id: 'nr-space', name: 'NR Space' } : (state.accounts.find((x) => x.id === cab) || { id: cab, name: 'Кабинет' });
+    function statusHtml() {
         const r = state.own ? ownTokenRow() : igRow(cab);
         const ok = state.own ? !!r : igConnected(cab);
         const ts = ok ? tokenState(r.token_expires_at) : { level: 'none', days: null };
         const now = new Date();
         const ms = monthStats(state.posts, now.getFullYear(), now.getMonth());
         const loaded = state.own ? state.ownIg !== null : state.accLoaded;
-        const chip = !loaded ? '<span class="cf-chip2">Проверяем подключение…</span>'
-            : ok ? `<span class="cf-chip2 ok">Подключено · @${escapeHtml(r.ig_username || 'instagram')}</span>`
-                : '<span class="cf-chip2 bad">Instagram не подключён</span>';
-        const tok = ok && ts.days != null
-            ? `<span class="cf-chip2 ${ts.level === 'ok' ? '' : ts.level === 'warn' ? 'warn' : 'bad'}">${ts.level === 'bad' ? 'Токен истёк' : 'Токен действует ещё ' + ts.days + ' дн.'}</span>` : '';
-        return `<div class="cf-head">
-            <span class="cf-av cf-av-l ${state.own ? '' : avClass(cab)}">${initial(a.name)}</span>
-            <div class="cf-head-t"><h2>${escapeHtml(a.name)}</h2><div class="cf-chips">${chip}${tok}</div></div>
-            <div class="cf-kp"><div><b>${ms.published}</b><small>опубликовано за месяц</small></div><div><b>${ms.planned}</b><small>в плане</small></div><div><b>${ms.views.toLocaleString('ru-RU')}</b><small>просмотров</small></div></div>
-            <button type="button" class="ui-btn ui-btn-secondary" data-cf="${state.own ? 'own-settings' : 'view'}" data-id="instagram">Настройки</button>
-        </div>`;
+        const tone = !loaded ? 'g' : !ok ? 'r' : ts.level === 'bad' ? 'r' : ts.level === 'warn' ? 'a' : '';
+        const who = !loaded ? 'Проверяем…' : ok ? '@' + escapeHtml(r.ig_username || 'instagram') : 'Instagram не подключён';
+        const tok = ok && ts.days != null ? ` · ${ts.level === 'bad' ? 'токен истёк' : 'токен ещё ' + ts.days + ' дн.'}` : '';
+        return `<div class="cf-stat-l"><i class="cf-dot ${tone}"></i><span>${who}${tok}</span>
+            <span class="cf-sep">${ms.published} опубл. · ${ms.planned} в плане · ${ms.views.toLocaleString('ru-RU')} просм.</span>
+            <button type="button" class="cf-gear" data-cf="${state.own ? 'own-settings' : 'view'}" data-id="instagram" title="Настройки Instagram" aria-label="Настройки Instagram">⚙</button></div>`;
     }
     function navHtml() {
         const queue = state.posts.filter((p) => p.status === 'review').length;
         return `<div class="cf-navwrap"><div class="cf-tabs" id="cf-tabs">${VIEWS.filter((v) => !(state.own && v.id === 'bloggers')).map((v) =>
             `<button type="button" class="${state.view === v.id ? 'on' : ''}" data-cf="view" data-id="${v.id}">${v.label}${v.id === 'review' && queue ? `<span class="cf-badge">${queue}</span>` : ''}</button>`
-        ).join('')}<span class="cf-pill"></span></div></div>${nmDatalistHtml()}`;
+        ).join('')}<span class="cf-pill"></span></div>${statusHtml()}</div>${nmDatalistHtml()}`;
     }
     function placePill() {
         if (typeof document === 'undefined') return;
@@ -1385,6 +1383,7 @@
         const pill = box.querySelector('.cf-pill');
         if (!pill) return;
         if (!on) { pill.style.opacity = '0'; return; }
+        pill.style.opacity = '1';
         pill.style.width = on.offsetWidth + 'px';
         pill.style.transform = 'translateX(' + on.offsetLeft + 'px)';
     }
@@ -1425,24 +1424,17 @@
         } else if (ts.level === 'warn' || ts.level === 'bad') {
             banner = `<div class="cf-warn"><span class="cf-dot a"></span><span>${ts.level === 'bad' ? 'Токен Instagram истёк.' : 'Токен Instagram истекает через ' + ts.days + ' дн.'} Переподключите, чтобы публикации не остановились.</span><button type="button" class="ui-btn ui-btn-primary" data-cf="${act}" data-id="instagram">Переподключить</button></div>`;
         }
-        const ms = monthStats(state.posts, now.getFullYear(), now.getMonth());
-        const best = ms.best;
         const todo = todoItems(state.posts).map((t) => {
-            if (t.kind === 'review') return `<div class="cf-todo w"><div><b>${t.n} ${t.n === 1 ? 'пост ждёт' : 'поста ждут'} подтверждения</b><small>Проверьте слайды и нажмите «Подтвердить»</small></div><button type="button" class="ui-btn ui-btn-primary" data-cf="view" data-id="review">Открыть очередь</button></div>`;
-            if (t.kind === 'error') return `<div class="cf-todo e"><div><b>${t.n} ${t.n === 1 ? 'пост не опубликовался' : 'поста не опубликовались'}</b><small>Причина указана в очереди, можно повторить</small></div><button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="review">Посмотреть</button></div>`;
-            return `<div class="cf-todo i"><div><b>На ближайшую неделю ничего не запланировано</b><small>Создайте пост, чтобы аккаунт не молчал</small></div><button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="create">Создать</button></div>`;
+            if (t.kind === 'review') return `<div class="cf-todo w"><b>${t.n} ${t.n === 1 ? 'пост ждёт' : 'поста ждут'} подтверждения</b>${tip('Проверьте слайды и нажмите «Подтвердить»')}<button type="button" class="ui-btn ui-btn-primary" data-cf="view" data-id="review">Открыть очередь</button></div>`;
+            if (t.kind === 'error') return `<div class="cf-todo e"><b>${t.n} ${t.n === 1 ? 'пост не опубликовался' : 'поста не опубликовались'}</b>${tip('Причина указана в очереди, можно повторить')}<button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="review">Посмотреть</button></div>`;
+            return `<div class="cf-todo i"><b>На неделю ничего не запланировано</b>${tip('Создайте пост, чтобы аккаунт не молчал')}<button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="create">Создать</button></div>`;
         }).join('');
         const up = upcomingPosts(state.posts, 3).map((p) =>
             `<button type="button" class="cf-li" data-cf="edit-post" data-id="${p.id}">${thumbHtml(p)}<span><b>${escapeHtml(postTitle(p))}</b><small>${kindLabel(p)} · ${whenLabel(p)}</small></span></button>`).join('');
         return `${banner}
-        <div class="cf-grid3">
-            <div class="cf-card cf-stat"><small>Просмотры за месяц</small><b>${ms.views.toLocaleString('ru-RU')}</b></div>
-            <div class="cf-card cf-stat"><small>Опубликовано</small><b>${ms.published}</b><span class="cf-muted">из ${ms.planned} в плане</span></div>
-            <div class="cf-card cf-stat"><small>Лучший пост</small><b>${best ? num(best.views).toLocaleString('ru-RU') : '—'}</b><span class="cf-muted">${best ? escapeHtml(postTitle(best)) : 'пока нет данных'}</span></div>
-        </div>
         <div class="cf-grid2">
             <div class="cf-card"><h3>Нужно сделать</h3>${todo || '<div class="cf-muted">Всё в порядке</div>'}</div>
-            <div class="cf-card"><h3>Ближайшие публикации</h3>${up || '<div class="cf-muted">Пока ничего не запланировано</div>'}</div>
+            <div class="cf-card"><h3>Ближайшие публикации</h3>${up || '<div class="cf-muted">Ничего не запланировано</div>'}</div>
         </div>`;
     }
 
@@ -1496,7 +1488,7 @@
         </div>
         ${filtersHtml()}
         ${state.listMode === 'calendar' ? `<div class="cf-cal"><div class="cf-cal-week">${head}</div><div class="cf-cal-grid">${cells}</div></div>
-        <div class="cf-legend"><span><i class="cf-dot g"></i>Черновик</span><span><i class="cf-dot a"></i>На подтверждении</span><span><i class="cf-dot b"></i>Запланировано</span><span><i class="cf-dot"></i>Опубликовано</span><span><i class="cf-dot r"></i>Ошибка</span><span>Перетащите пост на другой день, чтобы перенести</span></div>` : tableHtml(posts)}`;
+        <div class="cf-legend"><span><i class="cf-dot g"></i>Черновик</span><span><i class="cf-dot a"></i>На подтверждении</span><span><i class="cf-dot b"></i>Запланировано</span><span><i class="cf-dot"></i>Опубликовано</span><span><i class="cf-dot r"></i>Ошибка</span>${tip('Перетащите пост на другой день, чтобы перенести')}</div>` : tableHtml(posts)}`;
     }
 
     function tableHtml(posts) {
@@ -1541,13 +1533,13 @@
         const fmtTabs = `<div class="cf-fmt cf-fmt2">${FORMATS.filter((x) => x.id !== 'carousel').map((x) =>
             `<button type="button" class="${state.fmt === x.id ? 'on' : ''}" data-cf="fmt" data-id="${x.id}">${x.label}<small>${x.id === 'story' ? 'вертикальная' : '1 фото или несколько'}</small></button>`).join('')}</div>`;
         const pics = slides.length
-            ? `<div class="cf-pics">${slides.map((u, i) => `<button type="button" data-cf="rm-photo" data-id="${i}" title="Убрать фото"><img src="${escapeHtml(u)}" alt=""></button>`).join('')}</div><div class="cf-muted">${slides.length > 1 ? 'Несколько фото уйдут каруселью. ' : ''}Нажмите на фото, чтобы убрать.</div>` : '';
-        const when = `<div class="cf-step"><h3><span class="cf-n">4</span>Когда</h3>
+            ? `<div class="cf-pics">${slides.map((u, i) => `<button type="button" data-cf="rm-photo" data-id="${i}" title="Убрать фото"><img src="${escapeHtml(u)}" alt=""></button>`).join('')}</div>${tip((slides.length > 1 ? 'Несколько фото уйдут каруселью. ' : '') + 'Нажмите на фото, чтобы убрать.')}` : '';
+        const when = `<div class="cf-step"><h3><span class="cf-n">4</span>Когда${tip('Публикация идёт только после кнопки «Подтвердить» в очереди')}</h3>
             <div class="cf-when"><input id="cf-f-at" type="datetime-local" value="${escapeHtml(f.publish_at || '')}">
             <button type="button" class="cf-chip" data-cf="when" data-id="now">Сразу после подтверждения</button>
             <button type="button" class="cf-chip" data-cf="when" data-id="today">Сегодня 12:00</button>
             <button type="button" class="cf-chip" data-cf="when" data-id="tomorrow">Завтра 12:00</button></div>
-            <div class="cf-muted">Публикация идёт только после кнопки «Подтвердить» в очереди.</div></div>`;
+            </div>`;
         return `<div class="cf-comp"><div class="cf-steps">
             <div class="cf-step"><h3><span class="cf-n">1</span>Что публикуем</h3>${fmtTabs}</div>
             ${f.error_text ? `<div class="cf-err">${escapeHtml(f.error_text)}</div>` : ''}
@@ -1561,7 +1553,7 @@
             <div class="cf-step"><h3><span class="cf-n">3</span>Подпись</h3>
                 <textarea id="cf-f-cap" placeholder="Текст к посту и хэштеги">${escapeHtml(f.caption || '')}</textarea></div>
             ${when}
-            <div class="cf-bar">
+            <div class="cf-actions">
                 <button type="button" class="ui-btn ui-btn-secondary" data-cf="close-form">Закрыть</button>
                 ${f.id ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="delete-post">Удалить</button>' : ''}
                 <span class="cf-sp"></span>
@@ -1577,13 +1569,13 @@
         const card = state.card;
         const fmtTabs = `<div class="cf-fmt">${FORMATS.map((x) =>
             `<button type="button" class="${state.fmt === x.id ? 'on' : ''}" data-cf="fmt" data-id="${x.id}"${f.id && x.id === 'carousel' ? ' disabled' : ''}>${x.label}<small>${x.hint}</small></button>`).join('')}</div>`;
-        const head = `<div class="cf-step"><h3><span class="cf-n">1</span>Что публикуем</h3>${fmtTabs}${f.id ? '<div class="cf-muted">Редактирование поста: формат сменить нельзя.</div>' : ''}</div>`;
-        const when = `<div class="cf-step"><h3><span class="cf-n">${state.fmt === 'carousel' ? 3 : 4}</span>Когда</h3>
+        const head = `<div class="cf-step"><h3><span class="cf-n">1</span>Что публикуем</h3>${fmtTabs}</div>`;
+        const when = `<div class="cf-step"><h3><span class="cf-n">${state.fmt === 'carousel' ? 3 : 4}</span>Когда${tip('Публикация идёт только после кнопки «Подтвердить» в очереди')}</h3>
             <div class="cf-when"><input id="${state.fmt === 'carousel' ? 'cf-car-at' : 'cf-f-at'}" type="datetime-local" value="${escapeHtml(f.publish_at || '')}">
             <button type="button" class="cf-chip" data-cf="when" data-id="now">Сразу после подтверждения</button>
             <button type="button" class="cf-chip" data-cf="when" data-id="today">Сегодня 12:00</button>
             <button type="button" class="cf-chip" data-cf="when" data-id="tomorrow">Завтра 12:00</button></div>
-            <div class="cf-muted">Публикация идёт только после кнопки «Подтвердить» в очереди.</div></div>`;
+            </div>`;
         if (state.fmt === 'carousel') {
             const slides = state.carouselUrls || [];
             return `<div class="cf-comp"><div class="cf-steps">${head}
@@ -1612,7 +1604,7 @@
                     <div><div class="cf-card-name">${escapeHtml((card && card.title) || (art && art.name) || 'Введите артикул WB')}</div>
                     <div class="cf-muted">${art ? 'nmId ' + art.nm_id + ' · ' : ''}${escapeHtml(stLabel)} · цена ${price}${art && art.cost_price ? ' · себест. ' + art.cost_price : ''}</div></div>
                 </div>
-                ${pics.length ? `<div class="cf-pics">${pics.map((u) => `<button type="button" class="${f.file_url === u ? 'on' : ''}" data-cf="pick-photo" data-url="${escapeHtml(u)}"><img src="${escapeHtml(u)}" alt=""></button>`).join('')}</div><div class="cf-muted">Нажмите на фото, чтобы выбрать его для ${state.fmt === 'story' ? 'сторис' : 'поста'}.</div>` : ''}
+                ${pics.length ? `<div class="cf-pics">${pics.map((u) => `<button type="button" class="${f.file_url === u ? 'on' : ''}" data-cf="pick-photo" data-url="${escapeHtml(u)}"><img src="${escapeHtml(u)}" alt=""></button>`).join('')}</div>` : ''}
                 <label class="cf-lab">Ссылка на файл<input id="cf-f-file" value="${escapeHtml(f.file_url || '')}" placeholder="https://… (подставится при выборе фото)"></label>
             </div>
             <div class="cf-step"><h3><span class="cf-n">3</span>Подпись</h3>
@@ -1627,7 +1619,7 @@
                 <label>Бренд<input id="cf-f-brand" value="${escapeHtml(f.brand_name || '')}"></label>
             </div></details>
             ${readySlides.length > 1 ? `<div class="cf-slides">${readySlides.map((u) => `<div class="cf-slide"><img src="${escapeHtml(u)}" alt=""></div>`).join('')}</div>` : ''}
-            <div class="cf-bar">
+            <div class="cf-actions">
                 <button type="button" class="ui-btn ui-btn-secondary" data-cf="close-form">Закрыть</button>
                 ${f.id ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="delete-post">Удалить</button>' : ''}
                 <span class="cf-sp"></span>
@@ -1759,7 +1751,6 @@
         const label = !state.igLoaded ? '…' : (ig.connected ? 'Подключено' : 'Не подключено');
         return `<div class="widget-card cf-form">
             <h3>Instagram этого кабинета: настройки</h3>
-            <div class="cf-muted" style="margin-bottom:8px">Подключение нужно, чтобы публиковать посты и сторис.</div>
             <div class="cf-st ${ig.connected ? 'st-published' : 'st-draft'}">${label}${ig.ig_username ? ' · @' + escapeHtml(ig.ig_username) : ''}</div>
             <div class="cf-form-grid">
                 <label>Токен<input id="cf-ig-token" type="password" autocomplete="off"></label>
