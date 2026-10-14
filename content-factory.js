@@ -18,13 +18,19 @@
         { id: 'error', label: 'Ошибка' },
     ];
     const VIEWS = [
+        { id: 'overview', label: 'Обзор' },
         { id: 'calendar', label: 'Календарь' },
+        { id: 'create', label: 'Создать' },
         { id: 'review', label: 'Очередь' },
         { id: 'bloggers', label: 'Блогеры' },
-        { id: 'carousel', label: 'Карусель' },
-        { id: 'instagram', label: 'Instagram' },
-        { id: 'dashboard', label: 'Сводка' },
+        { id: 'dashboard', label: 'Аналитика' },
     ];
+    const FORMATS = [
+        { id: 'post', label: 'Пост', hint: '1 фото' },
+        { id: 'carousel', label: 'Карусель', hint: 'до 10 слайдов' },
+        { id: 'story', label: 'Сторис', hint: 'вертикальная' },
+    ];
+    const TOKEN_WARN_DAYS = 14;
     const SLIDE_W = 1080;
     const SLIDE_H = 1350;
     const PHOTO_PAGES = 3;
@@ -395,8 +401,66 @@
         });
     }
 
+    /* Сколько осталось жить токену Instagram: ok / warn (меньше 14 дней) / bad (истёк) / none */
+    function tokenState(expiresAt, now) {
+        if (!expiresAt) return { level: 'none', days: null };
+        const t = new Date(expiresAt).getTime();
+        if (!Number.isFinite(t)) return { level: 'none', days: null };
+        const days = Math.floor((t - (now || Date.now())) / 86400000);
+        if (days < 0) return { level: 'bad', days };
+        return { level: days < TOKEN_WARN_DAYS ? 'warn' : 'ok', days };
+    }
+    /* Сводка месяца: опубликовано, запланировано, просмотры, лучший пост */
+    function monthStats(posts, year, month) {
+        const inMonth = (posts || []).filter((p) => {
+            if (!p.publish_at) return false;
+            const d = new Date(p.publish_at);
+            return d.getFullYear() === year && d.getMonth() === month;
+        });
+        const published = inMonth.filter((p) => p.status === 'published');
+        const planned = inMonth.filter((p) => p.status === 'scheduled' || p.status === 'review' || p.status === 'published');
+        const views = published.reduce((s, p) => s + num(p.views), 0);
+        const best = published.slice().sort((a, b) => num(b.views) - num(a.views))[0] || null;
+        return { published: published.length, planned: planned.length, views, best };
+    }
+    /* Колонки очереди */
+    function queueGroups(posts) {
+        const g = { draft: [], review: [], scheduled: [], done: [] };
+        (posts || []).forEach((p) => {
+            if (p.status === 'draft') g.draft.push(p);
+            else if (p.status === 'review') g.review.push(p);
+            else if (p.status === 'scheduled') g.scheduled.push(p);
+            else g.done.push(p);
+        });
+        return g;
+    }
+    /* Что нужно сделать прямо сейчас: ждут подтверждения, ошибки, пустая неделя */
+    function todoItems(posts, now) {
+        const t = now || Date.now();
+        const list = posts || [];
+        const out = [];
+        const review = list.filter((p) => p.status === 'review').length;
+        const errors = list.filter((p) => p.status === 'error').length;
+        if (review) out.push({ kind: 'review', n: review });
+        if (errors) out.push({ kind: 'error', n: errors });
+        const soon = list.some((p) => p.publish_at && (p.status === 'scheduled' || p.status === 'review')
+            && new Date(p.publish_at).getTime() >= t && new Date(p.publish_at).getTime() <= t + 7 * 86400000);
+        if (!soon) out.push({ kind: 'empty-week', n: 0 });
+        return out;
+    }
+    function upcomingPosts(posts, n, now) {
+        const t = now || Date.now();
+        return (posts || []).filter((p) => p.publish_at && new Date(p.publish_at).getTime() >= t
+            && (p.status === 'scheduled' || p.status === 'review'))
+            .sort((a, b) => new Date(a.publish_at) - new Date(b.publish_at)).slice(0, n || 3);
+    }
+
     const state = {
-        view: 'calendar',
+        view: 'overview',
+        fmt: 'post',
+        accounts: [],
+        igMap: {},
+        accQuery: '',
         listMode: 'calendar',
         cursor: new Date(),
         posts: [],
@@ -572,6 +636,24 @@
         }
         state.igLoaded = true;
     }
+    /* Кабинеты = Instagram-аккаунты: статус подключения берём одним запросом (RLS отдаёт только доступные) */
+    async function loadAccounts() {
+        try {
+            const list = typeof root.nrCabinetList === 'function' ? root.nrCabinetList() : [];
+            state.accounts = (list || []).map((c) => ({ id: String(c.id), name: c.name || 'Кабинет' }));
+        } catch (_) { state.accounts = []; }
+        if (!state.accounts.some((a) => a.id === cab)) state.accounts.unshift({ id: cab, name: 'Кабинет' });
+        try {
+            const { data } = await withTimeout(sb.from('content_ig_accounts')
+                .select('cabinet_id, ig_username, ig_user_id, token_secret_id, token_expires_at'), queryTimeoutMs());
+            const map = {};
+            (data || []).forEach((r) => { map[String(r.cabinet_id)] = r; });
+            state.igMap = map;
+        } catch (_) { state.igMap = state.igMap || {}; }
+        state.accLoaded = true;
+    }
+    function igRow(id) { return state.igMap[String(id)] || null; }
+    function igConnected(id) { const r = igRow(id); return !!(r && r.token_secret_id && r.ig_user_id); }
     function ensureIg() {
         if (state.igLoaded || state.igBusy) return Promise.resolve();
         state.igBusy = true;
@@ -585,7 +667,7 @@
         state.fetchCab = cab;
         state.err = '';
         try {
-            await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts()]);
+            await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts(), loadAccounts()]);
             if (gen !== state.loadGen) return;
             state.loadedCab = cab;
         } catch (e) {
@@ -685,6 +767,7 @@
             composition_text: '',
             brand_name: '',
             slide_urls: [],
+            post_kind: 'feed',
             views: 0,
         };
     }
@@ -706,6 +789,7 @@
             composition_text: p.composition_text || '',
             brand_name: p.brand_name || '',
             slide_urls: Array.isArray(p.slide_urls) ? p.slide_urls : [],
+            post_kind: p.post_kind === 'story' ? 'story' : 'feed',
             views: p.views || 0,
             error_text: p.error_text || '',
             approved_at: p.approved_at || null,
@@ -732,6 +816,7 @@
             composition_text: form.composition_text || null,
             brand_name: form.brand_name || null,
             slide_urls: form.slide_urls || [],
+            post_kind: form.post_kind === 'story' ? 'story' : 'feed',
             approved_at: form.approved_at || null,
         }, extra || {});
         if ((patch.status === 'scheduled' || patch.status === 'published') && !patch.approved_at) {
@@ -824,8 +909,39 @@
         if (act === 'view') {
             state.view = id;
             state.form = null;
+            if (id === 'create') { state.form = emptyForm(''); state.fmt = 'post'; state.carouselUrls = []; state.card = null; }
             paint();
             if (id === 'instagram') void ensureIg();
+            return;
+        }
+        if (act === 'acc') {
+            if (id && id !== cab && typeof root.nrSelectCabinet === 'function') root.nrSelectCabinet(id);
+            return;
+        }
+        if (act === 'acc-own') {
+            const b = typeof document !== 'undefined' && document.getElementById('cf-ig-btn');
+            if (b) b.click();
+            return;
+        }
+        if (act === 'acc-more') { state.accAll = !state.accAll; paint(); return; }
+        if (act === 'fmt') {
+            if (state.form) state.form = readForm();
+            state.fmt = id;
+            paint();
+            return;
+        }
+        if (act === 'pick-photo') {
+            if (state.form) { state.form = readForm(); state.form.file_url = el.getAttribute('data-url') || ''; }
+            paint();
+            return;
+        }
+        if (act === 'when') {
+            const inp = document.getElementById('cf-f-at') || document.getElementById('cf-car-at');
+            if (!inp) return;
+            const d = new Date();
+            if (id === 'tomorrow') d.setDate(d.getDate() + 1);
+            d.setHours(12, 0, 0, 0);
+            inp.value = id === 'now' ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
             return;
         }
         if (act === 'mode') { state.listMode = id; paint(); return; }
@@ -840,16 +956,19 @@
         if (act === 'filter-platform') { state.filters.platform = id; paint(); return; }
         if (act === 'filter-blogger') { state.filters.blogger = id; paint(); return; }
         if (act === 'filter-status') { state.filters.status = id; paint(); return; }
-        if (act === 'new-day') { state.form = emptyForm(id); state.view = 'calendar'; paint(); return; }
+        if (act === 'new-day') { state.form = emptyForm(id); state.fmt = 'post'; state.carouselUrls = []; state.card = null; state.backView = state.view === 'create' ? 'calendar' : state.view; state.view = 'create'; paint(); return; }
         if (act === 'edit-post') {
             const p = state.posts.find((x) => x.id === id);
             if (!p) return;
             state.form = formFromPost(p);
+            state.fmt = state.form.post_kind === 'story' ? 'story' : 'post';
+            state.backView = state.view === 'create' ? 'calendar' : state.view;
+            state.view = 'create';
             const art = articleOf(p);
             if (art) pullArticleCard(art).then(() => paint());
             paint(); return;
         }
-        if (act === 'close-form') { state.form = null; paint(); return; }
+        if (act === 'close-form') { state.form = null; state.view = state.backView || 'calendar'; paint(); return; }
         if (act === 'pick-article') {
             const art = state.articleMap[id];
             if (art) return handle('lookup-nm', art.nm_id, el);
@@ -878,6 +997,7 @@
             if (form.status === 'published' || form.status === 'scheduled') form.status = 'review';
             await savePost(form);
             state.form = null;
+            state.view = 'calendar';
             await reload();
             toast('success', 'Сохранено', 'Черновик в календаре');
             return;
@@ -1021,6 +1141,7 @@
                 file_url: state.carouselUrls[0],
                 post_url: '',
                 caption: (document.getElementById('cf-car-cap') || {}).value || '',
+                publish_at: (document.getElementById('cf-car-at') || {}).value || '',
                 composition_text: (document.getElementById('cf-car-comp') || {}).value || '',
                 brand_name: (document.getElementById('cf-car-brand') || {}).value || '',
                 slide_urls: state.carouselUrls,
@@ -1050,6 +1171,19 @@
             await callFn('content-ig-oauth', { action: 'disconnect' });
             await loadIg();
             paint();
+            return;
+        }
+        if (act === 'move-post') {
+            const pid = el.getAttribute('data-pid');
+            const p = state.posts.find((x) => x.id === pid);
+            if (!p || p.status === 'published') return;
+            const old = p.publish_at ? new Date(p.publish_at) : new Date(id + 'T12:00:00');
+            const to = new Date(id + 'T00:00:00');
+            to.setHours(old.getHours(), old.getMinutes(), 0, 0);
+            const { error } = await sb.from('content_posts').update({ publish_at: to.toISOString(), updated_at: new Date().toISOString() }).eq('id', pid).eq('cabinet_id', cab);
+            if (error) throw error;
+            await reload();
+            toast('success', 'Перенесено', to.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }));
             return;
         }
         if (act === 'wb-search') {
@@ -1086,6 +1220,7 @@
         f.caption = (document.getElementById('cf-f-cap') || {}).value || '';
         f.composition_text = (document.getElementById('cf-f-comp') || {}).value || '';
         f.brand_name = (document.getElementById('cf-f-brand') || {}).value || '';
+        f.post_kind = state.fmt === 'story' ? 'story' : 'feed';
         return f;
     }
 
@@ -1093,23 +1228,152 @@
         const el = rootEl();
         if (!el) return;
         el.innerHTML = [
+            accountsHtml(),
+            headHtml(),
             navHtml(),
             state.err ? `<div class="cf-err">${escapeHtml(state.err)}</div>` : '',
+            `<div class="cf-screen" data-view="${state.view}">`,
+            state.view === 'overview' ? overviewHtml() : '',
             state.view === 'calendar' ? calendarHtml() : '',
+            state.view === 'create' ? createHtml() : '',
             state.view === 'review' ? reviewHtml() : '',
             state.view === 'bloggers' ? bloggersHtml() : '',
-            state.view === 'carousel' ? carouselHtml() : '',
             state.view === 'instagram' ? igHtml() : '',
             state.view === 'dashboard' ? dashHtml() : '',
+            '</div>',
         ].join('');
         bindExtra();
+        placePill();
     }
 
-    function navHtml() {
-        return `<div class="cf-nav">${VIEWS.map((v) =>
-            `<button type="button" class="cf-nav-btn${state.view === v.id ? ' on' : ''}" data-cf="view" data-id="${v.id}">${v.label}</button>`
-        ).join('')}</div>${nmDatalistHtml()}`;
+    /* ── Шаг 1: выбор Instagram (кабинет) ── */
+    const AV = ['', 'b', 'c', 'd'];
+    function avClass(id) { let h = 0; String(id).split('').forEach((ch) => { h = (h * 31 + ch.charCodeAt(0)) >>> 0; }); return AV[h % AV.length]; }
+    function initial(name) { return escapeHtml(String(name || '?').trim().charAt(0).toUpperCase() || '?'); }
+    function isSuperAdminUi() {
+        if (typeof document === 'undefined') return false;
+        const b = document.getElementById('cf-ig-bar');
+        return !!(b && b.style.display !== 'none');
     }
+    function accountsHtml() {
+        const list = state.accounts.length ? state.accounts : [{ id: cab, name: 'Кабинет' }];
+        const many = list.length > 6;
+        const q = String(state.accQuery || '').toLowerCase();
+        let shown = q ? list.filter((a) => a.name.toLowerCase().includes(q)) : list;
+        if (many && !state.accAll && !q) {
+            const cur = list.find((a) => a.id === cab);
+            shown = list.slice(0, 6);
+            if (cur && !shown.includes(cur)) shown = shown.slice(0, 5).concat(cur);
+        }
+        const cards = shown.map((a) => {
+            const r = igRow(a.id);
+            const ok = igConnected(a.id);
+            const ts = ok ? tokenState(r.token_expires_at) : { level: 'none' };
+            const dot = !ok ? 'g' : (ts.level === 'bad' ? 'r' : ts.level === 'warn' ? 'a' : '');
+            const sub = !state.accLoaded ? '…' : ok ? ('@' + escapeHtml(r.ig_username || 'instagram') + (ts.level === 'warn' ? ' · токен истекает' : ts.level === 'bad' ? ' · токен истёк' : '')) : 'не подключён';
+            return `<button type="button" class="cf-acc${a.id === cab ? ' on' : ''}" data-cf="acc" data-id="${escapeHtml(a.id)}">
+                <span class="cf-av ${avClass(a.id)}">${initial(a.name)}</span>
+                <span class="cf-acc-t"><b>${escapeHtml(a.name)}</b><small><i class="cf-dot ${dot}"></i>${sub}</small></span>
+            </button>`;
+        }).join('');
+        const own = isSuperAdminUi()
+            ? `<button type="button" class="cf-acc cf-acc-own" data-cf="acc-own"><span class="cf-av">N</span><span class="cf-acc-t"><b>NR Space</b><small>@nurcon.kg · наш, настройки</small></span></button>` : '';
+        const more = many && !q ? `<button type="button" class="cf-acc cf-acc-add" data-cf="acc-more"><b>${state.accAll ? 'Свернуть' : 'Все (' + list.length + ')'}</b></button>` : '';
+        const search = many && state.accAll ? `<input class="cf-acc-q" id="cf-acc-q" placeholder="Найти кабинет" value="${escapeHtml(state.accQuery || '')}" data-cf-input="acc-q">` : '';
+        return `<div class="cf-step-t">Шаг 1 · выберите Instagram</div>${search}<div class="cf-accs">${own}${cards}${more}</div>`;
+    }
+    function headHtml() {
+        const a = state.accounts.find((x) => x.id === cab) || { id: cab, name: 'Кабинет' };
+        const r = igRow(cab);
+        const ok = igConnected(cab);
+        const ts = ok ? tokenState(r.token_expires_at) : { level: 'none', days: null };
+        const now = new Date();
+        const ms = monthStats(state.posts, now.getFullYear(), now.getMonth());
+        const chip = !state.accLoaded ? '<span class="cf-chip2">Проверяем подключение…</span>'
+            : ok ? `<span class="cf-chip2 ok">Подключено · @${escapeHtml(r.ig_username || 'instagram')}</span>`
+                : '<span class="cf-chip2 bad">Instagram не подключён</span>';
+        const tok = ok && ts.days != null
+            ? `<span class="cf-chip2 ${ts.level === 'ok' ? '' : ts.level === 'warn' ? 'warn' : 'bad'}">${ts.level === 'bad' ? 'Токен истёк' : 'Токен действует ещё ' + ts.days + ' дн.'}</span>` : '';
+        return `<div class="cf-head">
+            <span class="cf-av cf-av-l ${avClass(cab)}">${initial(a.name)}</span>
+            <div class="cf-head-t"><h2>${escapeHtml(a.name)}</h2><div class="cf-chips">${chip}${tok}</div></div>
+            <div class="cf-kp"><div><b>${ms.published}</b><small>опубликовано за месяц</small></div><div><b>${ms.planned}</b><small>в плане</small></div><div><b>${ms.views.toLocaleString('ru-RU')}</b><small>просмотров</small></div></div>
+            <button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="instagram">Настройки</button>
+        </div>`;
+    }
+    function navHtml() {
+        const queue = state.posts.filter((p) => p.status === 'review').length;
+        return `<div class="cf-navwrap"><div class="cf-tabs" id="cf-tabs">${VIEWS.map((v) =>
+            `<button type="button" class="${state.view === v.id ? 'on' : ''}" data-cf="view" data-id="${v.id}">${v.label}${v.id === 'review' && queue ? `<span class="cf-badge">${queue}</span>` : ''}</button>`
+        ).join('')}<span class="cf-pill"></span></div></div>${nmDatalistHtml()}`;
+    }
+    function placePill() {
+        if (typeof document === 'undefined') return;
+        const box = document.getElementById('cf-tabs');
+        if (!box) return;
+        const on = box.querySelector('button.on');
+        const pill = box.querySelector('.cf-pill');
+        if (!pill) return;
+        if (!on) { pill.style.opacity = '0'; return; }
+        pill.style.width = on.offsetWidth + 'px';
+        pill.style.transform = 'translateX(' + on.offsetLeft + 'px)';
+    }
+
+    /* ── Обзор ── */
+    function thumbOf(p) {
+        const art = articleOf(p);
+        const slides = (Array.isArray(p.slide_urls) ? p.slide_urls : []).filter(Boolean);
+        return slides[0] || p.file_url || (art && art.photo_url) || '';
+    }
+    function thumbHtml(p, cls) {
+        const u = thumbOf(p);
+        return u ? `<img class="cf-th ${cls || ''}" src="${escapeHtml(u)}" alt="" loading="lazy">` : `<span class="cf-th cf-th-ph ${cls || ''} ${avClass(p.id)}"></span>`;
+    }
+    function postTitle(p) {
+        const art = articleOf(p);
+        return (art && (art.name || String(art.nm_id))) || 'Пост';
+    }
+    function kindLabel(p) {
+        if (p.post_kind === 'story') return 'Сторис';
+        return Array.isArray(p.slide_urls) && p.slide_urls.filter(Boolean).length > 1 ? 'Карусель' : 'Пост';
+    }
+    function whenLabel(p) {
+        if (!p.publish_at) return 'без даты';
+        const d = new Date(p.publish_at);
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    function overviewHtml() {
+        const now = new Date();
+        const ok = igConnected(cab);
+        const r = igRow(cab);
+        const ts = ok ? tokenState(r.token_expires_at) : { level: 'none', days: null };
+        let banner = '';
+        if (state.accLoaded && !ok) {
+            banner = `<div class="cf-warn bad"><span class="cf-dot r"></span><span>Instagram этого кабинета не подключён: публиковать пока нельзя.</span><button type="button" class="ui-btn ui-btn-primary" data-cf="view" data-id="instagram">Подключить</button></div>`;
+        } else if (ts.level === 'warn' || ts.level === 'bad') {
+            banner = `<div class="cf-warn"><span class="cf-dot a"></span><span>${ts.level === 'bad' ? 'Токен Instagram истёк.' : 'Токен Instagram истекает через ' + ts.days + ' дн.'} Переподключите, чтобы публикации не остановились.</span><button type="button" class="ui-btn ui-btn-primary" data-cf="view" data-id="instagram">Переподключить</button></div>`;
+        }
+        const ms = monthStats(state.posts, now.getFullYear(), now.getMonth());
+        const best = ms.best;
+        const todo = todoItems(state.posts).map((t) => {
+            if (t.kind === 'review') return `<div class="cf-todo w"><div><b>${t.n} ${t.n === 1 ? 'пост ждёт' : 'поста ждут'} подтверждения</b><small>Проверьте слайды и нажмите «Подтвердить»</small></div><button type="button" class="ui-btn ui-btn-primary" data-cf="view" data-id="review">Открыть очередь</button></div>`;
+            if (t.kind === 'error') return `<div class="cf-todo e"><div><b>${t.n} ${t.n === 1 ? 'пост не опубликовался' : 'поста не опубликовались'}</b><small>Причина указана в очереди, можно повторить</small></div><button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="review">Посмотреть</button></div>`;
+            return `<div class="cf-todo i"><div><b>На ближайшую неделю ничего не запланировано</b><small>Создайте пост, чтобы аккаунт не молчал</small></div><button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="create">Создать</button></div>`;
+        }).join('');
+        const up = upcomingPosts(state.posts, 3).map((p) =>
+            `<button type="button" class="cf-li" data-cf="edit-post" data-id="${p.id}">${thumbHtml(p)}<span><b>${escapeHtml(postTitle(p))}</b><small>${kindLabel(p)} · ${whenLabel(p)}</small></span></button>`).join('');
+        return `${banner}
+        <div class="cf-grid3">
+            <div class="cf-card cf-stat"><small>Просмотры за месяц</small><b>${ms.views.toLocaleString('ru-RU')}</b></div>
+            <div class="cf-card cf-stat"><small>Опубликовано</small><b>${ms.published}</b><span class="cf-muted">из ${ms.planned} в плане</span></div>
+            <div class="cf-card cf-stat"><small>Лучший пост</small><b>${best ? num(best.views).toLocaleString('ru-RU') : '—'}</b><span class="cf-muted">${best ? escapeHtml(postTitle(best)) : 'пока нет данных'}</span></div>
+        </div>
+        <div class="cf-grid2">
+            <div class="cf-card"><h3>Нужно сделать</h3>${todo || '<div class="cf-muted">Всё в порядке</div>'}</div>
+            <div class="cf-card"><h3>Ближайшие публикации</h3>${up || '<div class="cf-muted">Пока ничего не запланировано</div>'}</div>
+        </div>`;
+    }
+
     function nmDatalistHtml() {
         return `<datalist id="cf-nm-list">${state.articles.map((a) =>
             `<option value="${escapeHtml(String(a.nm_id))}">${escapeHtml(a.name || ('nmId ' + a.nm_id))}</option>`
@@ -1128,8 +1392,8 @@
             <select data-cf-change="filter-blogger">${blogs}</select>
             <select data-cf-change="filter-status">${st}</select>
             <div class="cf-mode">
-                <button type="button" class="cf-chip${state.listMode === 'calendar' ? ' on' : ''}" data-cf="mode" data-id="calendar">Календарь</button>
-                <button type="button" class="cf-chip${state.listMode === 'table' ? ' on' : ''}" data-cf="mode" data-id="table">Таблица</button>
+                <button type="button" class="cf-chip${state.listMode === 'calendar' ? ' on' : ''}" data-cf="mode" data-id="calendar">Месяц</button>
+                <button type="button" class="cf-chip${state.listMode === 'table' ? ' on' : ''}" data-cf="mode" data-id="table">Список</button>
             </div>
         </div>`;
     }
@@ -1148,8 +1412,7 @@
             return `<div class="cf-cal-day" data-cf="new-day" data-id="${key}">
                 <div class="cf-cal-n">${d}</div>
                 ${items.map((p) => {
-                    const art = articleOf(p);
-                    return `<button type="button" class="cf-cal-post st-${p.status}" data-cf="edit-post" data-id="${p.id}">${escapeHtml(platformLabel(p.platform))}${art ? ' · ' + escapeHtml(art.name || art.nm_id) : ''}</button>`;
+                    return `<button type="button" class="cf-cal-post st-${p.status}" data-cf="edit-post" data-id="${p.id}"${p.status === 'published' ? '' : ' draggable="true"'} data-pid="${p.id}">${thumbHtml(p, 'cf-th-s')}<span>${escapeHtml(postTitle(p))}</span></button>`;
                 }).join('')}
             </div>`;
         }).join('');
@@ -1157,11 +1420,11 @@
             <button type="button" class="ui-btn ui-btn-secondary" data-cf="prev-month">←</button>
             <div class="cf-month">${escapeHtml(title)}</div>
             <button type="button" class="ui-btn ui-btn-secondary" data-cf="next-month">→</button>
-            <button type="button" class="ui-btn ui-btn-primary" data-cf="new-day" data-id="${ymd(new Date())}">Новый пост</button>
+            <button type="button" class="ui-btn ui-btn-primary" data-cf="new-day" data-id="${ymd(new Date())}">+ Новый пост</button>
         </div>
         ${filtersHtml()}
-        ${state.listMode === 'calendar' ? `<div class="cf-cal"><div class="cf-cal-week">${head}</div><div class="cf-cal-grid">${cells}</div></div>` : tableHtml(posts)}
-        ${state.form ? formHtml() : ''}`;
+        ${state.listMode === 'calendar' ? `<div class="cf-cal"><div class="cf-cal-week">${head}</div><div class="cf-cal-grid">${cells}</div></div>
+        <div class="cf-legend"><span><i class="cf-dot g"></i>Черновик</span><span><i class="cf-dot a"></i>На подтверждении</span><span><i class="cf-dot b"></i>Запланировано</span><span><i class="cf-dot"></i>Опубликовано</span><span><i class="cf-dot r"></i>Ошибка</span><span>Перетащите пост на другой день, чтобы перенести</span></div>` : tableHtml(posts)}`;
     }
 
     function tableHtml(posts) {
@@ -1188,78 +1451,101 @@
         return `<span class="cf-nm-row"><input id="${id}" list="cf-nm-list" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="247347214" value="${escapeHtml(value || '')}" data-cf-change="lookup-nm" autocomplete="off"><button type="button" class="ui-btn ui-btn-secondary" data-cf="lookup-nm">Найти nmId</button></span>`;
     }
 
-    function formHtml() {
+    function previewHtml(img, caption) {
+        const a = state.accounts.find((x) => x.id === cab) || { name: 'Кабинет' };
+        const r = igRow(cab);
+        const handle = (r && r.ig_username) || String(a.name || 'instagram').toLowerCase().replace(/\s+/g, '');
+        const story = state.fmt === 'story';
+        return `<div class="cf-prev-t">Как увидят в Instagram</div>
+            <div class="cf-phone${story ? ' story' : ''}">
+                <div class="cf-ph-top"><span class="cf-av ${avClass(cab)}">${initial(a.name)}</span><b>${escapeHtml(handle)}</b></div>
+                <div class="cf-ph-img">${img ? `<img src="${escapeHtml(img)}" alt="">` : '<span class="cf-muted">Выберите фото</span>'}</div>
+                ${story ? '' : `<div class="cf-ph-ac"><span>♡</span><span>◯</span><span>➤</span></div><div class="cf-ph-cap" id="cf-ph-cap"><b>${escapeHtml(handle)}</b> ${escapeHtml(caption || '')}</div>`}
+            </div>`;
+    }
+    function createHtml() {
+        if (!state.form) state.form = emptyForm('');
         const f = state.form;
         const card = state.card;
+        const fmtTabs = `<div class="cf-fmt">${FORMATS.map((x) =>
+            `<button type="button" class="${state.fmt === x.id ? 'on' : ''}" data-cf="fmt" data-id="${x.id}"${f.id && x.id === 'carousel' ? ' disabled' : ''}>${x.label}<small>${x.hint}</small></button>`).join('')}</div>`;
+        const head = `<div class="cf-step"><h3><span class="cf-n">1</span>Что публикуем</h3>${fmtTabs}${f.id ? '<div class="cf-muted">Редактирование поста: формат сменить нельзя.</div>' : ''}</div>`;
+        const when = `<div class="cf-step"><h3><span class="cf-n">${state.fmt === 'carousel' ? 3 : 4}</span>Когда</h3>
+            <div class="cf-when"><input id="${state.fmt === 'carousel' ? 'cf-car-at' : 'cf-f-at'}" type="datetime-local" value="${escapeHtml(f.publish_at || '')}">
+            <button type="button" class="cf-chip" data-cf="when" data-id="now">Сразу после подтверждения</button>
+            <button type="button" class="cf-chip" data-cf="when" data-id="today">Сегодня 12:00</button>
+            <button type="button" class="cf-chip" data-cf="when" data-id="tomorrow">Завтра 12:00</button></div>
+            <div class="cf-muted">Публикация идёт только после кнопки «Подтвердить» в очереди.</div></div>`;
+        if (state.fmt === 'carousel') {
+            const slides = state.carouselUrls || [];
+            return `<div class="cf-comp"><div class="cf-steps">${head}
+                <div class="cf-step"><h3><span class="cf-n">2</span>Карусель</h3>${carouselHtml()}</div>${when}</div>
+                <div>${previewHtml(slides[0] || (card && card.photos && card.photos[0]) || '', (document.getElementById && (document.getElementById('cf-car-cap') || {}).value) || '')}</div></div>`;
+        }
         const art = state.articleMap[f.article_id];
         const plat = PLATFORMS.map((p) => `<option value="${p.id}"${f.platform === p.id ? ' selected' : ''}>${p.label}</option>`).join('');
         const blogs = [`<option value="">Без блогера</option>`].concat(state.bloggers.map((b) =>
-            `<option value="${b.id}"${String(f.blogger_id) === String(b.id) ? ' selected' : ''}>${escapeHtml(b.name)}</option>`
-        )).join('');
+            `<option value="${b.id}"${String(f.blogger_id) === String(b.id) ? ' selected' : ''}>${escapeHtml(b.name)}</option>`)).join('');
         const photo = (card && (card.photo_url || (card.photos && card.photos[0]))) || (art && art.photo_url) || '';
         const price = card && card.price != null ? Math.round(card.price).toLocaleString('ru-RU') + ' ₽' : '—';
         const slides = (Array.isArray(f.slide_urls) ? f.slide_urls : []).filter(Boolean);
         const readySlides = (state.carouselUrls && state.carouselUrls.length) ? state.carouselUrls : slides;
+        const pics = ((card && card.photos) || []).slice(0, 10);
+        const previewImg = f.file_url || readySlides[0] || photo;
         const stLabel = statusLabel(f.status || 'draft');
-        return `<div class="cf-form widget-card">
-            <div class="cf-form-h">
-                <h3>${f.id ? 'Пост' : 'Новый пост'}</h3>
-                <button type="button" class="cf-link" data-cf="close-form">Закрыть</button>
-            </div>
+        return `<div class="cf-comp"><div class="cf-steps">${head}
             ${f.error_text ? `<div class="cf-err">${escapeHtml(f.error_text)}</div>` : ''}
             <input type="hidden" id="cf-f-art" value="${escapeHtml(f.article_id || '')}">
             <input type="hidden" id="cf-f-status" value="${escapeHtml(f.status === 'published' || f.status === 'scheduled' ? 'review' : (f.status || 'draft'))}">
-            <div class="cf-form-grid">
-                <label>nmId${articleNmInput('cf-f-nm', (art && art.nm_id) || (card && card.nmId) || '')}</label>
+            <div class="cf-step"><h3><span class="cf-n">2</span>Товар</h3>
+                ${articleNmInput('cf-f-nm', (art && art.nm_id) || (card && card.nmId) || '')}
+                <div class="cf-card-preview">
+                    ${photo ? `<img src="${escapeHtml(photo)}" alt="">` : '<div class="cf-ph">Фото этого nmId</div>'}
+                    <div><div class="cf-card-name">${escapeHtml((card && card.title) || (art && art.name) || 'Введите артикул WB')}</div>
+                    <div class="cf-muted">${art ? 'nmId ' + art.nm_id + ' · ' : ''}${escapeHtml(stLabel)} · цена ${price}${art && art.cost_price ? ' · себест. ' + art.cost_price : ''}</div></div>
+                </div>
+                ${pics.length ? `<div class="cf-pics">${pics.map((u) => `<button type="button" class="${f.file_url === u ? 'on' : ''}" data-cf="pick-photo" data-url="${escapeHtml(u)}"><img src="${escapeHtml(u)}" alt=""></button>`).join('')}</div><div class="cf-muted">Нажмите на фото, чтобы выбрать его для ${state.fmt === 'story' ? 'сторис' : 'поста'}.</div>` : ''}
+                <label class="cf-lab">Ссылка на файл<input id="cf-f-file" value="${escapeHtml(f.file_url || '')}" placeholder="https://… (подставится при выборе фото)"></label>
+            </div>
+            <div class="cf-step"><h3><span class="cf-n">3</span>Подпись</h3>
+                <textarea id="cf-f-cap" placeholder="Текст к посту и хэштеги">${escapeHtml(f.caption || '')}</textarea>
+            </div>
+            ${when}
+            <details class="cf-more"><summary>Дополнительно</summary><div class="cf-form-grid">
                 <label>Площадка<select id="cf-f-plat">${plat}</select></label>
                 <label>Блогер<select id="cf-f-blogger">${blogs}</select></label>
-                <label>Дата публикации<input id="cf-f-at" type="datetime-local" value="${escapeHtml(f.publish_at || '')}"></label>
-                <label>Ссылка на файл<input id="cf-f-file" value="${escapeHtml(f.file_url || '')}" placeholder="https://…"></label>
                 <label>Ссылка на пост<input id="cf-f-url" value="${escapeHtml(f.post_url || '')}" placeholder="https://instagram.com/…"></label>
-                <label class="cf-span">Подпись<textarea id="cf-f-cap">${escapeHtml(f.caption || '')}</textarea></label>
                 <label>Состав<input id="cf-f-comp" value="${escapeHtml(f.composition_text || '')}"></label>
                 <label>Бренд<input id="cf-f-brand" value="${escapeHtml(f.brand_name || '')}"></label>
-            </div>
-            <div class="cf-card-preview">
-                ${photo ? `<img src="${escapeHtml(photo)}" alt="">` : '<div class="cf-ph">Фото этого nmId</div>'}
-                <div>
-                    <div class="cf-card-name">${escapeHtml((card && card.title) || (art && art.name) || 'nmId')}</div>
-                    <div class="cf-muted">${art ? 'nmId ' + art.nm_id : ''} · ${escapeHtml(stLabel)} · цена ${price}${art && art.cost_price ? ' · себест. ' + art.cost_price : ''}</div>
-                </div>
-            </div>
-            ${readySlides.length ? `<div class="cf-slides">${readySlides.map((u) => `<div class="cf-slide"><img src="${escapeHtml(u)}" alt=""></div>`).join('')}</div>` : ''}
-            <div class="cf-form-actions">
-                <button type="button" class="ui-btn ui-btn-primary" data-cf="save-post">Сохранить черновик</button>
-                <button type="button" class="ui-btn ui-btn-secondary" data-cf="to-review"${readySlides.length || f.file_url ? '' : ' disabled'}>В очередь</button>
+            </div></details>
+            ${readySlides.length > 1 ? `<div class="cf-slides">${readySlides.map((u) => `<div class="cf-slide"><img src="${escapeHtml(u)}" alt=""></div>`).join('')}</div>` : ''}
+            <div class="cf-bar">
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="close-form">Закрыть</button>
                 ${f.id ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="delete-post">Удалить</button>' : ''}
-            </div>
-        </div>`;
+                <span class="cf-sp"></span>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-post">Сохранить черновик</button>
+                <button type="button" class="ui-btn ui-btn-primary" data-cf="to-review"${readySlides.length || f.file_url ? '' : ' disabled'}>В очередь на подтверждение</button>
+            </div></div>
+            <div>${previewHtml(previewImg, f.caption)}</div></div>`;
     }
 
+    function kanCard(p, actions) {
+        return `<div class="cf-kc" data-cf="edit-post" data-id="${p.id}">${thumbHtml(p, 'cf-th-k')}<div class="cf-kc-t"><b>${escapeHtml(postTitle(p))}</b><small>${kindLabel(p)} · ${whenLabel(p)}</small>${p.error_text ? `<small class="cf-red">${escapeHtml(p.error_text)}</small>` : ''}${actions || ''}</div></div>`;
+    }
     function reviewHtml() {
-        const queue = state.posts.filter((p) => p.status === 'review' || p.status === 'error');
-        const cards = queue.map((p) => {
-            const art = articleOf(p);
-            const slides = (Array.isArray(p.slide_urls) ? p.slide_urls : []).filter(Boolean);
-            const preview = slides.length
-                ? slides.map((u) => `<img src="${escapeHtml(u)}" alt="">`).join('')
-                : (art && art.photo_url ? `<img src="${escapeHtml(art.photo_url)}" alt="">` : '<div class="cf-muted">Нет слайдов</div>');
-            return `<div class="widget-card cf-form">
-                <div class="cf-form-h">
-                    <h3>nmId ${escapeHtml((art && art.nm_id) || '—')} · ${escapeHtml(platformLabel(p.platform))}</h3>
-                    <span class="cf-st st-review">ждёт подтверждения</span>
-                </div>
-                <p class="cf-muted">${escapeHtml((art && art.name) || '')}${p.publish_at ? ' · ' + escapeHtml(new Date(p.publish_at).toLocaleString('ru-RU')) : ''}</p>
-                ${p.error_text ? `<div class="cf-err">${escapeHtml(p.error_text)}</div>` : ''}
-                <div class="cf-slides">${preview}</div>
-                <div class="cf-form-actions">
-                    <button type="button" class="ui-btn ui-btn-secondary" data-cf="reject-post" data-id="${p.id}">Возврат в черновик</button>
-                    <button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${slides.length || p.file_url ? '' : ' disabled'}>Подтверждено</button>
-                    <button type="button" class="cf-link" data-cf="edit-post" data-id="${p.id}">Открыть</button>
-                </div>
-            </div>`;
-        }).join('');
-        return cards || '<div class="cf-muted">Очередь пуста</div>';
+        const g = queueGroups(state.posts);
+        const errs = state.posts.filter((p) => p.status === 'error');
+        const slidesOk = (p) => (Array.isArray(p.slide_urls) && p.slide_urls.filter(Boolean).length) || p.file_url;
+        const col = (title, items, render) => `<div class="cf-col"><h3>${title}<span>${items.length}</span></h3>${items.map(render).join('') || '<div class="cf-muted">Пусто</div>'}</div>`;
+        const done = g.done.filter((p) => p.status !== 'error').slice(0, 12);
+        return `<div class="cf-kan">
+            ${col('Черновик', g.draft, (p) => kanCard(p))}
+            ${col('На подтверждении', g.review, (p) => kanCard(p, `<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${slidesOk(p) ? '' : ' disabled'}>Подтвердить</button><button type="button" class="cf-link" data-cf="reject-post" data-id="${p.id}">В черновик</button></div>`))}
+            ${col('Запланировано', g.scheduled, (p) => kanCard(p))}
+            ${col('Опубликовано и ошибки', errs.concat(done), (p) => p.status === 'error'
+                ? kanCard(p, `<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-secondary" data-cf="approve-post" data-id="${p.id}">Повторить</button></div>`)
+                : kanCard(Object.assign({}, p, { error_text: '' }), `<small><i class="cf-dot"></i>${num(p.views).toLocaleString('ru-RU')} просмотров</small>`))}
+        </div>`;
     }
 
     function bloggersHtml() {
@@ -1340,8 +1626,7 @@
             </div>`;
         }).join('');
         const hasPreview = state.carouselUrls.length > 0;
-        return `<div class="widget-card cf-form">
-            <h3>Карусель</h3>
+        return `<div class="cf-form">
             <div class="cf-form-grid">
                 <label>nmId${articleNmInput('cf-car-nm', (card && card.nmId) || '')}</label>
                 <label>Состав<input id="cf-car-comp" value="${escapeHtml((card && card.composition) || '')}"></label>
@@ -1365,7 +1650,8 @@
         const ig = state.ig || {};
         const label = !state.igLoaded ? '…' : (ig.connected ? 'Подключено' : 'Не подключено');
         return `<div class="widget-card cf-form">
-            <h3>Instagram</h3>
+            <h3>Instagram этого кабинета: настройки</h3>
+            <div class="cf-muted" style="margin-bottom:8px">Подключение нужно, чтобы публиковать посты и сторис.</div>
             <div class="cf-st ${ig.connected ? 'st-published' : 'st-draft'}">${label}${ig.ig_username ? ' · @' + escapeHtml(ig.ig_username) : ''}</div>
             <div class="cf-form-grid">
                 <label>Токен<input id="cf-ig-token" type="password" autocomplete="off"></label>
@@ -1469,6 +1755,8 @@
             state.searchTexts = null;
             state.err = '';
             state.form = null;
+            state.accLoaded = false;
+            state.fmt = 'post';
             state.loadGen += 1;
         }
         sb = supabase;
@@ -1483,6 +1771,44 @@
             el._cfBound = true;
             el.addEventListener('click', onClick);
             el.addEventListener('change', onChange);
+            el.addEventListener('input', (e) => {
+                const t = e.target;
+                if (!t || !t.id) return;
+                if (t.id === 'cf-f-cap' || t.id === 'cf-car-cap') {
+                    const c = document.getElementById('cf-ph-cap');
+                    if (c) { const b = c.querySelector('b'); c.textContent = ' ' + t.value; if (b) c.insertBefore(b, c.firstChild); }
+                } else if (t.id === 'cf-acc-q') {
+                    state.accQuery = t.value;
+                    const pos = t.selectionStart;
+                    paint();
+                    const n = document.getElementById('cf-acc-q');
+                    if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} }
+                }
+            });
+            el.addEventListener('dragstart', (e) => {
+                const c = e.target.closest && e.target.closest('.cf-cal-post[data-pid]');
+                if (!c) return;
+                state.dragId = c.getAttribute('data-pid');
+                try { e.dataTransfer.setData('text/plain', state.dragId); e.dataTransfer.effectAllowed = 'move'; } catch (_) {}
+                c.classList.add('drag');
+            });
+            el.addEventListener('dragend', () => { state.dragId = null; el.querySelectorAll('.drag,.over').forEach((n) => n.classList.remove('drag', 'over')); });
+            el.addEventListener('dragover', (e) => {
+                const d = e.target.closest && e.target.closest('.cf-cal-day[data-id]');
+                if (!d || !state.dragId) return;
+                e.preventDefault();
+                el.querySelectorAll('.over').forEach((n) => { if (n !== d) n.classList.remove('over'); });
+                d.classList.add('over');
+            });
+            el.addEventListener('drop', (e) => {
+                const d = e.target.closest && e.target.closest('.cf-cal-day[data-id]');
+                if (!d || !state.dragId) return;
+                e.preventDefault();
+                const pid = state.dragId; state.dragId = null;
+                const fake = { getAttribute: (k) => (k === 'data-pid' ? pid : '') };
+                handle('move-post', d.getAttribute('data-id'), fake).catch((err) => toast('error', 'Контент-завод', err.message || String(err)));
+            });
+            if (typeof window !== 'undefined') window.addEventListener('resize', placePill);
         }
     }
     function open() {
@@ -1501,6 +1827,7 @@
         nmIdFromPhotoUrl, photoUrlFitsNmId, photosForNmId, bindExactArticlePhotos, galleryUrlsFromManual,
         planCarouselSlides, groupPostsByDay, calendarCells, viewsByPlatform, topPosts, filterPosts, uniqUrls,
         withTimeout, needsReload, FN_TIMEOUT_MS, QUERY_TIMEOUT_MS,
+        tokenState, monthStats, queueGroups, todoItems, upcomingPosts, FORMATS, VIEWS,
         ensureReady, open, reload,
         _state: state,
     };

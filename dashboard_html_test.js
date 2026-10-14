@@ -2506,7 +2506,7 @@ assert.ok(
         'calendar pulls articles from rnp_articles and photos/price via existing content_cards');
     assert.ok(cf.includes('pickCardByNmId') && cf.includes(".eq('nm_id', id)") && cf.includes('photosForNmId') && cf.includes('nmIds: [nm]') && !cf.includes('cards.map(parseWbCard)[0]'),
         'photos bind to exact nmId, never the first similar WB card');
-    assert.ok(!cf.includes('data-cf="publish-now"') && cf.includes('data-cf="approve-post"') && cf.includes('Очередь') && cf.includes('Подтверждено') && cf.includes('Возврат в черновик'),
+    assert.ok(!cf.includes('data-cf="publish-now"') && cf.includes('data-cf="approve-post"') && cf.includes('Очередь') && cf.includes('Подтвердить') && cf.includes('В черновик'),
         'Instagram goes only through the confirmation queue after slide preview');
     assert.ok(!cf.includes('pipelineHtml') && !cf.includes('cf-pipe') && !cf.includes('developers.facebook.com') && !cf.includes('FACEBOOK_APP_ID') && !cf.includes('Схема публикации'),
         'no pipeline essay or Facebook setup dump in the tab');
