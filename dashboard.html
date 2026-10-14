@@ -6433,7 +6433,7 @@
                     <div class="pnl-rows" id="pnl-serv-rows"><div class="pnl-row"><span class="pnl-ghost-line" style="width:88px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:70px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:60px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:76px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div></div>
                 </div>
                 <div class="pnl-card">
-                    <div class="pnl-title">Налоги и затраты</div>
+                    <div class="pnl-title" style="display:flex;justify-content:space-between;align-items:center">Налоги и затраты<button type="button" class="nx-b" onclick="window.NrCosts&&NrCosts.open()">Изменить</button></div>
                     <div class="pnl-big"><span class="nr-skel" id="pnl-tax-total">—</span><em class="pnl-chip" id="pnl-tax-pct"></em></div>
                     <div class="pnl-bar" id="pnl-tax-bar"></div>
                     <div class="pnl-rows" id="pnl-tax-rows"><div class="pnl-row"><span class="pnl-ghost-line" style="width:40px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:96px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:64px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div></div>
@@ -8461,7 +8461,7 @@
 </script>
 
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
-<script src="/dist/wb-formulas.ff04c637b5.min.js"></script>
+<script src="/dist/wb-formulas.b919517517.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.0a4d49f277.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
@@ -8483,6 +8483,7 @@
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.2db357b49f.min.js"></script>
 <script src="/dist/nr-next.daaf10e9e4.min.js"></script>
+<script src="/dist/nr-costs.643aab1f76.min.js"></script>
 <script src="/dist/nr-goods-ui.fc42544245.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -13908,6 +13909,7 @@
                 const settings = {
                     taxRate: Number(localStorage.getItem('tax_rate_v2') || 0),
                     opex: Number(localStorage.getItem('opex') || 0),
+                    ffCost: Number(localStorage.getItem('ff_cost_' + snapshotCabinet) || 0),
                     adsSum: Number(adsCur && adsCur.spend || 0),
                     costOfGoods: {},
                 };
@@ -14329,6 +14331,7 @@
             ['Налог', n(m.taxSum), '#fb923c'],
             ['Себестоимость продаж', n(m.costOfSalesSum), '#f9a8a0'],
             ['Затраты', n(m.opexForPeriod), '#84cc16'],
+            ['Фулфилмент (ФФ)', n(m.ffForPeriod), '#38bdf8'],
         ];
         const taxTotal = taxes.reduce((s, r) => s + r[1], 0);
         $('pnl-tax-total').textContent = fmtN(taxTotal);
