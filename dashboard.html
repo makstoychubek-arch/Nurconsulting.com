@@ -7739,6 +7739,9 @@
         </div>
 
         <div id="tab-content-factory" class="tab-content">
+            <div id="cf-ig-bar" style="display:none;margin:0 0 12px">
+                <button type="button" id="cf-ig-btn" class="btn" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-solid);color:var(--text-primary);font-weight:600;cursor:pointer">Instagram NR Space: настройки</button>
+            </div>
             <div id="cf-root"></div>
         </div>
 
@@ -8491,6 +8494,7 @@
 <script src="/dist/nr-hints.3faa7d9f19.min.js"></script>
 <script src="/dist/nr-costs.6af7858065.min.js"></script>
 <script src="/dist/nr-goods-ui.fc42544245.min.js"></script>
+<script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -19110,6 +19114,14 @@
         if (!allowed) { clearTimeout(window._nrOverlayWatchdog); return; }
 
         isSuperAdmin = isSuperAdminUser(session.user);
+        try {
+            var igBar = document.getElementById('cf-ig-bar'), igBtn = document.getElementById('cf-ig-btn');
+            if (igBar && isSuperAdmin) {
+                igBar.style.display = '';
+                igBtn.onclick = function () { if (window.NrIgWindow) window.NrIgWindow.open(supabase); };
+                if (/[?&]ig=/.test(location.search) && window.NrIgWindow) setTimeout(function () { window.NrIgWindow.open(supabase); }, 600);
+            }
+        } catch (e) { /* кнопка только для супер-админа */ }
         currentUserEmail = session.user.email || '';
         currentUserId = session.user.id || '';
         currentSpaceStatus = onboardingMode ? 'pending' : 'active';
