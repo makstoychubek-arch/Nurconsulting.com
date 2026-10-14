@@ -70,7 +70,11 @@ async function callbackInner(admin: any, req: Request, url: URL) {
     const token = String(long.access_token || short.access_token);
     const pages = await gj(`${g}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(token)}`);
     const hit = (pages.data || []).find((p: any) => p?.instagram_business_account?.id);
-    if (!hit) return back('ig=error&msg=' + encodeURIComponent('Не найдена страница Facebook с привязанным Instagram Business'));
+    if (!hit) {
+        const names = (pages.data || []).map((p: any) => p.name).filter(Boolean).join(', ');
+        const why = pages.error?.message ? `ответ Facebook: ${pages.error.message}` : (names ? `страницы найдены (${names}), но Instagram к ним не привязан` : 'Facebook не отдал ни одной страницы: при входе не выбрана страница или нет прав на неё');
+        return back('ig=error&msg=' + encodeURIComponent(('Не найдена страница с Instagram Business — ' + why).slice(0, 280)));
+    }
     const { data: row } = await admin.from('nr_instagram').select('token_secret_id').eq('id', true).maybeSingle();
     let secretId: string | null = row?.token_secret_id ?? null;
     if (secretId && await readToken(admin, secretId) != null) {
