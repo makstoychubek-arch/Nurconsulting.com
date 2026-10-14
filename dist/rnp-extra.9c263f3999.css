@@ -1070,3 +1070,14 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .ggx-more { display: block; width: 100%; margin: 6px 0 14px; padding: 12px; border-radius: 14px; border: 1px dashed var(--border); background: var(--surface-solid); color: var(--accent); font-weight: 700; font-size: 13px; cursor: pointer; }
 /* Дашборд: верхние плашки-сообщения («Финансовый отчёт … не получен», «Данных по кабинету пока нет») не показываем */
 #dash-finance-note, #dash-data-note { display: none !important; }
+
+/* «Заказ на производство»: минимализм — светлая шапка, без серых разделителей и кислотной заливки */
+.gp-table thead th { background: var(--surface-solid, var(--surface)); color: var(--text-muted); font-weight: 600; border-right: 0; border-bottom: 1px solid var(--border); text-transform: none; }
+.gp-table td { border-right: 0; }
+.gp-table tr.gp-sep td { height: 14px; background: transparent; border-bottom: 0; }
+.gp-table td.gp-total { background: rgba(34,197,94,.09); border-color: var(--border); }
+.gp-total .gp-tin { font-size: 22px; }
+.gp-total span { color: var(--text-muted); font-weight: 600; }
+.gp-warn { font-size: 11.5px; line-height: 1.3; }
+.gp-bad { color: #dc2626; font-weight: 700; }
+.gp-fix { display: block; margin: 5px auto 0; padding: 3px 9px; border: 1px solid #dc2626; border-radius: 999px; background: transparent; color: #dc2626; font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; line-height: 1.25; }

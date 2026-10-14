@@ -26,6 +26,15 @@
     function cabId() { return root.currentCabinetId || (typeof window !== 'undefined' && window.currentCabinetId) || null; }
     function isOpen(k, r) { var o = KINDS[k].openStatus; return Array.isArray(o) ? o.indexOf(r.status) >= 0 : r.status === o; }
     function artLabel(a) { return String((a.manual_data && (a.manual_data.seller_article || a.manual_data.sa_name)) || a.name || a.nm_id).trim(); }
+    // Артикул можно вводить как угодно: точное название, nm_id, начало или часть (если подходит ровно один).
+    function findArt(text) {
+        var v = String(text || '').trim().toLowerCase();
+        if (!v) return null;
+        var hit = st.arts.filter(function (x) { return artLabel(x).toLowerCase() === v || String(x.nm_id) === v; })[0];
+        if (hit) return hit;
+        var part = st.arts.filter(function (x) { return artLabel(x).toLowerCase().indexOf(v) >= 0 || String(x.nm_id).indexOf(v) === 0; });
+        return part.length === 1 ? part[0] : null;
+    }
     function artByNm(nm) { for (var i = 0; i < st.arts.length; i++) if (Number(st.arts[i].nm_id) === Number(nm)) return st.arts[i]; return null; }
 
     async function load() {
@@ -310,15 +319,18 @@
         var body = '';
         groups.forEach(function (g) {
             var n = g.rows.length, rs = ' rowspan="' + n + '"';
-            var a = artByNm(g.nm_id), photo = a && a.photo_url ? a.photo_url : '';
+            var a = artByNm(g.nm_id), photo = a && a.photo_url ? a.photo_url : ''; if (!photo && g.nm_id && root.RNP && root.RNP.wbPhotoUrl) { try { photo = root.RNP.wbPhotoUrl(g.nm_id) || ''; } catch (e) {} }
             var sumP = g.rows.reduce(function (s, r) { return s + (Number(r.pct) || 0); }, 0);
-            var pctBad = Math.round(sumP) !== 100;
+            var pctBad = Math.round(sumP * 100) / 100 !== 100;
+            var diffP = Math.round((100 - sumP) * 100) / 100;
+            var diffQ = Math.round(Math.abs(diffP) * g.total / 100);
+            var pctMsg = pctBad ? (diffP > 0 ? 'Не хватает ' + diffP + '%' : 'Лишние ' + Math.abs(diffP) + '%') + (g.total ? ' (≈' + diffQ.toLocaleString('ru') + ' шт)' : '') : '';
             g.rows.forEach(function (r, i) {
                 body += '<tr class="gp-row" data-id="' + esc(r.id || '') + '" data-tmp="' + esc(r._tmp || '') + '" data-g="' + esc(g.key) + '">';
                 if (i === 0) {
                     body += '<td' + rs + ' class="gp-date"><input class="gs-in gp-din" type="date" data-g="' + esc(g.key) + '" data-gf="order_date" value="' + esc(g.order_date) + '"></td>' +
                         '<td' + rs + ' class="gp-photo">' + (photo ? '<img src="' + esc(photo) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="gp-nophoto">нет фото</span>') + '</td>' +
-                        '<td' + rs + ' class="gp-art"><input class="gs-in' + (!a && g.rows[0]._tmp ? ' gs-nomatch' : '') + '" list="gs-arts-prod" data-g="' + esc(g.key) + '" data-gf="art" value="' + esc(a ? artLabel(a) : (g.nm_id || '')) + '" placeholder="Артикул">' + (g.nm_id ? '<div class="gp-nm">WB ' + esc(g.nm_id) + '</div>' : '') + '</td>' +
+                        '<td' + rs + ' class="gp-art"><input class="gs-in' + (!a && g.rows[0]._tmp ? ' gs-nomatch' : '') + '" list="gs-arts-prod" data-g="' + esc(g.key) + '" data-gf="art" value="' + esc(a ? artLabel(a) : (g.rows[0]._art || g.nm_id || '')) + '" placeholder="Артикул или WB-код">' + (g.nm_id ? '<div class="gp-nm">WB ' + esc(g.nm_id) + '</div>' : (g.rows[0]._art ? '<div class="gp-nm gp-bad">Артикул не найден в кабинете</div>' : '')) + '</td>' +
                         '<td' + rs + ' class="gp-color"><input class="gs-in" data-g="' + esc(g.key) + '" data-gf="color" value="' + esc(g.color) + '" placeholder="Расцветка"></td>';
                 }
                 body += '<td class="gp-size"><input class="gs-in" data-f="size" value="' + esc(r.size) + '" placeholder="Размер"></td>' +
@@ -329,7 +341,7 @@
                 body += '<td class="gp-pct"><input class="gs-in" type="number" min="0" max="100" step="any" data-f="pct" value="' + (r.pct == null ? '' : r.pct) + '"><i>%</i>' +
                     '<button type="button" class="gp-x gs-edit" data-act="delsize" title="Убрать размер">×</button></td>';
                 if (i === 0) {
-                    body += '<td' + rs + ' class="gp-status">' + statusSel(g) + (pctBad ? '<div class="gp-warn" title="Сумма процентов должна быть 100">Σ ' + Math.round(sumP) + '%</div>' : '') +
+                    body += '<td' + rs + ' class="gp-status">' + statusSel(g) + (pctBad ? '<div class="gp-warn">' + pctMsg + '</div><button type="button" class="gp-fix gs-edit" data-act="fixpct" data-g="' + esc(g.key) + '">Добавить в последний размер</button>' : '') +
                         '<button type="button" class="gp-addsz gs-edit" data-act="addsize" data-g="' + esc(g.key) + '">+ размер</button></td>' +
                         '<td' + rs + ' class="gp-due"><input class="gs-in gp-din" type="date" data-g="' + esc(g.key) + '" data-gf="due_date" value="' + esc(g.due_date) + '">' +
                         '<button type="button" class="gp-delg gs-edit" data-act="delgrp" data-g="' + esc(g.key) + '" title="Удалить заказ">Удалить</button></td>';
@@ -401,6 +413,7 @@
             else if (act === 'addsize') addProdSize(b.getAttribute('data-g'));
             else if (act === 'delsize') delProdSize(b.closest('tr'));
             else if (act === 'delgrp') delProdGroup(b.getAttribute('data-g'));
+            else if (act === 'fixpct') fixPct(b.getAttribute('data-g'));
         });
         host.addEventListener('change', function (e) {
             var el = e.target;
@@ -410,9 +423,9 @@
                 var g = groupByKey(gk);
                 if (!g) return;
                 if (gf === 'art') {
-                    var v = String(el.value || '').trim().toLowerCase();
-                    var a = st.arts.filter(function (x) { return artLabel(x).toLowerCase() === v || String(x.nm_id) === v; })[0];
+                    var a = findArt(el.value);
                     g.nm_id = a ? a.nm_id : null;
+                    g.rows[0]._art = a ? '' : String(el.value || '').trim();
                 } else if (gf === 'total') g.total = Math.max(0, parseInt(el.value, 10) || 0);
                 else if (gf === 'color') g.color = String(el.value || '').trim();
                 else if (gf === 'status') g.status = el.value;
@@ -438,6 +451,16 @@
         });
         renderProd();
         var el = pane('prod').querySelector('tr[data-g="' + key + '"] [data-gf="art"]'); if (el) el.focus();
+    }
+
+    // Остаток процентов (или лишнее) уходит в последний размер, чтобы сумма стала ровно 100.
+    function fixPct(key) {
+        var g = groupByKey(key);
+        if (!g || !g.rows.length) return;
+        var sum = g.rows.reduce(function (s, r) { return s + (Number(r.pct) || 0); }, 0);
+        var last = g.rows[g.rows.length - 1];
+        last.pct = Math.max(0, Math.round(((Number(last.pct) || 0) + 100 - sum) * 100) / 100);
+        recalcGroup(g); renderProd(); saveGroupSoon(g);
     }
 
     function addProdSize(key) {
