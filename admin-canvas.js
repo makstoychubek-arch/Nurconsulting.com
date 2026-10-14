@@ -329,7 +329,20 @@
             btn2: 'padding:8px 14px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;margin-right:8px',
             hint: 'color:#666;font-size:12px;margin-top:3px',
         };
-        function call(body) { return sb.functions.invoke('nr-ig-admin', { body: body }).then(function (r) { if (r.error || (r.data && r.data.error)) throw new Error((r.data && r.data.error) || r.error.message); return r.data; }); }
+        function call(body) {
+            return sb.functions.invoke('nr-ig-admin', { body: body }).then(function (r) {
+                if (r.error) {
+                    var ctx = r.error.context;
+                    var rd = ctx && typeof ctx.text === 'function' ? ctx.text() : Promise.resolve('');
+                    return rd.then(function (t) {
+                        var m = ''; try { m = JSON.parse(t).error; } catch (e) { m = t; }
+                        throw new Error((m || r.error.message) + (ctx && ctx.status ? ' [' + ctx.status + ']' : ''));
+                    });
+                }
+                if (r.data && r.data.error) throw new Error(r.data.error);
+                return r.data;
+            });
+        }
         var status = h('div', { style: 'margin:8px 0;padding:8px 10px;border-radius:8px;background:#f3f4f6' }, ['Загрузка…']);
         var f = {
             ig: h('input', { style: S.inp, placeholder: '17841400000000000', inputmode: 'numeric' }),
