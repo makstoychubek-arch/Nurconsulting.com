@@ -35,6 +35,15 @@
             markNav();
             banner();
             new MutationObserver(() => { markNav(); banner(); }).observe(document.body, { childList: true, subtree: true });
+            // Открытая при загрузке вкладка (например, РНП из прошлого визита) может оказаться не из выданных —
+            // тогда сразу переводим на первую разрешённую.
+            try {
+                const act = document.querySelector('.tab-content.active');
+                const cur = act && act.id ? act.id.replace(/^tab-/, '') : '';
+                const early = document.getElementById('nr-early-tab-style');
+                if (cur && !V.allows(cur) && typeof window.showTab === 'function') window.showTab(V.firstTab(), null);
+                else if (early && !cur && typeof window.showTab === 'function') window.showTab(V.firstTab(), null);
+            } catch (_) {}
         },
         allows(tab) { return !V.on || V.tabs.has(tab); },
         firstTab() { return ORDER.find(t => V.tabs.has(t)) || 'dashboard'; },
