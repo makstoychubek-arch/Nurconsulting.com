@@ -458,6 +458,8 @@
     const state = {
         view: 'overview',
         fmt: 'post',
+        own: false,
+        ownIg: null,
         accounts: [],
         igMap: {},
         accQuery: '',
@@ -492,6 +494,11 @@
     let cab = '';
     let callWb = null;
     let opts = {};
+
+    /* NR Space (@nurcon.kg): свой календарь без кабинета и артикулов WB, только супер-админ */
+    function key() { return state.own ? 'own' : cab; }
+    function tbl() { return state.own ? 'nr_content_posts' : 'content_posts'; }
+    function scoped(q) { return state.own ? q : q.eq('cabinet_id', cab); }
 
     function rootEl() {
         if (typeof document === 'undefined') return null;
@@ -554,7 +561,7 @@
         }
     }
     function needsReload() {
-        return !!cab && state.loadedCab !== cab;
+        return !!cab && state.loadedCab !== key();
     }
     function shouldHoldPaint() {
         if (typeof document === 'undefined') return false;
@@ -596,9 +603,7 @@
         return /schema cache|Could not find the table|does not exist|PGRST205/i.test(m);
     }
     async function loadPosts() {
-        const { data, error } = await withTimeout(sb.from('content_posts')
-            .select('*')
-            .eq('cabinet_id', cab)
+        const { data, error } = await withTimeout(scoped(sb.from(tbl()).select('*'))
             .order('publish_at', { ascending: false, nullsFirst: false }), queryTimeoutMs());
         if (error) {
             if (isMissingTable(error)) { state.posts = []; return; }
@@ -637,6 +642,16 @@
         state.igLoaded = true;
     }
     /* Кабинеты = Instagram-аккаунты: статус подключения берём одним запросом (RLS отдаёт только доступные) */
+    async function loadOwnIg() {
+        try { state.ownIg = await callFn('nr-ig-admin', { action: 'get' }, FN_TIMEOUT_MS); } catch (_) { state.ownIg = state.ownIg || null; }
+    }
+    /* Для NR Space срок токена считаем от даты сохранения: долгий токен живёт около 60 дней */
+    function ownTokenRow() {
+        const g = state.ownIg;
+        if (!g || !g.has_token || !g.ig_user_id) return null;
+        const exp = g.token_set_at ? new Date(new Date(g.token_set_at).getTime() + 60 * 86400000).toISOString() : null;
+        return { ig_username: g.ig_username, ig_user_id: g.ig_user_id, token_secret_id: 'own', token_expires_at: exp };
+    }
     async function loadAccounts() {
         try {
             const list = typeof root.nrCabinetList === 'function' ? root.nrCabinetList() : [];
@@ -664,17 +679,18 @@
     async function reload() {
         if (!sb || !cab) return;
         const gen = ++state.loadGen;
-        state.fetchCab = cab;
+        state.fetchCab = key();
         state.err = '';
         try {
-            await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts(), loadAccounts()]);
+            if (state.own) await Promise.all([loadPosts(), loadAccounts(), loadOwnIg()]);
+            else await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts(), loadAccounts()]);
             if (gen !== state.loadGen) return;
-            state.loadedCab = cab;
+            state.loadedCab = key();
         } catch (e) {
             if (gen !== state.loadGen) return;
             if (!isMissingTable(e)) state.err = e.message || String(e);
         } finally {
-            if (state.fetchCab === cab && gen === state.loadGen) state.fetchCab = '';
+            if (state.fetchCab === key() && gen === state.loadGen) state.fetchCab = '';
         }
         if (gen === state.loadGen) paintAfterLoad();
     }
@@ -768,6 +784,7 @@
             brand_name: '',
             slide_urls: [],
             post_kind: 'feed',
+            title: '',
             views: 0,
         };
     }
@@ -790,6 +807,7 @@
             brand_name: p.brand_name || '',
             slide_urls: Array.isArray(p.slide_urls) ? p.slide_urls : [],
             post_kind: p.post_kind === 'story' ? 'story' : 'feed',
+            title: p.title || '',
             views: p.views || 0,
             error_text: p.error_text || '',
             approved_at: p.approved_at || null,
@@ -802,6 +820,7 @@
     }
 
     async function savePost(form, extra) {
+        if (state.own) return saveOwnPost(form, extra);
         if (!form.article_id) throw new Error('Выберите артикул');
         const patch = Object.assign({
             cabinet_id: cab,
@@ -833,8 +852,34 @@
         return data.id;
     }
 
+    async function saveOwnPost(form, extra) {
+        const slides = (form.slide_urls || []).filter(Boolean);
+        const patch = Object.assign({
+            platform: 'instagram',
+            status: form.status,
+            title: form.title || null,
+            publish_at: publishAtIso(form.publish_at),
+            file_url: form.file_url || slides[0] || null,
+            caption: form.caption || null,
+            slide_urls: slides,
+            post_kind: form.post_kind === 'story' ? 'story' : 'feed',
+            approved_at: form.approved_at || null,
+            updated_at: new Date().toISOString(),
+        }, extra || {});
+        if ((patch.status === 'scheduled' || patch.status === 'published') && !patch.approved_at) patch.status = 'review';
+        if (patch.status === 'scheduled' && !patch.publish_at) throw new Error('Для отложенной публикации укажите дату');
+        if (form.id) {
+            const { error } = await sb.from('nr_content_posts').update(patch).eq('id', form.id);
+            if (error) throw error;
+            return form.id;
+        }
+        const { data, error } = await sb.from('nr_content_posts').insert(patch).select('id').single();
+        if (error) throw error;
+        return data.id;
+    }
+
     async function deletePost(id) {
-        const { error } = await sb.from('content_posts').delete().eq('id', id).eq('cabinet_id', cab);
+        const { error } = await scoped(sb.from(tbl()).delete().eq('id', id));
         if (error) throw error;
     }
 
@@ -915,10 +960,23 @@
             return;
         }
         if (act === 'acc') {
+            if (state.own) {
+                state.own = false; state.posts = []; state.loadedCab = ''; state.form = null; state.view = 'overview';
+                state.loadGen += 1; paint(); void reload();
+                if (id && id !== cab && typeof root.nrSelectCabinet === 'function') root.nrSelectCabinet(id);
+                return;
+            }
             if (id && id !== cab && typeof root.nrSelectCabinet === 'function') root.nrSelectCabinet(id);
             return;
         }
         if (act === 'acc-own') {
+            if (!isSuperAdminUi()) return;
+            state.own = true; state.posts = []; state.articles = []; state.articleMap = {}; state.bloggers = []; state.payouts = [];
+            state.loadedCab = ''; state.form = null; state.card = null; state.view = 'overview'; state.fmt = 'post'; state.loadGen += 1;
+            paint(); void reload();
+            return;
+        }
+        if (act === 'own-settings') {
             const b = typeof document !== 'undefined' && document.getElementById('cf-ig-btn');
             if (b) b.click();
             return;
@@ -932,6 +990,16 @@
         }
         if (act === 'pick-photo') {
             if (state.form) { state.form = readForm(); state.form.file_url = el.getAttribute('data-url') || ''; }
+            paint();
+            return;
+        }
+        if (act === 'rm-photo') {
+            if (!state.form) return;
+            state.form = readForm();
+            const list = (state.form.slide_urls || []).slice();
+            list.splice(Number(id), 1);
+            state.form.slide_urls = list;
+            state.form.file_url = list[0] || '';
             paint();
             return;
         }
@@ -1025,20 +1093,20 @@
             const at = p.publish_at ? new Date(p.publish_at).getTime() : 0;
             const goNow = !at || at <= Date.now();
             if (p.platform === 'instagram' && goNow) {
-                const { error } = await sb.from('content_posts').update({
+                const { error } = await scoped(sb.from(tbl()).update({
                     approved_at: nowIso,
                     status: 'review',
                     error_text: null,
                     updated_at: nowIso,
-                }).eq('id', p.id).eq('cabinet_id', cab);
+                }).eq('id', p.id));
                 if (error) throw error;
-                await callFn('content-ig-publish', { post_id: p.id, dry_run: false }, FN_LONG_MS);
+                await callFn('content-ig-publish', { post_id: p.id, dry_run: false, own: state.own }, FN_LONG_MS);
             } else {
-                const { error } = await sb.from('content_posts').update({
+                const { error } = await scoped(sb.from(tbl()).update({
                     approved_at: nowIso,
                     status: 'scheduled',
                     updated_at: nowIso,
-                }).eq('id', p.id).eq('cabinet_id', cab);
+                }).eq('id', p.id));
                 if (error) throw error;
             }
             await reload();
@@ -1046,10 +1114,10 @@
             return;
         }
         if (act === 'reject-post') {
-            const { error } = await sb.from('content_posts').update({
+            const { error } = await scoped(sb.from(tbl()).update({
                 status: 'draft',
                 approved_at: null,
-            }).eq('id', id).eq('cabinet_id', cab);
+            }).eq('id', id));
             if (error) throw error;
             await reload();
             return;
@@ -1180,7 +1248,7 @@
             const old = p.publish_at ? new Date(p.publish_at) : new Date(id + 'T12:00:00');
             const to = new Date(id + 'T00:00:00');
             to.setHours(old.getHours(), old.getMinutes(), 0, 0);
-            const { error } = await sb.from('content_posts').update({ publish_at: to.toISOString(), updated_at: new Date().toISOString() }).eq('id', pid).eq('cabinet_id', cab);
+            const { error } = await scoped(sb.from(tbl()).update({ publish_at: to.toISOString(), updated_at: new Date().toISOString() }).eq('id', pid));
             if (error) throw error;
             await reload();
             toast('success', 'Перенесено', to.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }));
@@ -1221,6 +1289,7 @@
         f.composition_text = (document.getElementById('cf-f-comp') || {}).value || '';
         f.brand_name = (document.getElementById('cf-f-brand') || {}).value || '';
         f.post_kind = state.fmt === 'story' ? 'story' : 'feed';
+        if (state.own) f.title = (document.getElementById('cf-f-title') || {}).value || '';
         return f;
     }
 
@@ -1271,39 +1340,40 @@
             const ts = ok ? tokenState(r.token_expires_at) : { level: 'none' };
             const dot = !ok ? 'g' : (ts.level === 'bad' ? 'r' : ts.level === 'warn' ? 'a' : '');
             const sub = !state.accLoaded ? '…' : ok ? ('@' + escapeHtml(r.ig_username || 'instagram') + (ts.level === 'warn' ? ' · токен истекает' : ts.level === 'bad' ? ' · токен истёк' : '')) : 'не подключён';
-            return `<button type="button" class="cf-acc${a.id === cab ? ' on' : ''}" data-cf="acc" data-id="${escapeHtml(a.id)}">
+            return `<button type="button" class="cf-acc${a.id === cab && !state.own ? ' on' : ''}" data-cf="acc" data-id="${escapeHtml(a.id)}">
                 <span class="cf-av ${avClass(a.id)}">${initial(a.name)}</span>
                 <span class="cf-acc-t"><b>${escapeHtml(a.name)}</b><small><i class="cf-dot ${dot}"></i>${sub}</small></span>
             </button>`;
         }).join('');
         const own = isSuperAdminUi()
-            ? `<button type="button" class="cf-acc cf-acc-own" data-cf="acc-own"><span class="cf-av">N</span><span class="cf-acc-t"><b>NR Space</b><small>@nurcon.kg · наш, настройки</small></span></button>` : '';
+            ? `<button type="button" class="cf-acc cf-acc-own${state.own ? ' on' : ''}" data-cf="acc-own"><span class="cf-av">N</span><span class="cf-acc-t"><b>NR Space</b><small><i class="cf-dot ${ownTokenRow() ? '' : 'g'}"></i>${ownTokenRow() ? '@' + escapeHtml(ownTokenRow().ig_username || 'nurcon.kg') + ' · наш' : '@nurcon.kg · наш'}</small></span></button>` : '';
         const more = many && !q ? `<button type="button" class="cf-acc cf-acc-add" data-cf="acc-more"><b>${state.accAll ? 'Свернуть' : 'Все (' + list.length + ')'}</b></button>` : '';
         const search = many && state.accAll ? `<input class="cf-acc-q" id="cf-acc-q" placeholder="Найти кабинет" value="${escapeHtml(state.accQuery || '')}" data-cf-input="acc-q">` : '';
         return `<div class="cf-step-t">Шаг 1 · выберите Instagram</div>${search}<div class="cf-accs">${own}${cards}${more}</div>`;
     }
     function headHtml() {
-        const a = state.accounts.find((x) => x.id === cab) || { id: cab, name: 'Кабинет' };
-        const r = igRow(cab);
-        const ok = igConnected(cab);
+        const a = state.own ? { id: 'nr-space', name: 'NR Space' } : (state.accounts.find((x) => x.id === cab) || { id: cab, name: 'Кабинет' });
+        const r = state.own ? ownTokenRow() : igRow(cab);
+        const ok = state.own ? !!r : igConnected(cab);
         const ts = ok ? tokenState(r.token_expires_at) : { level: 'none', days: null };
         const now = new Date();
         const ms = monthStats(state.posts, now.getFullYear(), now.getMonth());
-        const chip = !state.accLoaded ? '<span class="cf-chip2">Проверяем подключение…</span>'
+        const loaded = state.own ? state.ownIg !== null : state.accLoaded;
+        const chip = !loaded ? '<span class="cf-chip2">Проверяем подключение…</span>'
             : ok ? `<span class="cf-chip2 ok">Подключено · @${escapeHtml(r.ig_username || 'instagram')}</span>`
                 : '<span class="cf-chip2 bad">Instagram не подключён</span>';
         const tok = ok && ts.days != null
             ? `<span class="cf-chip2 ${ts.level === 'ok' ? '' : ts.level === 'warn' ? 'warn' : 'bad'}">${ts.level === 'bad' ? 'Токен истёк' : 'Токен действует ещё ' + ts.days + ' дн.'}</span>` : '';
         return `<div class="cf-head">
-            <span class="cf-av cf-av-l ${avClass(cab)}">${initial(a.name)}</span>
+            <span class="cf-av cf-av-l ${state.own ? '' : avClass(cab)}">${initial(a.name)}</span>
             <div class="cf-head-t"><h2>${escapeHtml(a.name)}</h2><div class="cf-chips">${chip}${tok}</div></div>
             <div class="cf-kp"><div><b>${ms.published}</b><small>опубликовано за месяц</small></div><div><b>${ms.planned}</b><small>в плане</small></div><div><b>${ms.views.toLocaleString('ru-RU')}</b><small>просмотров</small></div></div>
-            <button type="button" class="ui-btn ui-btn-secondary" data-cf="view" data-id="instagram">Настройки</button>
+            <button type="button" class="ui-btn ui-btn-secondary" data-cf="${state.own ? 'own-settings' : 'view'}" data-id="instagram">Настройки</button>
         </div>`;
     }
     function navHtml() {
         const queue = state.posts.filter((p) => p.status === 'review').length;
-        return `<div class="cf-navwrap"><div class="cf-tabs" id="cf-tabs">${VIEWS.map((v) =>
+        return `<div class="cf-navwrap"><div class="cf-tabs" id="cf-tabs">${VIEWS.filter((v) => !(state.own && v.id === 'bloggers')).map((v) =>
             `<button type="button" class="${state.view === v.id ? 'on' : ''}" data-cf="view" data-id="${v.id}">${v.label}${v.id === 'review' && queue ? `<span class="cf-badge">${queue}</span>` : ''}</button>`
         ).join('')}<span class="cf-pill"></span></div></div>${nmDatalistHtml()}`;
     }
@@ -1331,7 +1401,7 @@
     }
     function postTitle(p) {
         const art = articleOf(p);
-        return (art && (art.name || String(art.nm_id))) || 'Пост';
+        return p.title || (art && (art.name || String(art.nm_id))) || (state.own ? 'Пост NR Space' : 'Пост');
     }
     function kindLabel(p) {
         if (p.post_kind === 'story') return 'Сторис';
@@ -1344,14 +1414,16 @@
     }
     function overviewHtml() {
         const now = new Date();
-        const ok = igConnected(cab);
-        const r = igRow(cab);
+        const ok = state.own ? !!ownTokenRow() : igConnected(cab);
+        const r = state.own ? ownTokenRow() : igRow(cab);
         const ts = ok ? tokenState(r.token_expires_at) : { level: 'none', days: null };
+        const act = state.own ? 'own-settings' : 'view';
+        const loaded = state.own ? state.ownIg !== null : state.accLoaded;
         let banner = '';
-        if (state.accLoaded && !ok) {
-            banner = `<div class="cf-warn bad"><span class="cf-dot r"></span><span>Instagram этого кабинета не подключён: публиковать пока нельзя.</span><button type="button" class="ui-btn ui-btn-primary" data-cf="view" data-id="instagram">Подключить</button></div>`;
+        if (loaded && !ok) {
+            banner = `<div class="cf-warn bad"><span class="cf-dot r"></span><span>${state.own ? 'Instagram NR Space не подключён' : 'Instagram этого кабинета не подключён'}: публиковать пока нельзя.</span><button type="button" class="ui-btn ui-btn-primary" data-cf="${act}" data-id="instagram">Подключить</button></div>`;
         } else if (ts.level === 'warn' || ts.level === 'bad') {
-            banner = `<div class="cf-warn"><span class="cf-dot a"></span><span>${ts.level === 'bad' ? 'Токен Instagram истёк.' : 'Токен Instagram истекает через ' + ts.days + ' дн.'} Переподключите, чтобы публикации не остановились.</span><button type="button" class="ui-btn ui-btn-primary" data-cf="view" data-id="instagram">Переподключить</button></div>`;
+            banner = `<div class="cf-warn"><span class="cf-dot a"></span><span>${ts.level === 'bad' ? 'Токен Instagram истёк.' : 'Токен Instagram истекает через ' + ts.days + ' дн.'} Переподключите, чтобы публикации не остановились.</span><button type="button" class="ui-btn ui-btn-primary" data-cf="${act}" data-id="instagram">Переподключить</button></div>`;
         }
         const ms = monthStats(state.posts, now.getFullYear(), now.getMonth());
         const best = ms.best;
@@ -1452,9 +1524,9 @@
     }
 
     function previewHtml(img, caption) {
-        const a = state.accounts.find((x) => x.id === cab) || { name: 'Кабинет' };
-        const r = igRow(cab);
-        const handle = (r && r.ig_username) || String(a.name || 'instagram').toLowerCase().replace(/\s+/g, '');
+        const a = state.own ? { id: 'nr-space', name: 'NR Space' } : (state.accounts.find((x) => x.id === cab) || { name: 'Кабинет' });
+        const r = state.own ? ownTokenRow() : igRow(cab);
+        const handle = (r && r.ig_username) || (state.own ? 'nurcon.kg' : String(a.name || 'instagram').toLowerCase().replace(/\s+/g, ''));
         const story = state.fmt === 'story';
         return `<div class="cf-prev-t">Как увидят в Instagram</div>
             <div class="cf-phone${story ? ' story' : ''}">
@@ -1463,8 +1535,44 @@
                 ${story ? '' : `<div class="cf-ph-ac"><span>♡</span><span>◯</span><span>➤</span></div><div class="cf-ph-cap" id="cf-ph-cap"><b>${escapeHtml(handle)}</b> ${escapeHtml(caption || '')}</div>`}
             </div>`;
     }
+    function createOwnHtml() {
+        const f = state.form;
+        const slides = (f.slide_urls || []).filter(Boolean);
+        const fmtTabs = `<div class="cf-fmt cf-fmt2">${FORMATS.filter((x) => x.id !== 'carousel').map((x) =>
+            `<button type="button" class="${state.fmt === x.id ? 'on' : ''}" data-cf="fmt" data-id="${x.id}">${x.label}<small>${x.id === 'story' ? 'вертикальная' : '1 фото или несколько'}</small></button>`).join('')}</div>`;
+        const pics = slides.length
+            ? `<div class="cf-pics">${slides.map((u, i) => `<button type="button" data-cf="rm-photo" data-id="${i}" title="Убрать фото"><img src="${escapeHtml(u)}" alt=""></button>`).join('')}</div><div class="cf-muted">${slides.length > 1 ? 'Несколько фото уйдут каруселью. ' : ''}Нажмите на фото, чтобы убрать.</div>` : '';
+        const when = `<div class="cf-step"><h3><span class="cf-n">4</span>Когда</h3>
+            <div class="cf-when"><input id="cf-f-at" type="datetime-local" value="${escapeHtml(f.publish_at || '')}">
+            <button type="button" class="cf-chip" data-cf="when" data-id="now">Сразу после подтверждения</button>
+            <button type="button" class="cf-chip" data-cf="when" data-id="today">Сегодня 12:00</button>
+            <button type="button" class="cf-chip" data-cf="when" data-id="tomorrow">Завтра 12:00</button></div>
+            <div class="cf-muted">Публикация идёт только после кнопки «Подтвердить» в очереди.</div></div>`;
+        return `<div class="cf-comp"><div class="cf-steps">
+            <div class="cf-step"><h3><span class="cf-n">1</span>Что публикуем</h3>${fmtTabs}</div>
+            ${f.error_text ? `<div class="cf-err">${escapeHtml(f.error_text)}</div>` : ''}
+            <input type="hidden" id="cf-f-file" value="${escapeHtml(f.file_url || slides[0] || '')}">
+            <input type="hidden" id="cf-f-status" value="${escapeHtml(f.status === 'published' || f.status === 'scheduled' ? 'review' : (f.status || 'draft'))}">
+            <div class="cf-step"><h3><span class="cf-n">2</span>Фото</h3>
+                <label class="cf-lab">Название поста (для себя)<input id="cf-f-title" value="${escapeHtml(f.title || '')}" placeholder="Например: кейс Zevina, сентябрь"></label>
+                <label class="cf-lab">Загрузить фото<input id="cf-own-files" type="file" accept="image/*" multiple></label>
+                ${pics}
+            </div>
+            <div class="cf-step"><h3><span class="cf-n">3</span>Подпись</h3>
+                <textarea id="cf-f-cap" placeholder="Текст к посту и хэштеги">${escapeHtml(f.caption || '')}</textarea></div>
+            ${when}
+            <div class="cf-bar">
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="close-form">Закрыть</button>
+                ${f.id ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="delete-post">Удалить</button>' : ''}
+                <span class="cf-sp"></span>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-post">Сохранить черновик</button>
+                <button type="button" class="ui-btn ui-btn-primary" data-cf="to-review"${slides.length || f.file_url ? '' : ' disabled'}>В очередь на подтверждение</button>
+            </div></div>
+            <div>${previewHtml(slides[0] || f.file_url || '', f.caption)}</div></div>`;
+    }
     function createHtml() {
         if (!state.form) state.form = emptyForm('');
+        if (state.own) return createOwnHtml();
         const f = state.form;
         const card = state.card;
         const fmtTabs = `<div class="cf-fmt">${FORMATS.map((x) =>
@@ -1686,7 +1794,7 @@
         }).join('');
         const topRows = top.map((p, i) => {
             const art = articleOf(p);
-            return `<tr><td>${i + 1}</td><td>${escapeHtml((art && art.name) || p.id.slice(0, 8))}</td><td>${escapeHtml(platformLabel(p.platform))}</td><td>${num(p.views).toLocaleString('ru-RU')}</td></tr>`;
+            return `<tr><td>${i + 1}</td><td>${escapeHtml(postTitle(p))}</td><td>${escapeHtml(platformLabel(p.platform))}</td><td>${num(p.views).toLocaleString('ru-RU')}</td></tr>`;
         }).join('');
         const search = state.searchTexts;
         let searchHtml = '<button type="button" class="ui-btn ui-btn-secondary" data-cf="wb-search">Запросы WB</button>';
@@ -1716,10 +1824,30 @@
             <table class="data-table cf-table"><thead><tr><th>#</th><th>Пост</th><th>Площадка</th><th>Просмотры</th></tr></thead>
             <tbody>${topRows || '<tr><td colspan="4" class="cf-muted">Нет данных за месяц</td></tr>'}</tbody></table>
         </div>
-        <div class="widget-card cf-form"><h3>Поиск бренда в WB</h3>${searchHtml}</div>`;
+        ${state.own ? '' : `<div class="widget-card cf-form"><h3>Поиск бренда в WB</h3>${searchHtml}</div>`}`;
     }
 
     function bindExtra() {
+        const own = document.getElementById('cf-own-files');
+        if (own && !own._cfBound) {
+            own._cfBound = true;
+            own.addEventListener('change', async () => {
+                const files = [...(own.files || [])];
+                if (!files.length || !state.form) return;
+                state.form = readForm();
+                const list = (state.form.slide_urls || []).slice();
+                for (const file of files) {
+                    const path = `nr/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, '_')}`;
+                    const { error } = await sb.storage.from('content-factory').upload(path, file, { upsert: true, contentType: file.type });
+                    if (error) { toast('error', 'Загрузка фото', error.message); continue; }
+                    const { data } = sb.storage.from('content-factory').getPublicUrl(path);
+                    if (data && data.publicUrl) list.push(data.publicUrl);
+                }
+                state.form.slide_urls = list;
+                state.form.file_url = list[0] || '';
+                paint();
+            });
+        }
         const extra = document.getElementById('cf-car-extra');
         if (!extra || extra._cfBound) return;
         extra._cfBound = true;
@@ -1756,6 +1884,8 @@
             state.err = '';
             state.form = null;
             state.accLoaded = false;
+            state.own = false;
+            state.ownIg = null;
             state.fmt = 'post';
             state.loadGen += 1;
         }
@@ -1815,7 +1945,7 @@
         bindRoot();
         paint();
         if (!needsReload()) return Promise.resolve();
-        if (state.fetchCab === cab) return Promise.resolve();
+        if (state.fetchCab === key()) return Promise.resolve();
         void reload();
         return Promise.resolve();
     }

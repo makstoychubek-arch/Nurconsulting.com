@@ -41,8 +41,12 @@ Deno.serve(async (req) => {
     }
 });
 
+const OWN = 'nr-space';
+
 function makeDeps(admin: Admin, now: Date, dryRun: boolean): TickDeps {
     const iso = now.toISOString();
+    const ownIds = new Set<string>();
+    const tbl = (id: string) => (ownIds.has(id) ? 'nr_content_posts' : 'content_posts');
     return {
         now,
         dryRun,
@@ -55,11 +59,23 @@ function makeDeps(admin: Admin, now: Date, dryRun: boolean): TickDeps {
                 .order('publish_at', { ascending: true })
                 .limit(20);
             if (error) throw new Error(error.message);
-            return (data || []) as ContentPostRow[];
+            // собственный календарь NR Space: cabinet_id у таких строк условный
+            const own = await admin
+                .from('nr_content_posts')
+                .select('id, platform, status, publish_at, approved_at, slide_urls, file_url, caption, post_kind')
+                .eq('status', 'scheduled')
+                .lte('publish_at', iso)
+                .order('publish_at', { ascending: true })
+                .limit(20);
+            const ownRows = ((own.data || []) as Omit<ContentPostRow, 'cabinet_id'>[]).map((r) => {
+                ownIds.add(r.id);
+                return { ...r, cabinet_id: OWN } as ContentPostRow;
+            });
+            return ([...(data || []), ...ownRows]) as ContentPostRow[];
         },
         async claim(id) {
             const { data, error } = await admin
-                .from('content_posts')
+                .from(tbl(id))
                 .update({ status: 'scheduled', error_text: 'publishing', updated_at: iso })
                 .eq('id', id)
                 .eq('status', 'scheduled')
@@ -69,7 +85,7 @@ function makeDeps(admin: Admin, now: Date, dryRun: boolean): TickDeps {
             return !!data;
         },
         async finish(id, patch) {
-            const { error } = await admin.from('content_posts').update({
+            const { error } = await admin.from(tbl(id)).update({
                 status: patch.status,
                 error_text: patch.error_text ?? null,
                 post_url: patch.post_url ?? undefined,
@@ -79,6 +95,12 @@ function makeDeps(admin: Admin, now: Date, dryRun: boolean): TickDeps {
             if (error) throw new Error(error.message);
         },
         async loadIg(cabinetId) {
+            if (cabinetId === OWN) {
+                const { data: o } = await admin.from('nr_instagram').select('ig_user_id, token_secret_id').eq('id', true).maybeSingle();
+                if (!o?.token_secret_id || !o.ig_user_id) return null;
+                const t = await readAdvTokenFromVault(admin, o.token_secret_id);
+                return t ? { token: t, igUserId: String(o.ig_user_id) } : null;
+            }
             const { data, error } = await admin
                 .from('content_ig_accounts')
                 .select('ig_user_id, token_secret_id')
