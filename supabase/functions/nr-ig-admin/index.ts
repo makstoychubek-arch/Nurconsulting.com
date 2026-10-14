@@ -54,7 +54,7 @@ function back(q: string) {
 const gj = async (url: string) => { try { return await (await fetch(url)).json(); } catch (e) { return { error: { message: String(e) } }; } };
 
 // Возврат из Facebook: проверяем подпись state, меняем код на долгий токен, находим страницу и Instagram.
-async function callback(admin: any, req: Request, url: URL) {
+async function callbackInner(admin: any, req: Request, url: URL) {
     const err = url.searchParams.get('error_description') || url.searchParams.get('error');
     if (err) return back('ig=error&msg=' + encodeURIComponent(err.slice(0, 150)));
     const code = url.searchParams.get('code') || '';
@@ -85,6 +85,18 @@ async function callback(admin: any, req: Request, url: URL) {
         token_set_at: new Date().toISOString(), verified_at: new Date().toISOString(), verify_error: null, updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
     return back('ig=ok');
+}
+
+async function callback(admin: any, req: Request, url: URL) {
+    const res = await callbackInner(admin, req, url);
+    try {
+        const loc = res.headers.get('Location') || '';
+        const q = new URL(loc).searchParams;
+        if (q.get('ig') === 'error') {
+            await admin.from('nr_instagram').upsert({ id: true, verify_error: String(q.get('msg') || 'ошибка входа').slice(0, 300), updated_at: new Date().toISOString() }, { onConflict: 'id' });
+        }
+    } catch { /* не критично */ }
+    return res;
 }
 
 Deno.serve(async (req) => {
