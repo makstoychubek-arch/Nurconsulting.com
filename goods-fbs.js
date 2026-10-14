@@ -1,7 +1,7 @@
 /**
  * Раздел «Товары → FBS»: товары, у которых есть остаток на складе продавца.
- * Цена за 1 отправку и хранение в день вносятся вручную (rnp_articles.manual_data:
- * fbs_ship_price, fbs_storage_day); автоматически ничего не считается.
+ * Цена за 1 отправку и хранение в день вносятся вручную и действуют по периодам
+ * (rnp_articles.manual_data.fbs_rates, см. fbs-rates.js); автоматически ничего не считается.
  */
 (function (root) {
     function esc(s) {
@@ -17,6 +17,11 @@
         return Number(n || 0).toLocaleString('ru', { maximumFractionDigits: 2 });
     }
 
+    function R() { return root.FbsRates; }
+    function today() {
+        var d = new Date(Date.now() + 6 * 3600 * 1000); // Бишкек, UTC+6
+        return d.toISOString().slice(0, 10);
+    }
     var state = { supabase: null, cabinetId: null, rows: [], host: null };
 
     async function fetchAll(table, cabinetId, cols, extra) {
@@ -52,16 +57,18 @@
                 nmId: Number(id),
                 article: String(md.seller_article || md.sa_name || a.name || '').trim(),
                 qty: qty[id],
-                ship: md.fbs_ship_price,
-                storage: md.fbs_storage_day,
+                md: md,
+                ship: R().rateOn(md, 'ship', today()) || null,
+                storage: R().rateOn(md, 'storage', today()) || null,
             };
         }).sort(function (a, b) { return a.article.localeCompare(b.article, 'ru') || a.nmId - b.nmId; });
     }
 
     function inputCell(r, field, value) {
         var shown = value === undefined || value === null || value === '' ? '' : String(value);
+        var hist = R().describe(r.md, field);
         return '<td class="gg-num gg-edit"><input class="gg-edit-input" type="text" inputmode="decimal" data-nm="' + r.nmId +
-            '" data-field="' + field + '" value="' + esc(shown) + '" placeholder="—"></td>';
+            '" data-field="' + field + '" value="' + esc(shown) + '" placeholder="—" title="' + esc(hist || 'Не задано') + '"></td>';
     }
 
     function render() {
@@ -84,7 +91,8 @@
                 '<td class="gg-num">' + fmt(r.qty) + '</td>' +
                 inputCell(r, 'ship', r.ship) + inputCell(r, 'storage', r.storage) + '</tr>';
         }).join('');
-        host.innerHTML = '<div class="gg-table-scroll"><table class="gg-table"><thead><tr>' +
+        host.innerHTML = '<div class="gg-fbs-note">Значения действуют по периодам: после ввода сайт спросит, с какой даты. Показан тариф на сегодня, история — во всплывающей подсказке.</div>' +
+            '<div class="gg-table-scroll"><table class="gg-table"><thead><tr>' +
             '<th class="gg-art">Артикул</th><th class="gg-col-nm gg-nm">WB</th><th class="gg-num">Остаток FBS</th>' +
             '<th class="gg-num">Цена за 1 отправку</th><th class="gg-num">Хранение в день</th></tr>' +
             '<tr class="gg-bulk"><th colspan="3" class="gg-bulk-h">Для всех товаров сразу: впишите значение — применится ко всем</th>' +
@@ -102,26 +110,96 @@
         });
     }
 
-    async function save(el) {
-        var nmId = Number(el.dataset.nm);
-        var field = el.dataset.field === 'ship' ? 'fbs_ship_price' : 'fbs_storage_day';
-        var raw = String(el.value || '').trim();
-        var val = raw === '' ? null : num(raw);
-        var row = state.rows.filter(function (r) { return r.nmId === nmId; })[0];
-        try {
-            var cab = state.cabinetId, sb = state.supabase;
-            var ex = await sb.from('rnp_articles').select('manual_data').eq('cabinet_id', cab).eq('nm_id', nmId).maybeSingle();
+    // ─── Окно «С какой даты действует значение» ─────────────────────────────────────
+    function dialog(html, wire) {
+        return new Promise(function (resolve) {
+            var ov = document.createElement('div');
+            ov.className = 'nx-ov';
+            ov.innerHTML = '<div class="nx-modal fbr-modal">' + html + '</div>';
+            function done(v) { ov.remove(); resolve(v); }
+            ov.addEventListener('click', function (e) {
+                if (e.target === ov || e.target.closest('[data-x]')) return done(null);
+                if (e.target.closest('[data-ok]')) { var v = wire(ov); if (v) done(v); }
+            });
+            document.body.appendChild(ov);
+            var f = ov.querySelector('input'); if (f) f.focus();
+        });
+    }
+    var KIND_NAME = { ship: 'цена за 1 отправку', storage: 'хранение в день' };
+    function askPeriod(kind, value, count) {
+        var t = today();
+        var html = '<h3>' + fmt(value) + ' ₽: с какой даты?</h3>' +
+            '<p class="nx-sm">' + KIND_NAME[kind][0].toUpperCase() + KIND_NAME[kind].slice(1) + (count > 1 ? ' — для ' + count + ' товаров' : '') + '. Старые значения на эти даты заменятся, остальные периоды не тронутся.</p>' +
+            '<label class="fbr-l">С даты<input type="date" id="fbr-from" value="' + t + '"></label>' +
+            '<label class="fbr-r"><input type="radio" name="fbr-m" value="open" checked> и дальше (пока не поменяю)</label>' +
+            '<label class="fbr-r"><input type="radio" name="fbr-m" value="to"> только по дату <input type="date" id="fbr-to" value="' + t + '"></label>' +
+            '<div class="fbr-btns"><button type="button" class="nx-go" data-ok="1">Применить</button><button type="button" class="nx-b" data-x="1">Отмена</button></div>';
+        return dialog(html, function (ov) {
+            var from = ov.querySelector('#fbr-from').value;
+            var mode = ov.querySelector('input[name=fbr-m]:checked').value;
+            var to = mode === 'to' ? ov.querySelector('#fbr-to').value : null;
+            if (!from || (mode === 'to' && (!to || to < from))) { ov.querySelector('#fbr-from').style.outline = '2px solid #ef4444'; return null; }
+            return { from: from, to: to };
+        });
+    }
+    function askGap(kind, from, to) {
+        var html = '<h3>А дальше?</h3><p class="nx-sm">С ' + R().fmtD(from) + (to ? ' по ' + R().fmtD(to) : '') + ' значение («' + KIND_NAME[kind] + '») не задано. Укажите, сколько было с этой даты (можно пропустить).</p>' +
+            '<label class="fbr-l">' + KIND_NAME[kind] + ', ₽<input type="text" inputmode="decimal" id="fbr-v" placeholder="0"></label>' +
+            '<div class="fbr-btns"><button type="button" class="nx-go" data-ok="1">Применить</button><button type="button" class="nx-b" data-x="1">Пропустить</button></div>';
+        return dialog(html, function (ov) {
+            var raw = ov.querySelector('#fbr-v').value.trim();
+            if (!raw) { ov.querySelector('#fbr-v').style.outline = '2px solid #ef4444'; return null; }
+            return { value: num(raw) };
+        });
+    }
+
+    // Записать значение для списка артикулов на период; закрытый период → спросить про оставшиеся дни до сегодня.
+    async function applyRate(rows, kind, value, from, to) {
+        var cab = state.cabinetId, sb = state.supabase;
+        var ids = rows.map(function (r) { return r.nmId; });
+        var existing = {};
+        for (var i = 0; i < ids.length; i += 200) {
+            var ex = await sb.from('rnp_articles').select('nm_id, manual_data').eq('cabinet_id', cab).in('nm_id', ids.slice(i, i + 200));
             if (ex.error) throw ex.error;
-            var md = Object.assign({}, (ex.data && ex.data.manual_data) || {});
-            if (val === null) delete md[field]; else md[field] = val;
-            var r;
-            if (ex.data) r = await sb.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', nmId);
-            else r = await sb.from('rnp_articles').upsert({ cabinet_id: cab, nm_id: nmId, name: row ? row.article : '', is_active: false, manual_data: md, cost_price: 0 });
-            if (r.error) throw r.error;
-            if (row) { if (field === 'fbs_ship_price') row.ship = val; else row.storage = val; }
-            var t = document.getElementById('gg-fbs-sto-total');
-            if (t) t.textContent = fmt(state.rows.reduce(function (s, x) { return s + num(x.storage); }, 0));
+            (ex.data || []).forEach(function (a) { existing[Number(a.nm_id)] = a.manual_data || {}; });
+        }
+        for (var j = 0; j < rows.length; j++) {
+            var r = rows[j];
+            var md = R().setRange(existing[r.nmId] !== undefined ? existing[r.nmId] : r.md, kind, value, from, to);
+            var res = (r.nmId in existing)
+                ? await sb.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', r.nmId)
+                : await sb.from('rnp_articles').upsert({ cabinet_id: cab, nm_id: r.nmId, name: r.article, is_active: false, manual_data: md, cost_price: 0 });
+            if (res.error) throw res.error;
+            r.md = md; r.ship = R().rateOn(md, 'ship', today()) || null; r.storage = R().rateOn(md, 'storage', today()) || null;
+        }
+    }
+    async function setWithPeriod(rows, kind, value) {
+        var p = await askPeriod(kind, value, rows.length);
+        if (!p) return false;
+        await applyRate(rows, kind, value, p.from, p.to);
+        // закрытый период закончился раньше сегодняшнего дня — спрашиваем про оставшиеся дни
+        var t = today();
+        if (p.to && p.to < t) {
+            var next = R().addDays(p.to, 1), g = await askGap(kind, next, t);
+            if (g) await applyRate(rows, kind, g.value, next, null);
+        }
+        return true;
+    }
+
+    async function save(el) {
+        var nmId = Number(el.dataset.nm), kind = el.dataset.field;
+        var row = state.rows.filter(function (r) { return r.nmId === nmId; })[0];
+        if (!row) return;
+        var raw = String(el.value || '').trim();
+        var prev = row[kind];
+        if (raw === '') { if (!prev) return; el.value = prev; return; }   // стереть значение нельзя: тариф закрывается новым периодом
+        var val = num(raw);
+        if (val === Number(prev)) return;
+        try {
+            var ok = await setWithPeriod([row], kind, val);
+            if (!ok) { el.value = prev == null ? '' : prev; return; }
             el.style.outline = '';
+            render();
         } catch (e) {
             el.style.outline = '2px solid #ef4444';
             if (root.console) console.warn('[goods-fbs] save failed', e && e.message);
@@ -132,36 +210,18 @@
     var bulkBusy = false;
     async function saveAll(el) {
         if (bulkBusy) return;
-        var field = el.dataset.bulk === 'ship' ? 'fbs_ship_price' : 'fbs_storage_day';
-        var key = el.dataset.bulk;
+        var kind = el.dataset.bulk;
         var raw = String(el.value || '').trim();
         if (raw === '') return;
         var val = num(raw);
         var needle = (((document.getElementById('gg-search') || {}).value) || '').trim().toLowerCase();
         var rows = needle ? state.rows.filter(function (r) { return String(r.nmId).indexOf(needle) >= 0 || r.article.toLowerCase().indexOf(needle) >= 0; }) : state.rows;
         if (!rows.length) return;
-        var differs = rows.some(function (r) { return r[key] !== undefined && r[key] !== null && r[key] !== '' && Number(r[key]) !== val; });
-        if (differs && !root.confirm('Поставить ' + fmt(val) + ' всем ' + rows.length + ' товарам? Уже введённые значения заменятся.')) { el.value = ''; return; }
         bulkBusy = true; el.disabled = true;
         try {
-            var cab = state.cabinetId, sb = state.supabase;
-            var ids = rows.map(function (r) { return r.nmId; });
-            var existing = {};
-            for (var i = 0; i < ids.length; i += 200) {
-                var ex = await sb.from('rnp_articles').select('nm_id, manual_data').eq('cabinet_id', cab).in('nm_id', ids.slice(i, i + 200));
-                if (ex.error) throw ex.error;
-                (ex.data || []).forEach(function (a) { existing[Number(a.nm_id)] = a.manual_data || {}; });
-            }
-            for (var j = 0; j < rows.length; j++) {
-                var r = rows[j], md = Object.assign({}, existing[r.nmId] || {});
-                md[field] = val;
-                var res = (r.nmId in existing)
-                    ? await sb.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', r.nmId)
-                    : await sb.from('rnp_articles').upsert({ cabinet_id: cab, nm_id: r.nmId, name: r.article, is_active: false, manual_data: md, cost_price: 0 });
-                if (res.error) throw res.error;
-                r[key] = val;
-            }
+            var ok = await setWithPeriod(rows, kind, val);
             bulkBusy = false;
+            if (!ok) { el.disabled = false; el.value = ''; return; }
             render();
         } catch (e) {
             bulkBusy = false; el.disabled = false; el.style.outline = '2px solid #ef4444';

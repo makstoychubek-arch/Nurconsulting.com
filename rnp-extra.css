@@ -1090,3 +1090,33 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 #gg-view-fbs .gg-table .gg-num { white-space: nowrap; min-width: 96px; }
 #gg-view-fbs .gg-bulk th { background: transparent; font-weight: 500; font-size: 11.5px; color: var(--text-muted); text-align: left; padding-top: 4px; padding-bottom: 8px; }
 #gg-view-fbs .gg-bulk-in { width: 110px; border: 1px dashed var(--accent); border-radius: 8px; background: var(--accent-soft, transparent); text-align: right; }
+
+.gg-fbs-note { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+.fbr-modal { text-align: left; } .fbr-modal h3 { text-align: left; }
+.fbr-l { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-secondary); margin: 10px 0 8px; }
+.fbr-l input, .fbr-r input[type=date] { margin-top: 5px; width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size: 14px; }
+.fbr-r { display: block; font-size: 13px; margin: 8px 0; color: var(--text-primary); } .fbr-r input[type=date] { width: auto; margin: 0 0 0 6px; padding: 5px 8px; }
+.fbr-btns { display: flex; gap: 10px; margin-top: 14px; }
+
+/* Дашборд: блок «Фулфилмент» */
+.ff-row { margin-top: 12px; }
+.ff-logcard { grid-column: span 3; }
+.ff-pay-l { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+.ff-pay { color: #ea580c; margin-top: 2px; }
+.ff-sub { margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+.ff-warn { margin-top: 6px; font-size: 11px; color: #dc2626; font-weight: 600; }
+.ff-hint { font-weight: 400; color: var(--text-muted); font-size: 11.5px; margin-left: 6px; }
+.ff-form { display: grid; grid-template-columns: 120px 140px 1fr 1.4fr auto; gap: 8px; margin: 8px 0 10px; }
+.ff-form select, .ff-form input { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size: 13px; min-width: 0; box-sizing: border-box; }
+.ff-form .ff-add { margin: 0; padding: 8px 16px; font-size: 13px; }
+.ff-list { max-height: 150px; overflow: auto; }
+.ff-it { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+.ff-d { color: var(--text-muted); width: 82px; flex: none; }
+.ff-k { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; flex: none; }
+.ff-k.swap { background: #ede9fe; color: #5b3fd4; } .ff-k.cancel { background: #fee2e2; color: #991b1b; }
+.ff-n { flex: 1; min-width: 0; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ff-x { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; }
+.ff-x:hover { color: #e5484d; }
+.ff-empty { color: var(--text-muted); font-size: 12.5px; padding: 8px 0; }
+@media (max-width: 1280px) { .ff-logcard { grid-column: span 1; } }
+@media (max-width: 640px) { .ff-form { grid-template-columns: 1fr 1fr; } .ff-form .ff-add { grid-column: span 2; } }
