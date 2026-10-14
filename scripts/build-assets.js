@@ -166,6 +166,37 @@ function patchSimpleTailwindHtml(fileName, cssFile) {
     fs.writeFileSync(file, html);
 }
 
+// Только на деплое (Vercel) или с NR_EXTRACT_INLINE=1: большой встроенный скрипт и стили страницы выносим в файлы с хэшем.
+// Так браузер кеширует их на год, а сама страница (она без кеша) остаётся лёгкой. Исходник dashboard.html не меняется:
+// тесты и правки работают с ним как раньше, а на сайт уходит уже разобранная копия.
+function extractInlineBig() {
+    if (!process.env.VERCEL && !process.env.NR_EXTRACT_INLINE) return;
+    const esbuild = require('esbuild');
+    const file = path.join(ROOT, 'dashboard.html');
+    let html = fs.readFileSync(file, 'utf8');
+    const MIN = 100 * 1024;
+    for (const f of fs.readdirSync(DIST)) {
+        if (/^dash-(app|inline)\./.test(f)) fs.unlinkSync(path.join(DIST, f));
+    }
+    html = html.replace(/<script>([\s\S]*?)<\/script>/g, (whole, code) => {
+        if (code.length < MIN) return whole;
+        const out = esbuild.transformSync(code, { minifyWhitespace: true, minifySyntax: false, minifyIdentifiers: false, target: 'es2020', loader: 'js' }).code;
+        const name = `dash-app.${hashOf(out)}.min.js`;
+        fs.writeFileSync(path.join(DIST, name), out);
+        console.log(`[build-assets] inline script ${(code.length / 1024).toFixed(0)} KB -> dist/${name} (${(out.length / 1024).toFixed(0)} KB)`);
+        return `<script src="/dist/${name}"></script>`;
+    });
+    html = html.replace(/<style>([\s\S]*?)<\/style>/g, (whole, css) => {
+        if (css.length < MIN) return whole;
+        const out = esbuild.transformSync(css, { loader: 'css', minify: true }).code;
+        const name = `dash-inline.${hashOf(out)}.css`;
+        fs.writeFileSync(path.join(DIST, name), out);
+        console.log(`[build-assets] inline style ${(css.length / 1024).toFixed(0)} KB -> dist/${name} (${(out.length / 1024).toFixed(0)} KB)`);
+        return `<link rel="stylesheet" href="/dist/${name}">`;
+    });
+    fs.writeFileSync(file, html);
+}
+
 function main() {
     ensureDist();
     const cssFile = buildTailwind();
@@ -173,6 +204,7 @@ function main() {
     const moduleCss = buildModuleCss();
     cleanOldDist([cssFile, ...Object.values(scriptMap), ...Object.values(moduleCss)]);
     patchDashboardHtml(cssFile, scriptMap, moduleCss);
+    extractInlineBig();
     patchSimpleTailwindHtml('index.html', cssFile);
     patchSimpleTailwindHtml('login.html', cssFile);
     patchSimpleTailwindHtml('consulting.html', cssFile);
