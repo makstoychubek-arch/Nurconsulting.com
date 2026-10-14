@@ -2198,7 +2198,7 @@
             ], 'cabinet_id,nm_id,photo_url,name,manual_data'),
             safeRows('wb_stocks', [
                 { op: 'in', column: 'cabinet_id', value: ids },
-            ], 'cabinet_id,nm_id,quantity,quantity_full'),
+            ], 'cabinet_id,nm_id,quantity'),
         ]) : [[], [], [], [], []];
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
