@@ -322,7 +322,7 @@
     function openIgWindow() {
         var old = document.getElementById('nrc-ig-win'); if (old) old.remove();
         var S = {
-            wrap: 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px',
+            wrap: 'position:fixed;inset:0;z-index:200000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px',
             box: 'background:#fff;color:#111;border-radius:14px;width:min(520px,100%);max-height:90vh;overflow:auto;padding:20px;font:14px system-ui,sans-serif',
             lab: 'display:block;font-weight:600;margin:12px 0 4px', inp: 'width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font:inherit',
             btn: 'padding:8px 14px;border:0;border-radius:8px;background:#f97316;color:#fff;font-weight:600;cursor:pointer;margin-right:8px',
