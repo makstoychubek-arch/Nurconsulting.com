@@ -460,6 +460,9 @@
         fmt: 'post',
         own: false,
         ownIg: null,
+        tg: { loaded: false, bot: null, source: null, canSetupBot: false },
+        tgForm: null,
+        qFilter: 'all',
         accounts: [],
         igMap: {},
         accQuery: '',
@@ -497,6 +500,8 @@
 
     /* NR Space (@nurcon.kg): свой календарь без кабинета и артикулов WB, только супер-админ */
     function key() { return state.own ? 'own' : cab; }
+    /* Пост без артикула WB (свой календарь или пост из Telegram): форма «фото + подпись + время» */
+    function freeForm() { return state.own || !!(state.form && state.form.source === 'telegram'); }
     function tbl() { return state.own ? 'nr_content_posts' : 'content_posts'; }
     function scoped(q) { return state.own ? q : q.eq('cabinet_id', cab); }
 
@@ -642,6 +647,14 @@
         state.igLoaded = true;
     }
     /* Кабинеты = Instagram-аккаунты: статус подключения берём одним запросом (RLS отдаёт только доступные) */
+    async function loadTg() {
+        try {
+            const r = await callFn('content-tg-source', { action: 'status' }, FN_TIMEOUT_MS);
+            state.tg = { loaded: true, bot: r.bot || null, source: r.source || null, canSetupBot: !!r.can_setup_bot };
+        } catch (_) { state.tg = Object.assign({}, state.tg, { loaded: true }); }
+        state.tgForm = null;
+        if (state.view === 'instagram') paintAfterLoad();
+    }
     async function loadOwnIg() {
         try { state.ownIg = await callFn('nr-ig-admin', { action: 'get' }, FN_TIMEOUT_MS); } catch (_) { state.ownIg = state.ownIg || null; }
     }
@@ -683,7 +696,7 @@
         state.err = '';
         try {
             if (state.own) await Promise.all([loadPosts(), loadAccounts(), loadOwnIg()]);
-            else await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts(), loadAccounts()]);
+            else { if (!state.tg.loaded) void loadTg(); await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts(), loadAccounts()]); }
             if (gen !== state.loadGen) return;
             state.loadedCab = key();
         } catch (e) {
@@ -785,6 +798,7 @@
             slide_urls: [],
             post_kind: 'feed',
             title: '',
+            source: 'manual',
             views: 0,
         };
     }
@@ -808,6 +822,8 @@
             slide_urls: Array.isArray(p.slide_urls) ? p.slide_urls : [],
             post_kind: p.post_kind === 'story' ? 'story' : 'feed',
             title: p.title || '',
+            source: p.source || 'manual',
+            tg_note: p.tg_note || '',
             views: p.views || 0,
             error_text: p.error_text || '',
             approved_at: p.approved_at || null,
@@ -821,10 +837,11 @@
 
     async function savePost(form, extra) {
         if (state.own) return saveOwnPost(form, extra);
-        if (!form.article_id) throw new Error('Выберите артикул');
+        if (!form.article_id && form.source !== 'telegram') throw new Error('Выберите артикул');
         const patch = Object.assign({
             cabinet_id: cab,
-            article_id: form.article_id,
+            article_id: form.article_id || null,
+            title: form.title || null,
             platform: form.platform,
             status: form.status,
             blogger_id: form.blogger_id || null,
@@ -1001,6 +1018,74 @@
             state.form.slide_urls = list;
             state.form.file_url = list[0] || '';
             paint();
+            return;
+        }
+        if (act === 'tg-mode' || act === 'tg-target' || act === 'tg-timing') {
+            const d = readTg();
+            if (act === 'tg-mode') d.mode = id; else if (act === 'tg-target') d.target = id; else d.timing = id;
+            paint();
+            return;
+        }
+        if (act === 'tg-bot-save') {
+            const token = (document.getElementById('cf-tg-bot-token') || {}).value;
+            const r = await callFn('content-tg-source', { action: 'save_bot', token }, FN_LONG_MS);
+            state.tg = Object.assign({}, state.tg, { bot: r.bot, loaded: true });
+            paint();
+            toast('success', 'Бот контента', 'Подключён, посты из каналов будут приходить');
+            return;
+        }
+        if (act === 'tg-save' || act === 'tg-check') {
+            const d = act === 'tg-save' ? readTg() : tgDraft();
+            const body = act === 'tg-save' ? {
+                action: 'save', channel: d.channel, mode: d.mode, target: d.target,
+                delay_minutes: d.timing === 'delay' ? d.delay_minutes : (state.tg.source ? state.tg.source.delay_minutes : 120),
+                daily_time: d.timing === 'daily' ? d.daily_time : '',
+                take_text: d.take_text, take_albums: d.take_albums, strip_links: d.strip_links, add_signature: d.add_signature, signature: d.signature,
+            } : { action: 'check' };
+            const r = await callFn('content-tg-source', body, FN_LONG_MS);
+            state.tg = Object.assign({}, state.tg, { source: r.source, bot: r.bot || state.tg.bot, loaded: true });
+            state.tgForm = null;
+            paint();
+            const ok = r.check && r.check.ok;
+            toast(ok ? 'success' : 'warning', ok ? 'Канал подключён' : 'Бот не администратор канала', ok ? (r.source.chat_title || 'Посты будут приходить в очередь') : 'Добавьте бота администратором канала и нажмите «Проверить канал»');
+            return;
+        }
+        if (act === 'tg-remove') {
+            const ok = root.NrUi && root.NrUi.confirm ? await root.NrUi.confirm({ title: 'Отвязать канал?', text: 'Новые посты из Telegram перестанут приходить. Уже полученные останутся в очереди.', confirmLabel: 'Отвязать', danger: true }) : true;
+            if (!ok) return;
+            const r = await callFn('content-tg-source', { action: 'remove' }, FN_LONG_MS);
+            state.tg = Object.assign({}, state.tg, { source: r.source, loaded: true });
+            state.tgForm = null;
+            paint();
+            return;
+        }
+        if (act === 'q-filter') { state.qFilter = id; paint(); return; }
+        if (act === 'q-date') {
+            const p = state.posts.find((x) => x.id === el.getAttribute('data-pid'));
+            if (!p) return;
+            const iso = publishAtIso(id);
+            const { error } = await scoped(sb.from(tbl()).update({ publish_at: iso, updated_at: new Date().toISOString() }).eq('id', p.id));
+            if (error) throw error;
+            p.publish_at = iso;
+            return;
+        }
+        if (act === 'approve-all') {
+            const list = state.posts.filter((p) => p.status === 'review' && (p.file_url || (Array.isArray(p.slide_urls) && p.slide_urls.filter(Boolean).length)));
+            if (!list.length) return;
+            const ok = root.NrUi && root.NrUi.confirm ? await root.NrUi.confirm({ title: 'Подтвердить ' + list.length + ' постов?', text: 'Посты с датой в будущем встанут в расписание, остальные уйдут в Instagram сразу.', confirmLabel: 'Подтвердить все' }) : true;
+            if (!ok) return;
+            for (const p of list) await handle('approve-post', p.id, el);
+            return;
+        }
+        if (act === 'mark-done') {
+            const { error } = await scoped(sb.from(tbl()).update({ status: 'published', tg_note: 'Опубликовано вручную', updated_at: new Date().toISOString() }).eq('id', id));
+            if (error) throw error;
+            await reload();
+            return;
+        }
+        if (act === 'hide-post') {
+            await deletePost(id);
+            await reload();
             return;
         }
         if (act === 'when') {
@@ -1289,7 +1374,7 @@
         f.composition_text = (document.getElementById('cf-f-comp') || {}).value || '';
         f.brand_name = (document.getElementById('cf-f-brand') || {}).value || '';
         f.post_kind = state.fmt === 'story' ? 'story' : 'feed';
-        if (state.own) f.title = (document.getElementById('cf-f-title') || {}).value || '';
+        if (freeForm()) f.title = (document.getElementById('cf-f-title') || {}).value || '';
         return f;
     }
 
@@ -1531,7 +1616,8 @@
     function createOwnHtml() {
         const f = state.form;
         const slides = (f.slide_urls || []).filter(Boolean);
-        const fmtTabs = `<div class="cf-fmt cf-fmt2">${FORMATS.filter((x) => x.id !== 'carousel').map((x) =>
+        const fromTg = !state.own && f.source === 'telegram';
+        const fmtTabs = fromTg ? `<div class="cf-fmt cf-fmt2"><button type="button" class="on" disabled>${state.fmt === 'story' ? 'Сторис' : 'Пост'}<small>из Telegram</small></button></div>` : `<div class="cf-fmt cf-fmt2">${FORMATS.filter((x) => x.id !== 'carousel').map((x) =>
             `<button type="button" class="${state.fmt === x.id ? 'on' : ''}" data-cf="fmt" data-id="${x.id}">${x.label}<small>${x.id === 'story' ? 'вертикальная' : '1 фото или несколько'}</small></button>`).join('')}</div>`;
         const pics = slides.length
             ? `<div class="cf-pics">${slides.map((u, i) => `<button type="button" data-cf="rm-photo" data-id="${i}" title="Убрать фото"><img src="${escapeHtml(u)}" alt=""></button>`).join('')}</div>${tip((slides.length > 1 ? 'Несколько фото уйдут каруселью. ' : '') + 'Нажмите на фото, чтобы убрать.')}` : '';
@@ -1542,7 +1628,7 @@
             <button type="button" class="cf-chip" data-cf="when" data-id="tomorrow">Завтра 12:00</button></div>
             </div>`;
         return `<div class="cf-comp"><div class="cf-steps">
-            <div class="cf-step"><h3><span class="cf-n">1</span>Что публикуем</h3>${fmtTabs}</div>
+            <div class="cf-step"><h3><span class="cf-n">1</span>${fromTg ? 'Пост из Telegram' : 'Что публикуем'}${f.tg_note ? tip(f.tg_note) : ''}</h3>${fmtTabs}</div>
             ${f.error_text ? `<div class="cf-err">${escapeHtml(f.error_text)}</div>` : ''}
             <input type="hidden" id="cf-f-file" value="${escapeHtml(f.file_url || slides[0] || '')}">
             <input type="hidden" id="cf-f-status" value="${escapeHtml(f.status === 'published' || f.status === 'scheduled' ? 'review' : (f.status || 'draft'))}">
@@ -1565,7 +1651,7 @@
     }
     function createHtml() {
         if (!state.form) state.form = emptyForm('');
-        if (state.own) return createOwnHtml();
+        if (freeForm()) return createOwnHtml();
         const f = state.form;
         const card = state.card;
         const fmtTabs = `<div class="cf-fmt">${FORMATS.map((x) =>
@@ -1630,18 +1716,41 @@
             <div>${previewHtml(previewImg, f.caption)}</div></div>`;
     }
 
+    function localInput(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return Number.isFinite(d.getTime()) ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}` : '';
+    }
     function kanCard(p, actions) {
-        return `<div class="cf-kc" data-cf="edit-post" data-id="${p.id}">${thumbHtml(p, 'cf-th-k')}<div class="cf-kc-t"><b>${escapeHtml(postTitle(p))}</b><small>${kindLabel(p)} · ${whenLabel(p)}</small>${p.error_text ? `<small class="cf-red">${escapeHtml(p.error_text)}</small>` : ''}${actions || ''}</div></div>`;
+        const tgb = p.source === 'telegram' ? '<span class="cf-tgb">Telegram</span>' : '';
+        const note = p.tg_note && p.status !== 'published' ? `<small class="cf-amber">${escapeHtml(p.tg_note)}</small>` : '';
+        return `<div class="cf-kc" data-cf="edit-post" data-id="${p.id}">${thumbHtml(p, 'cf-th-k')}<div class="cf-kc-t"><b>${escapeHtml(postTitle(p))}${tgb}</b><small>${kindLabel(p)} · ${whenLabel(p)}</small>${note}${p.error_text ? `<small class="cf-red">${escapeHtml(p.error_text)}</small>` : ''}${actions || ''}</div></div>`;
     }
     function reviewHtml() {
-        const g = queueGroups(state.posts);
-        const errs = state.posts.filter((p) => p.status === 'error');
-        const slidesOk = (p) => (Array.isArray(p.slide_urls) && p.slide_urls.filter(Boolean).length) || p.file_url;
+        const all = state.posts;
+        const nTg = all.filter((p) => p.source === 'telegram').length;
+        const posts = state.qFilter === 'tg' ? all.filter((p) => p.source === 'telegram') : state.qFilter === 'manual' ? all.filter((p) => p.source !== 'telegram') : all;
+        const g = queueGroups(posts);
+        const errs = posts.filter((p) => p.status === 'error');
+        const hasMedia = (p) => (Array.isArray(p.slide_urls) && p.slide_urls.filter(Boolean).length) || p.file_url;
         const col = (title, items, render) => `<div class="cf-col"><h3>${title}<span>${items.length}</span></h3>${items.map(render).join('') || '<div class="cf-muted">Пусто</div>'}</div>`;
         const done = g.done.filter((p) => p.status !== 'error').slice(0, 12);
-        return `<div class="cf-kan">
-            ${col('Черновик', g.draft, (p) => kanCard(p))}
-            ${col('На подтверждении', g.review, (p) => kanCard(p, `<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${slidesOk(p) ? '' : ' disabled'}>Подтвердить</button><button type="button" class="cf-link" data-cf="reject-post" data-id="${p.id}">В черновик</button></div>`))}
+        const readyN = g.review.filter(hasMedia).length;
+        const bar = (nTg || state.qFilter !== 'all') ? `<div class="cf-qbar">${seg('q-filter', state.qFilter, [['all', 'Все ' + all.length], ['tg', 'Из Telegram ' + nTg], ['manual', 'Вручную ' + (all.length - nTg)]])}<span class="cf-sp"></span>${readyN > 1 ? `<button type="button" class="ui-btn ui-btn-primary" data-cf="approve-all">Подтвердить все ${readyN}</button>` : ''}</div>` : '';
+        const reviewCard = (p) => {
+            const media = hasMedia(p);
+            const dateIn = media ? `<input type="datetime-local" class="cf-qdate" value="${escapeHtml(localInput(p.publish_at))}" data-cf-change="q-date" data-pid="${p.id}">` : '';
+            return kanCard(p, `${dateIn}<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${media ? '' : ' disabled'}>Подтвердить</button><button type="button" class="cf-link" data-cf="reject-post" data-id="${p.id}">В черновик</button></div>`);
+        };
+        const draftCard = (p) => {
+            if (p.source === 'telegram' && /Видео/.test(p.tg_note || '')) {
+                return kanCard(p, `<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-secondary" data-cf="mark-done" data-id="${p.id}">Опубликовано вручную</button><button type="button" class="cf-link" data-cf="hide-post" data-id="${p.id}">Скрыть</button></div>`);
+            }
+            return kanCard(p);
+        };
+        return `${bar}<div class="cf-kan">
+            ${col('Черновик', g.draft, draftCard)}
+            ${col('На подтверждении', g.review, reviewCard)}
             ${col('Запланировано', g.scheduled, (p) => kanCard(p))}
             ${col('Опубликовано и ошибки', errs.concat(done), (p) => p.status === 'error'
                 ? kanCard(p, `<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-secondary" data-cf="approve-post" data-id="${p.id}">Повторить</button></div>`)
@@ -1762,7 +1871,81 @@
                 <button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-oauth"${ig.configured ? '' : ' disabled'}>OAuth</button>
                 ${ig.connected ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-off">Отключить</button>' : ''}
             </div>
-        </div>`;
+        </div>${tgHtml()}`;
+    }
+
+    /* ── Telegram-канал кабинета как источник постов ── */
+    function tgDraft() {
+        if (!state.tgForm) {
+            const s0 = state.tg.source;
+            state.tgForm = {
+                channel: s0 ? (s0.chat_username ? '@' + s0.chat_username : String(s0.chat_id)) : '',
+                mode: s0 ? s0.mode : 'manual', target: s0 ? s0.target : 'feed',
+                timing: s0 && s0.daily_time ? 'daily' : 'delay',
+                delay_minutes: s0 ? s0.delay_minutes : 120, daily_time: (s0 && s0.daily_time) || '12:00',
+                take_text: s0 ? s0.take_text : true, take_albums: s0 ? s0.take_albums : true,
+                strip_links: s0 ? s0.strip_links : true, add_signature: s0 ? s0.add_signature : true,
+                signature: (s0 && s0.signature) || '',
+            };
+        }
+        return state.tgForm;
+    }
+    function seg(act, cur, items) {
+        return `<div class="cf-seg">${items.map((x) => `<button type="button" class="${cur === x[0] ? 'on' : ''}" data-cf="${act}" data-id="${x[0]}">${x[1]}</button>`).join('')}</div>`;
+    }
+    function sw(id, on, label, off) {
+        return `<label class="cf-sw${off ? ' off' : ''}"><b>${label}</b>${off ? `<span class="cf-muted">${off}</span>` : ''}<input type="checkbox" id="${id}"${on ? ' checked' : ''}${off ? ' disabled' : ''}><span class="cf-tg"></span></label>`;
+    }
+    function tgHtml() {
+        const t = state.tg;
+        if (!t.loaded) return '<div class="cf-card cf-tgc"><h3>Telegram-канал</h3><div class="cf-muted">Загрузка…</div></div>';
+        const bot = t.bot || {};
+        if (!bot.configured) {
+            return `<div class="cf-card cf-tgc"><h3>Telegram-канал${tip('Посты из канала клиента попадают в очередь и уходят в Instagram. Для этого нужен бот контента.')}</h3>
+                ${t.canSetupBot ? `<div class="cf-lab">Токен бота контента (создаётся в @BotFather)<input id="cf-tg-bot-token" type="password" autocomplete="off" placeholder="123456:ABC…"></div>
+                <div class="cf-actions"><span class="cf-sp"></span><button type="button" class="ui-btn ui-btn-primary" data-cf="tg-bot-save">Подключить бота</button></div>`
+                : '<div class="cf-muted">Бот контента ещё не подключён. Попросите администратора NR Space.</div>'}</div>`;
+        }
+        const d = tgDraft();
+        const src = t.source;
+        const st = !src ? '' : src.bot_ok ? '<span class="cf-chip2 ok">бот администратор канала, посты приходят</span>' : '<span class="cf-chip2 bad">бот не администратор канала</span>';
+        return `<div class="cf-tgc cf-tgg">
+            <div class="cf-card"><h3>Источник: Telegram-канал</h3>
+                <label class="cf-lab">Канал<input id="cf-tg-channel" value="${escapeHtml(d.channel)}" placeholder="@имя_канала или t.me/имя"></label>
+                <div class="cf-row"><span class="cf-chip2">Бот @${escapeHtml(bot.username || 'bot')}</span>${st}${tip('Добавьте бота администратором в канал клиента с правом читать сообщения. Видео бот не берёт: их публикуют вручную.')}</div>
+                <div class="cf-lab">Куда отправлять${seg('tg-target', d.target, [['feed', 'Лента'], ['story', 'Сторис'], ['both', 'Лента и сторис']])}</div>
+                <div class="cf-lab">Что брать
+                    ${sw('cf-tg-text', d.take_text, 'Фото и текст')}
+                    ${sw('cf-tg-album', d.take_albums, 'Альбом (несколько фото) в карусель')}
+                    ${sw('cf-tg-video', false, 'Видео', 'публикуем вручную')}
+                </div>
+            </div>
+            <div class="cf-card"><h3>Правила публикации</h3>
+                <div class="cf-lab">Режим${seg('tg-mode', d.mode, [['manual', 'Подтверждать вручную'], ['auto', 'Авто в очередь']])}${tip('В авто-режиме пост сам встаёт в расписание, до выхода его можно снять в очереди. В ручном нужно нажать «Подтвердить».')}</div>
+                <div class="cf-lab">Выложить${seg('tg-timing', d.timing, [['delay', 'Через N минут'], ['daily', 'В заданное время дня']])}</div>
+                <div class="cf-when">${d.timing === 'daily'
+                    ? `<input id="cf-tg-daily" type="time" value="${escapeHtml(d.daily_time)}"><span class="cf-muted">время Бишкека</span>`
+                    : `<input id="cf-tg-delay" type="number" min="0" max="10080" value="${escapeHtml(String(d.delay_minutes))}" style="max-width:110px"><span class="cf-muted">минут после поста в Telegram</span>`}</div>
+                ${sw('cf-tg-strip', d.strip_links, 'Убрать ссылки на Telegram из подписи')}
+                ${sw('cf-tg-sigon', d.add_signature, 'Добавить подпись кабинета')}
+                <label class="cf-lab">Подпись кабинета<textarea id="cf-tg-sig" rows="2" placeholder="Заказать на Wildberries: ссылка в шапке профиля. #zevina">${escapeHtml(d.signature)}</textarea></label>
+            </div>
+            <div class="cf-actions" style="grid-column:1/-1">
+                ${src ? '<button type="button" class="cf-link" data-cf="tg-remove">Отвязать канал</button>' : ''}<span class="cf-sp"></span>
+                ${src ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="tg-check">Проверить канал</button>' : ''}
+                <button type="button" class="ui-btn ui-btn-primary" data-cf="tg-save">Сохранить</button>
+            </div></div>`;
+    }
+    function readTg() {
+        const g = (id) => document.getElementById(id);
+        const d = tgDraft();
+        d.channel = (g('cf-tg-channel') || {}).value || '';
+        d.take_text = !!(g('cf-tg-text') || {}).checked; d.take_albums = !!(g('cf-tg-album') || {}).checked;
+        d.strip_links = !!(g('cf-tg-strip') || {}).checked; d.add_signature = !!(g('cf-tg-sigon') || {}).checked;
+        d.signature = (g('cf-tg-sig') || {}).value || '';
+        if (g('cf-tg-daily')) d.daily_time = g('cf-tg-daily').value || '12:00';
+        if (g('cf-tg-delay')) d.delay_minutes = Number(g('cf-tg-delay').value) || 0;
+        return d;
     }
 
     function dashHtml() {
@@ -1829,7 +2012,7 @@
                 state.form = readForm();
                 const list = (state.form.slide_urls || []).slice();
                 for (const file of files) {
-                    const path = `nr/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, '_')}`;
+                    const path = `${state.own ? 'nr' : cab + '/tg'}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, '_')}`;
                     const { error } = await sb.storage.from('content-factory').upload(path, file, { upsert: true, contentType: file.type });
                     if (error) { toast('error', 'Загрузка фото', error.message); continue; }
                     const { data } = sb.storage.from('content-factory').getPublicUrl(path);
@@ -1876,6 +2059,9 @@
             state.err = '';
             state.form = null;
             state.accLoaded = false;
+            state.tg = { loaded: false, bot: null, source: null, canSetupBot: false };
+            state.tgForm = null;
+            state.qFilter = 'all';
             state.own = false;
             state.ownIg = null;
             state.fmt = 'post';
