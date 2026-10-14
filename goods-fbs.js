@@ -17,7 +17,7 @@
     function T() { return root.FfTerms; }
     function today() { return new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10); }
 
-    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], host: null, rnpShip: true, rnpStorage: true, rub: 1 };
+    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], host: null, rnpShip: true, rnpStorage: true, rub: 1, sel: '' };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -127,28 +127,36 @@
             var st = T().at(idx, f.name, 'storage', t);
             if (st) { var c = f.qty * Number(st.value); if (st.daily_cap != null && c > Number(st.daily_cap)) c = Number(st.daily_cap); stoDay += c * (Number(st.fx_rate) || state.rub); }
         });
-        var cards = state.ffs.map(function (f) {
-            return '<div class="fbf"><div class="fbf-h0"><b>' + esc(f.name) + '</b><small>' + fmt(f.qty) + ' шт · ' + fmt(f.arts) + ' арт.</small></div>' +
-                termBlock(f, 'ship', idx) + termBlock(f, 'storage', idx) + termBlock(f, 'box', idx) + '</div>';
-        }).join('');
-        var body = rows.map(function (r) {
+        // Один блок: выбираем ФФ (склад) из списка, ниже его тарифы; мелкие тумблеры — учитывать отправку / хранение в РНП.
+        var selName = state.sel;
+        try { if (!selName) selName = localStorage.getItem('nr_fbs_ff_' + state.cabinetId) || ''; } catch (e) {}
+        if (!state.ffs.some(function (f) { return f.name === selName; })) selName = (state.ffs[0] || {}).name || '';
+        state.sel = selName;
+        var ff = state.ffs.filter(function (f) { return f.name === selName; })[0];
+        var opts = state.ffs.map(function (f) { return '<option value="' + esc(f.name) + '"' + (f.name === selName ? ' selected' : '') + '>' + esc(f.name) + '</option>'; }).join('');
+        var head = '<div class="fbs-head"><select id="fbs-ff" class="fbs-sel" title="Выберите ФФ (склад)">' + opts + '</select>' +
+            (ff ? '<span class="fbs-meta">' + fmt(ff.qty) + ' шт · ' + fmt(ff.arts) + ' арт.</span>' : '') +
+            '<span class="fbs-sws"><label class="fbx-sw" title="Учитывать отправку ФФ в РНП. Выключите, если отправка уже в себестоимости (как у Zevina). На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><i></i>В РНП: отправка</label>' +
+            '<label class="fbx-sw" title="Учитывать хранение ФФ в РНП. На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><i></i>В РНП: хранение</label></span></div>';
+        var cols = ff ? '<div class="fbs-cols">' + termBlock(ff, 'ship', idx) + termBlock(ff, 'storage', idx) + termBlock(ff, 'box', idx) + '</div>' : '';
+        var shown = rows.filter(function (r) { return r.ffs.some(function (x) { return x.k === selName; }); });
+        var body = shown.map(function (r) {
             return '<div class="fbx-row">' + photoOf(r) +
                 '<div class="fbx-nm"><b title="' + esc(r.article) + '">' + esc(r.article || '—') + '</b><small>WB ' + r.nmId + '</small></div>' +
-                '<div class="fbx-ff">' + (r.ffs.length ? r.ffs.map(function (f) { return '<span title="' + esc(f.k) + '">' + esc(f.k) + ' · ' + fmt(f.q) + '</span>'; }).join('') : '<em>—</em>') + '</div>' +
+                '<div class="fbx-ff">' + r.ffs.map(function (f) { return '<span class="' + (f.k === selName ? 'is-sel' : '') + '" title="' + esc(f.k) + '">' + esc(f.k) + ' · ' + fmt(f.q) + '</span>'; }).join('') + '</div>' +
                 '<div class="fbx-q">' + fmt(r.qty) + '</div></div>';
         }).join('');
         host.innerHTML = '<div class="fbx">' +
             '<div class="ggx-kp fbx-kp"><div class="ggx-k k1"><small>Товаров на FBS</small><b>' + fmt(state.rows.length) + '</b></div><div class="ggx-k k2"><small>Остаток FBS, шт</small><b>' + fmt(totQty) + '</b></div>' +
             '<div class="ggx-k k3"><small>Хранение в день, сом (по тарифам ФФ)</small><b id="gg-fbs-sto-total">' + fmt(stoDay) + '</b></div></div>' +
-            '<div class="fbx-incs">' +
-            '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><span><b>Учитывать отправку ФФ в РНП</b><small>Выключите, если отправка уже входит в себестоимость (как у Zevina), чтобы не считать дважды.</small></span></label>' +
-            '<label class="fbx-inc"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><span><b>Учитывать хранение ФФ в РНП</b><small>Хранение обычно в себестоимость не закладывают. На дашборде отправка и хранение учитываются всегда.</small></span></label></div>' +
-            '<div class="fbf-grid">' + cards + '</div>' +
-            '<div class="fbx-row fbx-h"><span></span><span>АРТИКУЛ</span><span>ГДЕ ЛЕЖИТ (ФФ · шт)</span><span class="n">ОСТАТОК</span></div>' + body + '</div>';
+            '<div class="fbs-card">' + head + cols + '</div>' +
+            '<div class="fbx-row fbx-h"><span></span><span>ТОВАРЫ НА ' + esc(selName) + '</span><span>ГДЕ ЛЕЖАТ (ФФ · шт)</span><span class="n">ОСТАТОК</span></div>' + body + '</div>';
         bind(host);
     }
 
     function bind(host) {
+        var ffSel = host.querySelector('#fbs-ff');
+        if (ffSel) ffSel.addEventListener('change', function () { state.sel = ffSel.value; try { localStorage.setItem('nr_fbs_ff_' + state.cabinetId, state.sel); } catch (e) {} render(); });
         host.querySelectorAll('[data-inc]').forEach(function (inc) {
             inc.addEventListener('change', async function () {
                 var col = inc.getAttribute('data-inc'), key = col === 'rnp_ship_costs' ? 'rnpShip' : 'rnpStorage';
