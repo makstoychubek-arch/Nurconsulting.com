@@ -12,11 +12,11 @@ const head = html.slice(0, html.indexOf('</head>'));
 const body = html.slice(html.indexOf('<body'));
 
 assert.ok(
-    /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js@4[^"]*"><\/script>/.test(head),
+    /<script src="(?:https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js@4[^"]*|\/vendor\/chart-4[^"]*)"><\/script>/.test(head),
     'Chart.js must load in <head> so dashboard charts are not undefined'
 );
 assert.ok(
-    /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/.test(head),
+    /<script src="(?:https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2|\/vendor\/supabase-js-2[^"]*)"><\/script>/.test(head),
     'supabase-js must load in <head> before createClient'
 );
 
