@@ -357,7 +357,7 @@
             f.foot.value = (d.settings && d.settings.caption_footer) || ''; f.tags.value = (d.settings && d.settings.hashtags) || '';
             f.auto.checked = !!(d.settings && d.settings.auto_publish);
             var ok = d.verified_at && d.ig_username;
-            status.textContent = ok ? 'Подключено: @' + d.ig_username : d.verify_error ? 'Ошибка: ' + d.verify_error : d.has_token ? 'Токен сохранён, не проверен' : 'Не подключено';
+            status.textContent = ok ? 'Подключено: @' + d.ig_username : d.note ? 'Токен сохранён. ' + d.note : d.verify_error ? 'Ошибка: ' + d.verify_error : d.has_token ? 'Токен сохранён, не проверен' : 'Не подключено';
             status.style.background = ok ? '#dcfce7' : d.verify_error ? '#fee2e2' : '#f3f4f6';
         }
         function busy(p, msg) { status.textContent = msg; return p.then(render).catch(function (e) { status.textContent = 'Ошибка: ' + e.message; status.style.background = '#fee2e2'; }); }

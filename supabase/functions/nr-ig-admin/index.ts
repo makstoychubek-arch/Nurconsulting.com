@@ -156,9 +156,30 @@ Deno.serve(async (req) => {
                 auto_publish: body.settings.auto_publish === true,
             };
         }
-        const token = typeof body.token === 'string' ? body.token.trim() : '';
+        let token = typeof body.token === 'string' ? body.token.trim() : '';
+        let note = '';
         if (token) {
             if (token.length < 30) return json({ error: 'Токен слишком короткий' }, 400);
+            const g = `${GRAPH_HOST}/${GRAPH_VERSION}`;
+            const { id: appId, secret: appSecret } = appCreds();
+            // Токен из Explorer живёт около часа: меняем на долгий (около 60 дней).
+            if (appId && appSecret) {
+                const lg = await gj(`${g}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${encodeURIComponent(token)}`);
+                if (lg.access_token) { token = String(lg.access_token); note = 'долгий токен'; }
+            }
+            // Если ID не введены, ищем страницу и Instagram по токену.
+            if (!patch.ig_user_id && !row?.ig_user_id) {
+                const pages = await gj(`${g}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(token)}`);
+                const hit = (pages.data || []).find((p: any) => p?.instagram_business_account?.id);
+                if (hit) {
+                    patch.ig_user_id = String(hit.instagram_business_account.id);
+                    patch.page_id = String(hit.id);
+                    patch.ig_username = hit.instagram_business_account.username ?? null;
+                } else {
+                    const names = (pages.data || []).map((p: any) => p.name).filter(Boolean).join(', ');
+                    note = pages.error?.message ? `Facebook: ${pages.error.message}` : (names ? `Страницы есть (${names}), но Instagram к ним не привязан` : 'Facebook не отдал страниц: при создании токена не выбрана страница');
+                }
+            }
             let secretId: string | null = row?.token_secret_id ?? null;
             if (secretId && await readToken(admin, secretId) != null) {
                 const { error } = await admin.rpc('update_vault_secret', { p_id: secretId, p_secret: token });
@@ -175,7 +196,7 @@ Deno.serve(async (req) => {
         const { error } = await admin.from('nr_instagram').upsert(patch, { onConflict: 'id' });
         if (error) return json({ error: error.message }, 500);
         const { data: fresh } = await admin.from('nr_instagram').select('*').eq('id', true).maybeSingle();
-        return json(view(fresh));
+        return json({ ...view(fresh), note });
     }
 
     if (action === 'verify') {
