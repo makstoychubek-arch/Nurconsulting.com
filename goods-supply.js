@@ -113,7 +113,8 @@
             body += '<tr class="gs-grp" data-batch="' + esc(b) + '"><td colspan="' + colspan + '"><input class="gs-batch gs-in" value="' + esc(b) + '" placeholder="Название партии (например «№7 ИП Уркунбаев 100%»)">' +
                 '<span class="gs-gtot">' + (tot ? 'всего ' + tot.toLocaleString('ru') + ' шт' : '') + '</span>' +
                 '<button type="button" class="gs-rnp-sw gs-edit' + (onAll ? ' is-on' : (onSome ? ' is-part' : '')) + '" data-act="rnpbatch" title="' + esc((onAll ? 'Поставка показывается в РНП (строка «В пути»). Нажмите, чтобы убрать.' : 'Показать эту поставку в РНП (строка «В пути»).') + (noNm ? ' Строк без артикула WB: ' + noNm + ': они в РНП не попадут.' : '')) + '">' + (onAll ? '✓ В РНП' : (onSome ? '◐ В РНП' : 'В РНП')) + '</button>' +
-                '<button type="button" class="gs-addrow gs-edit" data-act="addrow">+ строка</button></td></tr>';
+                '<button type="button" class="gs-addrow gs-edit" data-act="addrow">+ строка</button>' +
+                '<button type="button" class="gs-delbatch gs-edit" data-act="delbatch" title="Удалить партию целиком">Удалить партию</button></td></tr>';
             rows.forEach(function (r) {
                 var a = artByNm(r.nm_id), sizes = r.sizes || {};
                 var cells = SHIP_SIZES.map(function (z) {
@@ -165,6 +166,8 @@
                 toggleBatchRnp(b.closest('tr').getAttribute('data-batch') || '');
             } else if (act === 'addrow') {
                 addShipRow(b.closest('tr').getAttribute('data-batch') || '');
+            } else if (act === 'delbatch') {
+                delBatch(b.closest('tr').getAttribute('data-batch') || '');
             } else if (act === 'del') {
                 delShip(b.closest('tr'));
             }
@@ -266,6 +269,23 @@
         });
         host.addEventListener('scroll', place, true);
         window.addEventListener('resize', place);
+    }
+
+    // Удаление партии целиком (вместе со строками, которые сейчас скрыты фильтром статусов).
+    async function delBatch(batch) {
+        var rows = st.rows.ship.filter(function (r) { return (r.batch || '') === batch; });
+        var ids = rows.filter(function (r) { return r.id; }).map(function (r) { return r.id; });
+        var pcs = rows.reduce(function (sum, r) { return sum + shipTotal(r); }, 0);
+        var msg = rows.length ? 'Удалить партию «' + (batch || 'без названия') + '» целиком: ' + rows.length + ' строк, ' + pcs.toLocaleString('ru') + ' шт? Это нельзя отменить.' : 'Удалить пустую партию «' + (batch || 'без названия') + '»?';
+        if (!root.confirm(msg)) return;
+        if (ids.length) {
+            var res = await sb().from('goods_shipments').delete().in('id', ids);
+            if (res.error) { root.alert('Не удалось удалить: ' + res.error.message); return; }
+        }
+        st.rows.ship = st.rows.ship.filter(function (r) { return (r.batch || '') !== batch; });
+        st.draftBatches = st.draftBatches.filter(function (b) { return b !== batch; });
+        renderShip();
+        changed();
     }
 
     function addShipRow(batch) {
