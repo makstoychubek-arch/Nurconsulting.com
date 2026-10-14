@@ -5032,10 +5032,14 @@ const RNP = (() => {
                 const st = await _db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle();
                 if (st && st.data) { includeShip = st.data.rnp_ship_costs !== false; includeStorage = st.data.rnp_storage_costs !== false; }
             } catch (e) { /* нет настройки — учитываем */ }
-            let idx = {}, shares = {}, dailyQty = {};
+            let idx = {}, shares = {}, dailyQty = {}, rubRates = {};
+            try {
+                const rr = await _db.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).range(0, 120);
+                (rr.data || []).forEach(x => { rubRates[x.date] = Number(x.rate); });
+            } catch (e) { /* курсов нет — 1 */ }
             if (FT && (includeShip || includeStorage)) {
                 try {
-                    const tr = await _db.from('ff_terms').select('ff_name,kind,value,daily_cap,date_from,date_to').eq('cabinet_id', _cab).range(0, 999);
+                    const tr = await _db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', _cab).range(0, 999);
                     idx = FT.index(tr.error ? [] : (tr.data || []));
                     const st = await _fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: _cab }, { op: 'eq', column: 'stock_scheme', value: 'fbs' }]);
                     const per = {};
@@ -5072,7 +5076,7 @@ const RNP = (() => {
             const shipPrice = (nm, d) => {
                 if (!FT) return 0;
                 const sh = (oidx && oidx.days[d] && FT.distFor(oidx, nm, d)) || shares[nm];
-                return FT.shipFor(idx, (sh || []).filter(x => x.k !== 'none'), d) || 0;
+                return FT.shipFor(idx, (sh || []).filter(x => x.k !== 'none'), d, rubRates) || 0;
             };
             // Хранение: на день остаток ФФ × его ставка, но не больше его суточного лимита; на товар — по доле его остатка.
             const stoCache = {};
@@ -5087,7 +5091,7 @@ const RNP = (() => {
                         const t = FT.at(idx, k, 'storage', d);
                         if (!t) { f[k] = null; return; }
                         const raw = qty[k] * Number(t.value);
-                        f[k] = { rate: Number(t.value), factor: t.daily_cap != null && raw > Number(t.daily_cap) ? Number(t.daily_cap) / raw : 1 };
+                        f[k] = { rate: Number(t.value) * FT.fxFor(t, rubRates, d), factor: t.daily_cap != null && raw > Number(t.daily_cap) ? Number(t.daily_cap) / raw : 1 };
                     });
                     day = stoCache[d] = f;
                 }

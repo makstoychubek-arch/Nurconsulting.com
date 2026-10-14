@@ -19,16 +19,16 @@
         return hit;
     }
     // Новый тариф с даты from (по to, если задано) для (ff, kind). Возвращает { remove: [id], update: [{id, date_to}], insert: row, add: [row] }.
-    function plan(terms, ff, kind, value, cap, from, to) {
+    function plan(terms, ff, kind, value, cap, from, to, fx) {
         var out = { remove: [], update: [], insert: null, add: [] };
         (terms || []).filter(function (t) { return t.ff_name === ff && t.kind === kind; }).forEach(function (t) {
             var tt = t.date_to || '9999-12-31', nt = to || '9999-12-31';
             if (tt < from || t.date_from > nt) return;                       // не пересекается
             if (t.date_from >= from && tt <= nt) { out.remove.push(t.id); return; }   // целиком внутри нового
             if (t.date_from < from) out.update.push({ id: t.id, date_to: addDays(from, -1) });   // хвост до новой даты
-            if (tt > nt) out.add.push({ ff_name: ff, kind: kind, value: t.value, daily_cap: t.daily_cap == null ? null : t.daily_cap, date_from: addDays(to, 1), date_to: t.date_to || null });   // часть после нового периода
+            if (tt > nt) out.add.push({ ff_name: ff, kind: kind, value: t.value, daily_cap: t.daily_cap == null ? null : t.daily_cap, fx_rate: t.fx_rate == null ? null : t.fx_rate, date_from: addDays(to, 1), date_to: t.date_to || null });   // часть после нового периода
         });
-        out.insert = { ff_name: ff, kind: kind, value: Number(value), daily_cap: kind === 'storage' && cap !== null && cap !== undefined && cap !== '' ? Number(cap) : null, date_from: from, date_to: to || null };
+        out.insert = { ff_name: ff, kind: kind, value: Number(value), daily_cap: kind === 'storage' && cap !== null && cap !== undefined && cap !== '' ? Number(cap) : null, fx_rate: Number(fx) > 0 ? Number(fx) : null, date_from: from, date_to: to || null };
         return out;
     }
     // Дни [from..to], на которые у ФФ нет тарифа вида kind (после первого заданного): список {from,to}.
@@ -44,10 +44,10 @@
         return out;
     }
     // Средняя цена отправки одного заказа товара в день d (если лежит на нескольких ФФ — по доле остатка); null, если цены нет.
-    function shipFor(idx, shares, d) {
+    function shipFor(idx, shares, d, rates) {
         if (!shares || !shares.length) return null;
         var sum = 0, has = false;
-        shares.forEach(function (x) { var t = at(idx, x.k, 'ship', d); if (t) { sum += x.w * Number(t.value); has = true; } });
+        shares.forEach(function (x) { var t = at(idx, x.k, 'ship', d); if (t) { sum += x.w * Number(t.value) * fxFor(t, rates, d); has = true; } });
         return has ? sum : null;
     }
     // Заказы FBS с номером склада (fbs_orders) → индекс: на какие ФФ упали заказы товара в день.
@@ -75,7 +75,16 @@
         for (k in m) out.push({ k: k, w: m[k] / tot });
         return out;
     }
-    var api = { ordersIndex: ordersIndex, distFor: distFor, addDays: addDays, fmtD: fmtD, index: index, at: at, plan: plan, gaps: gaps, shipFor: shipFor };
+    // Множитель «₽ → сом» для тарифа в день d: свой курс ФФ или курс НБКР на день (ближайший прошлый); 1, если курсов нет.
+    function fxFor(term, rates, d) {
+        if (term && Number(term.fx_rate) > 0) return Number(term.fx_rate);
+        if (!rates) return 1;
+        if (rates[d]) return Number(rates[d]);
+        var best = null;
+        Object.keys(rates).forEach(function (k) { if (k <= d && (best === null || k > best)) best = k; });
+        return best ? Number(rates[best]) : 1;
+    }
+    var api = { fxFor: fxFor, ordersIndex: ordersIndex, distFor: distFor, addDays: addDays, fmtD: fmtD, index: index, at: at, plan: plan, gaps: gaps, shipFor: shipFor };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.FfTerms = api;
 })(typeof window !== 'undefined' ? window : globalThis);

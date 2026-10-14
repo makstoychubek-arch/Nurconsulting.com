@@ -30,6 +30,10 @@ assert.ok(Math.abs(t.payable - (t.byFf.A.payable + t.byFf.B.payable + t.byFf.non
 const oi = T.ordersIndex([{ nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }, { nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }]);
 const te = compute([{ nm_id: 1, d: '2026-10-10', orders_fbs: 4 }], [], '2026-10-10', '2026-10-10', '2026-10-12', shares, { daily: {}, snapshot: {} }, terms, oi);
 assert.strictEqual(Math.round(te.byFf.B.ship), 120); assert.ok(!te.byFf.A);
+// тариф в ₽: курс ФФ 1,06 (хранение B 1 ₽ → 1,06 сом); у A курс НБКР 1,04 из таблицы
+const fxT = [{ ff_name: 'B', kind: 'ship', value: 50, fx_rate: 1.06, date_from: '2026-09-01', date_to: null }, { ff_name: 'A', kind: 'ship', value: 50, fx_rate: null, date_from: '2026-09-01', date_to: null }];
+const fx = compute([{ nm_id: 2, d: '2026-10-10', orders_fbs: 10 }, { nm_id: 9, d: '2026-10-10', orders_fbs: 10 }], [], '2026-10-10', '2026-10-10', '2026-10-12', { 2: [{ k: 'B', w: 1 }], 9: [{ k: 'A', w: 1 }] }, { daily: {}, snapshot: {} }, fxT, null, { '2026-10-10': 1.04 });
+assert.strictEqual(Math.round(fx.byFf.B.ship), 530); assert.strictEqual(Math.round(fx.byFf.A.ship), 520);
 // будущее не считается
 assert.strictEqual(compute([], [], '2026-10-20', '2026-10-31', '2026-10-12', shares, stock, terms).storage, 0);
 // профит: ФФ готовой суммой за период
