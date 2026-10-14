@@ -24,6 +24,8 @@ export type IgPublishDeps = {
     token: string;
     slideUrls: string[];
     caption?: string;
+    /** 'story' — каждый слайд публикуется отдельной сторис (без подписи); по умолчанию — пост/карусель. */
+    kind?: 'feed' | 'story';
     postGraph: (path: string, body: Record<string, string>) => Promise<IgHttpResult>;
     waitContainer?: (id: string) => Promise<boolean>;
 };
@@ -57,6 +59,36 @@ export function buildIgPublishSteps(slideUrls: string[], caption?: string): IgSt
         { type: 'carousel', children: [], caption },
         { type: 'publish', creationId: '' },
     ];
+}
+
+/** Сторис: на каждый слайд — контейнер STORIES и публикация. */
+export function buildIgStorySteps(slideUrls: string[]): IgStep[] {
+    const urls = (slideUrls || []).map((u) => String(u || '').trim()).filter(Boolean);
+    return urls.flatMap((imageUrl) => [
+        { type: 'single' as const, imageUrl },
+        { type: 'publish' as const, creationId: '' },
+    ]);
+}
+
+async function runIgStories(deps: IgPublishDeps): Promise<IgPublishResult> {
+    const steps = buildIgStorySteps(deps.slideUrls);
+    if (!steps.length) return { dryRun: deps.dryRun, published: false, wouldPublish: false, error: 'Нет слайдов для публикации', steps };
+    if (!deps.igUserId || !deps.token) return { dryRun: deps.dryRun, published: false, wouldPublish: false, error: 'Instagram не подключён', steps };
+    if (deps.dryRun) return { dryRun: true, published: false, wouldPublish: true, steps };
+    let lastId = '';
+    let lastLink: string | undefined;
+    for (const url of deps.slideUrls.map((u) => String(u || '').trim()).filter(Boolean)) {
+        const made = await deps.postGraph(`${deps.igUserId}/media`, { media_type: 'STORIES', image_url: url, access_token: deps.token });
+        if (!made.ok || !made.id) return { dryRun: false, published: false, wouldPublish: false, error: made.error || 'story container failed', steps };
+        if (deps.waitContainer && !(await deps.waitContainer(made.id))) {
+            return { dryRun: false, published: false, wouldPublish: false, error: 'Контейнер сторис не готов', steps };
+        }
+        const pub = await deps.postGraph(`${deps.igUserId}/media_publish`, { creation_id: made.id, access_token: deps.token });
+        if (!pub.ok || !pub.id) return { dryRun: false, published: false, wouldPublish: false, error: pub.error || 'story publish failed', steps };
+        lastId = pub.id;
+        lastLink = pub.permalink;
+    }
+    return { dryRun: false, published: true, wouldPublish: false, mediaId: lastId, permalink: lastLink, steps };
 }
 
 export function parseGraphBody(status: number, data: unknown): IgHttpResult {
@@ -94,6 +126,7 @@ export function parseIgDryRun(env: string | null | undefined, body?: unknown): b
 }
 
 export async function runIgPublish(deps: IgPublishDeps): Promise<IgPublishResult> {
+    if (deps.kind === 'story') return runIgStories(deps);
     const steps = buildIgPublishSteps(deps.slideUrls, deps.caption);
     if (!steps.length) {
         return { dryRun: deps.dryRun, published: false, wouldPublish: false, error: 'Нет слайдов для публикации', steps };

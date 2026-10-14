@@ -91,3 +91,19 @@ assert.equal(parseGraphBody(429, { error: { message: 'rate' } }).retry, true);
 }
 
 console.log('content-ig-publish_test: ok');
+
+
+// сторис: на каждый слайд — свой контейнер STORIES и публикация
+{
+    const calls: Array<[string, Record<string, string>]> = [];
+    const res = await runIgPublish({
+        dryRun: false, igUserId: 'u1', token: 't', slideUrls: ['https://a/1.png', 'https://a/2.png'], kind: 'story', caption: 'не используется',
+        postGraph: async (path, body) => { calls.push([path, body]); return path.endsWith('/media') ? { ok: true, id: 'c' + calls.length, status: 200 } : { ok: true, id: 'm' + calls.length, status: 200 }; },
+    });
+    assert.equal(res.published, true);
+    assert.equal(calls.filter(([p]) => p.endsWith('/media')).length, 2);
+    assert.equal(calls.filter(([p]) => p.endsWith('/media_publish')).length, 2);
+    assert.ok(calls.every(([p, b]) => !p.endsWith('/media') || b.media_type === 'STORIES'));
+    assert.ok(calls.every(([, b]) => !('caption' in b)));
+    console.log('story publish: ok');
+}

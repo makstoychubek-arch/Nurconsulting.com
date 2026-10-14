@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     const { data: post, error: postErr } = await admin
         .from('content_posts')
-        .select('id, cabinet_id, platform, status, slide_urls, file_url, caption, approved_at')
+        .select('id, cabinet_id, platform, status, slide_urls, file_url, caption, approved_at, post_kind')
         .eq('id', postId)
         .maybeSingle();
     if (postErr || !post) return json({ error: 'post not found' }, 404);
@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
         token: token || '',
         slideUrls: slides,
         caption: post.caption || undefined,
+        kind: post.post_kind === 'story' ? 'story' : 'feed',
         postGraph: (path, body) => postGraphForm(fetch, path, body),
     });
 

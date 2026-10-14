@@ -16,6 +16,7 @@ export type ContentPostRow = {
     slide_urls?: unknown;
     file_url?: string | null;
     caption?: string | null;
+    post_kind?: string | null;
 };
 
 export type TickResultItem = {
@@ -121,6 +122,7 @@ export async function runContentPublishTick(deps: TickDeps): Promise<TickResult>
             token: ig.token,
             slideUrls: slideUrlsOf(row),
             caption: row.caption || undefined,
+            kind: row.post_kind === 'story' ? 'story' : 'feed',
             postGraph: deps.postGraph,
             waitContainer: deps.waitContainer,
         });
