@@ -1,0 +1,56 @@
+/* Тарифы фулфилмента по каждому ФФ (складу продавца): отправка и хранение, по периодам.
+   Строка тарифа: { ff_name, kind: 'ship'|'storage', value, daily_cap, date_from, date_to|null }.
+   ship — ₽ за 1 заказ; storage — ₽ за 1 шт в сутки (daily_cap — лимит ₽ в сутки на ФФ). */
+(function (root) {
+    'use strict';
+    function addDays(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+    function fmtD(iso) { var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '.' + m[2] + '.' + m[1] : ''; }
+    // Индекс для быстрых запросов: { 'ФФ|kind': [строки по дате] }.
+    function index(terms) {
+        var by = {};
+        (terms || []).forEach(function (t) { (by[t.ff_name + '|' + t.kind] = by[t.ff_name + '|' + t.kind] || []).push(t); });
+        Object.keys(by).forEach(function (k) { by[k].sort(function (a, b) { return a.date_from < b.date_from ? -1 : a.date_from > b.date_from ? 1 : 0; }); });
+        return by;
+    }
+    // Тариф ФФ на день или null.
+    function at(idx, ff, kind, d) {
+        var list = idx[ff + '|' + kind] || [], hit = null;
+        for (var i = 0; i < list.length; i++) if (list[i].date_from <= d && (!list[i].date_to || d <= list[i].date_to)) hit = list[i];
+        return hit;
+    }
+    // Новый тариф с даты from (по to, если задано) для (ff, kind). Возвращает { remove: [id], update: [{id, date_to}], insert: row, add: [row] }.
+    function plan(terms, ff, kind, value, cap, from, to) {
+        var out = { remove: [], update: [], insert: null, add: [] };
+        (terms || []).filter(function (t) { return t.ff_name === ff && t.kind === kind; }).forEach(function (t) {
+            var tt = t.date_to || '9999-12-31', nt = to || '9999-12-31';
+            if (tt < from || t.date_from > nt) return;                       // не пересекается
+            if (t.date_from >= from && tt <= nt) { out.remove.push(t.id); return; }   // целиком внутри нового
+            if (t.date_from < from) out.update.push({ id: t.id, date_to: addDays(from, -1) });   // хвост до новой даты
+            if (tt > nt) out.add.push({ ff_name: ff, kind: kind, value: t.value, daily_cap: t.daily_cap == null ? null : t.daily_cap, date_from: addDays(to, 1), date_to: t.date_to || null });   // часть после нового периода
+        });
+        out.insert = { ff_name: ff, kind: kind, value: Number(value), daily_cap: kind === 'storage' && cap !== null && cap !== undefined && cap !== '' ? Number(cap) : null, date_from: from, date_to: to || null };
+        return out;
+    }
+    // Дни [from..to], на которые у ФФ нет тарифа вида kind (после первого заданного): список {from,to}.
+    function gaps(idx, ff, kind, from, to) {
+        var list = idx[ff + '|' + kind] || [];
+        if (!list.length) return [];
+        var start = list[0].date_from > from ? list[0].date_from : from, out = [], cur = null;
+        for (var d = start; d <= to; d = addDays(d, 1)) {
+            if (!at(idx, ff, kind, d)) { if (!cur) cur = { from: d, to: d }; else cur.to = d; }
+            else if (cur) { out.push(cur); cur = null; }
+        }
+        if (cur) out.push(cur);
+        return out;
+    }
+    // Средняя цена отправки одного заказа товара в день d (если лежит на нескольких ФФ — по доле остатка); null, если цены нет.
+    function shipFor(idx, shares, d) {
+        if (!shares || !shares.length) return null;
+        var sum = 0, has = false;
+        shares.forEach(function (x) { var t = at(idx, x.k, 'ship', d); if (t) { sum += x.w * Number(t.value); has = true; } });
+        return has ? sum : null;
+    }
+    var api = { addDays: addDays, fmtD: fmtD, index: index, at: at, plan: plan, gaps: gaps, shipFor: shipFor };
+    if (typeof module !== 'undefined' && module.exports) module.exports = api;
+    root.FfTerms = api;
+})(typeof window !== 'undefined' ? window : globalThis);
