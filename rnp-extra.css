@@ -1067,3 +1067,4 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 /* Товары: строки вне экрана не рисуются, пока до них не доскроллили (на телефоне заметно легче) */
 .ggx-row:not(.ggx-rh) { content-visibility: auto; contain-intrinsic-size: auto 64px; }
 @media (max-width: 768px) { .ggx-row:not(.ggx-rh) { contain-intrinsic-size: auto 132px; } }
+.ggx-more { display: block; width: 100%; margin: 6px 0 14px; padding: 12px; border-radius: 14px; border: 1px dashed var(--border); background: var(--surface-solid); color: var(--accent); font-weight: 700; font-size: 13px; cursor: pointer; }
