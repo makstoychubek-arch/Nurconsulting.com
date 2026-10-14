@@ -4,6 +4,9 @@
  * таблица ff_terms (см. ff-terms.js). Из них считается блок «Фулфилмент» на дашборде и РНП.
  */
 (function (root) {
+    // Единые окна вместо системных alert/confirm (nr-ui.js); без него работает как раньше.
+    function ask(msg) { return root.NrUi ? root.NrUi.ask(msg) : Promise.resolve(root.confirm(msg)); }
+    function say(msg) { if (root.NrUi) root.NrUi.alert(msg); else root.alert(msg); }
     function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
             return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -166,7 +169,7 @@
                     var r = await state.supabase.from('ff_settings').upsert(row);
                     if (r.error) throw r.error;
                     state[key] = inc.checked;
-                } catch (e) { inc.checked = state[key]; root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
+                } catch (e) { inc.checked = state[key]; say('Не удалось сохранить: ' + String((e && e.message) || e)); }
             });
         });
         host.querySelectorAll('[data-term-save]').forEach(function (b) { b.addEventListener('click', function () { saveTerm(b.closest('.fbf-blk')); }); });
@@ -189,17 +192,17 @@
             if (r.error) throw r.error;
             await loadTerms();
             render();
-        } catch (e) { root.alert('Не удалось сохранить: ' + String((e && e.message) || e)); }
+        } catch (e) { say('Не удалось сохранить: ' + String((e && e.message) || e)); }
     }
 
     async function delTerm(id) {
-        if (!root.confirm('Удалить этот период тарифа?')) return;
+        if (!(await ask('Удалить этот период тарифа?'))) return;
         try {
             var r = await state.supabase.from('ff_terms').delete().eq('id', id);
             if (r.error) throw r.error;
             await loadTerms();
             render();
-        } catch (e) { root.alert('Не удалось удалить: ' + String((e && e.message) || e)); }
+        } catch (e) { say('Не удалось удалить: ' + String((e && e.message) || e)); }
     }
 
     async function show(opts) {

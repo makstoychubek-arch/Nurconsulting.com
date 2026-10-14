@@ -158,28 +158,12 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
         }
     }
 
-    /* Всплывашки: успех → лисёнок с сердечком, «Создаём…» → лисёнок ждёт */
-    var successN = 0;
-    function toast(node) {
-        var key = node.getAttribute && node.getAttribute('data-toast-key');
-        if (!key) return;
-        var parts = key.split('|'), type = parts[0], title = parts[1] || '';
-        var icon = node.firstElementChild;
-        if (!icon || icon.__nrFoxT) return;
-        var s = null;
-        if (type === 'success') s = slot(38, successN++ % 3 === 0 ? 'sparkle' : 'heart');
-        else if (type === 'info' && /(…|\.\.\.)\s*$/.test(title)) s = slot(38, null);
-        if (!s) return;
-        icon.__nrFoxT = true; icon.textContent = ''; icon.style.marginTop = '-4px'; icon.appendChild(s);
-    }
-
     var mo = new MutationObserver(function (list) {
         for (var i = 0; i < list.length; i++) {
             var add = list[i].addedNodes;
             for (var j = 0; j < add.length; j++) {
                 var n = add[j];
                 if (n.nodeType !== 1) continue;
-                if (n.parentNode && n.parentNode.id === 'toast-wrap') toast(n);
                 scan(n);
             }
         }

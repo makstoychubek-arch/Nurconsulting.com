@@ -6,6 +6,9 @@
    Рядом — «Динамика заказов»: все заказы по дням и FBS-заказы выбранного ФФ. */
 (function (root) {
     'use strict';
+    // Единые окна вместо системных alert/confirm (nr-ui.js); без него работает как раньше.
+    function ask(msg) { return root.NrUi ? root.NrUi.ask(msg) : Promise.resolve(root.confirm(msg)); }
+    function say(msg) { if (root.NrUi) root.NrUi.alert(msg); else root.alert(msg); }
     var S = { db: null, cab: null, from: null, to: null, items: [], providers: [], shares: {}, byFf: {}, total: null, orders: [], daily: [], sel: 'all', readonly: false, changed: false };
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return Math.round(Number(n) || 0).toLocaleString('ru-RU').replace(/ /g, ' '); }
@@ -284,12 +287,12 @@
                     if (r.error) throw r.error;
                     S.changed = true; await refresh();
                 } else if (a === 'del') {
-                    if (!root.confirm('Удалить запись?')) return;
+                    if (!(await ask('Удалить запись?'))) return;
                     var d = await S.db.from('ff_adjustments').delete().eq('id', b.dataset.id);
                     if (d.error) throw d.error;
                     S.changed = true; await refresh();
                 }
-            } catch (err) { root.alert('Не удалось сохранить: ' + String((err && err.message) || err)); }
+            } catch (err) { say('Не удалось сохранить: ' + String((err && err.message) || err)); }
         });
     }
     if (typeof document !== 'undefined') bind();
