@@ -27,7 +27,7 @@
         ov.addEventListener('click', (e) => {
             if (e.target === ov || e.target.closest('[data-x]')) return close(ov);
             if (!e.target.closest('[data-save]')) return;
-            if (c) set('ff_cost_' + c, num(ov.querySelector('#nc-ff').value));
+            if (c) { const v = num(ov.querySelector('#nc-ff').value); set('ff_cost_' + c, v); if (get('ff_on_' + c) === '' && v !== '0') set('ff_on_' + c, '1'); }
             set('opex', num(ov.querySelector('#nc-opex').value));
             set('tax_rate_v2', num(ov.querySelector('#nc-tax').value));
             close(ov);
@@ -36,5 +36,10 @@
         document.body.appendChild(ov);
         ov.querySelector('#nc-ff').focus();
     }
-    window.NrCosts = { open: open };
+    function toggleFf(on) {
+        const c = cab();
+        if (c) set('ff_on_' + c, on ? '1' : '0');
+        try { if (typeof loadFromDB === 'function') loadFromDB(); } catch (err) {}
+    }
+    window.NrCosts = { open: open, toggleFf: toggleFf };
 })();

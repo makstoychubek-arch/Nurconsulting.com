@@ -237,7 +237,7 @@ function calculateMetrics(rows, settings = {}) {
         - adsSum;
 
     // Чистая прибыль с себестоимостью и опер.расходами
-    const profitFull = profitBeforeCost - costOfSalesSum - opexForPeriod - ffForPeriod;
+    const profitFull = profitBeforeCost - costOfSalesSum - opexForPeriod - (settings.ffInclude === false ? 0 : ffForPeriod);
 
     // Маржинальность = Прибыль / Реализация × 100. Без retail_price от WB
     // считаем от продаж — это другая база, но не выдуманное число.
@@ -291,6 +291,7 @@ function calculateMetrics(rows, settings = {}) {
         costOfSalesSum: Math.round(costOfSalesSum),
         opexForPeriod: Math.round(opexForPeriod),
         ffForPeriod: Math.round(ffForPeriod),
+        ffIncluded: settings.ffInclude !== false,
 
         // Налоги
         taxBase: Math.round(taxBase),
