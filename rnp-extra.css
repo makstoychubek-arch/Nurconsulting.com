@@ -1104,6 +1104,7 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .ff-pay-l { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
 .ff-pay { color: #ea580c; margin-top: 2px; }
 .ff-sub { margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+.ff-som { margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--green); }
 .ff-warn { margin-top: 6px; font-size: 11px; color: #dc2626; font-weight: 600; }
 .ff-hint { font-weight: 400; color: var(--text-muted); font-size: 11.5px; margin-left: 6px; }
 .ff-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }

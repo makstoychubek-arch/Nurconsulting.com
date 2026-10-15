@@ -26,6 +26,16 @@ assert.strictEqual(Math.round(t.byFf.B.storage), 700);
 assert.strictEqual(Math.round(t.byFf.A.payable), 360 + 275 - 100);
 assert.strictEqual(Math.round(t.byFf.B.payable), 360 + 700 - 40);
 assert.ok(Math.abs(t.payable - (t.byFf.A.payable + t.byFf.B.payable + t.byFf.none.payable)) < 1e-6);
+// рубли, число отправок и дни хранения (карточка «Фулфилмент»)
+assert.strictEqual(Math.round(t.byFf.A.shipRub), 360); assert.strictEqual(Math.round(t.byFf.A.shipCnt), 6);
+assert.strictEqual(t.byFf.A.storageDays, 3); assert.strictEqual(t.storageDays, 3, 'дни хранения общие считаются без повторов');
+assert.strictEqual(Math.round(t.byFf.A.payableRub), 360 + 275 - 100);
+// курс 1,04: сом = ₽ × 1,04, рубли без курса
+const fx2 = compute([{ nm_id: 2, d: '2026-10-10', orders_fbs: 10 }], [], '2026-10-10', '2026-10-10', '2026-10-12', { 2: [{ k: 'B', w: 1 }] }, { daily: {}, snapshot: {} }, [{ ff_name: 'B', kind: 'ship', value: 150, date_from: '2026-10-09', date_to: null }], null, { '2026-10-10': 1.04 });
+assert.strictEqual(Math.round(fx2.shipRub), 1500); assert.strictEqual(Math.round(fx2.ship), 1560);
+// цена 0 — заказы не считаются отправками (период до начала работы с ФФ)
+const z = compute([{ nm_id: 2, d: '2026-10-05', orders_fbs: 7 }], [], '2026-10-05', '2026-10-05', '2026-10-12', { 2: [{ k: 'B', w: 1 }] }, { daily: {}, snapshot: {} }, [{ ff_name: 'B', kind: 'ship', value: 0, date_from: '2026-01-01', date_to: '2026-10-08' }]);
+assert.strictEqual(z.shipCnt, 0); assert.strictEqual(z.missing, 0);
 // точные заказы WB важнее остатков: товар 1 в день 10.10 целиком ушёл на B (цена 30), не 75/25
 const oi = T.ordersIndex([{ nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }, { nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }]);
 const te = compute([{ nm_id: 1, d: '2026-10-10', orders_fbs: 4 }], [], '2026-10-10', '2026-10-10', '2026-10-12', shares, { daily: {}, snapshot: {} }, terms, oi);
