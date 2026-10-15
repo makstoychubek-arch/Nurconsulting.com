@@ -1204,6 +1204,7 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .fbf-bt { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; opacity: .75; } .fbf-now { font-size: 13px; margin: 2px 0 6px; } .fbf-none { color: #dc2626; font-weight: 700; }
 .fbf-warn { font-size: 11.5px; color: #dc2626; font-weight: 700; margin-bottom: 6px; }
 .fbf-f { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; } .fbf-f label { font-size: 10.5px; font-weight: 700; opacity: .8; } .fbf-f input { display: block; width: 112px; margin-top: 3px; padding: 7px 9px; border: 1px solid rgba(0,0,0,.12); border-radius: 9px; background: #fff; color: #111827; font-size: 13px; font-weight: 600; box-sizing: border-box; }
+.fbf-f select { display: block; width: 150px; margin-top: 3px; padding: 7px 9px; border: 1px solid rgba(0,0,0,.12); border-radius: 9px; background: #fff; color: #111827; font-size: 13px; font-weight: 600; box-sizing: border-box; }
 .fbf-f .nx-go { margin: 0; padding: 8px 14px; font-size: 12.5px; }
 .fbf-hl { margin-top: 8px; border-top: 1px solid rgba(0,0,0,.08); } .fbf-h { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 12px; } .fbf-h b { margin-left: auto; font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .fbf-grid { grid-template-columns: 1fr; } }

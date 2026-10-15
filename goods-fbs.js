@@ -36,7 +36,7 @@
     }
 
     async function loadTerms() {
-        var r = await state.supabase.from('ff_terms').select('id,ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', state.cabinetId).order('date_from', { ascending: true }).range(0, 999);
+        var r = await state.supabase.from('ff_terms').select('id,ff_name,kind,value,daily_cap,fx_rate,storage_mode,date_from,date_to').eq('cabinet_id', state.cabinetId).order('date_from', { ascending: true }).range(0, 999);
         state.terms = r.error ? [] : (r.data || []);
     }
 
@@ -95,16 +95,16 @@
         var first = list.length ? list[list.length - 1].date_from : null;
         var gaps = first ? T().gaps(idx, ff.name, kind, first, t) : [];
         var now = cur
-            ? 'Сейчас: <b>' + fmt(cur.value) + ' ₽</b>' + (isSto ? ' за шт/сутки' + (cur.daily_cap != null ? ', лимит ' + fmt(cur.daily_cap) + ' ₽/сутки' : '') : (isBox ? ' за короб' : ' за заказ')) + ' · курс ' + (cur.fx_rate ? fmt(cur.fx_rate) + ' (ФФ)' : fmt(state.rub) + ' (НБКР)') + ' → ' + fmt(Number(cur.value) * (Number(cur.fx_rate) || state.rub)) + ' сом'
+            ? 'Сейчас: <b>' + fmt(cur.value) + ' ₽</b>' + (isSto ? (cur.storage_mode === 'fixed' ? ' в сутки, фиксированно' : ' за шт/сутки' + (cur.daily_cap != null ? ', лимит ' + fmt(cur.daily_cap) + ' ₽/сутки' : '')) : (isBox ? ' за короб' : ' за заказ')) + ' · курс ' + (cur.fx_rate ? fmt(cur.fx_rate) + ' (ФФ)' : fmt(state.rub) + ' (НБКР)') + ' → ' + fmt(Number(cur.value) * (Number(cur.fx_rate) || state.rub)) + ' сом'
             : '<span class="fbf-none">Цена не задана</span>';
         var hist = list.map(function (x) {
-            return '<div class="fbf-h"><span>с ' + esc(T().fmtD(x.date_from)) + (x.date_to ? ' по ' + esc(T().fmtD(x.date_to)) : ' и дальше') + '</span><b>' + fmt(x.value) + ' ₽' + (x.daily_cap != null ? ' · лимит ' + fmt(x.daily_cap) : '') + '</b>' +
+            return '<div class="fbf-h"><span>с ' + esc(T().fmtD(x.date_from)) + (x.date_to ? ' по ' + esc(T().fmtD(x.date_to)) : ' и дальше') + '</span><b>' + fmt(x.value) + ' ₽' + (x.storage_mode === 'fixed' ? ' / сутки' : (x.daily_cap != null ? ' · лимит ' + fmt(x.daily_cap) : '')) + '</b>' +
                 '<button type="button" class="fbx-tx" data-term-del="' + esc(x.id) + '" title="Удалить период">×</button></div>';
         }).join('');
         var warn = gaps.length ? '<div class="fbf-warn">Нет цены: ' + gaps.map(function (g) { return esc(T().fmtD(g.from)) + (g.to !== g.from ? '–' + esc(T().fmtD(g.to)) : ''); }).join(', ') + '</div>' : '';
         return '<div class="fbf-blk" data-ff="' + esc(ff.name) + '" data-kind="' + kind + '"><div class="fbf-bt">' + (isSto ? 'Хранение' : (isBox ? 'Отправка поставок' : 'Отправка')) + '</div><div class="fbf-now">' + now + '</div>' + warn +
-            '<div class="fbf-f"><label>' + (isSto ? '₽ за шт в сутки' : (isBox ? '₽ за короб' : '₽ за 1 заказ')) + '<input type="text" inputmode="decimal" class="fbf-v" placeholder="0"></label>' +
-            (isSto ? '<label>Лимит ₽/сутки<input type="text" inputmode="decimal" class="fbf-c" placeholder="без лимита"></label>' : '') +
+            '<div class="fbf-f">' + (isSto ? '<label title="Как ФФ берёт за хранение: с каждой штуки в сутки (с лимитом) или одной суммой в сутки за весь склад">Вид<select class="fbf-m"><option value="unit">За штуку в сутки</option><option value="fixed"' + (cur && cur.storage_mode === 'fixed' ? ' selected' : '') + '>Фиксированно в сутки</option></select></label>' : '') + '<label><span class="fbf-vl">' + (isSto ? '₽ за шт в сутки' : (isBox ? '₽ за короб' : '₽ за 1 заказ')) + '</span><input type="text" inputmode="decimal" class="fbf-v" placeholder="0"></label>' +
+            (isSto ? '<label class="fbf-cl">Лимит ₽/сутки<input type="text" inputmode="decimal" class="fbf-c" placeholder="без лимита"></label>' : '') +
             '<label title="Курс, по которому ФФ переводит рубли в сомы. Пусто — курс НБКР на день">Курс ФФ ₽→сом<input type="text" inputmode="decimal" class="fbf-x" placeholder="НБКР"></label>' +
             '<label>С даты<input type="date" class="fbf-d" value="' + t + '"></label>' +
             '<label>По дату<input type="date" class="fbf-t" title="Пусто — «и дальше»"></label>' +
@@ -128,7 +128,7 @@
         state.rows.forEach(function (r) { totQty += r.qty; });
         state.ffs.forEach(function (f) {
             var st = T().at(idx, f.name, 'storage', t);
-            if (st) { var c = f.qty * Number(st.value); if (st.daily_cap != null && c > Number(st.daily_cap)) c = Number(st.daily_cap); stoDay += c * (Number(st.fx_rate) || state.rub); }
+            if (st) { var c = st.storage_mode === 'fixed' ? (f.qty > 0 ? Number(st.value) : 0) : f.qty * Number(st.value); if (st.storage_mode !== 'fixed' && st.daily_cap != null && c > Number(st.daily_cap)) c = Number(st.daily_cap); stoDay += c * (Number(st.fx_rate) || state.rub); }
         });
         // Один блок: выбираем ФФ (склад) из списка, ниже его тарифы; мелкие тумблеры — учитывать отправку / хранение в РНП.
         var selName = state.sel;
@@ -172,6 +172,15 @@
                 } catch (e) { inc.checked = state[key]; say('Не удалось сохранить: ' + String((e && e.message) || e)); }
             });
         });
+        host.querySelectorAll('.fbf-m').forEach(function (m) {
+            function sync() {
+                var blk = m.closest('.fbf-blk'), fixed = m.value === 'fixed';
+                var vl = blk.querySelector('.fbf-vl'), cl = blk.querySelector('.fbf-cl');
+                if (vl) vl.textContent = fixed ? '₽ в сутки (фиксированно)' : '₽ за шт в сутки';
+                if (cl) cl.style.display = fixed ? 'none' : '';
+            }
+            m.addEventListener('change', sync); sync();
+        });
         host.querySelectorAll('[data-term-save]').forEach(function (b) { b.addEventListener('click', function () { saveTerm(b.closest('.fbf-blk')); }); });
         host.querySelectorAll('[data-term-del]').forEach(function (b) { b.addEventListener('click', function () { delTerm(b.getAttribute('data-term-del')); }); });
     }
@@ -184,7 +193,7 @@
         var sb = state.supabase, cab = state.cabinetId;
         try {
             var fxEl = blk.querySelector('.fbf-x'), fx = fxEl && String(fxEl.value).trim() !== '' ? num(fxEl.value) : null;
-            var p = T().plan(state.terms, ff, kind, num(raw), cap, from, to, fx);
+            var mEl = blk.querySelector('.fbf-m'), p = T().plan(state.terms, ff, kind, num(raw), cap, from, to, fx, mEl ? mEl.value : 'unit');
             if (p.remove.length) { var d = await sb.from('ff_terms').delete().in('id', p.remove); if (d.error) throw d.error; }
             for (var i = 0; i < p.update.length; i++) { var u = await sb.from('ff_terms').update({ date_to: p.update[i].date_to }).eq('id', p.update[i].id); if (u.error) throw u.error; }
             var ins = p.add.concat([p.insert]).map(function (r) { return Object.assign({ cabinet_id: cab }, r); });
