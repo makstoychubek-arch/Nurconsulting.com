@@ -3,6 +3,7 @@
 // independent of whether the dashboard tab is open in any browser.
 // Auth: service_role key only (triggered by pg_cron).
 
+import { buildVariantWindows, labelAt, parseWbMoscowDate } from '../_shared/ab-windows.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { pickCabinetToken } from '../_shared/wb-cabinet-tokens.ts';
@@ -108,11 +109,11 @@ Deno.serve(async (req) => {
                 // вечно, независимо от того, сколько реально крутился тест.
                 const { data: log } = await admin
                     .from('ab_test_rotation_log')
-                    .select('variant_label, rotated_at')
+                    .select('variant_label, rotated_at, action')
                     .eq('test_id', test.id)
                     .order('rotated_at');
                 if (!log || log.length === 0) continue;
-                const logNorm = log.map((l) => ({ variant_label: l.variant_label, created_at: l.rotated_at }));
+                const logNorm = log.map((l) => ({ variant_label: l.variant_label, created_at: l.rotated_at, action: l.action }));
 
                 const { data: variants } = await admin
                     .from('ab_test_variants')
@@ -120,8 +121,11 @@ Deno.serve(async (req) => {
                     .eq('test_id', test.id);
                 if (!variants || variants.length === 0) continue;
 
-                const windows = buildVariantWindows(logNorm);
-                const windowEndNow = new Date();
+                // Завершённый тест считаем только до момента остановки: иначе последнее окно тянется до «сейчас»
+                // и все свежие заказы артикула приписываются последнему варианту.
+                const finishedAt = test.status === 'finished' && test.finished_at ? new Date(test.finished_at) : null;
+                const windows = buildVariantWindows(logNorm, finishedAt && !isNaN(finishedAt.getTime()) ? finishedAt : undefined);
+                const windowEndNow = finishedAt && !isNaN(finishedAt.getTime()) ? finishedAt : new Date();
 
                 // ── ab_test_rotations: материализуем окна показа каждого варианта
                 // (started_at/ended_at) в отдельную таблицу, как просили — вместо
@@ -137,7 +141,7 @@ Deno.serve(async (req) => {
                     variant_id: variantIdByLabel.get(w.label) || null,
                     variant_label: w.label,
                     started_at: w.start.toISOString(),
-                    ended_at: w.end.getTime() >= windowEndNow.getTime() - 1000 ? null : w.end.toISOString(),
+                    ended_at: !finishedAt && w.end.getTime() >= windowEndNow.getTime() - 1000 ? null : w.end.toISOString(),
                 }));
                 if (rotationRows.length) await admin.from('ab_test_rotations').insert(rotationRows);
 
@@ -146,24 +150,18 @@ Deno.serve(async (req) => {
                     .select('order_date, price, is_return, data')
                     .eq('cabinet_id', test.cabinet_id)
                     .eq('nm_id', test.nm_id)
-                    .gte('order_date', String(test.started_at || '').split('T')[0] || '2020-01-01');
+                    .gte('order_date', String(test.started_at || '').split('T')[0] || '2020-01-01')
+                    .lte('order_date', windowEndNow.toISOString().split('T')[0]);
 
                 const tally = new Map<string, { orders: number; revenue: number; impressions: number; clicks: number; atbs: number; adSpend: number }>();
                 for (const v of variants) tally.set(v.variant_label, { orders: 0, revenue: 0, impressions: 0, clicks: 0, atbs: 0, adSpend: 0 });
 
-                const windowEnd = new Date();
                 for (const order of orders || []) {
                     if (order.is_return) continue;
                     const rawDate = (order.data as Record<string, unknown> | null)?.date as string | undefined;
-                    const ts = rawDate ? new Date(rawDate) : new Date(`${order.order_date}T00:00:00Z`);
-                    if (isNaN(ts.getTime())) continue;
-
-                    let label: string | null = null;
-                    for (let i = logNorm.length - 1; i >= 0; i--) {
-                        const winStart = new Date(logNorm[i].created_at);
-                        const winEnd = i + 1 < logNorm.length ? new Date(logNorm[i + 1].created_at) : windowEnd;
-                        if (ts >= winStart && ts < winEnd) { label = logNorm[i].variant_label; break; }
-                    }
+                    const ts = rawDate ? parseWbMoscowDate(rawDate) : new Date(`${order.order_date}T00:00:00+03:00`);
+                    if (!ts) continue;
+                    const label = labelAt(windows, ts);
                     if (!label || !tally.has(label)) continue;
                     const bucket = tally.get(label)!;
                     bucket.orders += 1;
@@ -273,9 +271,15 @@ Deno.serve(async (req) => {
                     }
                 }
 
+                // Минуты показа считаем по окнам (в том числе последнему, незакрытому ротацией).
+                const minutesByLabel = new Map<string, number>();
+                for (const w of windows) {
+                    minutesByLabel.set(w.label, (minutesByLabel.get(w.label) || 0) + Math.max(0, (w.end.getTime() - w.start.getTime()) / 60000));
+                }
                 for (const v of variants) {
                     const t = tally.get(v.variant_label) || { orders: 0, revenue: 0, impressions: 0, clicks: 0, atbs: 0, adSpend: 0 };
                     await admin.from('ab_test_variants').update({
+                        minutes_active: Math.round(minutesByLabel.get(v.variant_label) || 0),
                         orders: t.orders,
                         revenue: t.revenue,
                         impressions: Math.round(t.impressions),
@@ -782,17 +786,6 @@ async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array,
 // Строит непрерывные временные окна показа каждого варианта фото на основе
 // лога ротаций: [created_at текущей записи; created_at следующей записи или
 // "сейчас", если запись последняя].
-function buildVariantWindows(
-    log: Array<{ variant_label: string; created_at: string }>,
-): Array<{ label: string; start: Date; end: Date }> {
-    const now = new Date();
-    return log.map((entry, i) => ({
-        label: entry.variant_label,
-        start: new Date(entry.created_at),
-        end: i + 1 < log.length ? new Date(log[i + 1].created_at) : now,
-    }));
-}
-
 // Mirrors wb-proxy's `media_save` action so the cron job can push a photo to
 // WB without going through the user-JWT-gated proxy.
 async function saveMediaOnWb(
