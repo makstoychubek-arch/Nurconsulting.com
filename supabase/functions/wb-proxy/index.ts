@@ -1622,6 +1622,29 @@ serve(async (req) => {
                         upload_id: up.id ?? null,
                     })));
                 } catch (e) { console.warn('[wb-proxy] price_changes log:', String(e)); }
+                // Комментарий в РНП на каждом артикуле: на сколько подняли/снизили цену со скидкой.
+                try {
+                    const noteDate = new Date(Date.now() + 6 * 3600_000).toISOString().slice(0, 10); // Бишкек, UTC+6
+                    const after = (p: number, d?: number | null) => Math.round(p * (1 - (d ?? 0) / 100));
+                    const rows: Record<string, unknown>[] = [];
+                    for (const i of items) {
+                        const o = old[i.nmID];
+                        const next = after(i.price, i.discount);
+                        const prev = o?.price != null ? after(o.price, o.discount) : null;
+                        const diff = prev != null ? next - prev : (o?.delta != null ? Number(o.delta) : null);
+                        if (diff == null || !Number.isFinite(diff) || diff === 0) continue;
+                        const fmt = (n: number) => Math.abs(n).toLocaleString('ru-RU').replace(/ /g, ' ');
+                        const tail = prev != null ? ` (цена со скидкой ${fmt(prev)} → ${fmt(next)} сом)` : '';
+                        rows.push({
+                            cabinet_id,
+                            nm_id: i.nmID,
+                            note_date: noteDate,
+                            note: `Цена ${diff > 0 ? 'поднята' : 'снижена'} на ${fmt(diff)} сом${tail}`,
+                            author: String(user.email || ''),
+                        });
+                    }
+                    if (rows.length) await admin.from('rnp_date_notes').insert(rows);
+                } catch (e) { console.warn('[wb-proxy] price note:', String(e)); }
                 result = { uploadId: up.id ?? null, alreadyExists: up.alreadyExists === true, count: items.length };
                 break;
             }
