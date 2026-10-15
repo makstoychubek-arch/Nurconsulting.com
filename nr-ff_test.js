@@ -36,6 +36,7 @@ assert.strictEqual(Math.round(fx2.shipRub), 1500); assert.strictEqual(Math.round
 // цена 0 — заказы не считаются отправками (период до начала работы с ФФ)
 const z = compute([{ nm_id: 2, d: '2026-10-05', orders_fbs: 7 }], [], '2026-10-05', '2026-10-05', '2026-10-12', { 2: [{ k: 'B', w: 1 }] }, { daily: {}, snapshot: {} }, [{ ff_name: 'B', kind: 'ship', value: 0, date_from: '2026-01-01', date_to: '2026-10-08' }]);
 assert.strictEqual(z.shipCnt, 0); assert.strictEqual(z.missing, 0);
+assert.strictEqual(Math.round(z.paidCnt), 7); assert.strictEqual(z.paidTo, '2026-10-08', 'период с нулевой ценой помечается как оплаченный');
 // точные заказы WB важнее остатков: товар 1 в день 10.10 целиком ушёл на B (цена 30), не 75/25
 const oi = T.ordersIndex([{ nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }, { nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }]);
 const te = compute([{ nm_id: 1, d: '2026-10-10', orders_fbs: 4 }], [], '2026-10-10', '2026-10-10', '2026-10-12', shares, { daily: {}, snapshot: {} }, terms, oi);
