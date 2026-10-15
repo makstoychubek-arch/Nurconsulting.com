@@ -17,7 +17,7 @@
     function $(id) { return document.getElementById(id); }
     function selKey() { return 'ff_sel_' + S.cab; }
 
-    function blank() { return { storage: 0, ship: 0, box: 0, boxMissing: 0, swap: 0, cancel: 0, missing: 0, payable: 0 }; }
+    function blank() { return { storage: 0, ship: 0, box: 0, boxMissing: 0, swap: 0, cancel: 0, missing: 0, payable: 0, shipRub: 0, storageRub: 0, boxRub: 0, shipCnt: 0, storageDays: 0, payableRub: 0 }; }
     // Чистый расчёт (для тестов). shares: { nm: [{k: 'АМАН ФФ 3', w: 0.7}] } — доли остатка FBS по ФФ; terms — строки ff_terms.
     // stock: { daily: {дата: {nm: шт}}, snapshot: {nm: шт} }.
     function compute(orders, adjustments, from, to, todayStr, shares, stock, terms, oidx, rates, boxes) {
@@ -33,10 +33,16 @@
             if (!sh || !sh.length) { slot('none').missing += n; return; }
             sh.forEach(function (x) {
                 var t = x.k === 'none' ? null : T.at(idx, x.k, 'ship', o.d);
-                if (t) slot(x.k).ship += n * x.w * Number(t.value) * T.fxFor(t, rates, o.d); else slot(x.k).missing += n * x.w;
+                if (t) {
+                    var sl = slot(x.k);
+                    sl.ship += n * x.w * Number(t.value) * T.fxFor(t, rates, o.d);
+                    sl.shipRub += n * x.w * Number(t.value);
+                    if (Number(t.value) > 0) sl.shipCnt += n * x.w;   // отправки считаем только там, где есть цена (с даты начала работы)
+                } else slot(x.k).missing += n * x.w;
             });
         });
         // хранение: на каждый день остаток ФФ × ставка этого ФФ, не больше его суточного лимита
+        var daysAll = {};
         for (var d = from; d <= end; d = T.addDays(d, 1)) {
             var day = (stock && stock.daily && stock.daily[d]) || (d === end && stock ? stock.snapshot : null) || {};
             var qty = {};
@@ -51,12 +57,14 @@
                 var charge = qty[k] * Number(t.value);
                 if (t.daily_cap != null && charge > Number(t.daily_cap)) charge = Number(t.daily_cap);
                 slot(k).storage += charge * T.fxFor(t, rates, d);
+                slot(k).storageRub += charge;
+                if (charge > 0) { slot(k).storageDays++; daysAll[d] = 1; }
             });
         }
         // поставки: коробов × цена за короб ФФ на дату отправки
         (boxes || []).forEach(function (b) {
             var t = T.at(idx, b.ff, 'box', b.d), sl = slot(b.ff || 'none');
-            if (t) sl.box += b.boxes * Number(t.value) * T.fxFor(t, rates, b.d); else sl.boxMissing += b.boxes;
+            if (t) { sl.box += b.boxes * Number(t.value) * T.fxFor(t, rates, b.d); sl.boxRub += b.boxes * Number(t.value); } else sl.boxMissing += b.boxes;
         });
         (adjustments || []).forEach(function (a) {
             var t = slot(a.ff_name || 'none'), v = Number(a.amount) || 0;
@@ -64,9 +72,10 @@
         });
         var total = blank();
         Object.keys(by).forEach(function (k) {
-            var t = by[k]; t.payable = t.storage + t.ship + t.box - t.swap - t.cancel;
+            var t = by[k]; t.payable = t.storage + t.ship + t.box - t.swap - t.cancel; t.payableRub = t.storageRub + t.shipRub + t.boxRub - t.swap - t.cancel;
             Object.keys(total).forEach(function (f) { total[f] += t[f]; });
         });
+        total.storageDays = Object.keys(daysAll).length;   // дни, когда хранение шло хоть на одном ФФ
         total.byFf = by;
         return total;
     }
@@ -120,11 +129,13 @@
         el.innerHTML =
             '<div class="pnl-title">Фулфилмент</div><div class="ff-chips">' + chips + '</div>' +
             '<div class="pnl-rows">' +
-            '<div class="pnl-row" title="Цена отправки × заказы за выбранный период (по тарифам ФФ)"><span class="pnl-lbl">Отправки</span><b>' + fmt(t.ship) + '</b></div>' +
-            '<div class="pnl-row ff-edit" data-ff="adj" data-kind="swap" title="Открыть список и добавить"><span class="pnl-lbl">Подмены</span><b>' + fmt(t.swap) + '</b></div>' +
-            '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + '</b></div></div>' +
-            '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payable) + '</div>' +
-            '<div class="ff-sub" title="Выплатить = отправки + хранение − подмены − отмены">с хранением ' + fmt(t.storage) + '</div>' +
+            '<div class="pnl-row" title="Заказы FBS за выбранный период, по которым есть цена отправки (' + fmt(t.shipRub) + ' ₽)"><span class="pnl-lbl">Отправки</span><b>' + fmt(t.shipCnt) + ' шт</b></div>' +
+            '<div class="pnl-row" title="Дни хранения в выбранном периоде (' + fmt(t.storageRub) + ' ₽)"><span class="pnl-lbl">Хранение</span><b>' + fmt(t.storageDays) + ' дн</b></div>' +
+            '<div class="pnl-row ff-edit" data-ff="adj" data-kind="swap" title="Открыть список и добавить"><span class="pnl-lbl">Подмены</span><b>' + fmt(t.swap) + ' ₽</b></div>' +
+            '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + ' ₽</b></div></div>' +
+            '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payableRub) + ' ₽</div>' +
+            (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt(t.payableRub * S.rate) + ' сом</div>' : '') +
+            '<div class="ff-sub" title="Выплатить = отправки + хранение − подмены − отмены">отправки ' + fmt(t.shipRub) + ' ₽ + хранение ' + fmt(t.storageRub) + ' ₽</div>' +
             (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите цену ФФ в «Товары → FBS»</div>' : '') +
             (t.boxMissing ? '<div class="ff-warn">Нет цены за короб: ' + fmt(t.boxMissing) + ' коробов — укажите в «Товары → FBS»</div>' : '');
     }
@@ -267,6 +278,7 @@
         });
         var t = compute(S.orders, autoAdj.concat(S.items), from, to, today(), S.shares, { daily: res[3].daily, snapshot: snapshot }, res[3].terms, oidx, res[5], res[6]);
         S.total = t; S.byFf = t.byFf || {};
+        S.rate = (function (rs) { var best = null; Object.keys(rs || {}).forEach(function (k) { if (k <= today() && (best === null || k > best)) best = k; }); return best ? Number(rs[best]) : 0; })(res[5]);
         if (S.sel !== 'all' && S.sel !== 'none' && !(S.sel in wh)) S.sel = 'all';
         renderSummary(); renderChart();
         return t;
