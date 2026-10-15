@@ -81,6 +81,50 @@
         return total;
     }
 
+    // Депозит у ФФ: сумма на дату минус всё, что списано после неё (₽): отправки, хранение, короба, подмены, отмены.
+    function depositLeft(amount, k) {
+        k = k || {};
+        var used = (k.shipRub || 0) + (k.storageRub || 0) + (k.boxRub || 0) + (k.swap || 0) + (k.cancel || 0);
+        return { used: used, left: (Number(amount) || 0) - used };
+    }
+    // Списания с депозита за окно [as_of + 1 день; сегодня] по одному ФФ — тем же расчётом, что и карточка.
+    async function depositCalc(db, cab, dep, shares, snapshot) {
+        var T = T0(), from = T.addDays(dep.as_of, 1), end = today();
+        if (from > end) return depositLeft(dep.amount, null);
+        var res = await Promise.all([
+            db.rpc('rnp_fbs_split', { p_cabinet: cab, p_from: from, p_to: end }),
+            db.from('ff_adjustments').select('*').eq('cabinet_id', cab).gte('adj_date', from).lte('adj_date', end).range(0, 999),
+            termsData(db, cab, from, end).catch(function () { return { terms: [], daily: {} }; }),
+            fbsOrders(db, cab, T.addDays(from, -1), end),
+            rubRates(db, from, end),
+            db.rpc('dashboard_ff_penalties', { p_cabinet_id: cab, p_from: from, p_to: end }).then(function (r) { return r.error ? [] : (r.data || []); }, function () { return []; }),
+        ]);
+        if (res[0].error) throw res[0].error;
+        var oidx = T.ordersIndex(res[3]), adj = (res[1].data || []).slice();
+        (res[5] || []).forEach(function (p) {
+            var amt = Number(p.amount) || 0, nm = Number(p.nm_id);
+            var sh = T.distFor(oidx, nm, String(p.d || '').slice(0, 10)) || shares[nm];
+            if (sh && sh.length) sh.forEach(function (x) { adj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k === 'none' ? null : x.k }); });
+        });
+        var t = compute(res[0].data || [], adj, from, end, end, shares, { daily: res[2].daily, snapshot: snapshot }, res[2].terms, oidx, res[4], []);
+        var k = (t.byFf || {})[dep.ff_name] || blank();
+        var r = depositLeft(dep.amount, k);
+        r.ship = k.shipRub; r.storage = k.storageRub; r.pen = k.swap + k.cancel;
+        return r;
+    }
+    async function loadDeposits(db, cab, shares, snapshot) {
+        S.deposits = [];
+        try {
+            var r = await db.from('ff_deposits').select('ff_name,amount,as_of,note').eq('cabinet_id', cab).order('as_of', { ascending: false }).range(0, 99);
+            var seen = {};   // по каждому ФФ берём последний замер
+            var list = ((r.data || [])).filter(function (d) { if (seen[d.ff_name]) return false; seen[d.ff_name] = 1; return true; });
+            for (var i = 0; i < list.length; i++) {
+                var d = list[i], c = await depositCalc(db, cab, d, shares, snapshot);
+                S.deposits.push({ ff: d.ff_name, amount: Number(d.amount) || 0, as_of: d.as_of, used: c.used, left: c.left, ship: c.ship || 0, storage: c.storage || 0, pen: c.pen || 0 });
+            }
+        } catch (e) { S.deposits = []; }
+        renderSummary();
+    }
     async function rubRates(db, from, to) {
         var out = {};
         try {
@@ -138,8 +182,22 @@
             '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payableRub) + ' ₽</div>' +
             (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt(t.payableRub * S.rate) + ' сом</div>' : '') +
             '<div class="ff-sub" title="Выплатить = отправки + хранение − подмены − отмены">отправки ' + fmt(t.shipRub) + ' ₽ + хранение ' + fmt(t.storageRub) + ' ₽</div>' +
+            depositHtml() +
             (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите цену ФФ в «Товары → FBS»</div>' : '') +
             (t.boxMissing ? '<div class="ff-warn">Нет цены за короб: ' + fmt(t.boxMissing) + ' коробов — укажите в «Товары → FBS»</div>' : '');
+    }
+
+    // Депозит у ФФ: сколько лежало на дату и сколько осталось после списаний.
+    function depositHtml() {
+        var list = (S.deposits || []).filter(function (d) { return S.sel === 'all' || d.ff === S.sel; });
+        function dm(x) { return x.slice(8) + '.' + x.slice(5, 7); }
+        return list.map(function (d) {
+            var cls = d.left < 0 ? ' neg' : (d.left < d.amount * 0.2 ? ' low' : '');
+            var som = S.rate > 0 ? ' <span class="ff-dep-som">≈ ' + fmt(d.left * S.rate) + ' сом</span>' : '';
+            return '<div class="ff-dep' + cls + '" title="Списано с ' + dm(T0().addDays(d.as_of, 1)) + ': отправки ' + fmt(d.ship) + ' ₽, хранение ' + fmt(d.storage) + ' ₽, штрафы ' + fmt(d.pen) + ' ₽">' +
+                '<div class="ff-dep-l">Депозит ' + esc(d.ff) + ' · на ' + dm(d.as_of) + ' — ' + fmt(d.amount) + ' ₽</div>' +
+                '<div class="ff-dep-v">Остаток ' + fmt(d.left) + ' ₽' + som + '</div></div>';
+        }).join('');
     }
 
     // «Динамика заказов»: столбик — все заказы дня, синяя часть — FBS-заказы выбранного ФФ.
@@ -283,6 +341,7 @@
         S.rate = (function (rs) { var best = null; Object.keys(rs || {}).forEach(function (k) { if (k <= today() && (best === null || k > best)) best = k; }); return best ? Number(rs[best]) : 0; })(res[5]);
         if (S.sel !== 'all' && S.sel !== 'none' && !(S.sel in wh)) S.sel = 'all';
         renderSummary(); renderChart();
+        loadDeposits(db, cab, S.shares, snapshot);
         return t;
     }
 
@@ -312,5 +371,5 @@
     }
     if (typeof document !== 'undefined') bind();
     root.NrFF = { update: update, compute: compute };
-    if (typeof module !== 'undefined' && module.exports) module.exports = { compute: compute };
+    if (typeof module !== 'undefined' && module.exports) module.exports = { compute: compute, depositLeft: depositLeft };
 })(typeof window !== 'undefined' ? window : globalThis);
