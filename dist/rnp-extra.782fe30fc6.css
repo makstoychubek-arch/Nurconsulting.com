@@ -1221,11 +1221,3 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .fbs-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
 .fbs-cols .fbf-blk { margin-top: 0; }
 .fbx-ff span.is-sel { background: #1e40af; color: #fff; }
-
-/* Скрытие строк РНП: крестик на наведении и ссылка «вернуть» в заголовке раздела */
-.rnp-hide-x{display:none;margin-left:6px;padding:0 5px;border:0;border-radius:6px;background:transparent;color:var(--text-muted);font-size:13px;line-height:16px;cursor:pointer}
-tr:hover > .rnp-metric-col .rnp-hide-x{display:inline-block}
-.rnp-hide-x:hover{background:color-mix(in srgb,var(--text-muted) 18%,transparent);color:var(--text-primary)}
-.rnp-hidden-link{margin-left:8px;font-size:10px;font-weight:500;color:var(--accent);cursor:pointer;opacity:.85}
-.rnp-hidden-link:hover{opacity:1;text-decoration:underline}
-@media (hover:none){.rnp-hide-x{display:none!important}}
