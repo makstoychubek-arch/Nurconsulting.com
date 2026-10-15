@@ -721,16 +721,29 @@ const RNP = (() => {
         }
     }
 
-    async function _fetchAllRows(table, filters, columns = '*') {
-        if (!_db) return [];
+    // Одинаковые запросы, идущие одновременно (РНП берёт rnp_daily_data сразу из нескольких мест),
+    // качаем один раз; каждому вызывающему отдаём свою копию массива.
+    const _fetchInflight = new Map();
+    function _fetchAllRows(table, filters, columns = '*') {
+        if (!_db) return Promise.resolve([]);
+        let key = '';
+        try { key = table + '|' + columns + '|' + JSON.stringify(filters || []) + '|' + _cab; } catch (e) { key = ''; }
+        if (key && _fetchInflight.has(key)) return _fetchInflight.get(key).then(rows => rows.slice());
+        const pr = _fetchAllRowsRaw(table, filters, columns);
+        if (key) {
+            _fetchInflight.set(key, pr);
+            // Результат держим ещё пару секунд: предзагрузка и основной код берут одни и те же строки.
+            const done = () => setTimeout(() => { if (_fetchInflight.get(key) === pr) _fetchInflight.delete(key); }, 3000);
+            pr.then(done, done);
+        }
+        return pr.then(rows => rows.slice());
+    }
+
+    async function _fetchAllRowsRaw(table, filters, columns = '*') {
         const PAGE = 1000;
         const MAX_PAGES = 40;
-        let all = [];
-        let from = 0;
-        let pages = 0;
-        let prevSig = '';
-        while (pages < MAX_PAGES) {
-            pages++;
+        const BATCH = 6; // страницы после первой тянем пачками параллельно, а не по одной
+        const pageQuery = (from) => {
             let query = _db.from(table).select(columns).range(from, from + PAGE - 1);
             for (const f of (filters || [])) {
                 if (f.op === 'eq') query = query.eq(f.column, f.value);
@@ -739,21 +752,31 @@ const RNP = (() => {
                 else if (f.op === 'in') query = query.in(f.column, f.value);
                 else if (f.op === 'notIsNull') query = query.not(f.column, 'is', null);
             }
-            const { data, error } = await query;
-            if (error) { console.error(`[RNP fetchAllRows] ${table}:`, error.message); break; }
-            if (!data?.length) break;
-            const sig = `${data.length}:${data[0]?.id ?? data[0]?.nm_id ?? ''}:${data[data.length - 1]?.id ?? ''}`;
-            if (sig === prevSig && data.length >= PAGE) {
-                console.warn(`[RNP fetchAllRows] duplicate page ${table} @${from}`);
-                break;
+            return query;
+        };
+        let all = [];
+        let page = 0;
+        let prevSig = '';
+        let finished = false;
+        while (!finished && page < MAX_PAGES) {
+            const n = page === 0 ? 1 : Math.min(BATCH, MAX_PAGES - page);
+            const results = await Promise.all(Array.from({ length: n }, (_, k) => pageQuery((page + k) * PAGE)));
+            for (let k = 0; k < results.length; k++) {
+                const { data, error } = results[k];
+                if (error) { console.error(`[RNP fetchAllRows] ${table}:`, error.message); finished = true; break; }
+                if (!data?.length) { finished = true; break; }
+                const sig = `${data.length}:${data[0]?.id ?? data[0]?.nm_id ?? ''}:${data[data.length - 1]?.id ?? ''}`;
+                if (sig === prevSig && data.length >= PAGE) {
+                    console.warn(`[RNP fetchAllRows] duplicate page ${table} @${(page + k) * PAGE}`);
+                    finished = true; break;
+                }
+                prevSig = sig;
+                all = all.concat(data);
+                if (data.length < PAGE || all.length > 100000) { finished = true; break; }
             }
-            prevSig = sig;
-            all = all.concat(data);
-            if (data.length < PAGE) break;
-            from += PAGE;
-            if (all.length > 100000) break;
+            page += n;
         }
-        if (pages >= MAX_PAGES) console.warn(`[RNP fetchAllRows] page cap ${table}`);
+        if (!finished && page >= MAX_PAGES) console.warn(`[RNP fetchAllRows] page cap ${table}`);
         return all;
     }
 
@@ -5019,29 +5042,34 @@ const RNP = (() => {
         if (!allDates.length || !nmIds.length) return;
         const idSet = new Set(nmIds.map(Number));
         try {
-            const { data, error } = await _db.rpc('rnp_fbs_split', {
-                p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
-            });
-            if (error) throw error;
-            // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт: тарифы КАЖДОГО ФФ вносят в «Товары → FBS» (ff_terms, по периодам).
+            // Все независимые запросы уходят одной пачкой (раньше шли по очереди, по кругу туда-обратно).
             const FT = (typeof window !== 'undefined' && window.FfTerms) || null;
+            const lastDate = allDates[allDates.length - 1];
+            const [splitRes, setRes, rateRes, termRes, fbsStocks, fbsOrders] = await Promise.all([
+                _db.rpc('rnp_fbs_split', { p_cabinet: _cab, p_from: allDates[0], p_to: lastDate }),
+                Promise.resolve(_db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle()).catch(() => null),
+                Promise.resolve(_db.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).range(0, 120)).catch(() => null),
+                FT ? Promise.resolve(_db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', _cab).range(0, 999)).catch(e => ({ error: e })) : null,
+                FT ? _fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: _cab }, { op: 'eq', column: 'stock_scheme', value: 'fbs' }]).catch(() => null) : null,
+                FT ? _fetchAllRows('fbs_orders', [
+                    { op: 'eq', column: 'cabinet_id', value: _cab },
+                    { op: 'gte', column: 'order_date', value: FT.addDays(allDates[0], -1) },
+                    { op: 'lte', column: 'order_date', value: lastDate },
+                ]).catch(() => null) : null,
+            ]);
+            const { data, error } = splitRes;
+            if (error) throw error;
+            // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт: тарифы КАЖДОГО ФФ вносят в «Товары → FBS» (ff_terms, по периодам)
             let includeShip = true, includeStorage = true;
-            try {
-                const st = await _db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle();
-                if (st && st.data) { includeShip = st.data.rnp_ship_costs !== false; includeStorage = st.data.rnp_storage_costs !== false; }
-            } catch (e) { /* нет настройки — учитываем */ }
+            if (setRes && setRes.data) { includeShip = setRes.data.rnp_ship_costs !== false; includeStorage = setRes.data.rnp_storage_costs !== false; }
             let idx = {}, shares = {}, dailyQty = {}, rubRates = {};
-            try {
-                const rr = await _db.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).range(0, 120);
-                (rr.data || []).forEach(x => { rubRates[x.date] = Number(x.rate); });
-            } catch (e) { /* курсов нет — 1 */ }
+            ((rateRes && rateRes.data) || []).forEach(x => { rubRates[x.date] = Number(x.rate); });
             if (FT && (includeShip || includeStorage)) {
                 try {
-                    const tr = await _db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', _cab).range(0, 999);
+                    const tr = termRes || { error: true };
                     idx = FT.index(tr.error ? [] : (tr.data || []));
-                    const st = await _fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: _cab }, { op: 'eq', column: 'stock_scheme', value: 'fbs' }]);
                     const per = {};
-                    (st || []).forEach(x => {
+                    (fbsStocks || []).forEach(x => {
                         const q = Number(x.quantity) || 0, nm = Number(x.nm_id);
                         if (q > 0 && nm && x.warehouse_name) (per[nm] = per[nm] || {})[x.warehouse_name] = ((per[nm] || {})[x.warehouse_name] || 0) + q;
                     });
@@ -5053,7 +5081,7 @@ const RNP = (() => {
                         const ds = await _fetchAllRows('goods_daily_stocks', [
                             { op: 'eq', column: 'cabinet_id', value: _cab },
                             { op: 'gte', column: 'date', value: allDates[0] },
-                            { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
+                            { op: 'lte', column: 'date', value: lastDate },
                         ]);
                         (ds || []).forEach(x => { (dailyQty[x.date] = dailyQty[x.date] || {})[Number(x.nm_id)] = Number(x.fbs) || 0; });
                     }
@@ -5061,15 +5089,8 @@ const RNP = (() => {
             }
             // Точный ФФ заказа — из fbs_orders (склад, на который WB отдал заказ); если за день данных нет — по доле остатка.
             let oidx = null;
-            if (FT && includeShip) {
-                try {
-                    const fo = await _fetchAllRows('fbs_orders', [
-                        { op: 'eq', column: 'cabinet_id', value: _cab },
-                        { op: 'gte', column: 'order_date', value: FT.addDays(allDates[0], -1) },
-                        { op: 'lte', column: 'order_date', value: allDates[allDates.length - 1] },
-                    ]);
-                    oidx = FT.ordersIndex(fo);
-                } catch (e) { oidx = null; }
+            if (FT && includeShip && fbsOrders) {
+                try { oidx = FT.ordersIndex(fbsOrders); } catch (e) { oidx = null; }
             }
             const shipPrice = (nm, d) => {
                 if (!FT) return 0;
@@ -5527,6 +5548,22 @@ const RNP = (() => {
         const today = new Date().toISOString().split('T')[0];
         const dateFrom = allDates[0] || '2026-01-01';
         const dateTo = allDates[allDates.length - 1] || today;
+
+        // Большие выборки для слияния финансов и рекламы стартуем сразу: пока грузятся заказы/планы/остатки,
+        // они уже качаются (те же запросы потом берутся из памяти, а не идут заново).
+        const _preDates = [{ op: 'eq', column: 'cabinet_id', value: _cab }];
+        if (allDates.length) {
+            _fetchAllRows('rnp_daily_data', [
+                ..._preDates,
+                { op: 'gte', column: 'date', value: allDates[0] },
+                { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
+            ]).catch(() => {});
+            _fetchAllRows('advertising_daily_stats', [
+                ..._preDates,
+                { op: 'gte', column: 'stat_date', value: allDates[0] },
+                { op: 'lte', column: 'stat_date', value: allDates[allDates.length - 1] },
+            ], 'campaign_id,stat_date,views,clicks,spend,orders,atbs,data').catch(() => {});
+        }
 
         // Планы, заказы и остатки — независимые запросы; раньше шли по очереди
         // и на большом кабинете не укладывались в таймаут.
