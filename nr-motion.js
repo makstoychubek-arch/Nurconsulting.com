@@ -109,5 +109,44 @@
         doc.querySelectorAll(VAL).forEach(function (e) { prev.set(e, e.textContent); });
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', watchValues); else watchValues();
+    /* Прокрутка после F5: запоминаем место у каждого прокручиваемого блока и возвращаем, когда контент дорисован.
+     * Только для «Обновить страницу»: переход по ссылке всегда открывает страницу сверху. */
+    (function keepScroll() {
+        var KEY = 'nr_scroll_v1:' + location.pathname, st = {}, isReload = false;
+        try { var nv = performance.getEntriesByType('navigation')[0]; isReload = !!nv && nv.type === 'reload'; } catch (e) { /* нет API */ }
+        try { if (isReload) st = JSON.parse(sessionStorage.getItem(KEY) || '{}') || {}; else sessionStorage.removeItem(KEY); } catch (e) { st = {}; }
+        var saved = {}; Object.keys(st).forEach(function (k) { saved[k] = st[k]; });
+        function idOf(el) {
+            if (!el || el === doc || el === doc.documentElement || el === doc.body || el === doc.scrollingElement) return '#win';
+            if (el.id) return '#' + el.id;
+            var cl = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(function (x) { return /^[A-Za-z0-9_-]+$/.test(x); }) : [];
+            return cl.length ? el.tagName.toLowerCase() + '.' + cl.join('.') : null;
+        }
+        var timer = 0;
+        doc.addEventListener('scroll', function (ev) {
+            var id = idOf(ev.target); if (!id) return;
+            st[id] = Math.round(id === '#win' ? (root.pageYOffset || 0) : ev.target.scrollTop);
+            clearTimeout(timer);
+            timer = setTimeout(function () { try { sessionStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* без хранилища не запомним */ } }, 250);
+        }, true);
+        if (!isReload) return;
+        var stop = false, tries = 0;
+        ['wheel', 'touchstart', 'mousedown', 'keydown'].forEach(function (t) { doc.addEventListener(t, function () { stop = true; }, { passive: true, capture: true, once: true }); });
+        function find(id) {
+            if (id === '#win') return doc.scrollingElement || doc.documentElement;
+            var list = doc.querySelectorAll(id), i;
+            for (i = 0; i < list.length; i++) if (list[i].offsetParent !== null) return list[i];
+            return null;
+        }
+        (function tick() {
+            if (stop || ++tries > 30) return;
+            Object.keys(saved).forEach(function (id) {
+                var top = saved[id]; if (!(top > 0)) { delete saved[id]; return; }
+                var el = find(id);
+                if (el && el.scrollHeight - el.clientHeight >= top - 2) { el.scrollTop = top; delete saved[id]; }
+            });
+            if (Object.keys(saved).length) setTimeout(tick, 200);
+        })();
+    })();
     root.NrMotion = { shake: shake, count: count, slot: slot, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);
