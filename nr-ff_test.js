@@ -67,9 +67,14 @@ assert.strictEqual(a.profitFull - b.profitFull, 300);
 assert.strictEqual(c.profitFull, a.profitFull);
 console.log('nr-ff_test: ok');
 
-// Депозит ФФ: 17 100 минус отправки, хранение, штрафы после даты замера
+// Депозит ФФ: 17 100 минус отправки, хранение; штрафы ФФ возвращаются на депозит
 const dl = depositLeft(17100, { shipRub: 2500, storageRub: 900, boxRub: 0, swap: 400, cancel: 100 });
-assert.strictEqual(dl.used, 3900); assert.strictEqual(dl.left, 13200);
+assert.strictEqual(dl.used, 2900); assert.strictEqual(dl.left, 14200);
 assert.strictEqual(depositLeft(1000, { shipRub: 1500 }).left, -500, 'депозит может уйти в минус');
 assert.strictEqual(depositLeft(500, null).left, 500);
+// до даты «оплачено» (цена отправки 0 по 08.10) штрафы закрыты и в выплату не входят; после — входят
+const paidT = [{ ff_name: 'W', kind: 'ship', value: 0, date_from: '2026-01-01', date_to: '2026-10-08' }, { ff_name: 'W', kind: 'ship', value: 50, date_from: '2026-10-09', date_to: null }];
+const adjP = [{ kind: 'swap', amount: 1912, ff_name: 'W', d: '2026-10-05' }, { kind: 'swap', amount: 300, ff_name: 'W', d: '2026-10-10' }];
+const pp = compute([], adjP, '2026-10-01', '2026-10-14', '2026-10-14', {}, { daily: {}, snapshot: {} }, paidT, null, {});
+assert.strictEqual(Math.round(pp.byFf.W.swap), 300, 'штраф до 09.10 закрыт, после — считается');
 console.log('nr-ff deposit: ok');

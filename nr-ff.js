@@ -73,8 +73,13 @@
             var t = T.at(idx, b.ff, 'box', b.d), sl = slot(b.ff || 'none');
             if (t) { sl.box += b.boxes * Number(t.value) * T.fxFor(t, rates, b.d); sl.boxRub += b.boxes * Number(t.value); } else sl.boxMissing += b.boxes;
         });
+        // До даты, по которую ФФ уже оплачен (цена отправки 0), штрафы и подмены тоже закрыты расчётом и в сумму не входят.
+        var settledTo = {};
+        (terms || []).forEach(function (x) { if (x.kind === 'ship' && Number(x.value) === 0 && x.date_to && (!settledTo[x.ff_name] || x.date_to > settledTo[x.ff_name])) settledTo[x.ff_name] = x.date_to; });
         (adjustments || []).forEach(function (a) {
-            var t = slot(a.ff_name || 'none'), v = Number(a.amount) || 0;
+            var ad = String(a.d || a.adj_date || '').slice(0, 10), fk = a.ff_name || 'none';
+            if (ad && settledTo[fk] && ad <= settledTo[fk]) return;
+            var t = slot(fk), v = Number(a.amount) || 0;
             if (a.kind === 'swap') t.swap += v; else t.cancel += v;
         });
         var total = blank();
@@ -87,10 +92,10 @@
         return total;
     }
 
-    // Депозит у ФФ: сумма на дату минус всё, что списано после неё (₽): отправки, хранение, короба, подмены, отмены.
+    // Депозит у ФФ: сумма на дату, минус отправки, хранение и короба после неё (₽); штрафы WB (подмены, отмены) по вине ФФ возвращаются на депозит.
     function depositLeft(amount, k) {
         k = k || {};
-        var used = (k.shipRub || 0) + (k.storageRub || 0) + (k.boxRub || 0) + (k.swap || 0) + (k.cancel || 0);
+        var used = (k.shipRub || 0) + (k.storageRub || 0) + (k.boxRub || 0) - (k.swap || 0) - (k.cancel || 0);
         return { used: used, left: (Number(amount) || 0) - used };
     }
     // Списания с депозита за окно [as_of + 1 день; сегодня] по одному ФФ — тем же расчётом, что и карточка.
@@ -110,7 +115,7 @@
         (res[5] || []).forEach(function (p) {
             var amt = Number(p.amount) || 0, nm = Number(p.nm_id);
             var sh = T.distFor(oidx, nm, String(p.d || '').slice(0, 10)) || shares[nm];
-            if (sh && sh.length) sh.forEach(function (x) { adj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k === 'none' ? null : x.k }); });
+            if (sh && sh.length) sh.forEach(function (x) { adj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k === 'none' ? null : x.k, d: String(p.d || '').slice(0, 10) }); });
         });
         var t = compute(res[0].data || [], adj, from, end, end, shares, { daily: res[2].daily, snapshot: snapshot }, res[2].terms, oidx, res[4], []);
         var k = (t.byFf || {})[dep.ff_name] || blank();
@@ -185,14 +190,15 @@
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="swap" title="Открыть список и добавить"><span class="pnl-lbl">Подмены</span><b>' + fmt(t.swap) + ' ₽</b></div>' +
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + ' ₽</b></div></div>' +
             (t.paidCnt > 0 ? '<div class="ff-paid" title="Заказы за этот период уже оплачены ФФ, в выплату не входят">' + (t.paidTo ? 'Оплачено по ' + t.paidTo.slice(8) + '.' + t.paidTo.slice(5, 7) + ' · ' : 'Оплачено · ') + fmt(t.paidCnt) + ' шт</div>' : '') +
-            '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payableRub) + ' ₽</div>' +
-            (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt(t.payableRub * S.rate) + ' сом</div>' : '') +
+            '<div class="ff-pay-l">' + (hasDep() ? (t.payableRub >= 0 ? 'Спишется с депозита' : 'Вернётся на депозит') : 'Выплатить') + '</div><div class="pnl-big ff-pay">' + fmt(hasDep() ? Math.abs(t.payableRub) : t.payableRub) + ' ₽</div>' +
+            (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt((hasDep() ? Math.abs(t.payableRub) : t.payableRub) * S.rate) + ' сом</div>' : '') +
             '<div class="ff-sub" title="Выплатить = отправки + хранение − подмены − отмены">отправки ' + fmt(t.shipRub) + ' ₽ + хранение ' + fmt(t.storageRub) + ' ₽</div>' +
             depositHtml() +
             (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите цену ФФ в «Товары → FBS»</div>' : '') +
             (t.boxMissing ? '<div class="ff-warn">Нет цены за короб: ' + fmt(t.boxMissing) + ' коробов — укажите в «Товары → FBS»</div>' : '');
     }
 
+    function hasDep() { return S.sel !== 'all' && (S.deposits || []).some(function (d) { return d.ff === S.sel; }); }
     // Депозит у ФФ: сколько лежало на дату и сколько осталось после списаний.
     function depositHtml() {
         var list = (S.deposits || []).filter(function (d) { return S.sel === 'all' || d.ff === S.sel; });
@@ -200,7 +206,7 @@
         return list.map(function (d) {
             var cls = d.left < 0 ? ' neg' : (d.left < d.amount * 0.2 ? ' low' : '');
             var som = S.rate > 0 ? ' <span class="ff-dep-som">≈ ' + fmt(d.left * S.rate) + ' сом</span>' : '';
-            return '<div class="ff-dep' + cls + '" title="Списано с ' + dm(T0().addDays(d.as_of, 1)) + ': отправки ' + fmt(d.ship) + ' ₽, хранение ' + fmt(d.storage) + ' ₽, штрафы ' + fmt(d.pen) + ' ₽">' +
+            return '<div class="ff-dep' + cls + '" title="Списано с ' + dm(T0().addDays(d.as_of, 1)) + ': отправки ' + fmt(d.ship) + ' ₽, хранение ' + fmt(d.storage) + ' ₽; штрафы ФФ вернулись на депозит: ' + fmt(d.pen) + ' ₽">' +
                 '<div class="ff-dep-l">Депозит ' + esc(d.ff) + ' · на ' + dm(d.as_of) + ' — ' + fmt(d.amount) + ' ₽</div>' +
                 '<div class="ff-dep-v">Остаток ' + fmt(d.left) + ' ₽' + som + '</div></div>';
         }).join('');
@@ -339,8 +345,8 @@
             S.auto[p.kind] += amt; S.auto[p.kind + 'N'] += n;
             // ФФ штрафа — по заказам этого товара в день (WB), иначе по остатку, иначе «Без ФФ»
             var sh = T0().distFor(oidx, nm, String(p.d || '').slice(0, 10)) || S.shares[nm];
-            if (sh && sh.length) sh.forEach(function (x) { autoAdj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k === 'none' ? null : x.k }); });
-            else autoAdj.push({ kind: p.kind, amount: amt, ff_name: null });
+            if (sh && sh.length) sh.forEach(function (x) { autoAdj.push({ kind: p.kind, amount: amt * x.w, ff_name: x.k === 'none' ? null : x.k, d: String(p.d || '').slice(0, 10) }); });
+            else autoAdj.push({ kind: p.kind, amount: amt, ff_name: null, d: String(p.d || '').slice(0, 10) });
         });
         var t = compute(S.orders, autoAdj.concat(S.items), from, to, today(), S.shares, { daily: res[3].daily, snapshot: snapshot }, res[3].terms, oidx, res[5], res[6]);
         S.total = t; S.byFf = t.byFf || {};
