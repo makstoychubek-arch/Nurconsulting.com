@@ -52,6 +52,16 @@ Deno.serve(async (req) => {
     const token = await readAdvTokenFromVault(admin, bot.token_secret_id);
     if (!token) return ok();
 
+    // Группа: берём только посты администраторов и только фото/видео (болтовню и текст без картинки пропускаем)
+    if (post.isGroup) {
+        if (!post.fromId || post.fromIsBot || (post.kind !== 'photo' && post.kind !== 'video')) return ok();
+        const m = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: post.chatId, user_id: post.fromId }),
+        }).then((r) => r.json()).catch(() => null) as any;
+        const st = m?.result?.status;
+        if (st !== 'administrator' && st !== 'creator') return ok();
+    }
+
     const url = post.kind === 'photo' ? await savePhoto(admin, token, src.cabinet_id, post) : null;
     if (post.kind === 'photo' && !url) plan = plan.slice(0, 1); // картинка не загрузилась: одна запись-черновик
     const caption = cleanCaption(post.text, rule);

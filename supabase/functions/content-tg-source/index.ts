@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         const hook = await tg(token, 'setWebhook', {
             url: `${env('SUPABASE_URL').replace(/\/$/, '')}/functions/v1/content-tg-ingest`,
             secret_token: secret,
-            allowed_updates: ['channel_post'],
+            allowed_updates: ['channel_post', 'message'],
             drop_pending_updates: true,
         });
         if (!hook.ok) return json({ error: 'Не удалось включить приём постов: ' + (hook.description || '') }, 500);
