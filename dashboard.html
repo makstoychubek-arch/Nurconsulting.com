@@ -11979,7 +11979,7 @@
         nowBtn?.setAttribute('aria-selected', ggView === 'now' ? 'true' : 'false');
         dailyBtn?.setAttribute('aria-selected', ggView === 'daily' ? 'true' : 'false');
         costBtn?.setAttribute('aria-selected', ggView === 'cost' ? 'true' : 'false');
-        try { sessionStorage.setItem('gg_view', ggView == 'fbs' ? 'now' : ggView); } catch (e) {}
+        try { sessionStorage.setItem('gg_view', ggView); } catch (e) {}
         if (!(opts && opts.skipLoad) && ggView === 'daily' && goodsGroupsCabinetId) ensureDailyStocks();
         if (ggView === 'cost') renderGoodsCostTable();
     }
