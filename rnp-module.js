@@ -1175,17 +1175,8 @@ const RNP = (() => {
         }
     }
 
-    // Строки, которые пользователь скрыл у себя (хранится в браузере).
-    const _hiddenMetrics = (() => {
-        try { return new Set(JSON.parse(localStorage.getItem('rnp_hidden_metrics') || '[]')); } catch (e) { return new Set(); }
-    })();
-    function _saveHiddenMetrics() {
-        try { localStorage.setItem('rnp_hidden_metrics', JSON.stringify([..._hiddenMetrics])); } catch (e) {}
-    }
-
-    function _sectionRows(sec, art, withHidden) {
+    function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
-            if (!withHidden && _hiddenMetrics.has(m.key)) return false;
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
@@ -8080,19 +8071,19 @@ const RNP = (() => {
     }
 
     function _renderSection(sec, cols, art, firstDayIdx) {
-        if (!_sectionRows(sec, art, true).length) return '';
+        if (!_sectionRows(sec, art).length) return '';
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
         const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
-          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}${_hiddenInSection(sec, art) ? ` <span class="rnp-hidden-link" onclick="event.stopPropagation();RNP.showHidden('${sec.id}')" title="Вернуть скрытые строки">скрыто ${_hiddenInSection(sec, art)} · вернуть</span>` : ''}</td>
+          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}</td>
           <td class="rnp-spark-col rnp-section-stick"></td>
           <td class="rnp-section-fill" colspan="${cols.length}"></td>
         </tr>`;
         if (collapsed && !sec.noHeader) return hdr;
         if (collapsed && sec.noHeader) return '';
 
-        if (!_sectionRows(sec, art).length) return hdr;
+        if (!_sectionRows(sec, art).length) return '';
         const daySeries = cols.filter(c => (c.type === 'day' || c.type === 'month') && !c.isFuture);
 
         const rows = _sectionRows(sec, art).map(m => {
@@ -8229,7 +8220,7 @@ const RNP = (() => {
                 : m.label;
             let out = `<tr class="${rowCls}">
               <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>
-                ${labelHtml}${sec.noHeader ? '' : `<button type="button" class="rnp-hide-x" onclick="event.stopPropagation();RNP.hideMetric('${m.key}')" title="Скрыть строку">×</button>`}
+                ${labelHtml}
               </td>
               <td class="rnp-spark-col">${spark}</td>${cells}
             </tr>`;
@@ -9069,22 +9060,6 @@ const RNP = (() => {
         }
     }
 
-    function _hiddenInSection(sec, art) {
-        return _sectionRows(sec, art, true).filter(m => _hiddenMetrics.has(m.key)).length;
-    }
-    async function hideMetric(key) {
-        _hiddenMetrics.add(String(key));
-        _saveHiddenMetrics();
-        await _renderActiveTable();
-    }
-    async function showHidden(sectionId) {
-        const sec = (typeof SECTIONS !== 'undefined' ? SECTIONS : []).find(x => x.id === sectionId);
-        if (sec) sec.rows.forEach(m => _hiddenMetrics.delete(m.key));
-        else _hiddenMetrics.clear();
-        _saveHiddenMetrics();
-        await _renderActiveTable();
-    }
-
     async function toggleSection(nmId, sectionId) {
         const key = `${nmId}:${sectionId}`;
         if (_collapsedSections.has(key)) _collapsedSections.delete(key);
@@ -9232,7 +9207,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, hideMetric, showHidden, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl };
 })();
