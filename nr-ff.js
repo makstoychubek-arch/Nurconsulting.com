@@ -17,7 +17,7 @@
     function $(id) { return document.getElementById(id); }
     function selKey() { return 'ff_sel_' + S.cab; }
 
-    function blank() { return { storage: 0, ship: 0, box: 0, boxMissing: 0, swap: 0, cancel: 0, missing: 0, payable: 0, shipRub: 0, storageRub: 0, boxRub: 0, shipCnt: 0, storageDays: 0, payableRub: 0 }; }
+    function blank() { return { storage: 0, ship: 0, box: 0, boxMissing: 0, swap: 0, cancel: 0, missing: 0, payable: 0, shipRub: 0, storageRub: 0, boxRub: 0, shipCnt: 0, storageDays: 0, payableRub: 0, paidCnt: 0, paidTo: '' }; }
     // Чистый расчёт (для тестов). shares: { nm: [{k: 'АМАН ФФ 3', w: 0.7}] } — доли остатка FBS по ФФ; terms — строки ff_terms.
     // stock: { daily: {дата: {nm: шт}}, snapshot: {nm: шт} }.
     function compute(orders, adjustments, from, to, todayStr, shares, stock, terms, oidx, rates, boxes) {
@@ -38,6 +38,7 @@
                     sl.ship += n * x.w * Number(t.value) * T.fxFor(t, rates, o.d);
                     sl.shipRub += n * x.w * Number(t.value);
                     if (Number(t.value) > 0) sl.shipCnt += n * x.w;   // отправки считаем только там, где есть цена (с даты начала работы)
+                    else { sl.paidCnt += n * x.w; if (t.date_to && t.date_to > sl.paidTo) sl.paidTo = t.date_to; }   // цена 0 = уже оплачено ранее
                 } else slot(x.k).missing += n * x.w;
             });
         });
@@ -73,7 +74,7 @@
         var total = blank();
         Object.keys(by).forEach(function (k) {
             var t = by[k]; t.payable = t.storage + t.ship + t.box - t.swap - t.cancel; t.payableRub = t.storageRub + t.shipRub + t.boxRub - t.swap - t.cancel;
-            Object.keys(total).forEach(function (f) { total[f] += t[f]; });
+            Object.keys(total).forEach(function (f) { if (f === 'paidTo') { if (t.paidTo > total.paidTo) total.paidTo = t.paidTo; } else total[f] += t[f]; });
         });
         total.storageDays = Object.keys(daysAll).length;   // дни, когда хранение шло хоть на одном ФФ
         total.byFf = by;
@@ -133,6 +134,7 @@
             '<div class="pnl-row" title="Дни хранения в выбранном периоде (' + fmt(t.storageRub) + ' ₽)"><span class="pnl-lbl">Хранение</span><b>' + fmt(t.storageDays) + ' дн</b></div>' +
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="swap" title="Открыть список и добавить"><span class="pnl-lbl">Подмены</span><b>' + fmt(t.swap) + ' ₽</b></div>' +
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + ' ₽</b></div></div>' +
+            (t.paidCnt > 0 ? '<div class="ff-paid" title="Заказы за этот период уже оплачены ФФ, в выплату не входят">' + (t.paidTo ? 'Оплачено по ' + t.paidTo.slice(8) + '.' + t.paidTo.slice(5, 7) + ' · ' : 'Оплачено · ') + fmt(t.paidCnt) + ' шт</div>' : '') +
             '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payableRub) + ' ₽</div>' +
             (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt(t.payableRub * S.rate) + ' сом</div>' : '') +
             '<div class="ff-sub" title="Выплатить = отправки + хранение − подмены − отмены">отправки ' + fmt(t.shipRub) + ' ₽ + хранение ' + fmt(t.storageRub) + ' ₽</div>' +
