@@ -126,25 +126,12 @@
             (hist ? '<details class="fbf-hd"><summary>История · ' + list.length + '</summary><div class="fbf-hl">' + hist + '</div></details>' : '') + '</div>';
     }
 
-    // Короткая строка текущих тарифов выбранного ФФ (сами тарифы редактируются в окне «Тарифы»).
-    function tariffChips(ff, idx) {
-        var t = today();
-        function chip(kind, label) {
-            var c = T().at(idx, ff.name, kind, t), txt;
-            if (!c) txt = '<span class="fbf-none">не задана</span>';
-            else if (kind === 'storage') txt = c.storage_mode === 'fixed' ? fmt(c.value) + ' ₽ / сутки' : fmt(c.value) + ' ₽ за шт' + (c.daily_cap != null ? ' · лимит ' + fmt(c.daily_cap) : '');
-            else txt = fmt(c.value) + ' ₽' + (kind === 'box' ? ' за короб' : ' за заказ');
-            return '<span class="fbs-chip"><small>' + label + '</small><b>' + txt + '</b></span>';
-        }
-        return '<div class="fbs-chips">' + chip('ship', 'Отправка') + chip('storage', 'Хранение') + chip('box', 'Поставки') + '</div>';
-    }
-
     // Окно «Тарифы ФФ»: те же формы, но компактно и вне страницы (открывается кнопкой «⚙ Тарифы» или шестерёнкой раздела).
     function modalHtml() {
         var idx = T().index(state.terms), ff = state.ffs.filter(function (f) { return f.name === state.sel; })[0];
         var opts = state.ffs.map(function (f) { return '<option value="' + esc(f.name) + '"' + (f.name === state.sel ? ' selected' : '') + '>' + esc(f.name) + '</option>'; }).join('');
         return '<div class="rnp-settings-dialog fbs-modal nr-win" role="dialog" aria-modal="true"><button type="button" class="rnp-settings-close" data-fbs-x aria-label="Закрыть">×</button>' +
-            '<h3 class="fbs-mt">Тарифы ФФ</h3><div class="fbs-mf"><select id="fbs-ff-m" class="fbs-sel" title="ФФ (склад)">' + opts + '</select></div>' +
+            '<h3 class="fbs-mt">Тарифы ФФ</h3><div class="fbs-mf"><select id="fbs-ff-m" class="fbs-sel" title="ФФ (склад)">' + opts + '</select>' + (ff ? '<span class="fbs-meta">' + fmt(ff.qty) + ' шт · ' + fmt(ff.arts) + ' арт.</span>' : '') + '</div>' + inclHtml() +
             (ff ? termBlock(ff, 'ship', idx) + termBlock(ff, 'storage', idx) + termBlock(ff, 'box', idx) + mergeHtml(ff) : '<div class="fbf-none">Нет ФФ</div>') + '</div>';
     }
     // «Объединить ФФ»: отметьте склады, которые на самом деле один ФФ (АМАН ФФ, АМАН ФФ 2…5): они считаются вместе.
@@ -184,7 +171,7 @@
         var sel = ov.querySelector('#fbs-ff-m');
         if (sel) sel.addEventListener('change', function () { state.sel = sel.value; try { localStorage.setItem('nr_fbs_ff_' + state.cabinetId, state.sel); } catch (e) {} render(); });
         ov.querySelectorAll('[data-fbs-x]').forEach(function (b) { b.addEventListener('click', closeSettings); });
-        bindTerms(ov);
+        bindTerms(ov); bindIncl(ov);
         ov.querySelectorAll('[data-merge]').forEach(function (c) { c.addEventListener('change', function () { mergeFf(c.getAttribute('data-merge'), state.sel, c.checked); }); });
     }
     function openSettings() {
@@ -227,33 +214,31 @@
         if (!state.ffs.some(function (f) { return f.name === selName; })) selName = (state.ffs[0] || {}).name || '';
         state.sel = selName;
         var ff = state.ffs.filter(function (f) { return f.name === selName; })[0];
-        var opts = state.ffs.map(function (f) { return '<option value="' + esc(f.name) + '"' + (f.name === selName ? ' selected' : '') + '>' + esc(f.name) + '</option>'; }).join('');
-        var head = '<div class="fbs-head"><select id="fbs-ff" class="fbs-sel" title="Выберите ФФ (склад)">' + opts + '</select>' +
-            (ff ? '<span class="fbs-meta">' + fmt(ff.qty) + ' шт · ' + fmt(ff.arts) + ' арт.</span>' : '') +
-            '<button type="button" class="fbs-setbtn" data-fbs-set title="Тарифы ФФ: отправка, хранение, поставки">⚙ Тарифы</button>' +
-            '<span class="fbs-sws"><label class="fbx-sw" title="Учитывать отправку ФФ в РНП. Выключите, если отправка уже в себестоимости (как у Zevina). На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><i></i>В РНП: отправка</label>' +
-            '<label class="fbx-sw" title="Учитывать хранение ФФ в РНП. На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><i></i>В РНП: хранение</label></span></div>';
-        var cols = ff ? tariffChips(ff, idx) : '';
-        var shown = rows.filter(function (r) { return r.ffs.some(function (x) { return x.k === selName; }); });
-        var body = shown.map(function (r) {
+        var body = rows.map(function (r) {
             return '<div class="fbx-row">' + photoOf(r) +
                 '<div class="fbx-nm"><b title="' + esc(r.article) + '">' + esc(r.article || '—') + '</b><small>WB ' + r.nmId + '</small></div>' +
-                '<div class="fbx-ff">' + r.ffs.map(function (f) { return '<span class="' + (f.k === selName ? 'is-sel' : '') + '" title="' + esc(f.k) + '">' + esc(f.k) + ' · ' + fmt(f.q) + '</span>'; }).join('') + '</div>' +
+                '<div class="fbx-ff">' + r.ffs.map(function (f) { return '<span class="' + '' + '" title="' + esc(f.k) + '">' + esc(f.k) + ' · ' + fmt(f.q) + '</span>'; }).join('') + '</div>' +
                 '<div class="fbx-q">' + fmt(r.qty) + '</div></div>';
         }).join('');
         host.innerHTML = '<div class="fbx">' +
             '<div class="ggx-kp fbx-kp"><div class="ggx-k k1"><small>Товаров на FBS</small><b>' + fmt(state.rows.length) + '</b></div><div class="ggx-k k2"><small>Остаток FBS, шт</small><b>' + fmt(totQty) + '</b></div>' +
             '<div class="ggx-k k3"><small>Хранение в день, сом (по тарифам ФФ)</small><b id="gg-fbs-sto-total">' + fmt(stoDay) + '</b></div></div>' +
-            '<div class="fbs-card">' + head + cols + '</div>' +
-            '<div class="fbx-row fbx-h"><span></span><span>ТОВАРЫ НА ' + esc(selName) + '</span><span>ГДЕ ЛЕЖАТ (ФФ · шт)</span><span class="n">ОСТАТОК</span></div>' + body + '</div>';
+            '<div class="fbx-row fbx-h"><span></span><span>ТОВАРЫ НА СКЛАДАХ ПРОДАВЦА</span><span>ГДЕ ЛЕЖАТ (ФФ · шт)</span><span class="n">ОСТАТОК</span></div>' + body + '</div>';
         bind(host);
         renderModal();
     }
 
     function bind(host) {
-        var ffSel = host.querySelector('#fbs-ff');
-        if (ffSel) ffSel.addEventListener('change', function () { state.sel = ffSel.value; try { localStorage.setItem('nr_fbs_ff_' + state.cabinetId, state.sel); } catch (e) {} render(); });
-        host.querySelectorAll('[data-inc]').forEach(function (inc) {
+        host.querySelectorAll('[data-fbs-set]').forEach(function (b) { b.addEventListener('click', openSettings); });
+    }
+
+    // Переключатели «Учитывать в РНП» (лежат в окне «Тарифы»)
+    function inclHtml() {
+        return '<div class="fbs-sws"><label class="fbx-sw" title="Учитывать отправку ФФ в РНП. Выключите, если отправка уже в себестоимости (как у Zevina). На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><i></i>В РНП: отправка</label>' +
+            '<label class="fbx-sw" title="Учитывать хранение ФФ в РНП. На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><i></i>В РНП: хранение</label></div>';
+    }
+    function bindIncl(scope) {
+        scope.querySelectorAll('[data-inc]').forEach(function (inc) {
             inc.addEventListener('change', async function () {
                 var col = inc.getAttribute('data-inc'), key = col === 'rnp_ship_costs' ? 'rnpShip' : 'rnpStorage';
                 try {
@@ -265,7 +250,6 @@
                 } catch (e) { inc.checked = state[key]; say('Не удалось сохранить: ' + String((e && e.message) || e)); }
             });
         });
-        host.querySelectorAll('[data-fbs-set]').forEach(function (b) { b.addEventListener('click', openSettings); });
     }
 
     function bindTerms(host) {
