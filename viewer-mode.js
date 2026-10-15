@@ -34,7 +34,14 @@
             guardWrites();
             markNav();
             banner();
-            new MutationObserver(() => { markNav(); banner(); }).observe(document.body, { childList: true, subtree: true });
+            let guardT = null;
+            new MutationObserver(() => {
+                markNav(); banner();
+                // Любой модуль мог снова показать невыданный раздел (например, РНП после загрузки данных): возвращаем на разрешённый.
+                if (!guardT) guardT = setTimeout(() => { guardT = null; V.ensureAllowed(); }, 150);
+            }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+            document.addEventListener('cabinet-changed', () => setTimeout(() => V.ensureAllowed(), 50));
+            setTimeout(() => V.ensureAllowed(), 600);
             // Открытая при загрузке вкладка (например, РНП из прошлого визита) может оказаться не из выданных —
             // тогда сразу переводим на первую разрешённую.
             try {
@@ -44,6 +51,21 @@
                 if (cur && !V.allows(cur) && typeof window.showTab === 'function') window.showTab(V.firstTab(), null);
                 else if (early && !cur && typeof window.showTab === 'function') window.showTab(V.firstTab(), null);
             } catch (_) {}
+        },
+        ensureAllowed() {
+            try {
+                if (!V.on || typeof window.showTab !== 'function') return;
+                const act = document.querySelector('.tab-content.active');
+                const cur = act && act.id ? act.id.replace(/^tab-/, '') : '';
+                if (cur && !V.allows(cur) && !V.fixing) {
+                    V.fixing = true;
+                    document.getElementById('nr-early-tab-style')?.remove();
+                    document.documentElement.removeAttribute('data-nr-early');
+                    act.classList.remove('active');
+                    window.showTab(V.firstTab(), null);
+                    setTimeout(() => { V.fixing = false; }, 300);
+                }
+            } catch (_) { V.fixing = false; }
         },
         allows(tab) { return !V.on || V.tabs.has(tab); },
         firstTab() { return ORDER.find(t => V.tabs.has(t)) || 'dashboard'; },
