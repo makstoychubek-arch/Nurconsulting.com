@@ -208,6 +208,7 @@ function main() {
     patchSimpleTailwindHtml('index.html', cssFile);
     patchSimpleTailwindHtml('login.html', cssFile);
     patchSimpleTailwindHtml('consulting.html', cssFile);
+    patchSimpleTailwindHtml('reset-password.html', cssFile);
     console.log('[build-assets] done.');
 }
 
