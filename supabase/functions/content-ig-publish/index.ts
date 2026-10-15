@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
     const { data: post, error: postErr } = await admin
         .from(table)
         .select(own
-            ? 'id, platform, status, slide_urls, file_url, caption, approved_at, post_kind'
-            : 'id, cabinet_id, platform, status, slide_urls, file_url, caption, approved_at, post_kind')
+            ? 'id, platform, status, slide_urls, file_url, caption, approved_at, post_kind, error_text, updated_at'
+            : 'id, cabinet_id, platform, status, slide_urls, file_url, caption, approved_at, post_kind, error_text, updated_at')
         .eq('id', postId)
         .maybeSingle();
     if (postErr || !post) return json({ error: 'post not found' }, 404);
@@ -79,6 +79,19 @@ Deno.serve(async (req) => {
     }
     if (!post.approved_at) {
         return json({ error: 'Сначала подтвердите пост в очереди (кнопка «Подтвердить»)' }, 400);
+    }
+
+    // Повторное нажатие «Подтвердить» не должно публиковать второй раз.
+    if (!dryRun) {
+        if (post.status === 'published') return json({ ok: true, already: true, published: true });
+        const recentlyClaimed = post.error_text === 'publishing' && post.updated_at && Date.now() - new Date(post.updated_at).getTime() < 3 * 60000;
+        if (recentlyClaimed) return json({ ok: false, error: 'Пост уже публикуется, подождите минуту' }, 409);
+        // Занимаем пост: выигрывает только один запрос (сравнение по updated_at)
+        const { data: claimed } = await admin.from(table)
+            .update({ error_text: 'publishing', updated_at: new Date().toISOString() })
+            .eq('id', postId).eq('updated_at', post.updated_at).neq('status', 'published')
+            .select('id').maybeSingle();
+        if (!claimed) return json({ ok: false, error: 'Пост уже публикуется, подождите минуту' }, 409);
     }
 
     const { data: acc } = own
