@@ -781,6 +781,7 @@
                     type: raw.type || (v2 && v2.campaign_type) || '',
                     typeLabel: campaignTypeLabel(raw.type || (v2 && v2.campaign_type) || ''),
                     paymentType: raw.payment_type || (v2 && (v2.payment_type || v2.paymentType)) || '',
+                    currentBids: Array.isArray(raw.current_bids) ? raw.current_bids : [],
                     budget: raw.budget_total == null ? null : Number(raw.budget_total),
                     bidType: raw.bid_type || (v2 && (v2.bid_type || v2.bidType)) || '',
                     live: campaignLive(status),
@@ -1416,7 +1417,16 @@
             '</tr>';
     }
 
+    const renderListeners = [];
+    function visibleRows() {
+        return cabinetRows().map((cab) => ({ id: cab.id, name: cabName(cab.name), campaigns: visibleCampaigns(cab).filter((c) => !campaignEnded(c)) }));
+    }
     function renderTable() {
+        renderTableBody();
+        renderListeners.forEach((fn) => { try { fn(); } catch (e) { if (typeof console !== 'undefined') console.warn('ads render listener', e); } });
+    }
+
+    function renderTableBody() {
         renderThead();
         const tb = document.getElementById('ads-hq-tbody');
         if (!tb || !state.model) return;
@@ -2322,6 +2332,10 @@
         setColPreset,
         setListView,
         setSearch,
+        getVisibleRows: visibleRows,
+        onRendered: (fn) => { renderListeners.push(fn); },
+        getDeps: () => state.deps,
+        getModelReady: () => !!state.model,
         getFilterCabinetId: () => state.filterCabinetId,
         getCampFilter: () => state.campFilter,
         getColPreset: () => state.colPreset,

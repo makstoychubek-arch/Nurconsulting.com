@@ -55,7 +55,7 @@ function buildTailwind() {
 
 function buildScripts() {
     const esbuild = require('esbuild');
-    const scripts = ['nr-win.js', 'dashboard-charts.js', 'rnp-module.js', 'rnp-plan-fact.js', 'wb-formulas.js', 'evidence-report.js', 'ads-command-center.js', 'goods-catalog.js', 'giveaways.js', 'goods-fbs.js', 'goods-supply.js', 'rnp-planning.js', 'giveaway-calc.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'admin-canvas.js', 'ad-autopilot-ui.js', 'ads-campaign-detail.js', 'nr-skeleton.js', 'cabinets-hub.js', 'space-admin-ext.js', 'viewer-mode.js', 'nr-themes.js', 'ak-slides.js', 'nr-welcome.js', 'nr-next.js', 'nr-costs.js', 'nr-hints.js', 'fbs-rates.js', 'ff-terms.js', 'nr-ff.js', 'nr-goods-ui.js', 'nr-ig-window.js', 'nr-ui.js', 'nr-motion.js'];
+    const scripts = ['nr-win.js', 'dashboard-charts.js', 'rnp-module.js', 'rnp-plan-fact.js', 'wb-formulas.js', 'evidence-report.js', 'ads-command-center.js', 'ads-pulse.js', 'goods-catalog.js', 'giveaways.js', 'goods-fbs.js', 'goods-supply.js', 'rnp-planning.js', 'giveaway-calc.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'admin-canvas.js', 'ad-autopilot-ui.js', 'ads-campaign-detail.js', 'nr-skeleton.js', 'cabinets-hub.js', 'space-admin-ext.js', 'viewer-mode.js', 'nr-themes.js', 'ak-slides.js', 'nr-welcome.js', 'nr-next.js', 'nr-costs.js', 'nr-hints.js', 'fbs-rates.js', 'ff-terms.js', 'nr-ff.js', 'nr-goods-ui.js', 'nr-ig-window.js', 'nr-ui.js', 'nr-motion.js'];
     const map = {};
     for (const name of scripts) {
         const srcPath = path.join(ROOT, name);
@@ -81,7 +81,7 @@ function buildScripts() {
 }
 
 // Стили отдельных модулей кладём в dist с хэшем и подключаем <link>, чтобы не раздувать dashboard.html.
-const MODULE_CSS = ['cabinets-hub.css', 'rnp-extra.css', 'nr-motion.css', 'content-factory.css'];
+const MODULE_CSS = ['cabinets-hub.css', 'rnp-extra.css', 'nr-motion.css', 'content-factory.css', 'ads-pulse.css'];
 function buildModuleCss() {
     const crypto = require('crypto');
     const map = {};
