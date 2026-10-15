@@ -14,7 +14,7 @@
     var GLYPH = { success: '✓', error: '!', warning: '!', info: 'i' };
 
     var css =
-        '.nru-wrap{position:fixed;top:16px;right:16px;z-index:100000;display:flex;flex-direction:column;gap:10px;pointer-events:none;max-width:calc(100vw - 32px)}' +
+        '.nru-wrap{position:fixed;top:16px;right:16px;z-index:100000;display:flex;flex-direction:column;gap:10px;pointer-events:none;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:hidden}' +
         '.nru-toast,.nru-dlg,.nru-win{font:13px/1.45 var(--font-ui,Inter,system-ui,sans-serif);color:var(--text-primary,#111)}' +
         '.nru-toast{pointer-events:auto;width:344px;max-width:100%;display:flex;gap:12px;align-items:flex-start;padding:14px 14px 17px;background:var(--surface-solid,#fff);' +
         'border:1px solid var(--border-strong,rgba(0,0,0,.12));border-radius:var(--radius-control,14px);box-shadow:0 14px 40px rgba(0,0,0,.2);position:relative;overflow:hidden;' +
@@ -24,7 +24,7 @@
         'color:var(--c);background:color-mix(in srgb,var(--c) 16%,var(--surface-solid,#fff))}' +
         '.nru-ic.fox{background:none;width:40px;height:40px;margin:-4px -4px -4px -4px}' +
         '.nru-tx{flex:1;min-width:0}.nru-tx b{display:block;font-size:14px;font-weight:700;color:var(--text-primary,#111);margin-bottom:2px}' +
-        '.nru-tx span{display:block;color:var(--text-secondary,#3f3f46);word-wrap:break-word}' +
+        '.nru-tx span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;color:var(--text-secondary,#3f3f46);word-wrap:break-word}' +
         '.nru-act{display:inline-block;margin-top:8px;padding:0;border:0;background:none;font:600 13px var(--font-ui,inherit);color:var(--accent,#3b82f6);cursor:pointer}' +
         '.nru-x{border:0;background:none;color:var(--text-muted,#71717a);font-size:20px;line-height:1;cursor:pointer;padding:0 0 0 4px;margin:-2px -2px 0 0}' +
         '.nru-x:hover{color:var(--text-primary,#111)}' +
@@ -76,7 +76,7 @@
             if (f) { ic.className = 'nru-ic fox'; ic.appendChild(f); } else { ic.textContent = GLYPH[ty]; }
             t.insertBefore(ic, t.firstChild);
             t.querySelector('.nru-tx b').textContent = ti || '';
-            var sp = t.querySelector('.nru-tx span'); sp.textContent = tx || ''; sp.style.display = tx ? 'block' : 'none';
+            var sp = t.querySelector('.nru-tx span'); sp.textContent = tx || ''; sp.style.display = tx ? '' : 'none';
         }
         t.innerHTML = '<div class="nru-tx"><b></b><span></span></div><button type="button" class="nru-x" aria-label="Закрыть">×</button><i class="nru-bar"></i>';
         paint(type, title, text);
