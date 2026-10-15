@@ -78,3 +78,13 @@ const adjP = [{ kind: 'swap', amount: 1912, ff_name: 'W', d: '2026-10-05' }, { k
 const pp = compute([], adjP, '2026-10-01', '2026-10-14', '2026-10-14', {}, { daily: {}, snapshot: {} }, paidT, null, {});
 assert.strictEqual(Math.round(pp.byFf.W.swap), 300, 'штраф до 09.10 закрыт, после — считается');
 console.log('nr-ff deposit: ok');
+
+// Хранение «фиксированно в сутки»: 315 ₽ в сутки за склад, пока есть остаток, независимо от числа штук
+const fixT = [{ ff_name: 'F', kind: 'storage', value: 315, daily_cap: null, storage_mode: 'fixed', date_from: '2026-10-09', date_to: null }];
+const fixC = compute([], [], '2026-10-09', '2026-10-11', '2026-10-11', { 1: [{ k: 'F', w: 1 }] }, { daily: { '2026-10-09': { 1: 3 }, '2026-10-10': { 1: 2500 }, '2026-10-11': { 1: 0 } }, snapshot: { 1: 0 } }, fixT);
+assert.strictEqual(Math.round(fixC.byFf.F.storageRub), 630, '2 дня с остатком × 315, день без остатка не считается');
+assert.strictEqual(fixC.byFf.F.storageDays, 2);
+// старый вид (за штуку) не изменился
+const unitC = compute([], [], '2026-10-09', '2026-10-09', '2026-10-11', { 1: [{ k: 'U', w: 1 }] }, { daily: { '2026-10-09': { 1: 1000 } }, snapshot: {} }, [{ ff_name: 'U', kind: 'storage', value: 0.4, daily_cap: 6000, date_from: '2026-10-09', date_to: null }]);
+assert.strictEqual(Math.round(unitC.byFf.U.storageRub), 400);
+console.log('nr-ff storage fixed: ok');

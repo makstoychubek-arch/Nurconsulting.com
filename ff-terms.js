@@ -19,16 +19,16 @@
         return hit;
     }
     // Новый тариф с даты from (по to, если задано) для (ff, kind). Возвращает { remove: [id], update: [{id, date_to}], insert: row, add: [row] }.
-    function plan(terms, ff, kind, value, cap, from, to, fx) {
+    function plan(terms, ff, kind, value, cap, from, to, fx, mode) {
         var out = { remove: [], update: [], insert: null, add: [] };
         (terms || []).filter(function (t) { return t.ff_name === ff && t.kind === kind; }).forEach(function (t) {
             var tt = t.date_to || '9999-12-31', nt = to || '9999-12-31';
             if (tt < from || t.date_from > nt) return;                       // не пересекается
             if (t.date_from >= from && tt <= nt) { out.remove.push(t.id); return; }   // целиком внутри нового
             if (t.date_from < from) out.update.push({ id: t.id, date_to: addDays(from, -1) });   // хвост до новой даты
-            if (tt > nt) out.add.push({ ff_name: ff, kind: kind, value: t.value, daily_cap: t.daily_cap == null ? null : t.daily_cap, fx_rate: t.fx_rate == null ? null : t.fx_rate, date_from: addDays(to, 1), date_to: t.date_to || null });   // часть после нового периода
+            if (tt > nt) out.add.push({ ff_name: ff, kind: kind, value: t.value, daily_cap: t.daily_cap == null ? null : t.daily_cap, fx_rate: t.fx_rate == null ? null : t.fx_rate, storage_mode: t.storage_mode === 'fixed' ? 'fixed' : 'unit', date_from: addDays(to, 1), date_to: t.date_to || null });   // часть после нового периода
         });
-        out.insert = { ff_name: ff, kind: kind, value: Number(value), daily_cap: kind === 'storage' && cap !== null && cap !== undefined && cap !== '' ? Number(cap) : null, fx_rate: Number(fx) > 0 ? Number(fx) : null, date_from: from, date_to: to || null };
+        out.insert = { ff_name: ff, kind: kind, value: Number(value), storage_mode: kind === 'storage' && mode === 'fixed' ? 'fixed' : 'unit', daily_cap: kind === 'storage' && mode !== 'fixed' && cap !== null && cap !== undefined && cap !== '' ? Number(cap) : null, fx_rate: Number(fx) > 0 ? Number(fx) : null, date_from: from, date_to: to || null };
         return out;
     }
     // Дни [from..to], на которые у ФФ нет тарифа вида kind (после первого заданного): список {from,to}.

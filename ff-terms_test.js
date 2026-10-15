@@ -43,3 +43,10 @@ assert.strictEqual(T.fxFor({}, {}, '2026-10-10'), 1);
 // цена отправки 50 ₽ × курс ФФ 1,06 = 53 сом
 assert.strictEqual(T.shipFor(T.index([{ ff_name: 'A', kind: 'ship', value: 50, fx_rate: 1.06, date_from: '2026-09-01', date_to: null }]), [{ k: 'A', w: 1 }], '2026-10-01', {}), 53);
 console.log('ff-terms_test: ok');
+
+// plan: вид хранения (fixed) попадает в новую строку и сохраняется в «хвосте» разрезанного периода
+const pf = T.plan([{ id: 'a', ff_name: 'W', kind: 'storage', value: 315, storage_mode: 'fixed', date_from: '2026-10-01', date_to: null }], 'W', 'storage', 400, 999, '2026-10-05', '2026-10-06', null, 'fixed');
+assert.strictEqual(pf.insert.storage_mode, 'fixed'); assert.strictEqual(pf.insert.daily_cap, null, 'у фиксированного лимита нет');
+assert.strictEqual(pf.add[0].storage_mode, 'fixed');
+assert.strictEqual(T.plan([], 'W', 'storage', 0.4, 6000, '2026-10-01', null, null).insert.storage_mode, 'unit');
+console.log('ff-terms storage_mode: ok');

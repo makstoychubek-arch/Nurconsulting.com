@@ -61,8 +61,9 @@
             Object.keys(qty).forEach(function (k) {
                 var t = T.at(idx, k, 'storage', d);
                 if (!t) return;
-                var charge = qty[k] * Number(t.value);
-                if (t.daily_cap != null && charge > Number(t.daily_cap)) charge = Number(t.daily_cap);
+                // fixed: фиксированная сумма в сутки за склад (пока там есть остаток); unit: за штуку, не больше лимита в сутки
+                var fixed = t.storage_mode === 'fixed', charge = fixed ? (qty[k] > 0 ? Number(t.value) : 0) : qty[k] * Number(t.value);
+                if (!fixed && t.daily_cap != null && charge > Number(t.daily_cap)) charge = Number(t.daily_cap);
                 slot(k).storage += charge * T.fxFor(t, rates, d);
                 slot(k).storageRub += charge;
                 if (charge > 0) { slot(k).storageDays++; daysAll[d] = 1; }
@@ -288,7 +289,7 @@
 
     // Тарифы ФФ (ff_terms) и остатки FBS по дням (goods_daily_stocks) — остатки только если у кого-то есть хранение в периоде.
     async function termsData(db, cab, from, end) {
-        var tr = await db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 999);
+        var tr = await db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,storage_mode,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 999);
         var terms = tr.error ? [] : (tr.data || []);
         var needDaily = terms.some(function (t) { return t.kind === 'storage' && t.date_from <= end && (!t.date_to || t.date_to >= from); });
         var daily = {};
