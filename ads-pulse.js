@@ -33,6 +33,18 @@
         var entries = bids.map(function (b) {
             return { nm: Number(b.nm_id != null ? b.nm_id : b.nmId), placement: String(b.placement || 'search'), kop: Number(b.bid_kopecks != null ? b.bid_kopecks : b.bid) || 0 };
         }).filter(function (e) { return e.nm > 0; });
+        if (!entries.length) {
+            // v2/adverts: ставки лежат в nm_settings[].bids_kopecks.{search,recommendations}, уже в копейках
+            [advert.nm_settings, (advert.settings || {}).nm_settings].forEach(function (list) {
+                (Array.isArray(list) ? list : []).forEach(function (n) {
+                    var id = Number(n && (n.nm_id != null ? n.nm_id : n.nmId)), bk = (n && (n.bids_kopecks || n.bidsKopecks)) || {};
+                    if (!(id > 0)) return;
+                    ['search', 'recommendations'].forEach(function (pl) {
+                        var v = Number(bk[pl]); if (v > 0) entries.push({ nm: id, placement: pl, kop: Math.round(v) });
+                    });
+                });
+            });
+        }
         var set = {};
         function add(v) {
             if (!Array.isArray(v)) return;
@@ -345,10 +357,10 @@
         var list = entriesOf(key, camp), kind = payKind(camp);
         if (!info || !info.loaded) return '<div class="adp2-load-line">Загружаем товары кампании…</div>';
         var rows = nms.map(function (nm) {
-            var e = list.filter(function (x) { return x.nm === nm; })[0];
+            var es = list.filter(function (x) { return x.nm === nm; });
             var adding = S.ov[key] && S.ov[key].add[nm];
             return '<div class="adp2-pr">' + thumb(cab.id, nm) + '<div class="adp2-prn"><b>' + esc(artName(cab.id, nm)) + '</b><small>' + nm + (adding ? ' · добавляется…' : '') + '</small></div>' +
-                (e ? stepperHtml(key, e, kind, minKop(key, nm)) : '<span class="adp2-mut">ставка появится после добавления</span>') +
+                (es.length ? '<div class="adp2-pbids">' + es.map(function (e) { return (es.length > 1 ? '<span class="adp2-pl2">' + (e.placement === 'recommendations' ? 'Рекомендации' : e.placement === 'search' ? 'Поиск' : 'Ставка') + '</span>' : '') + stepperHtml(key, e, kind, minKop(key, nm)); }).join('') + '</div>' : (adding ? '<span class="adp2-mut">ставка появится после добавления</span>' : '<span class="adp2-mut">ставка не задана WB</span>')) +
                 '<button type="button" class="adp2-x" data-pact="rm" data-key="' + esc(key) + '" data-nm="' + nm + '" title="Убрать из кампании" aria-label="Убрать товар">✕</button></div>';
         }).join('');
         return '<div class="adp2-prs">' + rows + '<button type="button" class="adp2-addp" data-pact="addp" data-key="' + esc(key) + '">＋ Добавить товар</button></div>';

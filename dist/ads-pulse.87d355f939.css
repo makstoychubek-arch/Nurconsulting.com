@@ -75,6 +75,8 @@
 .adp2-prs { display: flex; flex-direction: column; gap: 6px; }
 .adp2-pr { display: grid; grid-template-columns: 40px minmax(120px, 1fr) minmax(240px, 340px) 32px; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; background: var(--bg); }
 .adp2-prn { min-width: 0; }
+.adp2-pbids { display: flex; flex-direction: column; gap: 4px; }
+.adp2-pl2 { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
 .adp2-prn b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
 .adp2-prn small { color: var(--text-muted); font-size: 11px; }
 .adp2-th { display: block; width: 36px; height: 48px; border-radius: 8px; background: var(--sel) center / cover no-repeat; flex-shrink: 0; }
@@ -137,7 +139,7 @@
     .adp2-pr { grid-template-columns: 36px minmax(0, 1fr) 32px; grid-template-areas: "th nm x" "bid bid bid"; }
     .adp2-pr > .adp2-th { grid-area: th; }
     .adp2-pr > .adp2-prn { grid-area: nm; }
-    .adp2-pr > .adp2-bid, .adp2-pr > .adp2-mut { grid-area: bid; }
+    .adp2-pr > .adp2-bid, .adp2-pr > .adp2-mut, .adp2-pr > .adp2-pbids { grid-area: bid; }
     .adp2-pr > .adp2-x { grid-area: x; }
     .adp2-opt { grid-template-columns: 1fr; }
     .adp2-ov { align-items: flex-end; padding: 0; }

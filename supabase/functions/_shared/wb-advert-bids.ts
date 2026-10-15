@@ -103,6 +103,21 @@ export function extractBidsFromAdvert(advert: Record<string, unknown> | null | u
         }
     }
 
+    // v2/adverts: ставки по артикулам лежат в nm_settings[].bids_kopecks.{search,recommendations}, сразу в копейках
+    for (const list of [advert.nm_settings, settings.nm_settings]) {
+        if (!Array.isArray(list)) continue;
+        for (const n of list) {
+            const rec = asRecord(n);
+            const bk = asRecord(rec?.bids_kopecks ?? rec?.bidsKopecks);
+            const id = Number(rec?.nm_id ?? rec?.nmId ?? 0);
+            if (!rec || !bk || !id) continue;
+            for (const pl of ['search', 'recommendations'] as const) {
+                const v = Number(bk[pl] ?? 0);
+                if (v > 0) out.push({ nm_id: id, placement: pl, bid_kopecks: Math.round(v) });
+            }
+        }
+    }
+
     const map = new Map<string, ExtractedBid>();
     for (const b of out) {
         if (!b.nm_id || !b.bid_kopecks) continue;
