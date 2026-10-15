@@ -172,6 +172,7 @@
         el.appendChild(h('div', { class: 'adp-grid' }, [
             h('div', {}, [h('label', { text: 'Режим' }), sel]),
             field('Потолок ДРР, %', 'adp-drr', s.max_drr_pct != null ? s.max_drr_pct : 15, { type: 'number', min: 1, max: 100, step: 1 }),
+            field('Потолок цены заказа, сом', 'adp-cpo', s.max_cpo != null ? s.max_cpo : 450, { type: 'number', min: 10, step: 10 }),
             field('Доля от предельной цены заказа, %', 'adp-share', Math.round((s.target_share != null ? s.target_share : 0.7) * 100), { type: 'number', min: 10, max: 100, step: 5 }),
             field('Мин. ставка, сом', 'adp-min', (s.min_bid_kop || 300) / 100, { type: 'number', min: 1, step: 0.5 }),
             field('Макс. ставка, сом', 'adp-max', (s.max_bid_kop || 1600) / 100, { type: 'number', min: 1, step: 0.5 }),
@@ -219,7 +220,7 @@
             var minB = Math.round(num('adp-min', 3) * 100), maxB = Math.round(num('adp-max', 16) * 100);
             if (maxB < minB) { say('Максимальная ставка меньше минимальной', true); return; }
             var row = {
-                cabinet_id: cab, enabled: mode !== 'off', dry_run: mode !== 'live', max_drr_pct: num('adp-drr', 15), target_share: Math.min(1, num('adp-share', 70) / 100),
+                cabinet_id: cab, enabled: mode !== 'off', dry_run: mode !== 'live', max_drr_pct: num('adp-drr', 15), max_cpo: num('adp-cpo', 450), target_share: Math.min(1, num('adp-share', 70) / 100),
                 min_bid_kop: minB, max_bid_kop: maxB, step_pct: Math.max(1, Math.min(50, Math.round(num('adp-step', 10)))), updated_at: new Date().toISOString(),
             };
             var r = await sb().from('ad_autopilot_settings').upsert(row, { onConflict: 'cabinet_id' });

@@ -1,6 +1,7 @@
 // Автопилот рекламы: цели, решения по ставке, экономика артикула.
 import assert from 'node:assert/strict';
-import { breakEvenCpo, DEFAULTS, decideBid, economicsFromRows, nmStatsFromRows, targetCpo, roundBid } from './ad-autopilot.ts';
+import { breakEvenCpo, DEFAULTS as D0, decideBid, economicsFromRows, nmStatsFromRows, targetCpo, roundBid } from './ad-autopilot.ts';
+const DEFAULTS = { ...D0, maxCpo: 1e9 };  // старые проверки без потолка цены заказа
 
 const econ = { profitPerSale: 2640, buyout: 0.36, pricePerOrder: 5023 }; // укороч коричневый
 assert.equal(Math.round(breakEvenCpo(econ)), 950);
@@ -47,3 +48,15 @@ const m = nmStatsFromRows([
 assert.deepEqual(m.get('7:1'), { spend: 140, orders: 3, clicks: 42, views: 1300 });
 assert.equal(m.get('7:2')!.spend, 50);
 console.log('ad-autopilot_test: ok');
+
+// Потолок цены заказа (450 сом для всех кабинетов)
+assert.equal(D0.maxCpo, 450);
+assert.equal(Math.round(targetCpo(econ, D0)), 450, 'цель 665 режется потолком 450');
+assert.equal(Math.round(targetCpo(cheap, D0)), 150, 'потолок не поднимает цель выше обычной');
+{
+    const dd = decideBid(st(60000, 100), econ, 800, D0);   // CPO 600 выше потолка 450
+    assert.equal(dd.action, 'lower');
+    assert.equal(dd.target, 450);
+}
+assert.equal(decideBid(st(40000, 100), econ, 800, D0).action, 'hold', 'CPO 400 в пределах потолка');
+console.log('ad-autopilot max_cpo: ok');
