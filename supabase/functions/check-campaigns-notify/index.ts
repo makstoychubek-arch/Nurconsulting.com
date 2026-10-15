@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // Реклама (пауза/старт РК, баланс, автобиддер) — в канал «Реклама», а не в общий чат с продажами
     const tgChatId = getTelegramChatId('ads');
 
-    if (!isServiceAuthorized(req, serviceKey)) {
+    if (!await isServiceAuthorized(req, serviceKey)) {
         return json({ error: 'Unauthorized' }, 401);
     }
 

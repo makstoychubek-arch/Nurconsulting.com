@@ -36,7 +36,7 @@ Deno.serve(async (req)=>{
   const limit = Math.min(Math.max(Number(body?.limit) || REVIEW_BATCH_SIZE, 1), 15);
   const refreshPending = Boolean(body?.refresh_pending);
   const refreshPanel = Boolean(body?.refresh_panel);
-  if (!isServiceAuthorized(req, serviceKey, isTest || force || refreshPending || refreshPanel)) {
+  if (!(await isServiceAuthorized(req, serviceKey, isTest || force || refreshPending || refreshPanel))) {
     return json({
       error: 'Unauthorized'
     }, 401);

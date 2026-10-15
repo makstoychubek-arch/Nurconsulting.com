@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
     const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
     const admin = createClient(supabaseUrl, serviceKey);
-    const isService = isServiceAuthorized(req, serviceKey);
+    const isService = await isServiceAuthorized(req, serviceKey);
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const dryRun = parseIgDryRun(Deno.env.get('CONTENT_IG_DRY_RUN'), body);

@@ -11,6 +11,8 @@ const CORS = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const HOURLY_CAP = 3000;
+
 const ms = (v: unknown) => {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 && n < 600000 ? Math.round(n) : null;
@@ -31,6 +33,10 @@ Deno.serve(async (req) => {
         net: String(body.net ?? '').slice(0, 10) || null,
     };
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    // Приёмник открыт без входа: потолок записей в час, чтобы его нельзя было использовать для раздувания базы.
+    const { count } = await admin.from('perf_samples').select('id', { count: 'exact', head: true })
+        .gte('created_at', new Date(Date.now() - 3600_000).toISOString());
+    if ((count ?? 0) >= HOURLY_CAP) return new Response('busy', { status: 429, headers: CORS });
     await admin.from('perf_samples').insert(row);
     if (Math.random() < 0.01) {
         await admin.from('perf_samples').delete().lt('created_at', new Date(Date.now() - 30 * 86400000).toISOString());

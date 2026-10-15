@@ -170,7 +170,7 @@ async function processCabinet(admin: any, cab: any): Promise<Record<string, unkn
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-    if (!isServiceAuthorized(req, env('SUPABASE_SERVICE_ROLE_KEY'))) return json({ ok: false }, 401);
+    if (!await isServiceAuthorized(req, env('SUPABASE_SERVICE_ROLE_KEY'))) return json({ ok: false }, 401);
 
     const admin = adminClient();
     const body = await req.json().catch(() => ({}));

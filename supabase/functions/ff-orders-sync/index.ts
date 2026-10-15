@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    if (!isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
+    if (!await isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
     const admin = createClient(supabaseUrl, serviceKey);
     let only: string | null = null;
     try { only = (await req.json())?.cabinet_id ?? null; } catch { /* пустое тело */ }

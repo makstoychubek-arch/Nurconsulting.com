@@ -79,6 +79,21 @@ async function maybeGptOverlays(input: CarouselInput, plans: SlidePlan[]): Promi
     }
 }
 
+const AI_DAILY_LIMIT = 30;       // обычный клиент
+const AI_DAILY_LIMIT_TEAM = 300; // сотрудники и суперадмин
+
+/** Считает вызов в суточной квоте (RPC content_ai_take). Если функции в базе ещё нет, не блокируем и пишем в лог. */
+async function takeAiQuota(admin: ReturnType<typeof createClient>, userId: string, team: boolean): Promise<boolean> {
+    try {
+        const { data, error } = await admin.rpc('content_ai_take', { p_user: userId, p_limit: team ? AI_DAILY_LIMIT_TEAM : AI_DAILY_LIMIT });
+        if (error) { console.warn('[content-carousel] ai quota rpc:', error.message); return true; }
+        return data !== false;
+    } catch (e) {
+        console.warn('[content-carousel] ai quota:', String(e));
+        return true;
+    }
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
     if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -124,11 +139,14 @@ Deno.serve(async (req) => {
         description: String(body.description || '').slice(0, 4000),
     };
     let plans = planCarouselSlides(input);
+    let aiQuotaExceeded = false;
     if (body.skip_gpt !== true) {
-        plans = await maybeGptOverlays(input, plans);
+        // Платный вызов OpenAI: суточная квота на пользователя. Сверх неё слайды строятся без ИИ-надписей.
+        if (await takeAiQuota(admin, user.id, all)) plans = await maybeGptOverlays(input, plans);
+        else aiQuotaExceeded = true;
     }
     if (body.plan_only === true) {
-        return json({ ok: true, plans });
+        return json({ ok: true, plans, ai_quota_exceeded: aiQuotaExceeded });
     }
 
     try {
@@ -145,7 +163,7 @@ Deno.serve(async (req) => {
             const { data } = admin.storage.from('content-factory').getPublicUrl(path);
             urls.push(data.publicUrl);
         }
-        return json({ ok: true, plans, urls });
+        return json({ ok: true, plans, urls, ai_quota_exceeded: aiQuotaExceeded });
     } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error('[content-carousel]', msg);

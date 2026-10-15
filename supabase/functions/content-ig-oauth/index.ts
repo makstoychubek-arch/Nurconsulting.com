@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { signOAuthState, verifyOAuthState } from '../_shared/oauth-state.ts';
 import { hasAllCabinetsAccess } from '../_shared/cabinet-access.ts';
 import { graphUrl, parseGraphBody } from '../_shared/content-ig-publish.ts';
 import { readAdvTokenFromVault } from '../_shared/wb-adv-proxy.ts';
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization') ?? '';
     if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
     const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
-    if (isServiceAuthorized(req, serviceKey)) {
+    if (await isServiceAuthorized(req, serviceKey)) {
         return json({ error: 'use user JWT' }, 403);
     }
 
@@ -111,7 +112,8 @@ Deno.serve(async (req) => {
                 error: 'Facebook App ID не задан. Зарегистрируйте приложение на developers.facebook.com и положите FACEBOOK_APP_ID / FACEBOOK_APP_SECRET в env функции.',
             }, 400);
         }
-        const state = btoa(JSON.stringify({ cabinet_id: cabinetId, uid: user.id, t: Date.now() }));
+        if (!appSecret) return json({ error: 'Facebook App Secret не задан' }, 400);
+        const state = await signOAuthState(appSecret, { cabinet_id: cabinetId, uid: user.id });
         const u = new URL(`https://www.facebook.com/${'v21.0'}/dialog/oauth`);
         u.searchParams.set('client_id', appId);
         u.searchParams.set('redirect_uri', oauthRedirectUri(req));
@@ -190,12 +192,9 @@ async function handleOAuthCallback(
 ) {
     const { id: appId, secret: appSecret } = appCreds();
     if (!appId || !appSecret) throw new Error('Facebook App не настроен');
-    let state: { cabinet_id?: string };
-    try {
-        state = JSON.parse(atob(stateRaw));
-    } catch {
-        throw new Error('bad oauth state');
-    }
+    // state подписан нашим секретом и живёт 15 минут: чужой cabinet_id подставить нельзя.
+    const state = await verifyOAuthState(appSecret, stateRaw);
+    if (!state) throw new Error('bad oauth state');
     const cabinetId = String(state.cabinet_id || '');
     if (!cabinetId) throw new Error('cabinet missing in state');
 

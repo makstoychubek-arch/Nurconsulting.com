@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
     const bearer = authHeader.replace('Bearer ', '');
 
     const admin = createClient(supabaseUrl, serviceKey);
-    let isServiceRole = isServiceAuthorized(req, serviceKey);
+    let isServiceRole = await isServiceAuthorized(req, serviceKey);
     let userId: string | null = null;
     let isSuperAdmin = false;
 

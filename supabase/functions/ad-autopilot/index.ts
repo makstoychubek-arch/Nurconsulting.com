@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
     const admin = adminClient();
     const body = await req.json().catch(() => ({} as any));
-    const service = isServiceAuthorized(req, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const service = await isServiceAuthorized(req, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
 
     let cabinetFilter: string | null = body?.cabinet_id ? String(body.cabinet_id) : null;
     let forceDry = false;

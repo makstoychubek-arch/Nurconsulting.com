@@ -142,9 +142,13 @@
         return '<div class="fbs-merge"><b>Объединить ФФ</b><small>Отметьте склады, которые на самом деле один и тот же ФФ: отправки, хранение, штрафы и депозит считаются вместе под именем «' + esc(ff.name) + '».</small><div class="fbs-mg">' +
             cands.map(function (n) { return '<label class="fbs-mc"><input type="checkbox" data-merge="' + esc(n) + '"' + (state.canon[n] === ff.name ? ' checked' : '') + '>' + esc(n) + '</label>'; }).join('') + '</div></div>';
     }
+    function noRpc(e) { return !!e && (e.code === 'PGRST202' || e.code === '42883' || /could not find the function|does not exist/i.test(String(e.message || ''))); }
     async function mergeFf(member, group, on) {
         var sb = state.supabase, cab = state.cabinetId;
         try {
+            var mr = await sb.rpc('ff_merge_member', { p_cabinet: cab, p_member: member, p_group: group, p_on: !!on });
+            if (!mr.error) { await load(); render(); return; }
+            if (!noRpc(mr.error)) throw mr.error;
             if (on) {
                 var a = await sb.from('ff_groups').upsert({ cabinet_id: cab, ff_name: member, group_name: group }, { onConflict: 'cabinet_id,ff_name' });
                 if (a.error) throw a.error;
@@ -275,11 +279,17 @@
         try {
             var fxEl = blk.querySelector('.fbf-x'), fx = fxEl && String(fxEl.value).trim() !== '' ? num(fxEl.value) : null;
             var mEl = blk.querySelector('.fbf-m'), p = T().plan(state.terms, ff, kind, num(raw), cap, from, to, fx, mEl ? mEl.value : 'unit');
-            if (p.remove.length) { var d = await sb.from('ff_terms').delete().in('id', p.remove); if (d.error) throw d.error; }
-            for (var i = 0; i < p.update.length; i++) { var u = await sb.from('ff_terms').update({ date_to: p.update[i].date_to }).eq('id', p.update[i].id); if (u.error) throw u.error; }
-            var ins = p.add.concat([p.insert]).map(function (r) { return Object.assign({ cabinet_id: cab }, r); });
-            var r = await sb.from('ff_terms').insert(ins);
-            if (r.error) throw r.error;
+            // Одна транзакция на сервере: сбой посреди операции не оставляет кабинет без тарифа.
+            var rows = p.add.concat([p.insert]);
+            var ap = await sb.rpc('ff_terms_apply', { p_cabinet: cab, p_remove: p.remove, p_updates: p.update.map(function (u) { return { id: u.id, date_to: u.date_to }; }), p_inserts: rows });
+            if (ap.error && !noRpc(ap.error)) throw ap.error;
+            if (ap.error) {
+                // функции на сервере ещё нет — прежний путь по шагам
+                if (p.remove.length) { var d = await sb.from('ff_terms').delete().in('id', p.remove); if (d.error) throw d.error; }
+                for (var i = 0; i < p.update.length; i++) { var u = await sb.from('ff_terms').update({ date_to: p.update[i].date_to }).eq('id', p.update[i].id); if (u.error) throw u.error; }
+                var r = await sb.from('ff_terms').insert(rows.map(function (x) { return Object.assign({ cabinet_id: cab }, x); }));
+                if (r.error) throw r.error;
+            }
             await loadTerms();
             render();
         } catch (e) { say('Не удалось сохранить: ' + String((e && e.message) || e)); }

@@ -32,7 +32,7 @@ async function wb(token: string, path: string) {
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-    if (!isServiceAuthorized(req, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')) return json({ error: 'Unauthorized' }, 401);
+    if (!await isServiceAuthorized(req, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')) return json({ error: 'Unauthorized' }, 401);
     const admin = adminClient();
     const { data: guards } = await admin.from('ad_balance_guards').select('*').eq('active', true);
     const out: any[] = [];

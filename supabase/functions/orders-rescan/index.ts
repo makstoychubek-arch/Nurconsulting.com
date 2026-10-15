@@ -26,7 +26,7 @@ const clean = (raw: unknown) => (typeof raw === 'string' ? raw.replace(/^﻿/, '
 Deno.serve(async (req) => {
     const url = Deno.env.get('SUPABASE_URL') ?? '';
     const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    if (!isServiceAuthorized(req, key)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    if (!await isServiceAuthorized(req, key)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     const admin = createClient(url, key);
     const work = run(admin).catch((e) => console.warn('[orders-rescan]', (e as Error).message));
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
