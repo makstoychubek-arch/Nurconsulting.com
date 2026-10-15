@@ -1177,8 +1177,17 @@ const RNP = (() => {
         }
     }
 
-    function _sectionRows(sec, art) {
+    // Строки, которые пользователь скрыл у себя (хранится в браузере).
+    const _hiddenMetrics = (() => {
+        try { return new Set(JSON.parse(localStorage.getItem('rnp_hidden_metrics') || '[]')); } catch (e) { return new Set(); }
+    })();
+    function _saveHiddenMetrics() {
+        try { localStorage.setItem('rnp_hidden_metrics', JSON.stringify([..._hiddenMetrics])); } catch (e) {}
+    }
+
+    function _sectionRows(sec, art, withHidden) {
         return sec.rows.filter(m => {
+            if (!withHidden && _hiddenMetrics.has(m.key)) return false;
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
@@ -7982,25 +7991,49 @@ const RNP = (() => {
         return _renderActiveTable();
     }
 
-    // Условное форматирование как в Google Таблицах («от красного к зелёному через белый»):
-    // по каждой строке сравниваем колонки одного вида (дни с днями, недели с неделями).
+    // Условное форматирование: цвет говорит «хорошо / плохо», а не «больше / меньше соседних дней».
+    //  • Объёмы рекламы (показы, клики, корзины, заказы с РК) не красим: они зависят от бюджета.
+    //  • Эффективность рекламы (ДРР, CPO, ROAS) красим по доле расхода РК в прибыли до рекламы —
+    //    одинаково во всех трёх строках дня. Дни почти без рекламы в оценке не участвуют.
+    //  • Остальные строки — «от красного к зелёному» по дням, но шкала режется по 10–90-му процентилю,
+    //    чтобы один выброс (ROAS 1 273 при расходе 2 сома) не обесцвечивал остальные дни.
     // low — чем меньше, тем зеленее (стоимости, доли расходов), high — чем больше, тем зеленее.
     const SCALE_DIR = {
         orders_sum: 'high', sales_sum: 'high', avg_check: 'high', avg_check_sales: 'high',
         organic_imp_pct: 'high', clicks: 'high', basket_pct: 'high', basket_count: 'high', orders_conv_pct: 'high', cro_pct: 'high',
-        ad_impressions: 'high', ad_clicks: 'high', ad_ctr: 'high', ad_cro: 'high', ad_basket: 'high', ad_orders: 'high', ad_roas: 'high',
+        ad_ctr: 'high', ad_cro: 'high',
         realization: 'high', to_transfer: 'high', to_transfer_unit: 'high', profit_per_unit: 'high', roi_pct: 'high',
-        ad_cpc: 'low', ad_cpo: 'low', ad_cpm: 'low', log_to_pvz_avg: 'low', cancels_count: 'low', returns_count: 'low', buyout_fin_pct: 'high',
+        ad_cpc: 'low', ad_cpm: 'low', log_to_pvz_avg: 'low', cancels_count: 'low', returns_count: 'low', buyout_fin_pct: 'high',
     };
     const HM_DIR = { low: 'low', cost: 'low', high: 'high', margin: 'high', profit: 'high' };
+    const AD_EFF_KEYS = new Set(['drr_pct', 'ad_cpo', 'ad_roas']);
+    const AD_MIN_SPEND = 50;
+    const _isSeriesCol = c => !c.isFuture && c.data && (c.type === 'day' || c.type === 'week' || c.type === 'month');
+
+    /** Доля расхода РК в прибыли до рекламы: ≤35% — зелёный, ≥90% (или прибыль до рекламы ≤ 0) — красный. */
+    function _adEffTone(d) {
+        const spend = Number(d.ad_spend) || 0;
+        if (spend < AD_MIN_SPEND) return null;
+        const before = (Number(d.profit) || 0) + spend;
+        const r = before > 0 ? spend / before : 9;
+        const k = r <= 0.35 ? 1 : r >= 0.9 ? -1 : 1 - ((r - 0.35) / 0.55) * 2;
+        const a = Math.min(1, Math.abs(k)) * 0.6;
+        if (a < 0.04) return '';
+        return k > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+    }
 
     function _scaleFn(m, cols) {
         if (m.isPlan || m.competitor || m.cl) return null;
+        if (AD_EFF_KEYS.has(m.key)) {
+            return (col, v) => (_isSeriesCol(col) && Number(v) ? _adEffTone(col.data) || '' : '');
+        }
         const dir = SCALE_DIR[m.key] || HM_DIR[m.hm];
         if (!dir) return null;
+        const adRow = m.key.startsWith('ad_');
+        const okCol = c => _isSeriesCol(c) && !(adRow && (Number(c.data.ad_spend) || 0) < AD_MIN_SPEND);
         const groups = {};
         cols.forEach(c => {
-            if (c.isFuture || !c.data || (c.type !== 'day' && c.type !== 'week' && c.type !== 'month')) return;
+            if (!okCol(c)) return;
             const v = Number(c.data[m.key]);
             if (Number.isFinite(v) && v !== 0) (groups[c.type] = groups[c.type] || []).push(v);
         });
@@ -8008,8 +8041,13 @@ const RNP = (() => {
         Object.keys(groups).forEach(t => {
             const vals = groups[t].sort((a, b) => a - b);
             if (vals.length < 3 || vals[0] === vals[vals.length - 1]) return;
-            const lo = vals[0], hi = vals[vals.length - 1], mid = vals[Math.floor((vals.length - 1) / 2)];
+            const n = vals.length;
+            const lo = n >= 6 ? vals[Math.floor((n - 1) * 0.1)] : vals[0];
+            const hi = n >= 6 ? vals[Math.ceil((n - 1) * 0.9)] : vals[n - 1];
+            const mid = vals[Math.floor((n - 1) / 2)];
+            if (hi === lo) return;
             fns[t] = (v) => {
+                v = Math.min(hi, Math.max(lo, v));
                 let k = v >= mid ? (hi > mid ? (v - mid) / (hi - mid) : 0) : (mid > lo ? -(mid - v) / (mid - lo) : 0);
                 if (dir === 'low') k = -k;
                 const a = Math.min(1, Math.abs(k)) * 0.62;
@@ -8021,7 +8059,7 @@ const RNP = (() => {
         return (col, v) => {
             const f = fns[col.type];
             v = Number(v);
-            return f && Number.isFinite(v) && v !== 0 ? f(v) : '';
+            return f && okCol(col) && Number.isFinite(v) && v !== 0 ? f(v) : '';
         };
     }
 
@@ -8044,19 +8082,19 @@ const RNP = (() => {
     }
 
     function _renderSection(sec, cols, art, firstDayIdx) {
-        if (!_sectionRows(sec, art).length) return '';
+        if (!_sectionRows(sec, art, true).length) return '';
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
         const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
-          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}</td>
+          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}${_hiddenInSection(sec, art) ? ` <span class="rnp-hidden-link" onclick="event.stopPropagation();RNP.showHidden('${sec.id}')" title="Вернуть скрытые строки">скрыто ${_hiddenInSection(sec, art)} · вернуть</span>` : ''}</td>
           <td class="rnp-spark-col rnp-section-stick"></td>
           <td class="rnp-section-fill" colspan="${cols.length}"></td>
         </tr>`;
         if (collapsed && !sec.noHeader) return hdr;
         if (collapsed && sec.noHeader) return '';
 
-        if (!_sectionRows(sec, art).length) return '';
+        if (!_sectionRows(sec, art).length) return hdr;
         const daySeries = cols.filter(c => (c.type === 'day' || c.type === 'month') && !c.isFuture);
 
         const rows = _sectionRows(sec, art).map(m => {
@@ -8193,7 +8231,7 @@ const RNP = (() => {
                 : m.label;
             let out = `<tr class="${rowCls}">
               <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>
-                ${labelHtml}
+                ${labelHtml}${sec.noHeader ? '' : `<button type="button" class="rnp-hide-x" onclick="event.stopPropagation();RNP.hideMetric('${m.key}')" title="Скрыть строку">×</button>`}
               </td>
               <td class="rnp-spark-col">${spark}</td>${cells}
             </tr>`;
@@ -9033,6 +9071,22 @@ const RNP = (() => {
         }
     }
 
+    function _hiddenInSection(sec, art) {
+        return _sectionRows(sec, art, true).filter(m => _hiddenMetrics.has(m.key)).length;
+    }
+    async function hideMetric(key) {
+        _hiddenMetrics.add(String(key));
+        _saveHiddenMetrics();
+        await _renderActiveTable();
+    }
+    async function showHidden(sectionId) {
+        const sec = (typeof SECTIONS !== 'undefined' ? SECTIONS : []).find(x => x.id === sectionId);
+        if (sec) sec.rows.forEach(m => _hiddenMetrics.delete(m.key));
+        else _hiddenMetrics.clear();
+        _saveHiddenMetrics();
+        await _renderActiveTable();
+    }
+
     async function toggleSection(nmId, sectionId) {
         const key = `${nmId}:${sectionId}`;
         if (_collapsedSections.has(key)) _collapsedSections.delete(key);
@@ -9180,7 +9234,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, hideMetric, showHidden, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl };
 })();
