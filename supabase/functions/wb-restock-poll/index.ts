@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    if (!isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
+    if (!await isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
 
     const body = req.method === 'GET'
         ? Object.fromEntries(new URL(req.url).searchParams)

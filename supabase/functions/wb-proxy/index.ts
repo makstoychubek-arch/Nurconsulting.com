@@ -5,6 +5,13 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Все запросы к WB идут с таймаутом: зависший ответ WB не должен держать воркер до лимита платформы.
+const WB_FETCH_TIMEOUT_MS = 45_000;
+const baseFetch = globalThis.fetch.bind(globalThis);
+function fetch(input: string | URL | Request, init: RequestInit = {}): Promise<Response> {
+    return baseFetch(input, init.signal ? init : { ...init, signal: AbortSignal.timeout(WB_FETCH_TIMEOUT_MS) });
+}
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
@@ -168,6 +175,9 @@ async function changeExistingUserAccess(
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
+    // Контекст запроса для логов: по request_id из ответа находим строку в журнале функции (без токенов и тела).
+    const ctx: Record<string, unknown> = { rid: crypto.randomUUID().slice(0, 8) };
+
     try {
         // ── Auth: verify JWT ──────────────────────────────────────────────────
         const authHeader = req.headers.get('Authorization') ?? '';
@@ -186,6 +196,7 @@ serve(async (req) => {
         });
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
+        ctx.user = user.id;
 
         const isSuperAdmin = isSuperAdminUser(user);
         const adminCheck = createClient(supabaseUrl, supabaseService);
@@ -217,6 +228,7 @@ serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const { action, params = {}, cabinet_id } = body;
 
+        ctx.action = action; ctx.cabinet = cabinet_id;
         if (!cabinet_id) return json({ error: 'cabinet_id required' }, 400);
 
         // ── Verify cabinet ownership ──────────────────────────────────────────
@@ -1823,7 +1835,7 @@ serve(async (req) => {
         return json(result);
 
     } catch (err) {
-        console.error('[wb-proxy] error:', err);
+        console.error('[wb-proxy] error:', JSON.stringify(ctx), err);
         let status = (err as { status?: number })?.status;
         // Fallback: код из текста — "WB API 429: ..." или "…: HTTP 401 …".
         if (!status) {
@@ -1831,7 +1843,7 @@ serve(async (req) => {
             if (m) status = Number(m[1]);
         }
         const httpStatus = status && status >= 400 && status < 500 ? status : 500;
-        return json({ error: String(err), wb_status: status || null }, httpStatus);
+        return json({ error: String(err), wb_status: status || null, request_id: ctx.rid }, httpStatus);
     }
 });
 

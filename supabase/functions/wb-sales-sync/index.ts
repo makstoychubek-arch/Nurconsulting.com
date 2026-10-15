@@ -27,7 +27,7 @@ function dayStr(offsetDays: number): string {
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    if (!isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
+    if (!await isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
 
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
     const body = await req.json().catch(() => ({} as Record<string, unknown>));

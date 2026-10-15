@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     const tgToken = getTelegramToken() || (Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '');
     const tgChatId = getTelegramChatId('penalties');
 
-    if (!isServiceAuthorized(req, serviceKey)) {
+    if (!await isServiceAuthorized(req, serviceKey)) {
         return json({ error: 'Unauthorized' }, 401);
     }
 

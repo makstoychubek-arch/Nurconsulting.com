@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
     const bearer = authHeader.replace('Bearer ', '');
     const admin = createClient(supabaseUrl, serviceKey);
-    const isServiceRole = isServiceAuthorized(req, serviceKey);
+    const isServiceRole = await isServiceAuthorized(req, serviceKey);
 
     let user: { id: string; email?: string | null } | null = null;
     if (!isServiceRole) {

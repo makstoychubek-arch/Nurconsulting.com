@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     const started = Date.now();
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    if (!isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
+    if (!await isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const groupKey = String(body.group || '').toLowerCase().trim();
