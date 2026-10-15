@@ -323,12 +323,13 @@
             return inf && inf.loading ? '<span class="adp2-skel"></span>' : '<button type="button" class="adp2-load" data-pact="load" data-key="' + esc(key) + '">Показать ставку</button>';
         }
         if (!list.length) return inf && inf.loading ? '<span class="adp2-skel"></span>' : (inf && inf.error ? '<span class="adp2-mut">ставка недоступна</span>' : '<button type="button" class="adp2-load" data-pact="load" data-key="' + esc(key) + '">Показать ставку</button>');
+        return '<button type="button" class="adp2-range" data-pact="open" data-key="' + esc(key) + '">' + rangeText(list) + '</button>';
+    }
+    function rangeText(list) {
         var nmSet = {}; list.forEach(function (e) { nmSet[e.nm] = 1; });
-        if (Object.keys(nmSet).length > 1) {
-            var vals = list.map(function (e) { return e.kop; }), lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-            return '<button type="button" class="adp2-range" data-pact="open" data-key="' + esc(key) + '">' + fmtSom(kopToSom(lo)) + (hi !== lo ? '–' + fmtSom(kopToSom(hi)) : '') + ' ₽ · ' + Object.keys(nmSet).length + ' тов.</button>';
-        }
-        return stepperHtml(key, list[0], kind, minKop(key, list[0].nm));
+        var vals = list.map(function (e) { return e.kop; }), lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+        var n = Object.keys(nmSet).length;
+        return '<b>' + fmtSom(kopToSom(lo)) + (hi !== lo ? '–' + fmtSom(kopToSom(hi)) : '') + '</b> ₽' + (n > 1 ? ' · ' + n + ' тов.' : '');
     }
     function stepperHtml(key, e, kind, min) {
         var st = stepSom(kind), som = kopToSom(e.kop), lo = kopToSom(min), hi = Math.max(som * 2, lo * 3, som + 50);
@@ -418,7 +419,7 @@
         });
         var el = host.querySelector('.adp2-row[data-key="' + key.replace(/"/g, '') + '"] [data-chipbox]'); if (el) el.innerHTML = chipHtml(key);
         var range = host.querySelector('.adp2-row[data-key="' + key.replace(/"/g, '') + '"] .adp2-range');
-        if (range) { var vals = list.map(function (e) { return e.kop; }); range.textContent = fmtSom(kopToSom(Math.min.apply(null, vals))) + (Math.max.apply(null, vals) !== Math.min.apply(null, vals) ? '–' + fmtSom(kopToSom(Math.max.apply(null, vals))) : '') + ' ₽ · ' + list.length + ' тов.'; }
+        if (range && list.length) range.innerHTML = rangeText(list);
     }
 
     /* ───────── всплывающее: сообщение, выбор товара, мастер ───────── */

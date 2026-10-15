@@ -27,7 +27,7 @@
 .adp2-row.off .adp2-nm b, .adp2-row.off .adp2-tc { opacity: .6; }
 .adp2-row.virt { border-style: dashed; }
 
-.adp2-head { display: grid; grid-template-columns: 54px minmax(160px, 1.4fr) 92px minmax(250px, 1.2fr) minmax(0, 190px) 18px; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
+.adp2-head { display: grid; grid-template-columns: 54px minmax(160px, 1.6fr) 92px 150px minmax(0, 190px) 18px; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
 .adp2-tc { display: flex; justify-content: center; }
 .adp2-nm { min-width: 0; }
 .adp2-nm b { display: flex; align-items: center; gap: 7px; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -52,7 +52,8 @@
 .adp2-rg { flex: 1; min-width: 60px; accent-color: var(--accent); height: 28px; }
 .adp2-num { width: 66px; height: 32px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary); text-align: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
 .adp2-num.ch { border-color: var(--accent); }
-.adp2-range, .adp2-load { height: 32px; padding: 0 12px; border-radius: 10px; border: 1px dashed var(--border-strong); background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.adp2-range b { font-size: 15px; color: var(--text-primary); }
+.adp2-range, .adp2-load { height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); font-size: 13px; cursor: pointer; }
 .adp2-range:hover, .adp2-load:hover { color: var(--accent); border-color: var(--accent); }
 
 .adp2-skel { display: block; height: 28px; width: 100%; max-width: 220px; border-radius: 10px; background: linear-gradient(90deg, var(--sel), var(--border-strong), var(--sel)); background-size: 200% 100%; animation: adp2sk 1.2s linear infinite; }
@@ -124,12 +125,12 @@
 /* телефон */
 @media (max-width: 760px) {
     .adp2-switch { margin-left: 0; }
-    .adp2-head { grid-template-columns: auto minmax(0, 1fr) auto 16px; grid-template-areas: "tc nm st cv" "bw bw bw bw" "ch ch ch ch"; gap: 8px 10px; padding: 12px; }
+    .adp2-head { grid-template-columns: auto minmax(0, 1fr) auto 16px; grid-template-areas: "tc nm nm cv" "tc st bw bw" "ch ch ch ch"; align-items: center; gap: 8px 10px; padding: 12px; }
     .adp2-tc { grid-area: tc; }
     .adp2-nm { grid-area: nm; }
     .adp2-st { grid-area: st; }
     .adp2-cv { grid-area: cv; }
-    .adp2-bw { grid-area: bw; }
+    .adp2-bw { grid-area: bw; justify-self: end; }
     .adp2-ch { grid-area: ch; }
     .adp2-ch:empty { display: none; }
     .adp2-ty.xl { font-size: 22px; }
