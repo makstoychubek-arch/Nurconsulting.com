@@ -1273,3 +1273,16 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 
 .fbs-mf { display: flex; align-items: center; gap: 10px; }
 .fbs-modal .fbs-sws { margin: 6px 0 2px; display: flex; gap: 14px; flex-wrap: wrap; }
+
+/* ───── РК: каркас страницы не двигается, пока грузятся кампании ───── */
+#ad-autopilot-card:empty { display: none; margin: 0; }
+#adv-view-ads .ads-hq-bulk { position: relative; }
+#adv-view-ads #ads-hq-freshness { position: absolute !important; right: 12px; top: 100%; margin: 2px 0 0; padding: 0; width: auto; max-width: 50%; pointer-events: none; line-height: 1.2; }
+#adv-view-ads #ads-hq-freshness:empty { display: block !important; }
+#adv-view-ads .ads-hq-kpi { min-width: 92px; box-sizing: border-box; }
+#adv-view-ads .ads-hq-kpi-value { min-height: 18px; white-space: nowrap; }
+#adv-view-ads .ads-hq-kpi-bar { min-height: 46px; }
+#adv-view-ads .ads-hq-table-wrap { min-height: 140px; }
+
+/* ───── Дашборд: карточки «Фулфилмент» занимают своё место сразу — страница не прыгает при загрузке ───── */
+@media (min-width: 900px) { #tab-dashboard .pnl-grid.ff-row > .pnl-card { min-height: 258px; } }

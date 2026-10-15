@@ -5548,12 +5548,14 @@ const RNP = (() => {
         _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings);
         _applyStocksToCache(stocks, nmIds);
         _loadSupply().catch(e => console.warn('[RNP] supply:', e.message));
+        // Итоги кабинета и шапка «Общего» пишут в свои переменные, кэш по дням не трогают —
+        // грузим их параллельно со слиянием финансов/рекламы/FBS (которое идёт по порядку).
+        const totalsP = Promise.all([_loadCabinetTotals(cal), _loadGeneralHead(cal)]).catch(e => console.warn('[RNP] totals:', e.message || e));
         await _mergeFinanceDailyFromDb(nmIds, cal);
-        if (_isStaleLoad(snapReq, snapCab)) return false;
+        if (_isStaleLoad(snapReq, snapCab)) { await totalsP; return false; }
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
         await _mergeFbsSplit(nmIds, cal);
-        await _loadCabinetTotals(cal);
-        await _loadGeneralHead(cal);
+        await totalsP;
         _overlayPriceDaily(dailyRows, nmIds);
         _seedTodayLiveZeros(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
@@ -8371,9 +8373,8 @@ const RNP = (() => {
         _sectionView = 'all'; // выбор секций убран из интерфейса
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         _bindSelectionHandlers();
-        await _loadSettings(cabId, gen);
-        if (_isStaleInit(gen, cabId)) return;
-        await _loadArticles(cabId, gen);
+        // Настройки и артикулы не зависят друг от друга — грузим вместе (раньше шли по очереди).
+        await Promise.all([_loadSettings(cabId, gen), _loadArticles(cabId, gen)]);
         if (_isStaleInit(gen, cabId)) return;
         _hydratePhotoCacheFromArticles();
         _hydratePhotoCacheFromDom();

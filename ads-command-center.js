@@ -1248,7 +1248,7 @@
         const span = tableColspan();
         const tb = document.getElementById('ads-hq-tbody');
         if (tb) {
-            tb.innerHTML = '<tr><td colspan="' + span + '" class="text-center py-10" style="color:var(--text-muted)">Загрузка кампаний…</td></tr>';
+            tb.innerHTML = '<tr class="ads-hq-skel"><td colspan="' + span + '"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Загрузка кампаний…</span><div class="nr-skel-line"></div><div class="nr-skel-line"></div><div class="nr-skel-line"></div></td></tr>';
         }
         const pb = document.getElementById('ads-hq-products-tbody');
         if (pb) {
