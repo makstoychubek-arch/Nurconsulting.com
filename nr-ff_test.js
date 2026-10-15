@@ -40,7 +40,15 @@ assert.strictEqual(Math.round(z.paidCnt), 7); assert.strictEqual(z.paidTo, '2026
 // точные заказы WB важнее остатков: товар 1 в день 10.10 целиком ушёл на B (цена 30), не 75/25
 const oi = T.ordersIndex([{ nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }, { nm_id: 1, order_date: '2026-10-10', ff_name: 'B' }]);
 const te = compute([{ nm_id: 1, d: '2026-10-10', orders_fbs: 4 }], [], '2026-10-10', '2026-10-10', '2026-10-12', shares, { daily: {}, snapshot: {} }, terms, oi);
-assert.strictEqual(Math.round(te.byFf.B.ship), 120); assert.ok(!te.byFf.A);
+// день с точными заказами считается по их числу (2 заказа fbs_orders × 30 = 60), а не по заказам статистики (4)
+assert.strictEqual(Math.round(te.byFf.B.ship), 60); assert.ok(!te.byFf.A);
+// дни без fbs_orders считаются по статистике × доли остатка (как раньше); точные дни не удваиваются
+const mixed = compute([{ nm_id: 2, d: '2026-10-09', orders_fbs: 10 }, { nm_id: 2, d: '2026-10-10', orders_fbs: 10 }], [], '2026-10-09', '2026-10-10', '2026-10-12', { 2: [{ k: 'B', w: 1 }] }, { daily: {}, snapshot: {} }, terms,
+    T.ordersIndex([{ nm_id: 2, order_date: '2026-10-10', ff_name: 'B' }, { nm_id: 2, order_date: '2026-10-10', ff_name: 'B' }, { nm_id: 2, order_date: '2026-10-10', ff_name: 'B' }]));
+assert.strictEqual(Math.round(mixed.byFf.B.shipCnt), 13); assert.strictEqual(Math.round(mixed.byFf.B.ship), 390, '10 по статистике + 3 точных, по 30');
+// точный заказ без ФФ уходит в «нет цены»
+const none = compute([], [], '2026-10-10', '2026-10-10', '2026-10-12', {}, { daily: {}, snapshot: {} }, terms, T.ordersIndex([{ nm_id: 5, order_date: '2026-10-10', ff_name: null }]));
+assert.strictEqual(none.missing, 1);
 // тариф в ₽: курс ФФ 1,06 (хранение B 1 ₽ → 1,06 сом); у A курс НБКР 1,04 из таблицы
 const fxT = [{ ff_name: 'B', kind: 'ship', value: 50, fx_rate: 1.06, date_from: '2026-09-01', date_to: null }, { ff_name: 'A', kind: 'ship', value: 50, fx_rate: null, date_from: '2026-09-01', date_to: null }];
 const fx = compute([{ nm_id: 2, d: '2026-10-10', orders_fbs: 10 }, { nm_id: 9, d: '2026-10-10', orders_fbs: 10 }], [], '2026-10-10', '2026-10-10', '2026-10-12', { 2: [{ k: 'B', w: 1 }], 9: [{ k: 'A', w: 1 }] }, { daily: {}, snapshot: {} }, fxT, null, { '2026-10-10': 1.04 });

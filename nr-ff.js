@@ -24,23 +24,29 @@
         var T = root.FfTerms, idx = T.index(terms), end = to > todayStr ? todayStr : to;
         var by = {};
         function slot(k) { return by[k] || (by[k] = blank()); }
-        // отправка: заказы FBS товара × цена отправки его ФФ (по долям остатка)
+        // отправка: заказы FBS × цена отправки ФФ. Дни, по которым есть точные заказы WB с номером склада (fbs_orders),
+        // считаем прямо по ним: ФФ выставляет счёт именно за эти заказы. Остальные дни — заказы товара × доли остатка по ФФ.
+        var exact = oidx && oidx.days ? oidx.days : {};
+        function addShip(ff, d, cnt) {
+            var t = T.at(idx, ff, 'ship', d), sl = slot(ff);
+            if (!t) { sl.missing += cnt; return; }
+            sl.ship += cnt * Number(t.value) * T.fxFor(t, rates, d);
+            sl.shipRub += cnt * Number(t.value);
+            if (Number(t.value) > 0) sl.shipCnt += cnt;   // отправки считаем только там, где есть цена (с даты начала работы)
+            else { sl.paidCnt += cnt; if (t.date_to && t.date_to > sl.paidTo) sl.paidTo = t.date_to; }   // цена 0 = уже оплачено ранее
+        }
         (orders || []).forEach(function (o) {
-            if (o.d > end) return;
+            if (o.d > end || exact[o.d]) return;
             var nm = Number(o.nm_id), n = Number(o.orders_fbs) || 0;
-            // точный ФФ — из заказов WB (fbs_orders); если за день данных нет — по доле остатка
-            var sh = (oidx && oidx.days[o.d] && T.distFor(oidx, nm, o.d)) || (shares && shares[nm]);
+            var sh = shares && shares[nm];
             if (!sh || !sh.length) { slot('none').missing += n; return; }
-            sh.forEach(function (x) {
-                var t = x.k === 'none' ? null : T.at(idx, x.k, 'ship', o.d);
-                if (t) {
-                    var sl = slot(x.k);
-                    sl.ship += n * x.w * Number(t.value) * T.fxFor(t, rates, o.d);
-                    sl.shipRub += n * x.w * Number(t.value);
-                    if (Number(t.value) > 0) sl.shipCnt += n * x.w;   // отправки считаем только там, где есть цена (с даты начала работы)
-                    else { sl.paidCnt += n * x.w; if (t.date_to && t.date_to > sl.paidTo) sl.paidTo = t.date_to; }   // цена 0 = уже оплачено ранее
-                } else slot(x.k).missing += n * x.w;
-            });
+            sh.forEach(function (x) { if (x.k === 'none') slot('none').missing += n * x.w; else addShip(x.k, o.d, n * x.w); });
+        });
+        if (oidx && oidx.by) Object.keys(oidx.by).forEach(function (key) {
+            var d = key.split('|')[1];
+            if (d < from || d > end) return;
+            var m = oidx.by[key];
+            Object.keys(m).forEach(function (ff) { if (ff === 'none') slot('none').missing += m[ff]; else addShip(ff, d, m[ff]); });
         });
         // хранение: на каждый день остаток ФФ × ставка этого ФФ, не больше его суточного лимита
         var daysAll = {};
