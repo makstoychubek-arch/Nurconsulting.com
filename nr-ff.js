@@ -120,10 +120,11 @@
         el.innerHTML =
             '<div class="pnl-title">Фулфилмент</div><div class="ff-chips">' + chips + '</div>' +
             '<div class="pnl-rows">' +
+            '<div class="pnl-row" title="Цена отправки × заказы за выбранный период (по тарифам ФФ)"><span class="pnl-lbl">Отправки</span><b>' + fmt(t.ship) + '</b></div>' +
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="swap" title="Открыть список и добавить"><span class="pnl-lbl">Подмены</span><b>' + fmt(t.swap) + '</b></div>' +
             '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + '</b></div></div>' +
             '<div class="ff-pay-l">Выплатить</div><div class="pnl-big ff-pay">' + fmt(t.payable) + '</div>' +
-            '<div class="ff-sub" title="Выплатить = хранение + отправка − подмены − отмены">хранение ' + fmt(t.storage) + ' + отправка ' + fmt(t.ship) + '</div>' +
+            '<div class="ff-sub" title="Выплатить = отправки + хранение − подмены − отмены">с хранением ' + fmt(t.storage) + '</div>' +
             (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите цену ФФ в «Товары → FBS»</div>' : '') +
             (t.boxMissing ? '<div class="ff-warn">Нет цены за короб: ' + fmt(t.boxMissing) + ' коробов — укажите в «Товары → FBS»</div>' : '');
     }
