@@ -18,6 +18,34 @@
         function step(ts) { if (t0 == null) t0 = ts; var p = Math.min(1, (ts - t0) / dur); el.textContent = fmt(from + (to - from) * easeOut(p)); if (p < 1) root.requestAnimationFrame(step); }
         root.requestAnimationFrame(step);
     }
+    /* Слот-машина: цифры крутятся барабанами и останавливаются по очереди справа налево */
+    function slot(el, text, o) {
+        o = o || {};
+        text = String(text);
+        var old = el.getAttribute('data-slot'); if (old == null) old = el.textContent || '';
+        el.setAttribute('data-slot', text);
+        if (reduce || old === text || !el.offsetParent) { el.textContent = text; return; }
+        var a = old.split(''), b = text.split(''), n = b.length, dur = o.duration || 900, gap = 70;
+        el.textContent = '';
+        el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth;
+        if (o.flash) el.classList.add(o.flash === 'down' ? 'nrm-down' : 'nrm-up');
+        var strips = [];
+        b.forEach(function (ch, i) {
+            if (!/\d/.test(ch)) { el.appendChild(doc.createTextNode(ch)); return; }
+            var oc = a[a.length - n + i], from = /\d/.test(oc || '') ? +oc : Math.floor(Math.random() * 10), to = +ch;
+            var steps = ((to - from + 10) % 10) + 10, reel = doc.createElement('span'), strip = doc.createElement('span');
+            reel.className = 'nrm-reel'; strip.className = 'nrm-strip';
+            for (var k = 0; k <= steps; k++) { var d = doc.createElement('span'); d.textContent = String((from + k) % 10); strip.appendChild(d); }
+            reel.appendChild(strip); el.appendChild(reel); strips.push([strip, steps, n - 1 - i]);
+        });
+        void el.offsetWidth;
+        strips.forEach(function (x) {
+            x[0].style.transition = 'transform ' + (dur + x[2] * gap) + 'ms cubic-bezier(.2,.8,.2,1)';
+            x[0].style.transform = 'translateY(-' + x[1] + 'em)';
+        });
+        clearTimeout(el.__nrmSlotT);
+        el.__nrmSlotT = setTimeout(function () { el.textContent = text; }, dur + n * gap + 80);
+    }
     /* Плашка скользит под активной вкладкой */
     function pill(box, onChange) {
         var p = box.querySelector('.pill') || box.appendChild(Object.assign(doc.createElement('span'), { className: 'pill' }));
@@ -81,5 +109,5 @@
         doc.querySelectorAll(VAL).forEach(function (e) { prev.set(e, e.textContent); });
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', watchValues); else watchValues();
-    root.NrMotion = { shake: shake, count: count, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
+    root.NrMotion = { shake: shake, count: count, slot: slot, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);

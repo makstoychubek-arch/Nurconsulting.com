@@ -82,3 +82,7 @@
 .ui-btn-primary:hover::after{left:130%}
 @media (hover:none){.ui-btn-primary::after{display:none}}
 .nru-b.d.nrm-hold{position:relative;overflow:hidden}.nru-b.d.nrm-hold i{background:rgba(0,0,0,.3)}
+
+/* Слот-машина: барабан одной цифры (высота строки = 1em) */
+.nrm-reel{display:inline-block;height:1em;line-height:1;overflow:hidden;vertical-align:bottom;text-align:center}
+.nrm-strip{display:block;will-change:transform}.nrm-strip>span{display:block;height:1em;line-height:1}

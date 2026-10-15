@@ -6121,8 +6121,8 @@
         } catch (e) {}
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
-<link rel="stylesheet" href="/dist/nr-motion.18520a7271.css">
-<link rel="stylesheet" href="/dist/rnp-extra.9a5e3f0707.css">
+<link rel="stylesheet" href="/dist/nr-motion.8326c940bd.css">
+<link rel="stylesheet" href="/dist/rnp-extra.06ccd978ab.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
@@ -6436,7 +6436,8 @@
                     <div class="pnl-bar" id="pnl-serv-bar"></div>
                     <div class="pnl-rows" id="pnl-serv-rows"><div class="pnl-row"><span class="pnl-ghost-line" style="width:88px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:70px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:60px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:76px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div></div>
                 </div>
-                <div class="pnl-card">
+                <div class="pnl-card pnl-card--tax">
+                    <button type="button" id="pnl-ff-sw" class="pnl-ff-sw" role="switch" aria-checked="false" aria-label="Добавить расходы фулфилмента" title="Добавить расходы ФФ в налоги и затраты" hidden><i></i></button>
                     <div class="pnl-title">Налоги и затраты</div>
                     <div class="pnl-big"><span class="nr-skel" id="pnl-tax-total">—</span><em class="pnl-chip" id="pnl-tax-pct"></em></div>
                     <div class="pnl-bar" id="pnl-tax-bar"></div>
@@ -8496,8 +8497,8 @@
 <script src="/dist/ff-terms.67252d62a7.min.js"></script>
 <script src="/dist/nr-ff.6cd49e6e73.min.js"></script>
 <script src="/dist/nr-hints.3faa7d9f19.min.js"></script>
-<script src="/dist/nr-costs.6af7858065.min.js"></script>
-<script src="/dist/nr-motion.b0e5e1c7a5.min.js"></script>
+<script src="/dist/nr-costs.33a1fb1239.min.js"></script>
+<script src="/dist/nr-motion.d6babff32b.min.js"></script>
 <script src="/dist/nr-ui.bf10b47e8f.min.js"></script>
 <script src="/dist/nr-goods-ui.fc42544245.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
@@ -14291,7 +14292,7 @@
     }
 
     /** Финансовый результат «как у Raskpro»: Реализация → Услуги → Налоги и затраты → Операционная прибыль. */
-    function renderPnl(m) {
+    function renderPnl(m, opt) {
         const $ = (id) => document.getElementById(id);
         if (!$('dash-pnl')) return;
         const ids = ['pnl-real', 'pnl-sales', 'pnl-returns', 'pnl-serv', 'pnl-tax-total', 'pnl-profit', 'pnl-margin', 'pnl-roi'];
@@ -14301,8 +14302,11 @@
             ['pnl-serv-bar', 'pnl-tax-bar'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
             ['pnl-serv-rows', 'pnl-tax-rows', 'pnl-extra-rows'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
             if ($('pnl-real-bar')) $('pnl-real-bar').style.width = '0';
+            if ($('pnl-ff-sw')) $('pnl-ff-sw').hidden = true;
+            window.__pnlM = null;
             return;
         }
+        window.__pnlM = m;
         const n = (v) => Math.round(Number(v) || 0);
         const real = n(m.salesSum) - n(m.returnsSum);
         const pct = (v) => real > 0 ? Math.round(v / real * 100) + '%' : '';
@@ -14327,28 +14331,54 @@
         $('pnl-serv-bar').innerHTML = bar(serv, servTotal);
         $('pnl-serv-rows').innerHTML = serv.map(r => row(r[0], r[1], r[2])).join('');
 
+        const ffAmt = n(m.ffForPeriod), ffOn = !!m.ffIncluded && ffAmt > 0;
         const taxes = [
             ['Налог', n(m.taxSum), '#fb923c'],
             ['Себестоимость продаж', n(m.costOfSalesSum), '#f9a8a0'],
         ];
+        if (ffOn) taxes.push(['Расходы ФФ', ffAmt, '#38bdf8', true]);
         if (n(m.opexForPeriod) > 0) taxes.push(['Затраты', n(m.opexForPeriod), '#84cc16']);
-        const ffAmt = n(m.ffForPeriod), ffOn = !!m.ffIncluded;
-        if (ffOn && ffAmt > 0) taxes.push(['Фулфилмент (ФФ)', ffAmt, '#38bdf8']);
         const taxTotal = taxes.reduce((s, r) => s + r[1], 0);
-        $('pnl-tax-total').textContent = fmtN(taxTotal);
+        const anim = !!(opt && opt.animate) && !!window.NrMotion;
+        // Число меняется как на слот-машине (при переключении ФФ), при обычной загрузке — просто текст.
+        const setNum = (id, text) => { if (anim) NrMotion.slot($(id), text); else $(id).textContent = text; };
+        setNum('pnl-tax-total', fmtN(taxTotal));
         $('pnl-tax-pct').textContent = pct(taxTotal);
         $('pnl-tax-bar').innerHTML = bar(taxes, taxTotal);
-        $('pnl-tax-rows').innerHTML = taxes.map(r => row(r[0], r[1], r[2])).join('');
+        const taxRows = $('pnl-tax-rows');
+        const paintTax = () => {
+            taxRows.innerHTML = taxes.map(r => r[3] ? row(r[0], r[1], r[2]).replace('<div class="pnl-row">', '<div class="pnl-row' + (anim ? ' pnl-row--new' : '') + '" data-ff-row="1">') : row(r[0], r[1], r[2])).join('');
+        };
+        const oldFf = taxRows.querySelector('[data-ff-row]');
+        if (anim && !ffOn && oldFf) { oldFf.classList.add('pnl-row--out'); setTimeout(paintTax, 280); } else paintTax();
 
-        // Расходы ФФ с галочкой «учитывать» — в стиле строк «Маржинальность / Рентабельность».
-        if ($('pnl-extra-rows')) $('pnl-extra-rows').innerHTML =
-            `<div class="pnl-row"><span class="pnl-lbl" style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="pnl-ff-on" ${ffOn ? 'checked' : ''} ${ffAmt > 0 ? '' : 'disabled'} title="Учитывать ФФ в прибыли" style="width:15px;height:15px;margin:0;accent-color:var(--accent)" onchange="window.NrCosts&&NrCosts.toggleFf(this.checked)"><span title="Выплатить фулфилменту за период (блок «Фулфилмент» ниже)">Расходы ФФ</span></span><em class="pnl-chip">${fmtN(ffAmt)}</em></div>`;
+        // Тумблер «добавить расходы ФФ» стоит в углу карточки «Налоги и затраты»; нет расходов ФФ — тумблера нет.
+        const sw = $('pnl-ff-sw');
+        if (sw) { sw.hidden = !(ffAmt > 0); sw.setAttribute('aria-checked', ffOn ? 'true' : 'false'); }
+        if ($('pnl-extra-rows')) $('pnl-extra-rows').innerHTML = '';
         const profit = n(m.profitFull);
-        $('pnl-profit').textContent = fmtN(profit);
+        setNum('pnl-profit', fmtN(profit));
         $('pnl-profit').classList.toggle('is-neg', profit < 0);
-        $('pnl-margin').textContent = real > 0 ? Math.round(profit / real * 100) + '%' : '—';
-        $('pnl-roi').textContent = m.costOfSalesSum > 0 ? Math.round(profit / m.costOfSalesSum * 100) + '%' : '—';
+        setNum('pnl-margin', real > 0 ? Math.round(profit / real * 100) + '%' : '—');
+        setNum('pnl-roi', m.costOfSalesSum > 0 ? Math.round(profit / m.costOfSalesSum * 100) + '%' : '—');
     }
+
+    /** Тумблер ФФ: без перезагрузки страницы пересчитываем карточки и крутим цифры. */
+    window.__pnlToggleFf = function (on) {
+        const m = window.__pnlM;
+        if (!m) return false;
+        const ffAmt = Math.round(Number(m.ffForPeriod) || 0);
+        const wasOn = !!m.ffIncluded && ffAmt > 0;
+        const base = Math.round(Number(m.profitFull) || 0) + (wasOn ? ffAmt : 0);
+        renderPnl(Object.assign({}, m, { ffIncluded: !!on, profitFull: base - (on && ffAmt > 0 ? ffAmt : 0) }), { animate: true });
+        return true;
+    };
+    document.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('#pnl-ff-sw');
+        if (!b) return;
+        const on = b.getAttribute('aria-checked') !== 'true';
+        if (window.NrCosts) NrCosts.toggleFf(on);
+    });
 
     let _pnlChart = null;
 
