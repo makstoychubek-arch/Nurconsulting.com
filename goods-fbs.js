@@ -20,7 +20,7 @@
     function T() { return root.FfTerms; }
     function today() { return new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10); }
 
-    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], host: null, rnpShip: true, rnpStorage: true, rub: 1, sel: '' };
+    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], rawTerms: [], canon: {}, rawNames: [], host: null, rnpShip: true, rnpStorage: true, rub: 1, sel: '' };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -37,7 +37,17 @@
 
     async function loadTerms() {
         var r = await state.supabase.from('ff_terms').select('id,ff_name,kind,value,daily_cap,fx_rate,storage_mode,date_from,date_to').eq('cabinet_id', state.cabinetId).order('date_from', { ascending: true }).range(0, 999);
-        state.terms = r.error ? [] : (r.data || []);
+        state.rawTerms = r.error ? [] : (r.data || []);
+        // Объединённые ФФ (ff_groups) считаются под общим именем; одинаковые строки тарифов схлопываем
+        state.terms = T().dedupe(state.rawTerms.map(function (t) { return Object.assign({}, t, { ff_name: cn(t.ff_name) }); }));
+    }
+    function cn(name) { return name ? (state.canon[name] || name) : name; }
+    async function loadGroups() {
+        state.canon = {};
+        try {
+            var r = await state.supabase.from('ff_groups').select('ff_name,group_name').eq('cabinet_id', state.cabinetId).range(0, 199);
+            (r.data || []).forEach(function (g) { if (g.ff_name && g.group_name) state.canon[g.ff_name] = g.group_name; });
+        } catch (e) { state.canon = {}; }
     }
 
     async function load() {
@@ -46,9 +56,12 @@
             fetchAll('wb_stocks', cab, 'nm_id, quantity, stock_scheme, warehouse_name', function (q) { return q.eq('stock_scheme', 'fbs'); }),
             fetchAll('rnp_articles', cab, 'nm_id, name, manual_data, photo_url'),
         ]);
-        var qty = {}, whs = {}, perFf = {};
+        await loadGroups();
+        var qty = {}, whs = {}, perFf = {}, raw = {};
         res[0].forEach(function (s) {
             var id = Number(s.nm_id), q = Number(s.quantity || 0);
+            if (q > 0 && s.warehouse_name) raw[s.warehouse_name] = true;
+            s = Object.assign({}, s, { warehouse_name: cn(s.warehouse_name) });
             if (!id) return;
             qty[id] = (qty[id] || 0) + q;
             if (q > 0 && s.warehouse_name) {
@@ -57,6 +70,7 @@
                 f.qty += q; f.arts[id] = true;
             }
         });
+        state.rawNames = Object.keys(raw).sort();
         var arts = {};
         res[1].forEach(function (a) { arts[Number(a.nm_id)] = a; });
         try { await loadTerms(); } catch (e) { state.terms = []; }
@@ -131,7 +145,37 @@
         var opts = state.ffs.map(function (f) { return '<option value="' + esc(f.name) + '"' + (f.name === state.sel ? ' selected' : '') + '>' + esc(f.name) + '</option>'; }).join('');
         return '<div class="rnp-settings-dialog fbs-modal nr-win" role="dialog" aria-modal="true"><button type="button" class="rnp-settings-close" data-fbs-x aria-label="Закрыть">×</button>' +
             '<h3 class="fbs-mt">Тарифы ФФ</h3><div class="fbs-mf"><select id="fbs-ff-m" class="fbs-sel" title="ФФ (склад)">' + opts + '</select></div>' +
-            (ff ? termBlock(ff, 'ship', idx) + termBlock(ff, 'storage', idx) + termBlock(ff, 'box', idx) : '<div class="fbf-none">Нет ФФ</div>') + '</div>';
+            (ff ? termBlock(ff, 'ship', idx) + termBlock(ff, 'storage', idx) + termBlock(ff, 'box', idx) + mergeHtml(ff) : '<div class="fbf-none">Нет ФФ</div>') + '</div>';
+    }
+    // «Объединить ФФ»: отметьте склады, которые на самом деле один ФФ (АМАН ФФ, АМАН ФФ 2…5): они считаются вместе.
+    function mergeHtml(ff) {
+        var heads = {}; Object.keys(state.canon).forEach(function (m) { heads[state.canon[m]] = true; });
+        var cands = state.rawNames.filter(function (n) { return n !== ff.name && (state.canon[n] === ff.name || (state.canon[n] == null && !heads[n])); });
+        if (!cands.length) return '';
+        return '<div class="fbs-merge"><b>Объединить ФФ</b><small>Отметьте склады, которые на самом деле один и тот же ФФ: отправки, хранение, штрафы и депозит считаются вместе под именем «' + esc(ff.name) + '».</small><div class="fbs-mg">' +
+            cands.map(function (n) { return '<label class="fbs-mc"><input type="checkbox" data-merge="' + esc(n) + '"' + (state.canon[n] === ff.name ? ' checked' : '') + '>' + esc(n) + '</label>'; }).join('') + '</div></div>';
+    }
+    async function mergeFf(member, group, on) {
+        var sb = state.supabase, cab = state.cabinetId;
+        try {
+            if (on) {
+                var a = await sb.from('ff_groups').upsert({ cabinet_id: cab, ff_name: member, group_name: group }, { onConflict: 'cabinet_id,ff_name' });
+                if (a.error) throw a.error;
+                // тарифы участника: если у группы такой вид уже есть — убираем дубль, иначе переносим группе
+                var raw = state.rawTerms, has = {};
+                raw.filter(function (t) { return cn(t.ff_name) === group && t.ff_name === group; }).forEach(function (t) { has[t.kind] = true; });
+                var kinds = {}; raw.filter(function (t) { return t.ff_name === member; }).forEach(function (t) { kinds[t.kind] = true; });
+                for (var k in kinds) {
+                    var q = has[k] ? sb.from('ff_terms').delete().eq('cabinet_id', cab).eq('ff_name', member).eq('kind', k)
+                                   : sb.from('ff_terms').update({ ff_name: group }).eq('cabinet_id', cab).eq('ff_name', member).eq('kind', k);
+                    var rr = await q; if (rr.error) throw rr.error;
+                }
+            } else {
+                var d = await sb.from('ff_groups').delete().eq('cabinet_id', cab).eq('ff_name', member);
+                if (d.error) throw d.error;
+            }
+            await load(); render();
+        } catch (e) { say('Не удалось объединить: ' + String((e && e.message) || e)); }
     }
     function renderModal() {
         var ov = document.getElementById('fbs-tariff-ov');
@@ -141,6 +185,7 @@
         if (sel) sel.addEventListener('change', function () { state.sel = sel.value; try { localStorage.setItem('nr_fbs_ff_' + state.cabinetId, state.sel); } catch (e) {} render(); });
         ov.querySelectorAll('[data-fbs-x]').forEach(function (b) { b.addEventListener('click', closeSettings); });
         bindTerms(ov);
+        ov.querySelectorAll('[data-merge]').forEach(function (c) { c.addEventListener('change', function () { mergeFf(c.getAttribute('data-merge'), state.sel, c.checked); }); });
     }
     function openSettings() {
         if (!state.ffs.length) return;

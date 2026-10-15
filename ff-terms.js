@@ -84,7 +84,16 @@
         Object.keys(rates).forEach(function (k) { if (k <= d && (best === null || k > best)) best = k; });
         return best ? Number(rates[best]) : 1;
     }
-    var api = { fxFor: fxFor, ordersIndex: ordersIndex, distFor: distFor, addDays: addDays, fmtD: fmtD, index: index, at: at, plan: plan, gaps: gaps, shipFor: shipFor };
+    // Тарифы объединённых ФФ могут повторяться: одинаковые строки (вид, значение, даты) оставляем одной.
+    function dedupe(terms) {
+        var seen = {}, out = [];
+        (terms || []).forEach(function (t) {
+            var k = [t.ff_name, t.kind, t.value, t.daily_cap, t.fx_rate, t.storage_mode, t.date_from, t.date_to].join('|');
+            if (!seen[k]) { seen[k] = 1; out.push(t); }
+        });
+        return out;
+    }
+    var api = { dedupe: dedupe, fxFor: fxFor, ordersIndex: ordersIndex, distFor: distFor, addDays: addDays, fmtD: fmtD, index: index, at: at, plan: plan, gaps: gaps, shipFor: shipFor };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.FfTerms = api;
 })(typeof window !== 'undefined' ? window : globalThis);

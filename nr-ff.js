@@ -112,7 +112,7 @@
             db.rpc('dashboard_ff_penalties', { p_cabinet_id: cab, p_from: from, p_to: end }).then(function (r) { return r.error ? [] : (r.data || []); }, function () { return []; }),
         ]);
         if (res[0].error) throw res[0].error;
-        var oidx = T.ordersIndex(res[3]), adj = (res[1].data || []).slice();
+        var oidx = T.ordersIndex(res[3]), adj = (res[1].data || []).map(function (a) { return Object.assign({}, a, { ff_name: cn(a.ff_name) }); });
         (res[5] || []).forEach(function (p) {
             var amt = Number(p.amount) || 0, nm = Number(p.nm_id);
             var sh = T.distFor(oidx, nm, String(p.d || '').slice(0, 10)) || shares[nm];
@@ -129,7 +129,7 @@
         try {
             var r = await db.from('ff_deposits').select('ff_name,amount,as_of,note').eq('cabinet_id', cab).order('as_of', { ascending: false }).range(0, 99);
             var seen = {};   // по каждому ФФ берём последний замер
-            var list = ((r.data || [])).filter(function (d) { if (seen[d.ff_name]) return false; seen[d.ff_name] = 1; return true; });
+            var list = ((r.data || [])).map(function (d) { return Object.assign({}, d, { ff_name: cn(d.ff_name) }); }).filter(function (d) { if (seen[d.ff_name]) return false; seen[d.ff_name] = 1; return true; });
             for (var i = 0; i < list.length; i++) {
                 var d = list[i], c = await depositCalc(db, cab, d, shares, snapshot);
                 S.deposits.push({ ff: d.ff_name, amount: Number(d.amount) || 0, as_of: d.as_of, used: c.used, left: c.left, ship: c.ship || 0, storage: c.storage || 0, pen: c.pen || 0 });
@@ -151,22 +151,32 @@
         try {
             var r = await db.from('goods_shipments').select('batch,ff_name,boxes,sent_date').eq('cabinet_id', cab).gte('sent_date', from).lte('sent_date', to).gt('boxes', 0).range(0, 4999);
             (r.data || []).forEach(function (x) {
-                var k = (x.batch || '') + '|' + (x.ff_name || '');
+                var k = (x.batch || '') + '|' + (cn(x.ff_name) || '');
                 var cur = by[k];
-                if (!cur) by[k] = { ff: x.ff_name || 'none', boxes: Number(x.boxes) || 0, d: x.sent_date, batch: x.batch || '' };
+                if (!cur) by[k] = { ff: cn(x.ff_name) || 'none', boxes: Number(x.boxes) || 0, d: x.sent_date, batch: x.batch || '' };
                 else { cur.boxes = Math.max(cur.boxes, Number(x.boxes) || 0); if (x.sent_date < cur.d) cur.d = x.sent_date; }
             });
         } catch (e) { /* нет колонок — без поставок */ }
         return Object.keys(by).map(function (k) { return by[k]; });
     }
     function T0() { return root.FfTerms; }
+    // Объединённые ФФ (ff_groups): склад → общее имя ФФ. Всё считается под общим именем.
+    var CANON = {};
+    function cn(name) { return name ? (CANON[name] || name) : name; }
+    async function loadGroups(db, cab) {
+        CANON = {};
+        try {
+            var r = await db.from('ff_groups').select('ff_name,group_name').eq('cabinet_id', cab).range(0, 199);
+            (r.data || []).forEach(function (g) { if (g.ff_name && g.group_name) CANON[g.ff_name] = g.group_name; });
+        } catch (e) { CANON = {}; }
+    }
     async function fbsOrders(db, cab, from, to) {
         var out = [];
         try {
             for (var f = 0; ; f += 1000) {
                 var r = await db.from('fbs_orders').select('nm_id,order_date,ff_name').eq('cabinet_id', cab).gte('order_date', from).lte('order_date', to).range(f, f + 999);
                 if (r.error) break;
-                out = out.concat(r.data || []);
+                out = out.concat((r.data || []).map(function (x) { return Object.assign({}, x, { ff_name: cn(x.ff_name) }); }));
                 if (!r.data || r.data.length < 1000) break;
             }
         } catch (e) { /* таблицы нет — работаем по остаткам */ }
@@ -281,7 +291,7 @@
         for (var from = 0; ; from += 1000) {
             var r = await db.from('wb_stocks').select('nm_id,quantity,warehouse_name').eq('cabinet_id', cab).eq('stock_scheme', 'fbs').range(from, from + 999);
             if (r.error) throw r.error;
-            out = out.concat(r.data || []);
+            out = out.concat((r.data || []).map(function (x) { return Object.assign({}, x, { warehouse_name: cn(x.warehouse_name) }); }));
             if (!r.data || r.data.length < 1000) break;
         }
         return out;
@@ -290,7 +300,7 @@
     // Тарифы ФФ (ff_terms) и остатки FBS по дням (goods_daily_stocks) — остатки только если у кого-то есть хранение в периоде.
     async function termsData(db, cab, from, end) {
         var tr = await db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,storage_mode,date_from,date_to').eq('cabinet_id', cab).order('date_from', { ascending: true }).range(0, 999);
-        var terms = tr.error ? [] : (tr.data || []);
+        var terms = tr.error ? [] : T0().dedupe((tr.data || []).map(function (t) { return Object.assign({}, t, { ff_name: cn(t.ff_name) }); }));
         var needDaily = terms.some(function (t) { return t.kind === 'storage' && t.date_from <= end && (!t.date_to || t.date_to >= from); });
         var daily = {};
         if (needDaily) for (var f = 0; ; f += 1000) {
@@ -307,6 +317,7 @@
         S.readonly = !!document.getElementById('nr-viewer-banner');
         try { var saved = localStorage.getItem(selKey()); if (saved && S.sel === 'all') S.sel = saved; } catch (e) {}
         var end = to > today() ? today() : to;
+        await loadGroups(db, cab);
         var res = await Promise.all([
             end >= from ? db.rpc('rnp_fbs_split', { p_cabinet: cab, p_from: from, p_to: end }) : Promise.resolve({ data: [] }),
             db.from('ff_adjustments').select('*').eq('cabinet_id', cab).gte('adj_date', from).lte('adj_date', to).order('adj_date', { ascending: false }).range(0, 999),
@@ -319,7 +330,7 @@
         ]);
         if (res[0].error) throw res[0].error;
         S.orders = res[0].data || [];
-        S.items = res[1].data || [];
+        S.items = (res[1].data || []).map(function (a) { return Object.assign({}, a, { ff_name: cn(a.ff_name) }); });
         // ФФ = склады FBS; доля товара на каждом — по остатку
         var per = {}, wh = {}, snapshot = {};
         res[2].forEach(function (r) {

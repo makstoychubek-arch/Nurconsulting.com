@@ -50,3 +50,8 @@ assert.strictEqual(pf.insert.storage_mode, 'fixed'); assert.strictEqual(pf.inser
 assert.strictEqual(pf.add[0].storage_mode, 'fixed');
 assert.strictEqual(T.plan([], 'W', 'storage', 0.4, 6000, '2026-10-01', null, null).insert.storage_mode, 'unit');
 console.log('ff-terms storage_mode: ok');
+
+// объединённые ФФ: одинаковые строки тарифов схлопываются, разные остаются
+const dd = T.dedupe([{ ff_name: 'A', kind: 'ship', value: 50, date_from: '2026-10-10', date_to: null }, { ff_name: 'A', kind: 'ship', value: 50, date_from: '2026-10-10', date_to: null }, { ff_name: 'A', kind: 'ship', value: 60, date_from: '2026-10-10', date_to: null }]);
+assert.strictEqual(dd.length, 2);
+console.log('ff-terms dedupe: ok');
