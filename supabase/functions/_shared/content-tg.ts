@@ -12,9 +12,10 @@ export type TgChannelMessage = {
     animation?: unknown;
     video_note?: unknown;
     document?: { mime_type?: string };
-    chat: { id: number; title?: string; username?: string };
+    chat: { id: number; title?: string; username?: string; type?: string };
+    from?: { id: number; is_bot?: boolean };
 };
-export type TgUpdate = { update_id?: number; channel_post?: TgChannelMessage; edited_channel_post?: TgChannelMessage };
+export type TgUpdate = { update_id?: number; channel_post?: TgChannelMessage; edited_channel_post?: TgChannelMessage; message?: TgChannelMessage };
 
 export type ParsedPost = {
     chatId: number;
@@ -24,6 +25,10 @@ export type ParsedPost = {
     text: string;
     kind: 'photo' | 'video' | 'text' | 'other';
     fileId: string | null;
+    /** Группа или супергруппа: берём только посты администраторов (fromId проверяется отдельно). */
+    isGroup: boolean;
+    fromId: number | null;
+    fromIsBot: boolean;
 };
 
 export type TgSourceRule = {
@@ -42,8 +47,11 @@ export const IG_CAPTION_MAX = 2200;
 const BISHKEK_OFFSET_MIN = 6 * 60;
 
 export function parseChannelPost(update: TgUpdate): ParsedPost | null {
-    const m = update.channel_post;
+    const m = update.channel_post || update.message;
     if (!m || !m.chat || typeof m.chat.id !== 'number') return null;
+    const ctype = String(m.chat.type || (update.channel_post ? 'channel' : ''));
+    if (update.message && ctype !== 'group' && ctype !== 'supergroup') return null; // личные чаты не читаем
+    const isGroup = ctype === 'group' || ctype === 'supergroup';
     const photo = Array.isArray(m.photo) && m.photo.length
         ? m.photo.slice().sort((a, b) => (b.file_size || (b.width || 0) * (b.height || 0)) - (a.file_size || (a.width || 0) * (a.height || 0)))[0]
         : null;
@@ -57,6 +65,9 @@ export function parseChannelPost(update: TgUpdate): ParsedPost | null {
         text: String(m.caption || m.text || ''),
         kind,
         fileId: photo ? photo.file_id : null,
+        isGroup,
+        fromId: m.from && typeof m.from.id === 'number' ? m.from.id : null,
+        fromIsBot: !!(m.from && m.from.is_bot),
     };
 }
 

@@ -11,6 +11,11 @@ assert.equal(parseChannelPost({ channel_post: { message_id: 1, chat: { id: 1 }, 
 assert.equal(parseChannelPost({ channel_post: { message_id: 1, chat: { id: 1 }, document: { mime_type: 'video/mp4' } } })?.kind, 'video');
 assert.equal(parseChannelPost({ channel_post: { message_id: 1, chat: { id: 1 }, media_group_id: '55', photo: [{ file_id: 'a' }] } })?.groupId, '55');
 assert.equal(parseChannelPost({}), null);
+// группа: сообщение администратора с фото разбирается, личный чат игнорируется
+const g = parseChannelPost({ message: { message_id: 5, chat: { id: -100777, type: 'supergroup' }, from: { id: 42 }, photo: [{ file_id: 'a' }] } });
+assert.equal(g?.isGroup, true); assert.equal(g?.fromId, 42); assert.equal(g?.kind, 'photo');
+assert.equal(parseChannelPost({ message: { message_id: 5, chat: { id: 7, type: 'private' }, text: 'hi' } }), null);
+assert.equal(parseChannelPost({ channel_post: { message_id: 1, chat: { id: 1 }, text: 'x' } })?.isGroup, false);
 
 // подпись
 assert.equal(cleanCaption('Куртка\nПодробнее: https://t.me/zevina/55\nЦена 3490', rule), 'Куртка\nПодробнее:\nЦена 3490\n\n#zevina');
