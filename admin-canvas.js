@@ -216,7 +216,7 @@
         edges.forEach(function (e) { var g = edgeEl(e); edgeEls.set(e.id, g); edgeLayer.appendChild(g); });
         nodes.forEach(function (n) { var el = nodeEl(n); nodeEls.set(n.id, el); nodeLayer.appendChild(el); });
         drawDistricts();
-        drawMini();
+        drawMini(true);
         if (!restoreView()) fitAll();
         applyTransform();
         applySelection();
@@ -238,14 +238,26 @@
     }
 
     /* ---------- камера ---------- */
-    function applyTransform() {
-        world.style.transform = 'translate(' + view.x + 'px,' + view.y + 'px) scale(' + view.k + ')';
-        root.style.setProperty('--k', view.k);
+    var tfRaf = 0, tfSettle = 0;
+    function flushTransform() {
+        tfRaf = 0;
+        world.style.transform = 'translate3d(' + view.x + 'px,' + view.y + 'px,0) scale(' + view.k + ')';
         root.classList.toggle('lod-far', view.k < 0.22);
         root.classList.toggle('lod-mid', view.k >= 0.22 && view.k < 0.5);
         root.querySelector('.nrc-zoom-val').textContent = Math.round(view.k * 100) + '%';
         drawMini();
+    }
+    function settleTransform() {
+        tfSettle = 0;
+        root.style.setProperty('--k', view.k);
+        root.classList.remove('moving');
         try { localStorage.setItem(STORE, JSON.stringify(view)); } catch (e) { /* без хранилища тоже работает */ }
+    }
+    /* Камера: DOM пишем не чаще кадра, тяжёлое (толщина рамок, сохранение) — когда движение стихло. */
+    function applyTransform() {
+        root.classList.add('moving');
+        if (!tfRaf) tfRaf = requestAnimationFrame(flushTransform);
+        clearTimeout(tfSettle); tfSettle = setTimeout(settleTransform, 160);
     }
     function restoreView() {
         try {
@@ -288,23 +300,30 @@
     function toWorld(cx, cy) { var r = root.getBoundingClientRect(); return { x: (cx - r.left - view.x) / view.k, y: (cy - r.top - view.y) / view.k }; }
 
     /* ---------- мини-карта ---------- */
-    function drawMini() {
+    var miniBase = null;
+    function drawMini(dirty) {
         if (!miniCtx || !nodes.length) return;
-        var w = mini.width, hh = mini.height, b = bounds(nodes.filter(function (n) { return !n.hidden; }));
-        var sc = Math.min(w / (b.x2 - b.x1), hh / (b.y2 - b.y1)), ox = (w - (b.x2 - b.x1) * sc) / 2, oy = (hh - (b.y2 - b.y1) * sc) / 2;
-        mini._t = { sc: sc, ox: ox - b.x1 * sc, oy: oy - b.y1 * sc };
+        var w = mini.width, hh = mini.height;
+        if (dirty || !miniBase) {
+            var b = bounds(nodes.filter(function (n) { return !n.hidden; }));
+            var sc0 = Math.min(w / (b.x2 - b.x1), hh / (b.y2 - b.y1)), ox0 = (w - (b.x2 - b.x1) * sc0) / 2, oy0 = (hh - (b.y2 - b.y1) * sc0) / 2;
+            mini._t = { sc: sc0, ox: ox0 - b.x1 * sc0, oy: oy0 - b.y1 * sc0 };
+            miniBase = document.createElement('canvas'); miniBase.width = w; miniBase.height = hh;
+            var bc = miniBase.getContext('2d');
+            nodes.forEach(function (n) {
+                if (n.hidden) return;
+                var s = size(n);
+                bc.fillStyle = n.status === 'bad' ? '#ef4444' : n.status === 'unused' ? '#9ca3af' : n.status === 'warn' ? '#f59e0b' : (KIND_COLOR[n.kind] || '#888');
+                bc.globalAlpha = n.status === 'unused' ? 0.6 : 0.85;
+                bc.fillRect(n.x * sc0 + mini._t.ox, n.y * sc0 + mini._t.oy, Math.max(2, s[0] * sc0), Math.max(1.5, s[1] * sc0));
+            });
+        }
+        var t = mini._t, sc = t.sc;
         miniCtx.clearRect(0, 0, w, hh);
-        nodes.forEach(function (n) {
-            if (n.hidden) return;
-            var s = size(n);
-            miniCtx.fillStyle = n.status === 'bad' ? '#ef4444' : n.status === 'unused' ? '#9ca3af' : n.status === 'warn' ? '#f59e0b' : (KIND_COLOR[n.kind] || '#888');
-            miniCtx.globalAlpha = n.status === 'unused' ? 0.6 : 0.85;
-            miniCtx.fillRect(n.x * sc + mini._t.ox, n.y * sc + mini._t.oy, Math.max(2, s[0] * sc), Math.max(1.5, s[1] * sc));
-        });
-        miniCtx.globalAlpha = 1;
+        miniCtx.drawImage(miniBase, 0, 0);
         miniCtx.strokeStyle = '#f97316'; miniCtx.lineWidth = 1.5;
         var vx = -view.x / view.k, vy = -view.y / view.k;
-        miniCtx.strokeRect(vx * sc + mini._t.ox, vy * sc + mini._t.oy, root.clientWidth / view.k * sc, root.clientHeight / view.k * sc);
+        miniCtx.strokeRect(vx * sc + t.ox, vy * sc + t.oy, root.clientWidth / view.k * sc, root.clientHeight / view.k * sc);
     }
 
     /* ---------- выбор и фокус ---------- */
@@ -549,7 +568,7 @@
 
         var foot = h('div', { class: 'nrc-panel-foot' });
         foot.appendChild(h('button', { class: 'nrc-linkbtn', text: n.hidden ? 'Вернуть на карту' : 'Скрыть с карты', onclick: function () {
-            saveNode(n, { hidden: !n.hidden }).then(function () { patchNodeEl(n); drawDistricts(); drawMini(); select(null); updateChips(); });
+            saveNode(n, { hidden: !n.hidden }).then(function () { patchNodeEl(n); drawDistricts(); drawMini(true); select(null); updateChips(); });
         } }));
         if (!n.auto) foot.appendChild(h('button', { class: 'nrc-linkbtn danger', text: 'Удалить заметку', onclick: function () { deleteNote(n); } }));
         panel.appendChild(foot);
@@ -660,7 +679,7 @@
             }
             if (drag) {
                 drag.el.classList.remove('dragging');
-                if (moved) { savePosition(drag.n); drawDistricts(); drawMini(); }
+                if (moved) { savePosition(drag.n); drawDistricts(); drawMini(true); }
                 else select({ type: 'node', id: drag.n.id });
                 drag = null; return;
             }
@@ -696,7 +715,10 @@
         '.nrc-root.open{display:block;animation:nrc-in .28s ease}',
         '@keyframes nrc-in{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:none}}',
         '.nrc-root::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,var(--nrc-line) 1px,transparent 1.4px);background-size:28px 28px;opacity:.7;pointer-events:none}',
-        '.nrc-world{position:absolute;left:0;top:0;transform-origin:0 0}',
+        '.nrc-world{position:absolute;left:0;top:0;transform-origin:0 0;backface-visibility:hidden}',
+        '.nrc-root.moving .nrc-world{will-change:transform}',
+        '.nrc-root.moving .nrc-node{transition:none!important;pointer-events:none}',
+        '.nrc-root.moving .nrc-node:hover{box-shadow:0 1px 2px rgba(0,0,0,.05)}',
         '.nrc-world.glide{transition:transform .4s cubic-bezier(.2,.8,.2,1)}',
         '.nrc-svg{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}',
         '.nrc-edge .line{fill:none;stroke:var(--ec);stroke-width:1.4px;vector-effect:non-scaling-stroke;opacity:.38;transition:opacity .15s}',
