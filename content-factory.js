@@ -463,6 +463,7 @@
         tg: { loaded: false, bot: null, source: null, canSetupBot: false },
         tgForm: null,
         qFilter: 'all',
+        busy: {},
         accounts: [],
         igMap: {},
         accQuery: '',
@@ -967,6 +968,35 @@
         });
     }
 
+    async function approvePost(p) {
+        const slides = Array.isArray(p.slide_urls) ? p.slide_urls.filter(Boolean) : [];
+        if (!slides.length && !p.file_url) throw new Error('Нет слайдов — подтверждать нечего');
+        const nowIso = new Date().toISOString();
+        const at = p.publish_at ? new Date(p.publish_at).getTime() : 0;
+        const goNow = !at || at <= Date.now();
+        if (p.platform === 'instagram' && goNow) {
+            const { error } = await scoped(sb.from(tbl()).update({
+                approved_at: nowIso,
+                status: 'review',
+                error_text: null,
+                updated_at: nowIso,
+            }).eq('id', p.id));
+            if (error) throw error;
+            toast('info', 'Публикуем в Instagram', 'Это занимает до полминуты, повторно нажимать не нужно');
+            await callFn('content-ig-publish', { post_id: p.id, dry_run: false, own: state.own }, FN_LONG_MS);
+        } else {
+            const { error } = await scoped(sb.from(tbl()).update({
+                approved_at: nowIso,
+                status: 'scheduled',
+                updated_at: nowIso,
+            }).eq('id', p.id));
+            if (error) throw error;
+        }
+        await reload();
+        toast('success', 'Подтверждено', goNow && p.platform === 'instagram' ? 'В Instagram' : 'В слот по дате');
+        return;
+    }
+
     async function handle(act, id, el) {
         if (act === 'view') {
             state.view = id;
@@ -1172,30 +1202,10 @@
         if (act === 'approve-post') {
             const p = state.posts.find((x) => x.id === id);
             if (!p) return;
-            const slides = Array.isArray(p.slide_urls) ? p.slide_urls.filter(Boolean) : [];
-            if (!slides.length && !p.file_url) throw new Error('Нет слайдов — подтверждать нечего');
-            const nowIso = new Date().toISOString();
-            const at = p.publish_at ? new Date(p.publish_at).getTime() : 0;
-            const goNow = !at || at <= Date.now();
-            if (p.platform === 'instagram' && goNow) {
-                const { error } = await scoped(sb.from(tbl()).update({
-                    approved_at: nowIso,
-                    status: 'review',
-                    error_text: null,
-                    updated_at: nowIso,
-                }).eq('id', p.id));
-                if (error) throw error;
-                await callFn('content-ig-publish', { post_id: p.id, dry_run: false, own: state.own }, FN_LONG_MS);
-            } else {
-                const { error } = await scoped(sb.from(tbl()).update({
-                    approved_at: nowIso,
-                    status: 'scheduled',
-                    updated_at: nowIso,
-                }).eq('id', p.id));
-                if (error) throw error;
-            }
-            await reload();
-            toast('success', 'Подтверждено', goNow && p.platform === 'instagram' ? 'В Instagram' : 'В слот по дате');
+            if (state.busy[id]) return; // уже идёт: повторные нажатия не публикуют второй раз
+            state.busy[id] = true;
+            paint();
+            try { await approvePost(p); } finally { delete state.busy[id]; paint(); }
             return;
         }
         if (act === 'reject-post') {
@@ -1740,7 +1750,7 @@
         const reviewCard = (p) => {
             const media = hasMedia(p);
             const dateIn = media ? `<input type="datetime-local" class="cf-qdate" value="${escapeHtml(localInput(p.publish_at))}" data-cf-change="q-date" data-pid="${p.id}">` : '';
-            return kanCard(p, `${dateIn}<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${media ? '' : ' disabled'}>Подтвердить</button><button type="button" class="cf-link" data-cf="reject-post" data-id="${p.id}">В черновик</button></div>`);
+            return kanCard(p, `${dateIn}<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${media && !state.busy[p.id] ? '' : ' disabled'}>${state.busy[p.id] ? 'Публикуем…' : 'Подтвердить'}</button><button type="button" class="cf-link" data-cf="reject-post" data-id="${p.id}">В черновик</button></div>`);
         };
         const draftCard = (p) => {
             if (p.source === 'telegram' && /Видео/.test(p.tg_note || '')) {
@@ -1753,7 +1763,7 @@
             ${col('На подтверждении', g.review, reviewCard)}
             ${col('Запланировано', g.scheduled, (p) => kanCard(p))}
             ${col('Опубликовано и ошибки', errs.concat(done), (p) => p.status === 'error'
-                ? kanCard(p, `<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-secondary" data-cf="approve-post" data-id="${p.id}">Повторить</button></div>`)
+                ? kanCard(p, `<div class="cf-kc-a"><button type="button" class="ui-btn ui-btn-secondary" data-cf="approve-post" data-id="${p.id}"${state.busy[p.id] ? ' disabled' : ''}>${state.busy[p.id] ? 'Публикуем…' : 'Повторить'}</button></div>`)
                 : kanCard(Object.assign({}, p, { error_text: '' }), `<small><i class="cf-dot"></i>${num(p.views).toLocaleString('ru-RU')} просмотров</small>`))}
         </div>`;
     }
