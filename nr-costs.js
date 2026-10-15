@@ -39,6 +39,8 @@
     function toggleFf(on) {
         const c = cab();
         if (c) set('ff_on_' + c, on ? '1' : '0');
+        // Тумблер на карточке «Налоги и затраты»: пересчёт на месте с анимацией, без перезагрузки данных.
+        try { if (window.__pnlToggleFf && window.__pnlToggleFf(!!on)) return; } catch (err) {}
         try { if (typeof loadFromDB === 'function') loadFromDB(); } catch (err) {}
     }
     window.NrCosts = { open: open, toggleFf: toggleFf };
