@@ -1,7 +1,7 @@
 const assert = require('assert');
 const R = require('./fbs-rates.js'); // addDays и пр. не нужны, но модуль глобальный в браузере
 const T = require('./ff-terms.js');
-const { compute } = require('./nr-ff.js');
+const { compute, depositLeft } = require('./nr-ff.js');
 const terms = [
     { ff_name: 'A', kind: 'ship', value: 50, date_from: '2026-09-15', date_to: '2026-10-09' },
     { ff_name: 'A', kind: 'ship', value: 70, date_from: '2026-10-10', date_to: null },
@@ -58,3 +58,10 @@ const a = W.calculateMetrics([row], { ffPeriod: 0 }), b = W.calculateMetrics([ro
 assert.strictEqual(a.profitFull - b.profitFull, 300);
 assert.strictEqual(c.profitFull, a.profitFull);
 console.log('nr-ff_test: ok');
+
+// Депозит ФФ: 17 100 минус отправки, хранение, штрафы после даты замера
+const dl = depositLeft(17100, { shipRub: 2500, storageRub: 900, boxRub: 0, swap: 400, cancel: 100 });
+assert.strictEqual(dl.used, 3900); assert.strictEqual(dl.left, 13200);
+assert.strictEqual(depositLeft(1000, { shipRub: 1500 }).left, -500, 'депозит может уйти в минус');
+assert.strictEqual(depositLeft(500, null).left, 500);
+console.log('nr-ff deposit: ok');
