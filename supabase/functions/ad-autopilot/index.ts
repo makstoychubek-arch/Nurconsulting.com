@@ -27,7 +27,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function paramsOf(s: any): Params {
     return {
-        targetShare: Number(s.target_share) || DEFAULTS.targetShare, maxDrrPct: Number(s.max_drr_pct) || DEFAULTS.maxDrrPct,
+        targetShare: Number(s.target_share) || DEFAULTS.targetShare, maxDrrPct: Number(s.max_drr_pct) || DEFAULTS.maxDrrPct, maxCpo: Number(s.max_cpo) || DEFAULTS.maxCpo,
         minBidKop: Number(s.min_bid_kop) || DEFAULTS.minBidKop, maxBidKop: Number(s.max_bid_kop) || DEFAULTS.maxBidKop,
         stepPct: Number(s.step_pct) || DEFAULTS.stepPct, minClicks: Number(s.min_clicks) || DEFAULTS.minClicks,
     };

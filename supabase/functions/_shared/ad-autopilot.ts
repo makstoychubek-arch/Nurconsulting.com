@@ -1,13 +1,13 @@
 // Автопилот рекламы: решение «поднять, опустить или оставить ставку» по каждому артикулу.
 // Чистая логика без сети и базы. Деньги считаем так:
 //   предельная цена заказа = прибыль на выкуп (до рекламы) × доля выкупа;
-//   целевая цена заказа    = min(предельная × target_share, max_drr% × средняя цена заказа).
+//   целевая цена заказа    = min(предельная × target_share, max_drr% × средняя цена заказа, потолок цены заказа в сомах).
 // deno-lint-ignore-file no-explicit-any
 
 export type Params = {
-    targetShare: number; maxDrrPct: number; minBidKop: number; maxBidKop: number; stepPct: number; minClicks: number;
+    targetShare: number; maxDrrPct: number; maxCpo: number; minBidKop: number; maxBidKop: number; stepPct: number; minClicks: number;
 };
-export const DEFAULTS: Params = { targetShare: 0.7, maxDrrPct: 15, minBidKop: 300, maxBidKop: 1600, stepPct: 10, minClicks: 60 };
+export const DEFAULTS: Params = { targetShare: 0.7, maxDrrPct: 15, maxCpo: 450, minBidKop: 300, maxBidKop: 1600, stepPct: 10, minClicks: 60 };
 
 export type Econ = { profitPerSale: number; buyout: number; pricePerOrder: number };
 export type Stats = { spend: number; orders: number; clicks: number; views: number };
@@ -20,7 +20,7 @@ export function breakEvenCpo(e: Econ): number {
 }
 
 export function targetCpo(e: Econ, p: Params): number {
-    return Math.max(0, Math.min(breakEvenCpo(e) * p.targetShare, (p.maxDrrPct / 100) * e.pricePerOrder));
+    return Math.max(0, Math.min(breakEvenCpo(e) * p.targetShare, (p.maxDrrPct / 100) * e.pricePerOrder, p.maxCpo));
 }
 
 /** Ставка в копейках, кратная 10 (0,1 сом). */
