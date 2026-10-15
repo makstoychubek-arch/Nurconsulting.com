@@ -6123,6 +6123,7 @@
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.8326c940bd.css">
 <link rel="stylesheet" href="/dist/rnp-extra.fb85e27dcb.css">
+<link rel="stylesheet" href="/dist/ads-pulse.0089b52bc1.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
@@ -6895,6 +6896,7 @@
                     </div>
                 </div>
                 <div class="widget-card ads-hq-list-card">
+                    <div id="adv-pulse" class="adp2"></div>
                     <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap" id="ads-hq-camps-wrap">
@@ -8473,7 +8475,8 @@
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.e60e3f6d39.min.js"></script>
+<script src="/dist/ads-command-center.bacab6c785.min.js"></script>
+<script src="/dist/ads-pulse.336de30ded.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.5e12c6a9cc.min.js"></script>
@@ -10197,6 +10200,9 @@
                 }
             },
         });
+        if (window.AdsPulse && typeof window.AdsPulse.init === 'function' && window.AdsHQ.getDeps) {
+            try { window.AdsPulse.init(window.AdsHQ.getDeps()); } catch (e) { console.warn('AdsPulse init', e); }
+        }
     }
     function showAdvertisingAdsView(opts) {
         window._advView = 'ads';
