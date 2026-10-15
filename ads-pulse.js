@@ -62,7 +62,7 @@
     /* ───────── состояние ───────── */
     var S = {
         deps: null, rows: [], open: {}, tab: {}, info: {}, ov: {}, ops: {}, timers: {}, arts: {}, virtual: [],
-        view: 'pulse', polling: 0, queue: [], qBusy: false, toastTimer: 0, undo: null,
+        view: 'pulse', kw: {}, kwOps: {}, kwBusy: false, kwTab: {}, polling: 0, queue: [], qBusy: false, toastTimer: 0, undo: null,
     };
     function db() { return S.deps && S.deps.supabase; }
     function call(action, params, cab) { return S.deps.callWbProxy(action, params, cab); }
@@ -366,10 +366,10 @@
             '<div class="adp2-bw" data-nostop="1">' + bidControlHtml(key, camp, kind) + '</div>' +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<span class="adp2-cv">⌄</span></div>' +
-            (open ? '<div class="adp2-body"><div class="adp2-bar">' +
+            (open ? '<div class="adp2-body"><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
                 '<button type="button" data-pact="toggle" data-key="' + esc(key) + '" class="adp2-tg ' + (live ? 'on' : '') + '">' + (live ? 'Поставить на паузу' : 'Запустить') + '</button>' +
                 '<span class="adp2-mut">Показы ' + fmtSom(camp.views) + ' · клики ' + fmtSom(camp.clicks) + ' · заказы ' + fmtSom(camp.orders) + ' · расход ' + fmtSom(camp.spendToday) + '</span></div>' +
-                productsHtml(key, cab, camp) + '</div>' : '') +
+                (tabOf(key) === 'keys' ? '<div class="adp2-kwp" data-key="' + esc(key) + '">' + kwHtml(key, cab, camp) + '</div>' : productsHtml(key, cab, camp)) + '</div>' : '') +
             '</article>';
     }
     function virtualHtml() {
@@ -538,6 +538,238 @@
         render(); toast('Создаю «' + esc(st.name) + '» в WB…', null);
     }
 
+
+    /* ───────── ключи (кластеры) кампании ───────── */
+    function tabOf(key) { return S.kwTab[key] || 'prod'; }
+    function kwKey(r) { return r.nmId + '|' + r.normQuery; }
+    function kwState(key) { return S.kw[key] || (S.kw[key] = { loaded: false, loading: false, rows: [], editable: false, ov: {}, mn: {}, sel: {}, filter: 'all', sort: 'spend', limit: 40, q: '' }); }
+    function kwFind(key, k) { var st = S.kw[key]; if (!st) return null; for (var i = 0; i < st.rows.length; i++) if (kwKey(st.rows[i]) === k) return st.rows[i]; return null; }
+    function kwBid(st, r) { var o = st.ov[kwKey(r)]; return o != null ? o : r.bid; }
+    function kwOff(st, r) { var m = st.mn[kwKey(r)]; return m != null ? m : !!r.minus; }
+    function kwCpo(r) { return r.orders > 0 ? Math.round(r.spend / r.orders) : null; }
+    function kwStep() { return 5; }
+    function loadKw(key, force) {
+        var f = findCamp(key); if (!f) return;
+        var st = kwState(key); if ((st.loading || st.loaded) && !force) return;
+        st.loading = true; st.error = ''; kwRender(key);
+        var range = (S.deps.getDateRange && S.deps.getDateRange()) || {};
+        Promise.resolve(call('adv_cluster_board', { advertId: f.camp.wbId, dateFrom: range.from, dateTo: range.to }, f.cab.id)).then(function (res) {
+            st.loading = false;
+            if (!res || res.error) { st.error = String((res && res.error) || 'WB не отдал ключи этой кампании'); kwRender(key); return; }
+            st.rows = (res.rows || []).filter(function (r) { return r.state !== 'archived'; });
+            st.editable = !!res.editable; st.currency = res.currency || ''; st.loaded = true;
+            kwRender(key); patchTabs(key);
+        }).catch(function (e) { st.loading = false; st.error = String((e && e.message) || e || 'ошибка'); kwRender(key); });
+    }
+    function patchTabs(key) {
+        var host = $('adv-pulse'); if (!host) return;
+        var b = host.querySelector('.adp2-row[data-key="' + key.replace(/"/g, '') + '"] .adp2-tabs [data-tab="keys"]'); var st = S.kw[key];
+        if (b && st && st.loaded) b.innerHTML = 'Ключи<em>' + st.rows.length + '</em>';
+    }
+    function kwVisible(st) {
+        var q = String(st.q || '').trim().toLowerCase();
+        var list = st.rows.filter(function (r) {
+            var off = kwOff(st, r);
+            if (st.filter === 'orders' && !(r.orders > 0)) return false;
+            if (st.filter === 'noorders' && (r.orders > 0 || off)) return false;
+            if (st.filter === 'off' ? !off : off) return false;
+            return !q || r.normQuery.toLowerCase().indexOf(q) >= 0;
+        });
+        var by = st.sort;
+        list.sort(function (a, b) {
+            if (by === 'orders') return b.orders - a.orders;
+            if (by === 'cpo') { var x = kwCpo(a), y = kwCpo(b); return (x == null ? 1e9 : x) - (y == null ? 1e9 : y); }
+            if (by === 'pos') return (a.avgPos || 1e9) - (b.avgPos || 1e9);
+            return b.spend - a.spend;
+        });
+        return list;
+    }
+    function kwWaste(st) {
+        var n = 0, sum = 0, items = [];
+        st.rows.forEach(function (r) { if (!kwOff(st, r) && r.orders === 0 && r.spend > 0) { n++; sum += r.spend; items.push(r); } });
+        return { n: n, sum: sum, items: items };
+    }
+    function kwStatusHtml(key) {
+        var ops = S.kwOps[key] || [], err = ops.filter(function (o) { return o.status === 'error'; });
+        var wait = ops.filter(function (o) { return o.status === 'pending' || o.status === 'sending'; }).length;
+        if (err.length) return '<span class="adp2-chip bad">⚠ ' + esc(err[0].err || 'ошибка') + ' <button type="button" data-pact="kretry" data-key="' + esc(key) + '">Повторить</button> <button type="button" data-pact="kdrop" data-key="' + esc(key) + '">Отменить</button></span>';
+        if (wait) return '<span class="adp2-chip wait">В WB отправляется: ' + wait + '</span>';
+        var ok = ops.some(function (o) { return o.status === 'done' && Date.now() - (o.doneAt || 0) < 4000; });
+        return ok ? '<span class="adp2-chip ok">✓ В WB</span>' : '';
+    }
+    function kwRowHtml(key, st, r, multi, cabId) {
+        var k = kwKey(r), off = kwOff(st, r), bid = kwBid(st, r), cpo = kwCpo(r), sel = !!st.sel[k];
+        var cpoTxt = cpo != null ? '<span class="cpo ok">CPO <b>' + fmtSom(cpo) + ' ₽</b></span>' : (r.spend > 0 ? '<span class="cpo bad">заказов нет</span>' : '');
+        var lad = '';
+        if (st.editable && bid > 0) {
+            var lo = Math.max(1, Math.floor(Math.min(r.bidMin || bid, bid) * 0.6)), hi = Math.ceil(Math.max(r.bidMax || bid, bid) * 1.25);
+            var marks = [['Мин', r.bidMin], ['Средн.', r.bidMedium], ['Макс', r.bidMax]].filter(function (m) { return m[1] > 0; });
+            lad = '<div class="adp2-lad"><input type="range" class="adp2-kr" min="' + lo + '" max="' + hi + '" step="1" value="' + bid + '" aria-label="Ставка по ключу"><div class="adp2-lmk">' +
+                marks.map(function (m) { return '<button type="button" data-pact="kmark" data-key="' + esc(key) + '" data-k="' + esc(k) + '" data-v="' + m[1] + '" title="Коридор WB">' + m[0] + ' ' + fmtSom(m[1]) + '</button>'; }).join('') + '</div></div>';
+        }
+        var ctrl = (st.editable && bid > 0)
+            ? '<div class="adp2-kb" data-key="' + esc(key) + '" data-k="' + esc(k) + '"><button type="button" data-pact="kstep" data-dir="-1" aria-label="Меньше">−</button><input type="text" inputmode="decimal" class="adp2-kn' + (st.ov[k] != null ? ' ch' : '') + '" value="' + fmtSom(bid).replace(/ /g, '') + '" aria-label="Ставка"><button type="button" data-pact="kstep" data-dir="1" aria-label="Больше">+</button></div>'
+            : '<span class="adp2-mut">' + (bid > 0 ? fmtSom(bid) + ' ₽' : 'ставка не задана') + '</span>';
+        return '<div class="adp2-k' + (sel ? ' sel' : '') + (off ? ' off' : '') + '" data-k="' + esc(k) + '">' +
+            '<label class="adp2-cb"><input type="checkbox" data-pact="ksel" data-key="' + esc(key) + '" data-k="' + esc(k) + '"' + (sel ? ' checked' : '') + '><i></i></label>' +
+            '<div class="adp2-kt"><b>' + (multi ? thumb(cabId, r.nmId, 's') : '') + esc(r.normQuery) + '</b><div class="adp2-ks"><span>Показы <b>' + fmtSom(r.views) + '</b></span><span>Заказы <b>' + fmtSom(r.orders) + '</b></span><span>Расход <b>' + fmtSom(Math.round(r.spend)) + '</b></span>' + cpoTxt + (r.avgPos ? '<span>поз. <b>' + Math.round(r.avgPos) + '</b></span>' : '') + '</div></div>' +
+            lad + ctrl +
+            '<button type="button" class="adp2-sw' + (off ? ' o' : '') + '" data-pact="kminus" data-key="' + esc(key) + '" data-k="' + esc(k) + '" role="switch" aria-checked="' + (!off) + '" aria-label="Показывать по ключу"></button></div>';
+    }
+    function kwHtml(key, cab, camp) {
+        var st = kwState(key);
+        if (!st.loaded) {
+            if (st.error) return '<div class="adp2-load-line">' + esc(st.error) + ' <button type="button" class="adp2-load" data-pact="kload" data-key="' + esc(key) + '">Повторить</button></div>';
+            if (!st.loading) setTimeout(function () { loadKw(key); }, 0);
+            return '<div class="adp2-load-line">Загружаем ключи кампании…</div><span class="adp2-skel big"></span><span class="adp2-skel big"></span>';
+        }
+        var waste = kwWaste(st), list = kwVisible(st), shown = list.slice(0, st.limit);
+        var multi = false, seen = {}; st.rows.forEach(function (r) { seen[r.nmId] = 1; }); multi = Object.keys(seen).length > 1;
+        var cnt = { all: 0, orders: 0, noorders: 0, off: 0 };
+        st.rows.forEach(function (r) { var off = kwOff(st, r); if (off) cnt.off++; else { cnt.all++; if (r.orders > 0) cnt.orders++; else cnt.noorders++; } });
+        var chips = [['all', 'Все ' + cnt.all], ['orders', 'Есть заказы ' + cnt.orders], ['noorders', 'Без заказов ' + cnt.noorders], ['off', 'Убраны ' + cnt.off]].map(function (c) {
+            return '<button type="button" class="adp2-fc' + (st.filter === c[0] ? ' on' : '') + '" data-pact="kfilter" data-key="' + esc(key) + '" data-f="' + c[0] + '">' + c[1] + '</button>';
+        }).join('');
+        var nsel = Object.keys(st.sel).length;
+        return (st.editable ? '' : '<div class="adp2-note">WB разрешает менять ставку по ключу только у кампаний с ручной ставкой и оплатой за показы (CPM). Здесь можно смотреть статистику и убирать лишние ключи.</div>') +
+            (waste.n ? '<div class="adp2-waste"><span>Слито без заказов за период: <b>' + fmtSom(Math.round(waste.sum)) + ' ₽</b> на ' + waste.n + ' ' + plural(waste.n, 'ключе', 'ключах', 'ключах') + '</span><button type="button" data-pact="kwaste" data-key="' + esc(key) + '">Убрать эти ключи</button></div>' : '') +
+            '<div class="adp2-kt-tools">' + chips + '<input type="search" class="adp2-ksearch" placeholder="Поиск по ключу" value="' + esc(st.q) + '" data-key="' + esc(key) + '"><select class="adp2-ksort" data-key="' + esc(key) + '" aria-label="Сортировка">' +
+            [['spend', 'по расходу'], ['orders', 'по заказам'], ['cpo', 'по цене заказа'], ['pos', 'по позиции']].map(function (o) { return '<option value="' + o[0] + '"' + (st.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
+            '<div class="adp2-klist">' + (shown.length ? shown.map(function (r) { return kwRowHtml(key, st, r, multi, cab.id); }).join('') : '<div class="adp2-mut" style="padding:12px">Ключей по фильтру нет</div>') +
+            (list.length > shown.length ? '<button type="button" class="adp2-addp" data-pact="kmore" data-key="' + esc(key) + '">Показать ещё ' + Math.min(40, list.length - shown.length) + '</button>' : '') + '</div>' +
+            '<div class="adp2-kfoot"><span data-kstatus="1">' + kwStatusHtml(key) + '</span></div>' +
+            (nsel ? '<div class="adp2-bulk"><span><b>' + nsel + '</b> ' + plural(nsel, 'ключ', 'ключа', 'ключей') + ' выбрано</span>' +
+                (st.editable ? '<button type="button" data-pact="kbulk" data-key="' + esc(key) + '" data-b="mid">Ставка = средняя</button><button type="button" data-pact="kbulk" data-key="' + esc(key) + '" data-b="+10">+10 ₽</button><button type="button" data-pact="kbulk" data-key="' + esc(key) + '" data-b="-10">−10 ₽</button>' : '') +
+                '<button type="button" class="p" data-pact="kbulk" data-key="' + esc(key) + '" data-b="off">Убрать из показа</button><button type="button" data-pact="kbulk" data-key="' + esc(key) + '" data-b="clear">Снять выбор</button></div>' : '');
+    }
+    function plural(n, a, b, c) { var m = n % 100, d = n % 10; return m > 10 && m < 15 ? c : d === 1 ? a : d >= 2 && d <= 4 ? b : c; }
+    function kwRender(key) {
+        var host = $('adv-pulse'); if (!host) return;
+        var el = host.querySelector('.adp2-kwp[data-key="' + key.replace(/"/g, '') + '"]'); var f = findCamp(key);
+        if (!el || !f) return;
+        var fo = doc.activeElement;
+        if (fo && el.contains(fo) && (fo.classList.contains('adp2-kn') || fo.classList.contains('adp2-ksearch') || fo.classList.contains('adp2-kr'))) { kwSoft(key, el); return; }
+        el.innerHTML = kwHtml(key, f.cab, f.camp);
+    }
+    /** Пока человек печатает или тянет ползунок, список не перерисовываем: обновляем только значения и статус. */
+    function kwSoft(key, el) {
+        var st = S.kw[key]; if (!st) return;
+        var s = el.querySelector('[data-kstatus]'); if (s) s.innerHTML = kwStatusHtml(key);
+        el.querySelectorAll('.adp2-k').forEach(function (row) {
+            var r = kwFind(key, row.dataset.k); if (!r) return;
+            var nu = row.querySelector('.adp2-kn'), rg = row.querySelector('.adp2-kr'), b = kwBid(st, r);
+            if (nu && doc.activeElement !== nu) nu.value = fmtSom(b).replace(/ /g, '');
+            if (rg && doc.activeElement !== rg) rg.value = b;
+            if (nu) nu.classList.toggle('ch', st.ov[row.dataset.k] != null);
+        });
+    }
+    /* очередь ключей: по одному запросу, минус-фразы одной кампании объединяются (WB перезаписывает список целиком) */
+    function kwEnqueue(key, op) {
+        var list = S.kwOps[key] || (S.kwOps[key] = []);
+        if (op.type === 'bid') list.forEach(function (o) { if (o.type === 'bid' && o.k === op.k && o.status === 'pending') o.status = 'merged'; });
+        op.status = 'pending'; op.tries = 0; op.id = 'k' + Math.random().toString(36).slice(2); op.key = key; list.push(op);
+        S.kwOps[key] = list.filter(function (o) { return o.status !== 'merged'; });
+        kwPump();
+    }
+    function kwPump() {
+        if (S.kwBusy) return; S.kwBusy = true;
+        (function step() {
+            var next = null, nkey = null;
+            Object.keys(S.kwOps).some(function (key) {
+                var o = S.kwOps[key].filter(function (x) { return x.status === 'pending' && (!x.at || x.at <= Date.now()); })[0];
+                if (o) { next = o; nkey = key; return true; } return false;
+            });
+            if (!next) {
+                var later = Object.keys(S.kwOps).some(function (key) { return S.kwOps[key].some(function (x) { return x.status === 'pending'; }); });
+                S.kwBusy = false; if (later) setTimeout(kwPump, 1200); return;
+            }
+            kwSend(nkey, next).then(function () { setTimeout(step, 260); });
+        })();
+    }
+    function kwSend(key, op) {
+        var f = findCamp(key), st = S.kw[key]; if (!f || !st) { op.status = 'error'; op.err = 'кампания недоступна'; return Promise.resolve(); }
+        op.status = 'sending'; kwStatus(key);
+        var req;
+        if (op.type === 'bid') {
+            req = call('adv_cluster_bid', { advertId: f.camp.wbId, nmId: op.nm, normQuery: op.q, bid: op.val }, f.cab.id);
+        } else {
+            var group = (S.kwOps[key] || []).filter(function (x) { return x.type === 'minus' && x.nm === op.nm && (x.status === 'pending' || x === op); });
+            group.forEach(function (x) { x.status = 'sending'; });
+            op.group = group;
+            var add = [], remove = [];
+            group.forEach(function (x) { (x.off ? add : remove).push(x.q); });
+            req = call('adv_cluster_minus', { advertId: f.camp.wbId, nmId: op.nm, add: add, remove: remove }, f.cab.id);
+        }
+        return Promise.resolve(req).then(function (res) {
+            if (!res || res.error) throw new Error(String((res && res.error) || 'WB не ответил'));
+            var done = op.type === 'bid' ? [op] : op.group;
+            done.forEach(function (x) {
+                x.status = 'done'; x.doneAt = Date.now();
+                var r = kwFind(key, x.nm + '|' + x.q);
+                if (x.type === 'bid') { if (r) r.bid = x.val; if (st.ov[x.nm + '|' + x.q] === x.val) delete st.ov[x.nm + '|' + x.q]; }
+                else { if (r) r.minus = x.off; delete st.mn[x.nm + '|' + x.q]; }
+            });
+        }).catch(function (e) {
+            var done = op.type === 'bid' ? [op] : (op.group || [op]);
+            var msg = String((e && e.message) || e || 'ошибка');
+            var retry = /timeout|network|fetch|abort|50\d|429|не ответил/i.test(msg);
+            done.forEach(function (x) {
+                x.tries = (x.tries || 0) + 1;
+                if (retry && x.tries < 4) { x.status = 'pending'; x.at = Date.now() + 2000 * x.tries; }
+                else { x.status = 'error'; x.err = msg; }
+            });
+        }).then(function () { kwRender(key); setTimeout(function () { kwStatus(key); }, 4200); });
+    }
+    function kwStatus(key) {
+        var host = $('adv-pulse'); if (!host) return;
+        var el = host.querySelector('.adp2-kwp[data-key="' + key.replace(/"/g, '') + '"] [data-kstatus]'); if (el) el.innerHTML = kwStatusHtml(key);
+    }
+    function kwSetBid(key, k, val, now) {
+        var st = S.kw[key], r = kwFind(key, k); if (!st || !r || !st.editable) return;
+        var lo = Math.max(1, r.bidMin ? Math.floor(r.bidMin * 0.3) : 1);
+        val = Math.round(Math.max(lo, Math.min(50000, Number(val) || 0)));
+        if (kwBid(st, r) === val) { kwSoft(key, $('adv-pulse').querySelector('.adp2-kwp[data-key="' + key.replace(/"/g, '') + '"]')); return; }
+        if (!st.prev) st.prev = {}; if (st.prev[k] == null) st.prev[k] = r.bid;
+        st.ov[k] = val; kwRender(key);
+        clearTimeout(S.timers['kw' + key + k]);
+        S.timers['kw' + key + k] = setTimeout(function () {
+            var cur = st.ov[k]; if (cur == null) return;
+            var was = st.prev[k]; delete st.prev[k];
+            kwEnqueue(key, { type: 'bid', nm: r.nmId, q: r.normQuery, k: k, val: cur });
+            kwStatus(key);
+            if (was != null && was !== cur) toast('«' + esc(r.normQuery) + '»: ' + fmtSom(was) + ' → ' + fmtSom(cur), { label: 'Отменить', fn: function () { kwSetBid(key, k, was, true); } });
+        }, now ? 0 : 700);
+    }
+    function kwSetOff(key, keys, off, silent) {
+        var st = S.kw[key]; if (!st) return;
+        var changed = [];
+        keys.forEach(function (k) { var r = kwFind(key, k); if (!r || kwOff(st, r) === off) return; st.mn[k] = off; changed.push(r); });
+        if (!changed.length) return;
+        changed.forEach(function (r) { kwEnqueue(key, { type: 'minus', nm: r.nmId, q: r.normQuery, k: kwKey(r), off: off }); });
+        kwRender(key);
+        if (!silent) toast(off ? 'Убрано ключей: ' + changed.length : 'Возвращено ключей: ' + changed.length, off ? { label: 'Вернуть', fn: function () { kwSetOff(key, changed.map(kwKey), false, true); } } : null);
+    }
+    function kwBulk(key, how) {
+        var st = S.kw[key]; if (!st) return;
+        var keys = Object.keys(st.sel);
+        if (how === 'clear') { st.sel = {}; kwRender(key); return; }
+        if (how === 'off') { st.sel = {}; kwSetOff(key, keys, true); return; }
+        keys.forEach(function (k) {
+            var r = kwFind(key, k); if (!r) return;
+            var cur = kwBid(st, r);
+            kwSetBid(key, k, how === 'mid' ? (r.bidMedium || cur) : cur + Number(how), true);
+        });
+        st.sel = {}; kwRender(key);
+    }
+    function kwWasteFlow(key) {
+        var st = S.kw[key]; if (!st) return;
+        var w = kwWaste(st); if (!w.n) return;
+        var m = modal('<div class="adp2-mh"><b>Убрать ключи без заказов?</b><button type="button" data-close="1" class="adp2-x" aria-label="Закрыть">✕</button></div>' +
+            '<p class="adp2-mut" style="font-size:13px">Ключей: <b>' + w.n + '</b>, слито без заказов: <b>' + fmtSom(Math.round(w.sum)) + ' ₽</b>. Они перестанут показываться. Вернуть можно в любой момент (переключатель справа у ключа).</p>' +
+            '<div class="adp2-mf"><button type="button" class="adp2-gh" data-close="1">Отмена</button><button type="button" class="adp2-go" id="adp2-wok">Убрать ' + w.n + '</button></div>');
+        $('adp2-wok').addEventListener('click', function () { m.close(); kwSetOff(key, w.items.map(kwKey), true); });
+    }
+
     /* ───────── события ───────── */
     function onClick(e) {
         var t = e.target.closest('[data-pact]'); if (!t) return;
@@ -561,16 +793,42 @@
         else if (act === 'vretry') { var o = S.ops[t.dataset.v]; if (o) { o.tries = 0; send(t.dataset.v); render(); } }
         else if (act === 'vdrop') { S.virtual = S.virtual.filter(function (x) { return x.opId !== t.dataset.v; }); delete S.ops[t.dataset.v]; render(); }
         else if (act === 'new') createFlow();
+        else if (act === 'tab') { S.kwTab[key] = t.dataset.tab; patchRow(key); }
+        else if (act === 'kload') { loadKw(key, true); }
+        else if (act === 'kfilter') { var s1 = kwState(key); s1.filter = t.dataset.f; s1.limit = 40; kwRender(key); }
+        else if (act === 'kmore') { kwState(key).limit += 40; kwRender(key); }
+        else if (act === 'kwaste') kwWasteFlow(key);
+        else if (act === 'kbulk') kwBulk(key, t.dataset.b);
+        else if (act === 'kminus') { var s2 = kwState(key), r2 = kwFind(key, t.dataset.k); if (r2) kwSetOff(key, [t.dataset.k], !kwOff(s2, r2)); }
+        else if (act === 'kmark') kwSetBid(key, t.dataset.k, Number(t.dataset.v), true);
+        else if (act === 'kstep') { var w2 = t.closest('.adp2-kb'), s3 = kwState(w2.dataset.key), r3 = kwFind(w2.dataset.key, w2.dataset.k); if (r3) kwSetBid(w2.dataset.key, w2.dataset.k, kwBid(s3, r3) + Number(t.dataset.dir) * kwStep()); }
+        else if (act === 'kretry') { (S.kwOps[key] || []).forEach(function (o) { if (o.status === 'error') { o.status = 'pending'; o.tries = 0; o.at = 0; } }); kwPump(); kwStatus(key); }
+        else if (act === 'kdrop') {
+            var st4 = kwState(key);
+            S.kwOps[key] = (S.kwOps[key] || []).filter(function (o) { if (o.status !== 'error') return true; if (o.type === 'bid') delete st4.ov[o.k]; else delete st4.mn[o.k]; return false; });
+            kwRender(key);
+        }
     }
     function bidFrom(w, kopFromSom) {
         var f = findCamp(w.dataset.key); if (!f) return;
         applyBid(w.dataset.key, Number(w.dataset.nm), w.dataset.pl, kopFromSom);
     }
     function onInput(e) {
+        var tg = e.target;
+        if (tg.classList.contains('adp2-kr')) { var kb = tg.closest('.adp2-k'), kk = tg.closest('.adp2-kwp').dataset.key; kwSetBid(kk, kb.dataset.k, Number(tg.value)); return; }
+        if (tg.classList.contains('adp2-ksearch')) { var s5 = kwState(tg.dataset.key); s5.q = tg.value; s5.limit = 40; var pos = tg.selectionStart; var pan = tg.closest('.adp2-kwp'); var f5 = findCamp(tg.dataset.key); if (pan && f5) { var kl = pan.querySelector('.adp2-klist'); var tmp = doc.createElement('div'); tmp.innerHTML = kwHtml(tg.dataset.key, f5.cab, f5.camp); var nl = tmp.querySelector('.adp2-klist'); if (kl && nl) kl.innerHTML = nl.innerHTML; } return; }
         var w = e.target.closest('.adp2-bid'); if (!w) return;
         if (e.target.classList.contains('adp2-rg')) { bidFrom(w, somToKop(e.target.value)); var nu = w.querySelector('.adp2-num'); nu.value = e.target.value; }
     }
     function onChange(e) {
+        var tg = e.target;
+        if (tg.classList.contains('adp2-ksort')) { kwState(tg.dataset.key).sort = tg.value; kwRender(tg.dataset.key); return; }
+        if (tg.dataset && tg.dataset.pact === 'ksel') { var s6 = kwState(tg.dataset.key); if (tg.checked) s6.sel[tg.dataset.k] = 1; else delete s6.sel[tg.dataset.k]; kwRender(tg.dataset.key); return; }
+        if (tg.classList.contains('adp2-kn')) {
+            var wb = tg.closest('.adp2-kb'), v = parseFloat(String(tg.value).replace(',', '.').replace(/\s/g, ''));
+            if (!isFinite(v) || v <= 0) { kwSoft(wb.dataset.key, tg.closest('.adp2-kwp')); return; }
+            kwSetBid(wb.dataset.key, wb.dataset.k, v); return;
+        }
         var w = e.target.closest('.adp2-bid'); if (!w) return;
         if (e.target.classList.contains('adp2-num')) {
             var v = parseFloat(String(e.target.value).replace(',', '.').replace(/\s/g, ''));
@@ -579,7 +837,7 @@
         }
     }
     function onKey(e) {
-        if (e.target.classList && e.target.classList.contains('adp2-num') && e.key === 'Enter') { e.target.blur(); }
+        if (e.target.classList && (e.target.classList.contains('adp2-num') || e.target.classList.contains('adp2-kn')) && e.key === 'Enter') { e.target.blur(); }
         if (e.target.classList && e.target.classList.contains('adp2-num') && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
             e.preventDefault(); var w = e.target.closest('.adp2-bid'), f = findCamp(w.dataset.key); if (!f) return;
             var en = entriesOf(w.dataset.key, f.camp).filter(function (x) { return x.nm === Number(w.dataset.nm) && x.placement === w.dataset.pl; })[0];
