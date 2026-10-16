@@ -86,10 +86,11 @@ Deno.serve(async (req) => {
     if (restock.handled) return json({ ok: true, ...restock });
 
     if (isTeamChatId(msg.chatId, teamChat)) {
-        // Все боты сидят в тим-чате и получают одно и то же сообщение. Отвечает только один,
-        // иначе каждый идёт в WB за ссылкой, WB отвечает «rate limit», а в чат приходит пять ответов.
-        const responder = (Deno.env.get('TEAM_CHAT_BOT') || 'amina').toLowerCase();
-        if (botId !== responder) return json({ ok: true, ignored: 'team_other_bot' });
+        // Тим-чат обслуживает Карина (функция telegram-webhook). Остальные боты молчат, иначе каждый идёт
+        // в WB за ссылкой, WB отвечает «rate limit», а в чат приходит несколько ответов.
+        // Чтобы ответчиком стал бот роутера, задайте секрет TEAM_CHAT_BOT (например amina).
+        const responder = (Deno.env.get('TEAM_CHAT_BOT') || '').toLowerCase();
+        if (!responder || botId !== responder) return json({ ok: true, ignored: 'team_other_bot' });
         const { data: cabinets } = await admin.from('cabinets').select('id, name, wb_token');
         const team = await replyTeamChat({ text: msg.text, cabinets: cabinets || [] });
         if (team.text) await sendTelegram(replyToken, msg.chatId, team.text, msg.messageId);
