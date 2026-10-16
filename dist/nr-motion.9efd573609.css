@@ -86,3 +86,12 @@
 /* Слот-машина: барабан одной цифры (высота строки = 1em) */
 .nrm-reel{display:inline-block;height:1em;line-height:1;overflow:hidden;vertical-align:bottom;text-align:center}
 .nrm-strip{display:block;will-change:transform}.nrm-strip>span{display:block;height:1em;line-height:1}
+
+/* Лисёнок в шапке: только у команды консалтинга (data-staff), на всех страницах. На широком экране по центру, на узком справа у колокольчика. */
+.nr-fox-slot.nr-hdr-fox { display: none; }
+html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; }
+@media (max-width: 1100px) {
+    html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { position: static; transform: none; }
+    html[data-staff="1"] .nr-fox-slot.nr-hdr-fox, html[data-staff="1"] .nr-hdr-fox .nr-fox { width: 40px !important; height: 40px !important; }
+}
+@media (max-width: 640px) { html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: none; } }
