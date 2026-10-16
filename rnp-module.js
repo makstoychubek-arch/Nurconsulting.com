@@ -8270,11 +8270,8 @@ const RNP = (() => {
     }
 
     // ─── EXCEL SELECTION MODE ─────────────────────────────────────────────────
-    function _selectionBarHTML() {
-        return `<div id="rnp-selection-bar" class="rnp-selection-bar hidden">
-          Выделено: <b id="rnp-sel-count">0</b> · Сумма: <b id="rnp-sel-sum">0</b>
-        </div>`;
-    }
+    // Старая панель «Выделено · Сумма» заменена общим модулем rnp-selection.js (среднее, количество, сумма, мин, макс).
+    function _selectionBarHTML() { return ''; }
 
     function _parseCellNumber(text) {
         if (!text) return null;
@@ -8341,6 +8338,7 @@ const RNP = (() => {
     }
 
     function _bindSelectionHandlers() {
+        return; // выделение теперь в rnp-selection.js
         if (_selectionHandlersBound) return;
         _selectionHandlersBound = true;
         let dragging = false;
