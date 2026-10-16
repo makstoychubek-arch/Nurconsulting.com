@@ -59,13 +59,15 @@ export function classifyTeamChat(text: string): TeamChatKind {
 }
 
 export function extractInvitePhone(text: string): { phone: string; countryName: string } | null {
-    const whole = normalizeWbInvitePhone(text);
-    if (whole && /\d{9,}/.test(text)) return whole;
-    const chunks = String(text || '').match(/\+?\d[\d\s()-]{8,}\d/g) || [];
+    // «zevina 2» — это номер кабинета, а не часть телефона
+    const clean = String(text || '').replace(/(zevina|зевин[аa]?|ailin|айлин)\s*[12]\b/gi, '$1 ');
+    const chunks = clean.match(/\+?\d[\d\s()-]{8,}\d/g) || [];
     for (const chunk of chunks) {
         const parsed = normalizeWbInvitePhone(chunk);
         if (parsed) return parsed;
     }
+    const whole = normalizeWbInvitePhone(clean);
+    if (whole && /\d{9,}/.test(clean)) return whole;
     return null;
 }
 
