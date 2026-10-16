@@ -51,3 +51,9 @@ assert.equal(skip.kind, 'ignored');
 assert.equal(skip.text, null);
 
 console.log('team-chat-invite_test: ok');
+
+// местный кыргызский формат 0500540054 → 996500540054 (раньше WB отвечал «phone does not match any country»)
+assert.equal(extractInvitePhone('Пригласительная zevina 2 0500540054')?.phone, '996500540054');
+assert.equal(extractInvitePhone('Пригласительная zevina 2 0500540054')?.countryName, 'Кыргызстан');
+assert.equal(extractInvitePhone('пригласительная Baza 0700 123 456')?.phone, '996700123456');
+assert.equal(extractInvitePhone('пригласительная Baza +996 700 123 456')?.phone, '996700123456');

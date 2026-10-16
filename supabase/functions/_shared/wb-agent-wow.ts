@@ -137,6 +137,8 @@ export function normalizeWbInvitePhone(raw: string): { phone: string; countryNam
         const isKz = /^7(7\d|6\d)/.test(d);
         return { phone: d, countryName: isKz ? 'Казахстан' : 'Россия' };
     }
+    // Местный кыргызский формат 0500 540 054: ноль вместо кода страны
+    if (d.length === 10 && /^0[2357]\d{8}$/.test(d)) return { phone: '996' + d.slice(1), countryName: 'Кыргызстан' };
     if (d.length === 9 && /^[57]\d{8}$/.test(d)) return { phone: '996' + d, countryName: 'Кыргызстан' };
     if (d.length === 12 && d.startsWith('996')) return { phone: d, countryName: 'Кыргызстан' };
     if (d.length === 12 && d.startsWith('998')) return { phone: d, countryName: 'Узбекистан' };
