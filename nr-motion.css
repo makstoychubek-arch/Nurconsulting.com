@@ -95,3 +95,16 @@ html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolut
     html[data-staff="1"] .nr-fox-slot.nr-hdr-fox, html[data-staff="1"] .nr-hdr-fox .nr-fox { width: 40px !important; height: 40px !important; }
 }
 @media (max-width: 640px) { html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: none; } }
+
+/* Экран «Скоро открытие» (nr-soon.js): гостям и новым регистрациям показываем только его */
+#nr-soon { display: none; }
+html[data-soon="1"] #nr-soon { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 140px); }
+html[data-soon="1"] .main-content > *:not(#nr-soon) { display: none !important; }
+html[data-soon="1"] .rail-btn[data-tab], html[data-soon="1"] .rail-btn[data-flyout], html[data-soon="1"] .bottom-nav,
+html[data-soon="1"] .cabinet-picker, html[data-soon="1"] #header-date-chip-wrap, html[data-soon="1"] .nr-notify,
+html[data-soon="1"] .nav-item, html[data-soon="1"] .nav-item-standalone { display: none !important; }
+.nr-soon-card { text-align: center; max-width: 440px; padding: 36px 28px; border-radius: 24px; background: var(--surface-solid, var(--surface, #fff)); border: 1px solid var(--border, rgba(0,0,0,.08)); }
+.nr-soon-card .nr-fox-slot { display: inline-block; margin-bottom: 8px; }
+.nr-soon-card h2 { margin: 0 0 8px; font-size: 28px; font-weight: 800; color: var(--text-primary, #111); }
+.nr-soon-card p { margin: 0; color: var(--text-muted, #71717A); font-size: 15px; line-height: 1.5; }
+html[data-soon="1"] #page-title, html[data-soon="1"] #header-back-btn, html[data-soon="1"] .mobile-menu-btn { display: none !important; }
