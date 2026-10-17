@@ -371,7 +371,7 @@
     <header class="site-header fixed z-50">
         <div class="site-header-inner">
             <nav class="vp-pill-nav">
-                <a href="/" class="flex items-center gap-2 pr-2 text-sm font-semibold shrink-0" style="color:var(--ink)">
+                <a href="/" id="logo-secret" class="flex items-center gap-2 pr-2 text-sm font-semibold shrink-0" style="color:var(--ink)">
                     <img class="logo-nr logo-nr--sm" src="/icons/logo-nr.svg" alt="NR" width="28" height="28">
                     <span class="brand-name" style="font-size:14px">Space</span>
                 </a>
@@ -383,7 +383,8 @@
                     <a href="/consulting" class="nav-link vp-pill-link">Консалтинг</a>
                     <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
                 </div>
-                <span class="vp-pill-cta hidden sm:flex" style="cursor:default" aria-disabled="true">Скоро открытие</span>
+                <span class="vp-pill-cta hidden sm:flex" id="soon-pill" style="cursor:default" aria-disabled="true">Скоро открытие</span>
+                <a href="/login" id="hid-login" class="vp-pill-cta" style="display:none">Войти</a>
                 <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-9 h-9 rounded-full gap-1" aria-label="Меню">
                     <span id="burger-line-1" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
                     <span id="burger-line-2" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
@@ -598,6 +599,20 @@
     </div>
 
     <script>
+        /* Вход спрятан: клик по логотипу показывает кнопку «Войти» */
+        (function () {
+            var logo = document.getElementById('logo-secret');
+            if (!logo) return;
+            logo.addEventListener('click', function (e) {
+                e.preventDefault();
+                var b = document.getElementById('hid-login'), p = document.getElementById('soon-pill');
+                if (!b) return;
+                var on = b.style.display === 'none';
+                b.style.display = on ? 'inline-flex' : 'none';
+                if (p) p.style.display = on ? 'none' : '';
+                if (on) window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        })();
         // SVG-аватары команды
         (function () {
             var gradCounter = 0;
