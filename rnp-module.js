@@ -40,25 +40,7 @@ const RNP = (() => {
     }
     let _wbEnrichmentDegraded = false;
     let _activeNm = null;
-    // Разделы таблицы: по умолчанию открыты только главные, остальные раскрываются по клику на заголовок.
-    // Выбор общий для всех артикулов и видов РНП и запоминается в браузере.
-    const SECTIONS_DEFAULT_OPEN = new Set(['sales', 'cash', 'profit']);
-    let _secPrefs = null;
-    function _loadSecPrefs() {
-        if (_secPrefs) return _secPrefs;
-        try { _secPrefs = JSON.parse(localStorage.getItem('rnp_sec_open_v1') || '{}') || {}; } catch (e) { _secPrefs = {}; }
-        return _secPrefs;
-    }
-    function _isSecCollapsed(secId) {
-        const v = _loadSecPrefs()[secId];
-        if (v === true) return false;
-        if (v === false) return true;
-        return !SECTIONS_DEFAULT_OPEN.has(secId);
-    }
-    function _setSecOpen(secId, open) {
-        _loadSecPrefs()[secId] = !!open;
-        try { localStorage.setItem('rnp_sec_open_v1', JSON.stringify(_secPrefs)); } catch (e) {}
-    }
+    let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
     let _dataCache = {}; // nmId -> { date -> row }
     let _cabTotals = {}; // date -> итоги кабинета из финотчёта WB и рекламы (для строки «Общий»)
@@ -3982,9 +3964,6 @@ const RNP = (() => {
         </svg>`;
     }
 
-    function _foldSvg() {
-        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9l5-5 5 5"></path><path d="M7 15l5 5 5-5"></path></svg>`;
-    }
     function _editSvg() {
         return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"></path>
@@ -4055,7 +4034,6 @@ const RNP = (() => {
             <button type="button" class="rnp-plan-fact-open" title="План/факт — лист как в Excel" aria-label="План/факт" onclick="RNP.openPlanFact()">${_planFactSvg()}<span>План/факт</span></button>
             <button type="button" class="rnp-plan-fact-open" title="Планирование по неделям" aria-label="Планирование" onclick="RNP.openPlanning()">${_planSvg()}<span>Планирование</span></button>
             ${_compareMonthMenuHtml()}
-            ${_toolIconBtn('rnp-fold-btn', 'Свернуть или раскрыть разделы', _foldSvg(), 'RNP.toggleAllSections()')}
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
@@ -8133,11 +8111,11 @@ const RNP = (() => {
 
     function _renderSection(sec, cols, art, firstDayIdx) {
         if (!_sectionRows(sec, art).length) return '';
-        const collapsed = !sec.noHeader && _isSecCollapsed(sec.id);
+        const key = `${art.nm_id}:${sec.id}`;
+        const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
-        const cnt = collapsed ? ` <span class="rnp-sec-count">· ${_sectionRows(sec, art).length}</span>` : '';
-        const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr${collapsed ? ' is-collapsed' : ''}" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
-          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}${cnt}</td>
+        const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
+          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}</td>
           <td class="rnp-spark-col rnp-section-stick"></td>
           <td class="rnp-section-fill" colspan="${cols.length}"></td>
         </tr>`;
@@ -9119,14 +9097,9 @@ const RNP = (() => {
     }
 
     async function toggleSection(nmId, sectionId) {
-        _setSecOpen(sectionId, _isSecCollapsed(sectionId));
-        await _renderActiveTable();
-    }
-    /** Кнопка в панели: если что-то свёрнуто, раскрываем всё, иначе сворачиваем всё, кроме главных. */
-    async function toggleAllSections() {
-        const heads = SECTIONS.filter(sec => !sec.noHeader);
-        const anyCollapsed = heads.some(sec => _isSecCollapsed(sec.id));
-        heads.forEach(sec => _setSecOpen(sec.id, anyCollapsed ? true : SECTIONS_DEFAULT_OPEN.has(sec.id)));
+        const key = `${nmId}:${sectionId}`;
+        if (_collapsedSections.has(key)) _collapsedSections.delete(key);
+        else _collapsedSections.add(key);
         await _renderActiveTable();
     }
 
@@ -9270,7 +9243,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, toggleAllSections, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl };
 })();
