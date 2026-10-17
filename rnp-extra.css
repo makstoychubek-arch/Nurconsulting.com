@@ -1294,7 +1294,3 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 .rnp-xstats.on { display: flex; }
 .rnp-xstats b { color: #fff; font-weight: 700; }
 @media (max-width: 760px) { .rnp-xstats { right: 8px; left: 8px; bottom: 74px; justify-content: space-between; gap: 8px 12px; } }
-
-/* Свёрнутый раздел РНП: счётчик строк в заголовке */
-.rnp-section-hdr.is-collapsed { opacity: .82; }
-.rnp-sec-count { color: var(--text-muted); font-weight: 600; margin-left: 2px; }
