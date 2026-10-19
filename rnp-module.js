@@ -153,7 +153,7 @@ const RNP = (() => {
             { key: 'orders_count',       label: 'ЗАКАЗЫ',                           type: 'int', src: 'auto',   bold: true, hero: true },
             { key: 'plan_orders',        label: 'План заказ',                       type: 'int', src: 'manual', isPlan: true },
             { key: 'spp_pct',            label: 'СПП %',                            type: 'pct', src: 'auto' },
-            { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true },
+            { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true, hero: true },
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
             { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },

@@ -88,7 +88,7 @@
         t.querySelector('.nru-x').addEventListener('click', function () { h.close(); });
         if (opts.preview) { t.classList.add('static'); if (!(opts.duration || DUR[type]) || opts.sticky || opts.loading) t.classList.add('sticky'); opts.preview.appendChild(t); h.close = function () {}; return h; }
         var w = wrapEl();
-        if (opts.key) { var ex = w.querySelector('[data-k="' + opts.key + '"]'); if (ex) ex.remove(); t.setAttribute('data-k', opts.key); }
+        if (opts.key) { var ex = null; for (var i = 0; i < w.children.length; i++) { if (w.children[i].getAttribute('data-k') === String(opts.key)) { ex = w.children[i]; break; } } if (ex) ex.remove(); t.setAttribute('data-k', opts.key); }
         while (w.children.length >= 4) w.firstChild.remove();
         w.appendChild(t);
         requestAnimationFrame(function () { t.classList.add('on'); });
