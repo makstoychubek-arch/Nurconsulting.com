@@ -40,6 +40,7 @@ const RNP = (() => {
     }
     let _wbEnrichmentDegraded = false;
     let _activeNm = null;
+    let _activeGroup = null;   // «Общее» по одной группе: тот же вид, что «Общий», но только по её артикулам
     let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
     let _dataCache = {}; // nmId -> { date -> row }
@@ -3490,7 +3491,7 @@ const RNP = (() => {
         const drr = os > 0 ? ads / os * 100 : 0;
         const nInc = active.length;
         const hero = `<div class="rnp-gh-hero rnp-gh-profit" onclick="RNP.ghOpen('profit')">
-            <div><div class="rnp-gh-lbl">Прибыль ${_ghInfoIcon('profit', true)}<span class="rnp-gh-chip">${nInc} арт.</span></div>
+            <div><div class="rnp-gh-lbl">Прибыль ${_ghInfoIcon('profit', true)}<span class="rnp-gh-chip">${_activeGroup ? _activeGroup.replace(/</g, '&lt;') + ' · ' : ''}${nInc} арт.</span></div>
             <div class="rnp-gh-big ${profit < 0 ? 'neg' : ''}">${_ghNum(profit)}</div>
             <div class="rnp-gh-sub">заказы ${_ghNum(sum('orders'))} · продажи ${_ghNum(sum('sales'))} · маржа ${_ghPct(margin)} · ДРР ${_ghPct(drr)}</div></div>
             <div class="rnp-gh-spark">${_ghSpark(M.daily, 96, 40, '#34d399')}</div></div>`;
@@ -4140,7 +4141,7 @@ const RNP = (() => {
 
     function _renderTabsHTML(active, opts = {}) {
         const lite = opts.lite || active.length > 40;
-        const genActive = _activeNm === GENERAL_TAB;
+        const genActive = _activeNm === GENERAL_TAB && !_activeGroup;
         const groups = _groupByCategory(active);
         const groupsHtml = groups.map(([cat, list]) => {
             const collapsed = _isCatCollapsed(cat);
@@ -4165,6 +4166,7 @@ const RNP = (() => {
                 <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
                 <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
                 <span class="rnp-cat-count">${list.length}</span>
+                ${cat !== UNCATEGORIZED && !_editMode ? `<button type="button" class="rnp-cat-sigma${_activeNm === GENERAL_TAB && _activeGroup === cat ? ' active' : ''}" onclick="event.stopPropagation();RNP.pickGroup('${catEsc}')" title="Общее по группе: все артикулы за день одной цифрой">Σ Общее</button>` : ''}
               </div>
               ${collapsed ? '' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}
             </div>`;
@@ -6009,7 +6011,7 @@ const RNP = (() => {
             return _derive(raw, a);
         }).filter(Boolean);
         const m = _mergeDerivedMetrics(parts);
-        return _applyCabinetTotals(m, _cabTotals[date], date);
+        return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
     }
 
     // «Общий» = весь кабинет, а не сумма включённых в РНП товаров: берём итоги дня из финотчёта WB и рекламы кабинета.
@@ -6113,7 +6115,7 @@ const RNP = (() => {
     }
 
     function _buildCabinetCols(active, cal) {
-        const cacheKey = `${_cab}:${cal.mode}:${cal.todayStr}:${active.length}`;
+        const cacheKey = `${_cab}:${cal.mode}:${cal.todayStr}:${active.length}:${_activeGroup || ''}`;
         if (_cabinetColsCacheKey === cacheKey && _cabinetColsCacheVal) return _cabinetColsCacheVal;
 
         let result;
@@ -7309,10 +7311,11 @@ const RNP = (() => {
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
             _metricRowSeq = 0;
+            const gActive = _activeGroup ? active.filter(a => _articleCategory(a) === _activeGroup) : active;
             const nextInner = `
-          ${_buildGeneralTopBar(active, cal)}
+          ${_buildGeneralTopBar(gActive, cal)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
-            ${_buildGeneralTableHTML(active, cal)}
+            ${_buildGeneralTableHTML(gActive, cal)}
           </div>
           ${_selectionBarHTML()}`;
             const painted = _paintSheetBody(body, nextInner, cal);
@@ -8753,7 +8756,8 @@ const RNP = (() => {
         }, { passive: true });
     }
 
-    async function pick(nmId) {
+    async function pick(nmId, group) {
+        _activeGroup = (nmId === GENERAL_TAB || nmId === 'general') && group ? String(group) : null;
         if (nmId === BYART_TAB) _activeNm = BYART_TAB;
         else if (nmId === GENERAL_TAB || nmId === 'general') _activeNm = GENERAL_TAB;
         else if (nmId === SUMMARY_TAB || nmId === 'summary') _activeNm = GENERAL_TAB;
@@ -8776,6 +8780,12 @@ const RNP = (() => {
             body.scrollLeft = keepLeft;
             requestAnimationFrame(() => body.classList.remove('rnp-sheet-body--swap'));
         }
+    }
+
+    async function pickGroup(cat) {
+        const name = String(cat || '').trim();
+        await pick('general', name || undefined);
+        _refreshTabsBar();
     }
 
     async function syncArts() {
@@ -9243,7 +9253,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl };
 })();
