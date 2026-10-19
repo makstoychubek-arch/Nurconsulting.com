@@ -17,6 +17,7 @@ assert.ok(png.includes('function textW') && !/textAlign\s*=/.test(png), 'выр�
 for (const label of ['CTR', 'CR клик→корзина', 'CR1 корзина→заказ', 'Показы', 'Клики', 'В корзину', 'Заказов', 'На сумму', 'Затраты', 'CPC', 'CPV (показ)', 'На ВБ', 'Ротаций']) {
     assert.ok(png.includes(`['${label}'`), `в таблице есть строка «${label}»`);
 }
+assert.ok(png.includes('labelMax') && png.includes('rowFs'), 'колонка значений идёт после самой длинной подписи, строки не налезают друг на друга');
 assert.ok(/const caption = '';/.test(fn), 'подпись под картинкой пустая');
 assert.ok(fn.includes('cabinetLegalName(') && fn.includes("timeZone: 'Asia/Bishkek'"), 'юр. название кабинета и время по Бишкеку');
 
