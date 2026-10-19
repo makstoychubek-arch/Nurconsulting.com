@@ -17,4 +17,5 @@ assert.ok(src.includes(':${_activeGroup || \'\'}`;'), 'column cache is separate 
 assert.ok(src.includes('class="rnp-cat-sigma') && src.includes('event.stopPropagation();RNP.pickGroup('), 'button does not collapse the group');
 assert.ok(/pick, pickGroup,/.test(src), 'pickGroup is exported');
 assert.ok(css.includes('.rnp-cat-sigma'), 'button is styled');
+assert.ok(/_activeNm == null \? '' : String\(_activeNm\),\s*_activeGroup \|\| ''/.test(src), 'sheet lock key differs per group, so the page repaints');
 console.log('rnp_group_general_test: ok');
