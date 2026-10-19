@@ -8207,7 +8207,7 @@
     ];
     var audio = null, audioSrc = '', channel = null, started = false;
 
-    function soundOf(id) { for (var i = 0; i < SOUNDS.length; i++) if (SOUNDS[i].id === id) return SOUNDS[i]; return SOUNDS[0]; }
+    function soundOf(id) { return SOUNDS.filter(function (x) { return x.id === id; })[0] || SOUNDS[0]; }
     function clamp(v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8; }
     function load() {
         try {
@@ -8303,7 +8303,7 @@
             '<div class="nros-vol"><select id="nros-sound" class="nros-test">' + SOUNDS.map(function (x) { return '<option value="' + x.id + '"' + (x.id === st.sound ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select></div>' +
             '<div class="nros-vol"><button type="button" class="nros-test" id="nros-test">Проверить звук</button>' +
             '<input type="range" id="nros-volume" min="0" max="100" value="' + Math.round(st.volume * 100) + '"><span id="nros-volume-v">' + Math.round(st.volume * 100) + '%</span></div>' +
-            '<p class="nros-note">Сигнал приходит через 10–20 секунд после заказа со склада продавца (FBS) и только пока сайт открыт. Отметьте артикулы, на которые нужен звук. Выбор общий для всех кабинетов.</p>' +
+            '<p class="nros-note">Сигнал приходит через 10–20 секунд после заказа со склада продавца (FBS) и только пока сайт открыт. Отметьте артикулы, на которые нужен звук.</p>' +
             (list.length
                 ? '<div class="nros-actions"><button type="button" id="nros-all">Выбрать все</button><button type="button" id="nros-none">Снять все</button></div><div class="nros-list">' + groupsHtml + '</div>'
                 : '<p class="nros-note">Артикулы кабинета ещё не загружены. Откройте РНП и подождите несколько секунд.</p>');
