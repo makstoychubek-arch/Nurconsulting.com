@@ -236,7 +236,34 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ctx.fillText(letter, ix + (iw - tw) / 2, iy + ih / 2 + 14);
         }
 
-        const valX = Math.max(Math.round(cardW * 0.5), 112); // значения — ровная колонка слева
+        const rows: Array<[string, string]> = [
+            ['CTR', fmtPct(v.ctr)],
+            ['CR клик→корзина', fmtPct(v.cr)],
+            ['CR1 корзина→заказ', fmtPct(v.cr1)],
+            ['Показы', String(v.impressions)],
+            ['Клики', String(v.clicks)],
+            ['В корзину', String(v.atbs)],
+            ['Заказов', String(v.orders)],
+            ['На сумму', fmtSom(v.revenue)],
+            ['Затраты', fmtSom(v.adSpend)],
+            ['CPC', `${v.cpc.toFixed(2)} сом`],
+            ['CPV (показ)', `${v.cpv.toFixed(2)} сом`],
+            ['На ВБ', `${v.minutesActive} мин`],
+            ['Ротаций', String(v.rotations)],
+        ];
+        // Колонка значений начинается после самой длинной подписи, иначе длинные («CR1 корзина→заказ») налезают на цифры.
+        let rowFs = 12;
+        let labelMax = 0;
+        let valMax = 0;
+        for (; rowFs >= 10; rowFs--) { // в узких карточках (5–6 вариантов) уменьшаем шрифт, пока строка не влезет
+            ctx.font = `${rowFs}px DejaVu`;
+            labelMax = Math.max(...rows.map((r) => ctx.measureText(r[0]).width));
+            ctx.font = `bold ${rowFs}px DejaVu`;
+            valMax = Math.max(...rows.map((r) => ctx.measureText(r[1]).width));
+            if (14 + labelMax + 10 + valMax <= cardW - 8) break;
+        }
+        rowFs = Math.max(rowFs, 10);
+        const valX = Math.max(Math.round(cardW * 0.5), 112, Math.ceil(14 + labelMax + 10)); // значения — ровная колонка слева
         const ty = iy + ih + 34;
         ctx.fillStyle = '#111827';
         ctx.font = 'bold 26px DejaVu';
@@ -253,35 +280,19 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ctx.fillStyle = '#DC2626';
             ctx.fillText('явно проигрывает', x + 14, ty + 22);
         } else {
-            ctx.fillStyle = '#16A34A';
+            ctx.fillStyle = v.prob >= 0.05 ? '#16A34A' : '#9CA3AF'; // почти нулевой шанс не красим в «зелёный»
             ctx.fillText(`${Math.round(v.prob * 100)}%`, x + 14, ty + 22);
         }
 
-        const rows: Array<[string, string]> = [
-            ['CTR', fmtPct(v.ctr)],
-            ['CR клик→корзина', fmtPct(v.cr)],
-            ['CR1 корзина→заказ', fmtPct(v.cr1)],
-            ['Показы', String(v.impressions)],
-            ['Клики', String(v.clicks)],
-            ['В корзину', String(v.atbs)],
-            ['Заказов', String(v.orders)],
-            ['На сумму', fmtSom(v.revenue)],
-            ['Затраты', fmtSom(v.adSpend)],
-            ['CPC', `${v.cpc.toFixed(2)} сом`],
-            ['CPV (показ)', `${v.cpv.toFixed(2)} сом`],
-            ['На ВБ', `${v.minutesActive} мин`],
-            ['Ротаций', String(v.rotations)],
-        ];
         const tableY = ty + 38;
-        ctx.font = '12px DejaVu';
         rows.forEach((row, ri) => {
             const ry = tableY + ri * 20;
             ctx.fillStyle = '#6B7280';
+            ctx.font = `${rowFs}px DejaVu`;
             ctx.fillText(row[0], x + 14, ry);
             ctx.fillStyle = '#111827';
-            ctx.font = 'bold 12px DejaVu';
+            ctx.font = `bold ${rowFs}px DejaVu`;
             ctx.fillText(row[1], x + valX, ry);
-            ctx.font = '12px DejaVu';
         });
     }
 

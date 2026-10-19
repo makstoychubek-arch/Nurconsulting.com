@@ -1053,6 +1053,18 @@ async function handleTgCleanup(body: Record<string, unknown>): Promise<Response>
     const token = getTelegramToken();
     const chatId = getTelegramChatId('ab_tests');
     if (!token || !chatId) return json({ error: 'telegram not configured' }, 400);
+    // Отчёты уходят без подписи, по тексту их не найти: номера можно взять из dry_run (поле id у свежего сообщения без текста).
+    const ids = (Array.isArray(body.ids) ? body.ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 10);
+    if (ids.length) {
+        const out: Array<Record<string, unknown>> = [];
+        for (const id of ids) {
+            const r = await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, message_id: id }),
+            }).then((x) => x.json()).catch((e) => ({ ok: false, description: String(e) }));
+            out.push({ id, deleted: Boolean(r.ok), ...(r.ok ? {} : { error: String(r.description || '').slice(0, 80) }) });
+        }
+        return json({ ok: true, deleted: out });
+    }
     const patterns = (Array.isArray(body.patterns) ? body.patterns : []).map(String).filter(Boolean);
     if (!patterns.length) return json({ error: 'patterns required' }, 400);
     const span = Math.min(30, Number(body.span) || 10);
