@@ -6653,6 +6653,7 @@ const RNP = (() => {
     function _sheetLockKey(cal) {
         return [
             _activeNm == null ? '' : String(_activeNm),
+            _activeGroup || '',
             cal && cal.mode || '',
             cal && cal.days ? cal.days.length : 0,
             cal && cal.weeks ? cal.weeks.length : 0,
@@ -6801,8 +6802,10 @@ const RNP = (() => {
     function _sameArticleSheet(body) {
         if (!body) return false;
         const cur = _activeNm == null ? '' : String(_activeNm);
-        const prev = (body.getAttribute('data-rnp-lock') || '').split('|')[0];
-        if (prev) return prev === cur;
+        const lockParts = (body.getAttribute('data-rnp-lock') || '').split('|');
+        const prev = lockParts[0];
+        // Другая группа в «Общем» — это другой набор артикулов, шапку тоже надо перерисовать целиком.
+        if (prev) return prev === cur && (lockParts[1] || '') === (_activeGroup || '');
         return _sameLockedSheet(body, _sheetLockKey(_buildCalendar()));
     }
 
