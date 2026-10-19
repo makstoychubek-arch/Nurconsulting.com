@@ -380,8 +380,6 @@
                 <div class="hidden lg:flex items-center gap-0.5 text-sm">
                     <a href="#rnp" class="nav-link vp-pill-link">РНП</a>
                     <a href="#ab" class="nav-link vp-pill-link">А/Б-тесты</a>
-                    <a href="#goods" class="nav-link vp-pill-link">Товары</a>
-                    <a href="#dashboard" class="nav-link vp-pill-link">Дашборд</a>
                     <a href="#platform" class="nav-link vp-pill-link">Платформа</a>
                     <a href="/consulting" class="nav-link vp-pill-link">Консалтинг</a>
                     <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
@@ -428,7 +426,7 @@
                 <p class="mn-lead">РНП по артикулам, А/Б-тесты главного фото, управление рекламой и ответы на отзывы. Всё в одном кабинете, уведомления приходят в Telegram.</p>
                 <div class="mn-cta">
                     <span class="mn-btn mn-btn-dark" style="cursor:default;opacity:.7" aria-disabled="true">Скоро открытие</span>
-                    <a href="https://wa.me/79667520397" target="_blank" rel="noopener" class="mn-btn mn-btn-line">Написать в WhatsApp</a>
+                    <a href="https://wa.me/996502446688" target="_blank" rel="noopener" class="mn-btn mn-btn-line">Написать в WhatsApp</a>
                 </div>
             </div>
             <div class="mn-shot" aria-hidden="true">
@@ -449,8 +447,51 @@
         </div>
     </section>
 
+    <!-- РНП -->
+    <section id="rnp" class="mn-sec">
+        <div class="mn-wrap mn-split">
+            <div class="mn-copy">
+                <p class="mn-eyebrow">РНП</p>
+                <h2 class="mn-h2">Рука на пульсе по каждому артикулу</h2>
+                <p class="mn-text">Продажи, ДРР и маржа по артикулам в одной таблице. Сразу видно, какой товар в плюсе, а какой сливает рекламу. План и факт по неделям, выгрузки из Wildberries подтягиваются сами.</p>
+            </div>
+            <div class="mn-shot mn-shot-flat" aria-hidden="true">
+                <table class="mn-table">
+                    <thead><tr><th>Артикул</th><th>Заказы</th><th>Выручка</th><th>ДРР</th><th>Маржа</th><th></th></tr></thead>
+                    <tbody>
+                        <tr><td>248 190 372</td><td>64</td><td>412 000 ₽</td><td>14%</td><td class="up">+27%</td><td><span class="mn-tag ok">В плюсе</span></td></tr>
+                        <tr><td>248 190 588</td><td>11</td><td>96 500 ₽</td><td class="down">61%</td><td class="down">−18%</td><td><span class="mn-tag bad">Сливает</span></td></tr>
+                        <tr><td>248 191 004</td><td>38</td><td>238 900 ₽</td><td>22%</td><td class="up">+9%</td><td><span class="mn-tag">Стабильно</span></td></tr>
+                    </tbody>
+                </table>
+                <p class="mn-note">Пример интерфейса, данные условные</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- А/Б -->
+    <section id="ab" class="mn-sec mn-sec-alt">
+        <div class="mn-wrap mn-split mn-split-rev">
+            <div class="mn-shot mn-shot-flat" aria-hidden="true">
+                <div class="mn-ab">
+                    <div class="mn-ab-card"><div class="mn-ph a"></div><b>Фото A</b><span>CTR 4,1%</span><small>2 000 показов</small></div>
+                    <div class="mn-ab-card win"><div class="mn-ph b"></div><b>Фото B <u>лучше</u></b><span>CTR 6,3%</span><small>2 000 показов</small></div>
+                    <div class="mn-ab-card"><div class="mn-ph c"></div><b>Фото C</b><span>CTR 3,6%</span><small>2 000 показов</small></div>
+                </div>
+                <p class="mn-note">Пример интерфейса, данные условные</p>
+            </div>
+            <div class="mn-copy">
+                <p class="mn-eyebrow">А/Б-тесты</p>
+                <h2 class="mn-h2">Какое главное фото продаёт лучше</h2>
+                <p class="mn-text">Сервис сам меняет главное фото карточки на Wildberries и считает показы, клики и заказы каждого варианта. Каждое фото крутится, пока не наберёт нужное число показов, поэтому сравнение честное. В конце приходит отчёт с победителем.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Новые блоки (РНП, Товары, А/Б, Дашборд, подключение): готовы, скрыты до открытия. Убрать hidden, чтобы показать. -->
+    <div id="demo-blocks" hidden>
 <!-- ДЕМО: РНП -->
-<section id="rnp" class="dm-sec"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">РНП</p><h2 class="mn-h2">Рука на пульсе по каждому артикулу и дню</h2><p class="mn-text">Заказы, выручка, ДРР, маржа и остатки по каждому артикулу на каждый день месяца. Баланс WB, ближайшие выплаты и состояние кабинета видны сразу, без выгрузок в Excel.</p></div>
+<section id="demo-rnp" class="dm-sec"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">РНП</p><h2 class="mn-h2">Рука на пульсе по каждому артикулу и дню</h2><p class="mn-text">Заказы, выручка, ДРР, маржа и остатки по каждому артикулу на каждый день месяца. Баланс WB, ближайшие выплаты и состояние кабинета видны сразу, без выгрузок в Excel.</p></div>
 <div class="dm-app" aria-hidden="true"><div class="dm-top"><h4>Модуль РНП</h4><span class="dm-chip">1 окт – 18 окт</span><span class="dm-sp"></span><span class="dm-chip on">Общий</span><span class="dm-chip">План/факт</span><span class="dm-chip">Планирование</span></div><div class="dm-grid dm-g4" style="margin-bottom:12px">
 <div class="dm-kpi dark"><div class="l">Прибыль <i>43 арт.</i></div><div class="v">267 314,60 ₽</div><div class="s">заказов 861 · маржа 20,8% · ДРР 9,4%</div></div>
 <div class="dm-kpi blue"><div class="l">Баланс WB</div><div class="v">460 039,12 ₽</div><div class="row"><span>К выводу в понедельник</span><b>231 826,40</b></div><div class="row"><span>Выплата 26.10</span><b>228 212,72</b></div></div>
@@ -467,7 +508,7 @@
 <div class="dm-legend"><div style="--c:#14a86a"><span>Выкуплено</span><b>612</b></div><div style="--c:#a9afc2"><span>Отказы</span><b>190</b></div><div style="--c:#e5484d"><span>Возвраты</span><b>59</b></div></div></div></div>
 </div><div class="dm-card dm-scroll"><table class="dm-tbl"><thead><tr><th>Артикул</th><th>01.10<br><small>ср</small></th><th>02.10<br><small>чт</small></th><th>03.10<br><small>пт</small></th><th>04.10<br><small>сб</small></th><th>05.10<br><small>вс</small></th><th>06.10<br><small>пн</small></th><th>07.10<br><small>вт</small></th><th>Итого</th></tr></thead><tbody><tr><td><div class="dm-art"><span class="dm-ph" style="--g:linear-gradient(160deg,#e8d5c0,#b08968)"></span><span><b>Жакет оверсайз, молочный</b><small>248190372</small></span></div></td><td>16</td><td>10</td><td>18</td><td>26</td><td>7</td><td>8</td><td>32</td><td><b>117</b></td></tr><tr><td style="color:#7a8096">Выручка, ₽</td><td>68 960</td><td>43 100</td><td>77 580</td><td>112 060</td><td>30 170</td><td>34 480</td><td>137 920</td><td><b>504 270</b></td></tr><tr><td style="color:#7a8096">ДРР / маржа</td><td><span class="up">11%</span> / <span class="up">15%</span></td><td><span class="up">8%</span> / <span class="up">30%</span></td><td><span class="up">3%</span> / <span class="up">28%</span></td><td><span class="up">6%</span> / <span class="up">13%</span></td><td><span class="up">4%</span> / <span class="up">25%</span></td><td><span class="up">9%</span> / <span class="up">14%</span></td><td><span class="up">6%</span> / <span class="up">14%</span></td><td></td></tr><tr><td><div class="dm-art"><span class="dm-ph" style="--g:linear-gradient(160deg,#3d3d3d,#8a8a8a)"></span><span><b>Костюм брючный, графит</b><small>248190588</small></span></div></td><td>23</td><td>19</td><td>7</td><td>32</td><td>24</td><td>9</td><td>13</td><td><b>127</b></td></tr><tr><td style="color:#7a8096">Выручка, ₽</td><td>99 130</td><td>81 890</td><td>30 170</td><td>137 920</td><td>103 440</td><td>38 790</td><td>56 030</td><td><b>547 370</b></td></tr><tr><td style="color:#7a8096">ДРР / маржа</td><td><span class="up">13%</span> / <span class="up">30%</span></td><td><span class="up">3%</span> / <span class="up">30%</span></td><td><span class="up">12%</span> / <span class="up">24%</span></td><td><span class="up">3%</span> / <span class="up">19%</span></td><td><span class="up">3%</span> / <span class="up">29%</span></td><td><span class="up">5%</span> / <span class="up">21%</span></td><td><span class="up">9%</span> / <span class="up">16%</span></td><td></td></tr><tr><td><div class="dm-art"><span class="dm-ph" style="--g:linear-gradient(160deg,#f5e2a8,#d4a437)"></span><span><b>Свитер вязаный, айвори</b><small>248191004</small></span></div></td><td>23</td><td>9</td><td>24</td><td>15</td><td>23</td><td>32</td><td>27</td><td><b>153</b></td></tr><tr><td style="color:#7a8096">Выручка, ₽</td><td>99 130</td><td>38 790</td><td>103 440</td><td>64 650</td><td>99 130</td><td>137 920</td><td>116 370</td><td><b>659 430</b></td></tr><tr><td style="color:#7a8096">ДРР / маржа</td><td><span class="up">5%</span> / <span class="up">15%</span></td><td><span class="up">12%</span> / <span class="up">30%</span></td><td><span class="up">13%</span> / <span class="up">18%</span></td><td><span class="up">8%</span> / <span class="up">15%</span></td><td><span class="up">11%</span> / <span class="up">14%</span></td><td><span class="up">12%</span> / <span class="up">13%</span></td><td><span class="up">12%</span> / <span class="up">18%</span></td><td></td></tr><tr><td><div class="dm-art"><span class="dm-ph" style="--g:linear-gradient(160deg,#cfd8c4,#7a9471)"></span><span><b>Кимоно летнее, мята</b><small>248191212</small></span></div></td><td>21</td><td>27</td><td>23</td><td>19</td><td>30</td><td>16</td><td>20</td><td><b>156</b></td></tr><tr><td style="color:#7a8096">Выручка, ₽</td><td>90 510</td><td>116 370</td><td>99 130</td><td>81 890</td><td>129 300</td><td>68 960</td><td>86 200</td><td><b>672 360</b></td></tr><tr><td style="color:#7a8096">ДРР / маржа</td><td><span class="up">12%</span> / <span class="up">26%</span></td><td><span class="up">8%</span> / <span class="up">21%</span></td><td><span class="up">6%</span> / <span class="up">17%</span></td><td><span class="up">14%</span> / <span class="up">19%</span></td><td><span class="up">4%</span> / <span class="up">30%</span></td><td><span class="up">7%</span> / <span class="up">28%</span></td><td><span class="up">10%</span> / <span class="up">22%</span></td><td></td></tr></tbody></table></div></div><p class="dm-note">Пример интерфейса, данные условные. В кабинете здесь ваши реальные артикулы и цифры.</p></div></section>
 <!-- ДЕМО: Товары -->
-<section id="goods" class="dm-sec alt"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">Товары</p><h2 class="mn-h2">Карточки, остатки и маржа в одном списке</h2><p class="mn-text">Цена, себестоимость, маржа и ДРР по каждому товару. Остатки FBO и FBS и запас в днях: видно, что скоро закончится, а что залежалось и пора сливать.</p></div>
+<section id="demo-goods" class="dm-sec alt"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">Товары</p><h2 class="mn-h2">Карточки, остатки и маржа в одном списке</h2><p class="mn-text">Цена, себестоимость, маржа и ДРР по каждому товару. Остатки FBO и FBS и запас в днях: видно, что скоро закончится, а что залежалось и пора сливать.</p></div>
 <div class="dm-app" aria-hidden="true"><div class="dm-top"><h4>Товары</h4><span class="dm-chip on">Все 174</span><span class="dm-chip">FBO</span><span class="dm-chip">FBS</span><span class="dm-chip">Мало остатка</span><span class="dm-chip">Слив</span><span class="dm-sp"></span><span class="dm-chip">Поиск по артикулу</span></div>
 <div class="dm-pgrid"><div class="dm-p"><div class="im" style="--g:linear-gradient(160deg,#e8d5c0,#b08968)"><em>Хит</em></div><div class="bd"><b>Жакет оверсайз, молочный</b><small class="dm-sm">арт. 248 190 372</small>
 <dl><dt>Цена со скидкой</dt><dd>4 310 ₽</dd><dt>Себестоимость</dt><dd>1 650 ₽</dd><dt>Маржа</dt><dd class="up">38%</dd><dt>ДРР</dt><dd>9%</dd></dl>
@@ -487,7 +528,7 @@
 <dl><dt>Цена со скидкой</dt><dd>4 100 ₽</dd><dt>Себестоимость</dt><dd>1 700 ₽</dd><dt>Маржа</dt><dd class="up">37%</dd><dt>ДРР</dt><dd>15%</dd></dl>
 <div class="dm-stock"><i style="width:35%;background:#f5a623"></i></div><small class="dm-sm">Хватит на 14 д.</small></div></div></div></div><p class="dm-note">Пример интерфейса, данные условные. В кабинете здесь ваши реальные артикулы и цифры.</p></div></section>
 <!-- ДЕМО: А/Б -->
-<section id="ab" class="dm-sec"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">А/Б-тесты</p><h2 class="mn-h2">Какое главное фото продаёт лучше, с цифрами</h2><p class="mn-text">Сервис сам меняет главное фото карточки на Wildberries по квоте показов и считает CTR, заказы и конверсию каждого варианта. По итогам теста видно победителя, а не ощущения дизайнера.</p></div>
+<section id="demo-ab" class="dm-sec"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">А/Б-тесты</p><h2 class="mn-h2">Какое главное фото продаёт лучше, с цифрами</h2><p class="mn-text">Сервис сам меняет главное фото карточки на Wildberries по квоте показов и считает CTR, заказы и конверсию каждого варианта. По итогам теста видно победителя, а не ощущения дизайнера.</p></div>
 <div class="dm-app" aria-hidden="true"><div class="dm-top"><h4>А/Б-тест · Жакет оверсайз</h4><span class="dm-chip">Квота 2 000 показов на фото</span><span class="dm-sp"></span><span class="dm-tag ok">Тест завершён</span></div>
 <div class="dm-ab"><div class="dm-abc"><div class="im" style="--g:linear-gradient(160deg,#e8d5c0,#b08968)"></div><div class="t"><span>Фото A</span></div>
 <div class="mx"><div><small>CTR</small><b>4,1%</b></div><div><small>Заказов</small><b>116</b></div><div><small>Показов</small><b>2 000</b></div><div><small>Заказов на 1000 показов</small><b>5,8</b></div></div></div><div class="dm-abc win"><div class="im" style="--g:linear-gradient(160deg,#d8d2f0,#8a7fc4)"></div><div class="t"><span>Фото B</span><span class="dm-tag ok">лучшее</span></div>
@@ -495,7 +536,7 @@
 <div class="mx"><div><small>CTR</small><b>3,6%</b></div><div><small>Заказов</small><b>98</b></div><div><small>Показов</small><b>2 000</b></div><div><small>Заказов на 1000 показов</small><b>4,9</b></div></div></div></div>
 <div class="dm-card" style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><b>Результат теста</b><span class="up"><b>Фото B: +54% к CTR против A</b></span></div><div class="dm-prog"><i style="width:100%"></i></div><small class="dm-sm">6 000 из 6 000 показов · статистика достоверна · победитель выставлен главным фото автоматически</small></div></div><p class="dm-note">Пример интерфейса, данные условные. В кабинете здесь ваши реальные артикулы и цифры.</p></div></section>
 <!-- ДЕМО: Дашборд -->
-<section id="dashboard" class="dm-sec alt"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">Дашборд</p><h2 class="mn-h2">Чистая прибыль до копейки</h2><p class="mn-text">Выручка минус комиссия, логистика, хранение, приёмка, штрафы, реклама, себестоимость и налог. Каждая строка считается из отчётов WB и ваших себестоимостей, итог сходится до копейки.</p></div>
+<section id="demo-dashboard" class="dm-sec alt"><div class="mn-wrap"><div class="dm-head"><p class="mn-eyebrow">Дашборд</p><h2 class="mn-h2">Чистая прибыль до копейки</h2><p class="mn-text">Выручка минус комиссия, логистика, хранение, приёмка, штрафы, реклама, себестоимость и налог. Каждая строка считается из отчётов WB и ваших себестоимостей, итог сходится до копейки.</p></div>
 <div class="dm-app" aria-hidden="true"><div class="dm-top"><h4>Дашборд</h4><span class="dm-chip">1 окт – 18 окт</span><span class="dm-sp"></span><span class="dm-chip on">Все кабинеты</span></div><div class="dm-grid dm-g4" style="margin-bottom:12px"><div class="dm-card"><small>Выручка</small><div class="dm-kpi light" style="padding:4px 0 0"><div class="v" style="font-size:26px;margin:2px 0">1 284 500,00 ₽</div></div><small class="up">+12% к прошлому периоду</small></div>
 <div class="dm-card"><small>Заказы</small><div class="dm-kpi light" style="padding:4px 0 0"><div class="v" style="font-size:26px;margin:2px 0">861 шт</div></div><small class="up">+8%</small></div>
 <div class="dm-card"><small>Средний чек</small><div class="dm-kpi light" style="padding:4px 0 0"><div class="v" style="font-size:26px;margin:2px 0">1 491,87 ₽</div></div><small class="dn">−1,2%</small></div>
@@ -504,9 +545,11 @@
 <tr><td><div class="dm-art"><span class="dm-ph" style="--g:linear-gradient(160deg,#3d3d3d,#8a8a8a)"></span><span><b>Костюм брючный</b><small>248190588</small></span></div></td><td>6 880,00</td><td>−1 060,35</td><td>−398,20</td><td>−825,60</td><td>−2 900,00</td><td>−412,80</td><td class="up"><b>1 283,05 ₽</b></td></tr>
 <tr><td><div class="dm-art"><span class="dm-ph" style="--g:linear-gradient(160deg,#cfd8c4,#7a9471)"></span><span><b>Кимоно летнее</b><small>248191212</small></span></div></td><td>2 790,00</td><td>−430,20</td><td>−280,50</td><td>−864,90</td><td>−1 120,00</td><td>−167,40</td><td class="dn"><b>−72,99 ₽</b></td></tr></tbody></table></div></div><p class="dm-note">Пример интерфейса, данные условные. В кабинете здесь ваши реальные артикулы и цифры.</p></div></section>
 <!-- ДЕМО: Подключение -->
-<section id="connect" class="dm-sec"><div class="mn-wrap"><div class="dm-cta"><div><p class="mn-eyebrow" style="color:rgba(255,255,255,.55)">Подключение</p><h2>Хотите подключиться?</h2><p>Напишите нам в WhatsApp. Проведём созвон, покажем сайт на живых данных и вместе подключим ваш кабинет Wildberries.</p>
+<section id="demo-connect" class="dm-sec"><div class="mn-wrap"><div class="dm-cta"><div><p class="mn-eyebrow" style="color:rgba(255,255,255,.55)">Подключение</p><h2>Хотите подключиться?</h2><p>Напишите нам в WhatsApp. Проведём созвон, покажем сайт на живых данных и вместе подключим ваш кабинет Wildberries.</p>
 <ul><li>Покажем РНП, Товары, А/Б-тесты и дашборд на вашем кабинете</li><li>Подключим кабинет за один созвон: понадобится только токен WB</li><li>Объясним, как читать цифры и что менять в рекламе и карточках</li><li>Ответим на вопросы по ценам и условиям</li></ul></div>
 <div class="dm-wa"><small>WhatsApp, Россия</small><div class="num">+7 966 752 03 97</div><a class="btn" href="https://wa.me/79667520397?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5!%20%D0%A5%D0%BE%D1%82%D0%B8%D0%BC%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%D1%81%D1%8F%20%D0%BA%20NR%20Space%20%D0%B8%20%D0%BF%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80%D0%B5%D1%82%D1%8C%20%D1%81%D0%B0%D0%B9%D1%82." target="_blank" rel="noopener"><svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163A11.9 11.9 0 0 1 .16 11.9C.16 5.35 5.5 0 12.06 0a11.8 11.8 0 0 1 8.4 3.48 11.8 11.8 0 0 1 3.47 8.41c0 6.56-5.35 11.9-11.9 11.9a11.9 11.9 0 0 1-5.7-1.45L.06 24Z"/></svg>Написать в WhatsApp</a><p>Отвечаем в течение дня. Созвон бесплатный.</p></div></div></div></section>
+    </div>
+
     <!-- Остальное -->
     <section id="platform" class="mn-sec">
         <div class="mn-wrap">
