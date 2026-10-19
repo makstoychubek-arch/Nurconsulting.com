@@ -15,7 +15,8 @@ const cron = read('supabase/migrations/20261005191000_orders_watch_cron.sql');
 
 // Звуковой файл на месте.
 assert.ok(fs.existsSync(path.join(__dirname, 'sounds/order-dolphin.m4a')) && fs.statSync(path.join(__dirname, 'sounds/order-dolphin.m4a')).size > 5000, 'sound file is shipped');
-assert.ok(html.includes("var SRC = '/sounds/order-dolphin.m4a';"), 'the page plays the shipped file');
+assert.ok(html.includes("src:'/sounds/order-dolphin.m4a'") && html.includes("src:'/sounds/order-faaah.mp3'"), 'the page offers both shipped sounds');
+assert.ok(fs.existsSync(path.join(__dirname, 'sounds/order-faaah.mp3')), 'faaah file is shipped');
 
 // База: уникальные заказы, только команда видит, писать может сервер, Realtime включён.
 assert.ok(sql.includes('unique (cabinet_id, ext_id)'), 'each order is stored once per cabinet');
