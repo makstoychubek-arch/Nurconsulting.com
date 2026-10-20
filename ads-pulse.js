@@ -422,7 +422,7 @@
         S.rows = (root.AdsHQ && root.AdsHQ.getVisibleRows) ? root.AdsHQ.getVisibleRows() : [];
         var total = 0, html = '';
         S.rows.forEach(function (cab) {
-            if (cab.campaigns.length) html += '<h3 class="adp2-cab"><b>' + esc(cab.name) + '</b><span>' + cab.campaigns.length + ' ' + campWord(cab.campaigns.length) +'</span></h3>';
+            if (S.rows.length > 1 && cab.campaigns.length) html += '<h3 class="adp2-cab"><b>' + esc(cab.name) + '</b><span>' + cab.campaigns.length + ' ' + campWord(cab.campaigns.length) +'</span></h3>';
             cab.campaigns.forEach(function (camp) { total++; html += rowHtml(cab, camp); });
         });
         if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = '<div class="adp2-empty"><span class="adp2-skel big"></span><span class="adp2-skel big"></span><span class="adp2-skel big"></span></div>';
@@ -894,8 +894,7 @@
         if ($('adp2-switch')) return;
         var bar = doc.querySelector('#adv-view-ads .ads-hq-filters'); if (!bar) return;
         var sw = doc.createElement('div'); sw.id = 'adp2-switch'; sw.className = 'adp2-switch';
-        sw.innerHTML = '<button type="button" class="ads-hq-chip" data-pulse-view="pulse">Пульт</button><button type="button" class="ads-hq-chip" data-pulse-view="table">Таблица</button>' +
-            '<button type="button" class="adp2-newbtn" data-pact="new" id="adp2-new">＋ Новая РК</button>';
+        sw.innerHTML = '<button type="button" class="adp2-newbtn" data-pact="new" id="adp2-new">＋ Новая РК</button>';
         bar.appendChild(sw);
         sw.addEventListener('click', function (e) {
             var b = e.target.closest('[data-pulse-view]'); if (b) { setView(b.dataset.pulseView); return; }
@@ -905,8 +904,7 @@
     function init(deps) {
         if (S.inited) { S.deps = deps || S.deps; return; }
         S.inited = true; S.deps = deps;
-        var saved = ''; try { saved = root.localStorage.getItem('nr_ads_view') || ''; } catch (e) { /* нет хранилища */ }
-        S.view = saved === 'table' ? 'table' : 'pulse';
+        S.view = 'pulse'; // таблица убрана: один вид, список как в макете
         var host = $('adv-pulse'); if (!host) return;
         host.addEventListener('click', onClick); host.addEventListener('input', onInput); host.addEventListener('change', onChange); host.addEventListener('keydown', onKey);
         mountSwitch();
