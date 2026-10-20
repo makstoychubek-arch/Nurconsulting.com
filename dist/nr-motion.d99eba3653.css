@@ -101,3 +101,19 @@ html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolut
     html header.glass.app-header { padding-top: calc(18px + env(safe-area-inset-top, 0px)) !important; }
     html .main-rail { padding-top: calc(60px + env(safe-area-inset-top, 0px)) !important; }
 }
+
+/* Телефон: кнопка меню слева в шапке, боковая панель выезжает как на сайте; низ экрана закрашен цветом панели */
+@media (max-width: 768px) {
+    html .mobile-menu-btn { display: inline-flex !important; width: 32px; height: 32px; padding: 0; margin-right: -6px; align-items: center; justify-content: center; flex: none; }
+    html .sidebar-app.mobile-open { transform: translateX(0) !important; pointer-events: auto !important; z-index: 10001 !important; }
+    html .mobile-overlay.active { z-index: 10000 !important; }
+    html .sidebar-app.mobile-open .sidebar-rail { box-shadow: 8px 0 32px rgba(0, 0, 0, .25); }
+    html, html body { background-color: var(--surface-solid) !important; }
+    html .bottom-nav::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 80px; background: inherit; }
+}
+@media (max-width: 768px) {
+    body:has(.sidebar-app.mobile-open) header.app-header, body:has(.sidebar-app.mobile-open) .bottom-nav { z-index: 1 !important; }
+}
+@media (max-width: 768px) {
+    html .sidebar-app .sidebar-rail { padding-top: calc(18px + env(safe-area-inset-top, 0px)); padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+}
