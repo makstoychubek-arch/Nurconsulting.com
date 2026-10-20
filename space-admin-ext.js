@@ -404,57 +404,157 @@
         renderSpacesAdminView();
     }
 
-    // Кнопки строки добавляются в той же задаче, что и отрисовка таблицы, поэтому ничего не мигает и не перестраивается позже.
-    function decorate() {
+    // ===== Вид «Настройки»: минимализм (вариант B) =====
+    const MIN_CSS = `
+#tab-settings.active{display:grid;grid-template-columns:200px minmax(0,1fr);column-gap:40px;align-items:start;max-width:1000px;margin:0 auto}
+#tab-settings>.space-pending-banner{grid-column:1/-1}
+#tab-settings>.settings-section-tabs{grid-column:1;grid-row:2/span 30;position:sticky;top:12px;display:flex;flex-direction:column;gap:2px;background:none;border:0;padding:0;margin:0}
+#tab-settings>[id^="settings-"]:not(.settings-section-tabs){grid-column:2;grid-row:2;min-width:0}
+#tab-settings .settings-section-tab{flex:none;text-align:left;padding:9px 12px;font-size:14px;font-weight:500;border-radius:10px;color:var(--text-muted);background:none}
+#tab-settings .settings-section-tab:hover{background:var(--sel,#ededed);color:var(--text-primary)}
+#tab-settings .settings-section-tab.active{background:var(--sel,#ededed);color:var(--text-primary);font-weight:600}
+#tab-settings .widget-card{box-shadow:none;border:1px solid var(--border);border-radius:16px;background:var(--surface-solid,var(--surface))}
+#tab-settings #settings-security .security-sessions-card{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-radius:0;overflow:visible}
+#tab-settings #settings-security .security-sessions-card>.p-6{padding:0 0 10px!important}
+#tab-settings #settings-security .security-sessions-card h3{font-size:15px;font-weight:600}
+#tab-settings #settings-security .security-sessions-card>.px-6{padding:0!important}
+#tab-settings #security-sessions-list{background:var(--surface-solid,var(--surface));border:1px solid var(--border);border-radius:14px;overflow:hidden}
+#tab-settings #settings-security.space-y-4>*+*{margin-top:36px}
+#tab-settings #settings-security .security-sessions-card+.security-sessions-card,#tab-settings #settings-security #admin-access-card+.security-sessions-card{margin-top:36px}
+#tab-settings .security-device-icon{width:34px;height:34px;border-radius:9px;border:0;background:var(--sel,#ededed)}
+#tab-settings .security-session-row{padding:14px 18px;gap:12px}
+#tab-settings .security-session-title{font-size:14px}
+#tab-settings .security-end-btn{font-size:13px}
+#tab-settings .security-end-all-btn{width:auto;margin:10px 0 0 auto;padding:6px 10px;font-size:13px;font-weight:500;color:var(--text-muted)}
+#tab-settings .security-end-all-btn:hover:not(:disabled){color:var(--red,#d4372c);background:none}
+#tab-settings #admin-access-card .p-6{padding:20px 20px 0}
+#tab-settings .admin-spaces-subtabs{display:flex;gap:4px;margin:12px 0 10px;overflow-x:auto;scrollbar-width:none;background:none;border:0;padding:0}
+#tab-settings .admin-spaces-subtab{flex:none;border:0;background:none;padding:6px 12px;border-radius:8px;color:var(--text-muted);font-weight:500;font-size:13px}
+#tab-settings .admin-spaces-subtab.active{background:var(--sel,#ededed);color:var(--text-primary)}
+.axm-list{padding:4px 0 0;display:flex;flex-direction:column;gap:10px}
+.axm-card{border:1px solid var(--border);border-radius:14px;padding:16px;background:var(--surface-solid,var(--surface))}
+.axm-top{display:flex;align-items:center;gap:12px}
+.axm-av{width:36px;height:36px;border-radius:50%;background:var(--sel,#ededed);display:grid;place-items:center;font-weight:600;font-size:13px;flex:none;overflow:hidden}
+.axm-av img{width:100%;height:100%;object-fit:cover}
+.axm-who{flex:1;min-width:0}.axm-who b{display:block;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.axm-who small{display:block;color:var(--text-muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.axm-meta{margin-top:10px;font-size:13px;color:var(--text-muted)}
+.axm-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.axm-btns .ax{border:1px solid var(--border);background:none;color:var(--text-primary);border-radius:9px;padding:8px 14px;font:inherit;font-size:13px;font-weight:550;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.axm-btns .ax svg{width:14px;height:14px}
+.axm-btns .ax-ok{background:var(--text-primary);color:var(--bg,#fff);border-color:var(--text-primary);box-shadow:none}
+.axm-btns .ax-danger{color:var(--red,#d4372c)}
+.axm-btns .ax-test,.axm-btns .ax-staff,.axm-btns .ax-rnp{box-shadow:none;background:none;color:var(--text-primary);border:1px solid var(--border)}
+.axm-btns .ax:hover{background:var(--sel,#ededed)}.axm-btns .ax-ok:hover{opacity:.88;background:var(--text-primary)}
+.axm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.axm-chip{font-size:12px;border-radius:99px;padding:3px 10px;background:var(--sel,#ededed);color:var(--text-secondary)}
+.axm-chip.amber{background:rgba(245,158,11,.14);color:#b45309}.axm-chip.purple{background:rgba(109,79,232,.12);color:#5b3fd0}.axm-chip.blue{background:rgba(59,130,246,.12);color:#2563eb}.axm-chip.red{background:rgba(212,55,44,.1);color:#d4372c}
+.axm-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border)}.axm-row:last-child{border:0}
+.axm-empty{padding:36px 20px;text-align:center;color:var(--text-muted);font-size:13px}
+@media(max-width:760px){
+ #tab-settings.active{display:block}
+ #tab-settings>.settings-section-tabs{position:static;flex-direction:row;overflow-x:auto;scrollbar-width:none;white-space:nowrap;margin-bottom:16px}
+ #tab-settings .security-session-row{flex-wrap:wrap}
+ .axm-btns .ax{flex:1 1 auto;justify-content:center}.axm-btns .ax-ok{flex:1 1 100%}
+ .axm-row{flex-wrap:wrap}
+}`;
+
+    function injectMinCss() {
+        if (document.getElementById('nr-settings-min')) return;
+        const st = document.createElement('style');
+        st.id = 'nr-settings-min';
+        st.textContent = MIN_CSS;
+        document.head.appendChild(st);
+    }
+
+    function avatarOf(row) {
+        const url = String(row.avatar_url || '').trim();
+        return '<div class="axm-av">' + (url ? '<img src="' + escH(url) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">' : escH(spaceUserInitial(row))) + '</div>';
+    }
+    function emailLabel(row) {
+        const tg = /^tg(\d+)@telegram\.nurcon\.kg$/i.exec(row.email || '');
+        return tg ? 'Telegram · ID ' + tg[1] : (row.email || '—');
+    }
+    const axBtn = (cls, act, uid, icon, text) => '<button type="button" class="ax ' + cls + '" data-ax="' + act + '" data-uid="' + uid + '">' + (icon ? ICO[icon] : '') + '<span>' + esc(text) + '</span></button>';
+
+    function renderRequests(rows) {
+        if (!rows.length) return '<div class="axm-empty">Запросов на вход пока нет.</div>';
+        return '<div class="axm-list">' + rows.map((s) => {
+            const n = Number(s.sign_in_attempts) || 1;
+            return '<div class="axm-card" data-uid="' + s.user_id + '"><div class="axm-top">' + avatarOf(s) +
+                '<div class="axm-who"><b>' + escH(spaceDisplayName(s)) + '</b><small>' + escH(emailLabel(s)) + '</small></div><span class="axm-chip amber">В ожидании</span></div>' +
+                '<div class="axm-meta">Пытался войти ' + escH(formatAttemptTime(s.last_sign_in_at)) + ' · ' + escH(formatAttemptIntensity(n)) + '</div>' +
+                '<div class="axm-btns">' +
+                '<button type="button" class="ax ax-ok" onclick="adminGrantSpaceAccess(\'' + s.user_id + '\', this)">' + ICO.check + '<span>Разрешить</span></button>' +
+                axBtn('ax-rnp', 'rnp', s.user_id, 'eye', 'Только РНП') + axBtn('ax-staff', 'staff', s.user_id, 'user', 'Как сотрудник') + axBtn('ax-test', 'trial', s.user_id, 'gift', 'Тест: Фулл на 1 день') +
+                '<button type="button" class="ax ax-danger" onclick="adminBlockSpace(\'' + s.user_id + '\', this)">' + ICO.ban + '<span>Заблокировать</span></button>' +
+                '</div></div>';
+        }).join('') + '</div>';
+    }
+
+    function renderAllowed(rows, counts) {
+        if (!rows.length) return '<div class="axm-empty">Разрешённых спейсов пока нет</div>';
+        return '<div class="axm-list">' + rows.map((s) => {
+            const mine = isSuperAdminRow(s);
+            const sp = AX.sp.get(s.user_id) || s;
+            const pi = planInfo(Object.assign({}, s, { plan_until: sp.plan_until, tariff_plan: s.tariff_plan }));
+            const staff = AX.staff.has(String(s.email || '').toLowerCase());
+            const views = AX.viewers.get(s.user_id) || [];
+            const nCab = counts[s.user_id] || 0;
+            const chips = chip(pi.label, pi.cls).replace('acx-chip', 'axm-chip') + (staff ? '<span class="axm-chip purple">Сотрудник</span>' : '') +
+                (views.length ? '<span class="axm-chip blue">Просмотр: ' + escH(views.map((v) => AX.cabName.get(v.cabinet_id) || 'кабинет').join(', ')) + ' · ' + escH((views[0].sections || ['all']).join(', ')) + '</span>' : '') +
+                (nCab ? '<span class="axm-chip">' + escH(cabinetCountLabel(nCab)) + '</span>' : '');
+            return '<div class="axm-card" data-uid="' + s.user_id + '"><div class="axm-top">' + avatarOf(s) +
+                '<div class="axm-who"><b>' + escH(spaceDisplayName(s)) + (mine ? ' · создатель' : '') + '</b><small>' + escH(emailLabel(s)) + ' · ' + escH(formatLastSignIn(s.last_sign_in_at)) + '</small></div>' +
+                (mine ? '' : axBtn('ax-manage', 'manage', s.user_id, 'gear', 'Управлять')) + '</div><div class="axm-chips" style="margin-top:10px">' + chips + '</div></div>';
+        }).join('') + '</div>';
+    }
+
+    function renderBlocked(rows) {
+        if (!rows.length) return '<div class="axm-empty">Заблокированных спейсов нет.</div>';
+        return '<div class="axm-list">' + rows.map((s) =>
+            '<div class="axm-card" data-uid="' + s.user_id + '"><div class="axm-top">' + avatarOf(s) +
+            '<div class="axm-who"><b>' + escH(spaceDisplayName(s)) + '</b><small>' + escH(emailLabel(s)) + ' · ' + escH(formatAttemptTime(s.last_sign_in_at || s.updated_at)) + '</small></div></div>' +
+            '<div class="axm-btns"><button type="button" class="ax ax-ok" onclick="adminUnblockSpace(\'' + s.user_id + '\', this)">' + ICO.check + '<span>Разблокировать</span></button>' +
+            '<button type="button" class="ax ax-danger" onclick="adminDeleteUser(\'' + s.user_id + '\', this)">' + ICO.trash + '<span>Удалить</span></button></div></div>').join('') + '</div>';
+    }
+
+    function renderSpacesMin() {
         const wrap = document.getElementById(wrapId);
-        if (!wrap) return;
-        const rows = [...wrap.querySelectorAll('tbody tr')].filter((tr) => !tr.querySelector('[data-ext]'));
-        rows.forEach((tr) => {
-            const grant = tr.querySelector('button[onclick^="adminGrantSpaceAccess("]');
-            const block = tr.querySelector('button[onclick^="adminBlockSpace("]');
-            const box = tr.querySelector('.admin-space-actions') || (block || grant)?.parentElement;
-            if (!box) return;
-            styleNative(box);
-            if (grant && !tr.querySelector('button[onclick^="adminUnblockSpace("]')) {
-                const uid = uidOf(grant);
-                const mail = String((AX.sp.get(uid) || {}).email || '').toLowerCase();
-                // Новый клиент: сразу «Фулл» на 1 день (потом замок до оплаты) или сразу сотрудником.
-                grant.after(mkBtn('Тест: Фулл на 1 день', 'ax ax-test', () => act(uid,
-                    { status: 'active', tariff_plan: 'premium', plan_until: new Date(Date.now() + 864e5).toISOString() },
-                    () => authedPost({ action: 'activate', user_id: uid, trial_days: 1 }),
-                    'Тест на 1 день', 'Доступ разрешён, «Фулл» на 24 часа, потом замок до оплаты.'), 'gift'));
-                grant.after(mkBtn('Как сотрудник', 'ax ax-staff', () => act(uid,
-                    { status: 'active', tariff_plan: 'premium', plan_until: null },
-                    () => authedPost({ action: 'activate', user_id: uid, as_staff: true }),
-                    'Сотрудник добавлен', 'Доступ разрешён, «Фулл» выдан, права сотрудника включены.',
-                    { apply: () => { if (mail) AX.staff.add(mail); }, revert: () => { if (mail) AX.staff.delete(mail); } }), 'user'));
-                box.querySelectorAll('button[onclick^="adminDeleteUser("]').forEach((x) => x.remove());
-                styleNative(box);
-                return;
-            }
-            if (block && !grant) {
-                const uid = uidOf(block);
-                const row = AX.sp.get(uid) || rowsAll().find((r) => r.user_id === uid);
-                if (!row) return;
-                const isStaff = AX.staff.has(String(row.email || '').toLowerCase());
-                const pi = planInfo(row);
-                const views = AX.viewers.get(uid) || [];
-                box.innerHTML = '';
-                box.classList.add('ax-box');
-                const info = document.createElement('div');
-                info.className = 'acx-chips acx-row';
-                info.setAttribute('data-ext', '1');
-                info.innerHTML = chip(pi.label, pi.cls) + (isStaff ? chip('Сотрудник', 'purple') : '') + (views.length ? chip('Просмотр: ' + views.map((v) => AX.cabName.get(v.cabinet_id) || 'кабинет').join(', ') + ' · ' + (views[0].sections || ['all']).join(', '), 'blue') : '');
-                const btns = document.createElement('div');
-                btns.className = 'acx-btns';
-                if (pi.key === 'free' && !isStaff) {
-                    btns.appendChild(mkBtn('Тест: Фулл на 1 день', 'ax ax-test', () => act(uid,
-                        { tariff_plan: 'premium', plan_until: new Date(Date.now() + 864e5).toISOString() },
-                        () => authedPost({ action: 'set_plan', user_id: uid, plan: 'premium', days: 1 }),
-                        'Тест на 1 день', '«Фулл» выдан на 24 часа, потом разделы закроются до оплаты.'), 'gift'));
-                }
-                btns.appendChild(mkBtn('Управлять', 'ax ax-manage', () => openAccessModal(uid), 'gear'));
-                box.append(info, btns);
+        const c = typeof _spacesAdminCache !== 'undefined' ? _spacesAdminCache : null;
+        if (!wrap || !c) return;
+        const set = (id, n) => { const el = document.getElementById('admin-spaces-count-' + id); if (el) el.textContent = String(n); };
+        set('allowed', c.allowedRows.length); set('requests', c.requestRows.length); set('blocked', c.blockedRows.length);
+        const tab = _spacesAdminTab === 'active' ? 'allowed' : _spacesAdminTab;
+        wrap.innerHTML = tab === 'requests' ? renderRequests(c.requestRows) : tab === 'blocked' ? renderBlocked(c.blockedRows) : renderAllowed(c.allowedRows, c.counts || {});
+    }
+
+    // Кнопки карточек «Только РНП», «Как сотрудник», «Тест», «Управлять»: один обработчик на весь блок.
+    function bindCards() {
+        const wrap = document.getElementById(wrapId);
+        if (!wrap || wrap.__axBound) return;
+        wrap.__axBound = true;
+        wrap.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-ax]');
+            if (!b) return;
+            const uid = b.dataset.uid;
+            const row = AX.sp.get(uid) || rowsAll().find((r) => r.user_id === uid) || {};
+            const mail = String(row.email || '').toLowerCase();
+            const day = () => new Date(Date.now() + 864e5).toISOString();
+            switch (b.dataset.ax) {
+                case 'manage': openAccessModal(uid); break;
+                case 'rnp':
+                    act(uid, { status: 'active' }, () => authedPost({ action: 'activate', user_id: uid }), 'Доступ разрешён', 'Выберите кабинет: будет доступен только РНП.');
+                    openViewerModal(uid, row.email);
+                    break;
+                case 'staff':
+                    act(uid, { status: 'active', tariff_plan: 'premium', plan_until: null }, () => authedPost({ action: 'activate', user_id: uid, as_staff: true }),
+                        'Сотрудник добавлен', 'Доступ разрешён, «Фулл» выдан, права сотрудника включены.',
+                        { apply: () => { if (mail) AX.staff.add(mail); }, revert: () => { if (mail) AX.staff.delete(mail); } });
+                    break;
+                case 'trial':
+                    act(uid, { status: 'active', tariff_plan: 'premium', plan_until: day() }, () => authedPost({ action: 'activate', user_id: uid, trial_days: 1 }),
+                        'Тест на 1 день', 'Доступ разрешён, «Фулл» на 24 часа, потом замок до оплаты.');
+                    break;
             }
         });
     }
@@ -462,10 +562,9 @@
     function installOverrides() {
         if (window.__axFast) return;
         window.__axFast = true;
-        const origRender = window.renderSpacesAdminView;
-        window.renderSpacesAdminView = function () {
-            keepPlace(() => { if (typeof origRender === 'function') origRender(); decorate(); });
-        };
+        injectMinCss();
+        bindCards();
+        window.renderSpacesAdminView = function () { keepPlace(renderSpacesMin); };
         window.loadSpacesAdmin = loadSpacesAdminFast;
         window.adminGrantSpaceAccess = (uid) => {
             if (!uid || !isSuperAdmin) return;
@@ -661,9 +760,8 @@
         try { backgroundFlows(); } catch (_) {}
         const wrap = document.getElementById(wrapId);
         if (!wrap) return;
-        // Подстраховка: если какой-то другой код перерисовал таблицу мимо нашей обёртки, кнопки всё равно появятся.
-        new MutationObserver(() => decorate()).observe(wrap, { childList: true });
-        if (typeof _spacesAdminCache !== 'undefined' && _spacesAdminCache) decorate();
+        bindCards();
+        if (typeof _spacesAdminCache !== 'undefined' && _spacesAdminCache) renderSpacesMin();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
