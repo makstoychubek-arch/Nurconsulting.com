@@ -71,6 +71,19 @@ test('Пульт: ползунок «A» меняется сразу и став
     assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
 });
 
+test('Дашборд на телефоне: новый компактный вид берёт цифры из блоков дашборда', async ({ page }) => {
+    await page.setViewportSize({ width: 424, height: 900 });
+    await page.evaluate(() => showTab('dashboard'));
+    await page.waitForFunction(() => document.getElementById('tab-dashboard').classList.contains('nmd-on'), null, { timeout: 3000 });
+    await page.evaluate(() => {
+        const set = (s, t) => { const e = document.querySelector(s); if (e) { e.textContent = t; e.classList.remove('nr-skel'); } };
+        set('#m-orders-sum', '6 275 018 ₽'); set('#m-orders-count', '1 229 шт'); set('#pnl-profit', '317 975 ₽');
+    });
+    await page.waitForFunction(() => /6 275 018/.test(document.getElementById('nr-md').innerText) && /317 975/.test(document.getElementById('nr-md').innerText), null, { timeout: 2000 });
+    const hiddenOld = await page.evaluate(() => getComputedStyle(document.getElementById('dash-pnl')).display);
+    assert.strictEqual(hiddenOld, 'none', 'старые блоки скрыты на телефоне');
+});
+
 test('повторное открытие вкладки показывает прошлые цифры сразу', async ({ page }) => {
     await page.evaluate(() => showTab('dashboard'));
     await page.waitForTimeout(300);
