@@ -95,3 +95,9 @@ html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolut
     html[data-staff="1"] .nr-fox-slot.nr-hdr-fox, html[data-staff="1"] .nr-hdr-fox .nr-fox { width: 40px !important; height: 40px !important; }
 }
 @media (max-width: 640px) { html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: none; } }
+
+/* iPhone (веб-приложение): шапку чуть ниже, чтобы текст не попадал в системное размытие у верхнего края */
+@media (max-width: 900px) and (display-mode: standalone) {
+    html header.glass.app-header { padding-top: calc(18px + env(safe-area-inset-top, 0px)) !important; }
+    html .main-rail { padding-top: calc(60px + env(safe-area-inset-top, 0px)) !important; }
+}
