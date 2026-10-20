@@ -118,3 +118,21 @@ html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolut
 @media (max-width: 768px) {
     html .sidebar-app .sidebar-rail { padding-top: calc(18px + env(safe-area-inset-top, 0px)); padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* Телефон: прокрутка до самого низа, без чёрной полосы; внизу экрана живое стекло, сквозь которое видно контент */
+@media (max-width: 768px) {
+    html .main-rail { padding-bottom: 0 !important; }
+    html .main-content { padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px)) !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+    html body::after {
+        content: ""; position: fixed; left: 0; right: 0; bottom: 0; z-index: 9990; pointer-events: none;
+        height: calc(env(safe-area-inset-bottom, 0px) + 34px);
+        background: rgba(255, 255, 255, .22);
+        -webkit-backdrop-filter: blur(18px) saturate(1.8); backdrop-filter: blur(18px) saturate(1.8);
+        -webkit-mask-image: linear-gradient(to top, #000 55%, transparent); mask-image: linear-gradient(to top, #000 55%, transparent);
+    }
+    html[data-theme="neon"] body::after { background: rgba(28, 28, 30, .30); }
+}
+@media (max-width: 768px) and (display-mode: standalone) {
+    html .dashboard-app-shell.h-screen { height: 100vh; }
+    html, html body { min-height: 100vh; }
+}
