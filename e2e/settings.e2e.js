@@ -33,6 +33,8 @@ async function open(browser, base, opts = {}) {
         tables: { spaces, cabinets: [{ id: CAB, name: 'Тестовый кабинет', wb_token_set: true, user_id: ADMIN_ID }], team_staff: [{ email: 'makstoychubek@gmail.com' }], cabinet_viewers: viewers, user_sessions: sessions },
         rpcs: { is_super_admin: true },
         functions: {
+            'cabinet-token': async () => { await new Promise((r) => setTimeout(r, SERVER_DELAY)); return { cabinet: { id: 'new-cab', name: 'Новый магазин' } }; },
+            'auto-sync': async () => { await new Promise((r) => setTimeout(r, 1200)); return { results: [{ stocks: 5, orders: 7 }] }; },
             'admin-space': async (body) => {
                 adminCalls.push(body);
                 await new Promise((r) => setTimeout(r, SERVER_DELAY));
@@ -141,6 +143,28 @@ test('«Активные сеансы»: список виден сразу, «�
     assert.ok(Date.now() - t0 < 300);
     await page.waitForTimeout(600);
     assert.ok(calls.some((c) => c.kind === 'write' && c.table === 'user_sessions' && c.method === 'DELETE'), 'удаление ушло в базу');
+});
+
+test('«Добавить кабинет»: окно закрывается сразу, создание и загрузка данных идут в фоне', async ({ page, calls }) => {
+    await page.evaluate(() => { openAddCabinetModal(); });
+    await page.locator('#modal-cabinet-name').fill('Новый магазин');
+    await page.locator('#modal-cabinet-token').fill('x'.repeat(60));
+    const t0 = Date.now();
+    await page.evaluate(() => { document.querySelector('#add-cabinet-modal button[onclick^="submitAddCabinetModal"]').click(); });
+    await page.waitForFunction(() => document.getElementById('add-cabinet-modal').classList.contains('hidden'), null, { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'окно закрылось за ' + (Date.now() - t0) + ' мс, а сервер отвечает ' + SERVER_DELAY + ' мс');
+    await page.waitForTimeout(SERVER_DELAY + 800);
+    assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'cabinet-token'), 'кабинет создаётся запросом на сервер');
+    assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'auto-sync' && c.body.mode === 'full'), 'загрузка данных запущена в фоне');
+});
+
+test('«Синхронизировать сейчас» не вешает кнопку: ответ сразу, результат уведомлением', async ({ page }) => {
+    await page.evaluate(() => { const b = document.createElement('button'); b.id = 'manual-sync-btn'; b.textContent = 'Синхронизировать сейчас'; document.body.appendChild(b); });
+    const t0 = Date.now();
+    await page.evaluate(() => { window.manualSync(); });
+    assert.ok(await page.locator('.nru-toast').filter({ hasText: 'Синхронизация запущена' }).count() > 0, 'сразу появилось уведомление');
+    assert.ok(Date.now() - t0 < 200);
+    await page.waitForFunction(() => document.getElementById('manual-sync-btn').textContent === 'Синхронизировать сейчас', null, { timeout: 6000 });
 });
 
 (async () => {

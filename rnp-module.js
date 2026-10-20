@@ -1355,7 +1355,7 @@ const RNP = (() => {
         map[cat] = !_isCatCollapsed(cat);
         try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
         _refreshTabsBar();
-        if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _renderActiveTable();
+        if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _afterPaint().then(() => _renderActiveTable());
     }
 
     async function _loadSettings(cab, gen) {
@@ -4343,6 +4343,9 @@ const RNP = (() => {
         }
     }
 
+    // Тяжёлая перерисовка таблицы идёт после кадра: нажатая кнопка/вкладка успевает подсветиться, пользователь видит реакцию сразу.
+    function _afterPaint() { return new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); }
+
     function toggleNotes(on) {
         _notesVisible = !!on;
         try { localStorage.setItem('rnp_notes_visible', _notesVisible ? '1' : '0'); } catch (e) {}
@@ -4352,7 +4355,7 @@ const RNP = (() => {
             const t = _notesVisible ? 'Скрыть заметки по дням' : 'Заметки по дням';
             b.title = t; b.setAttribute('aria-label', t);
         });
-        if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
+        if (_activeNm !== SUMMARY_TAB) _afterPaint().then(() => _renderActiveTable());
     }
 
     function notesVisible() { return _notesVisible; }
@@ -8767,6 +8770,8 @@ const RNP = (() => {
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm !== BYART_TAB && _activeNm === _compareNm) _compareNm = null;
         _writeSavedActiveNm();
+        _updateTabHighlight(); // вкладка подсвечивается сразу, до перерисовки таблицы
+        await _afterPaint();
         if (_isPhone()) _phoneKpiOpen = false;
         const body = document.getElementById('rnp-sheet-body');
         if (body && _isPhone()) {
@@ -9113,6 +9118,7 @@ const RNP = (() => {
         const key = `${nmId}:${sectionId}`;
         if (_collapsedSections.has(key)) _collapsedSections.delete(key);
         else _collapsedSections.add(key);
+        await _afterPaint();
         await _renderActiveTable();
     }
 
