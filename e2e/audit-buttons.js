@@ -127,6 +127,12 @@ async function clickOne(page, calls, c, how) {
             await page.waitForTimeout(1200);
             await run(id.replace('settings-tab-btn-', 'settings/'), '#tab-settings');
         }
+    } else if (section.startsWith('tab:')) {
+        const tab = section.slice(4);
+        await page.evaluate((t) => showTab(t), tab);
+        await page.waitForTimeout(3500);
+        console.log('таблицы, которые читает вкладка:', [...new Set(calls.filter((c) => c.kind === 'read').map((c) => c.table))].join(', '));
+        await run('tab/' + tab, '#tab-' + tab);
     } else {
         await page.evaluate(() => showTab('rnp'));
         await page.waitForFunction(() => /заказы\s+\d+/.test(document.querySelector('.rnp-gh-sub')?.textContent || ''), null, { timeout: 15000 });
@@ -145,7 +151,7 @@ async function clickOne(page, calls, c, how) {
     slow.filter((r) => !bad(r) && (r.jump > 8 || r.wipes)).forEach((r) => console.log(`  [${r.group}] «${r.label}» ${r.onclick} → ${r.first} мс${r.wipes ? ', «Загрузка» ×' + r.wipes : ''}${r.jump > 8 ? ', прыжок ' + r.jump + ' px' : ''}`));
     console.log('\nОшибки:', rows.filter((r) => r.error).map((r) => `[${r.group}] «${r.label}» ${r.error}`));
     console.log('Ошибки страницы:', env.errors.slice(0, 8));
-    require('fs').writeFileSync('/tmp/audit-' + section + '.json', JSON.stringify(rows, null, 1));
+    require('fs').writeFileSync('/tmp/audit-' + section.replace(/\W/g, '_') + '.json', JSON.stringify(rows, null, 1));
     await browser.close();
     srv.close();
 })();

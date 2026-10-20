@@ -1,5 +1,44 @@
 // «Доступ к NR Space» (Настройки → Безопасность): сделать сотрудником и выдать «Фулл».
 // Кнопки добавляются к строкам таблицы после каждой отрисовки; данные берутся из spaces и team_staff.
+// «Пока грузится, не стираем то, что уже на экране»: если загрузчик пытается заменить готовый блок на «Загрузка…»,
+// оставляем старое содержимое (чуть приглушённое), пока не придёт новое. Сменили кабинет: старое НЕ показываем.
+// Работает для всех загрузчиков кабинета сразу, правило проекта в CLAUDE.md.
+(function keepStaleWhileLoading() {
+    'use strict';
+    try {
+        const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+        if (!desc || !desc.set || Element.prototype.__nrKeepStale) return;
+        Element.prototype.__nrKeepStale = true;
+        const st = document.createElement('style');
+        st.textContent = '.nr-stale{opacity:.62;transition:opacity .2s}';
+        (document.head || document.documentElement).appendChild(st);
+        const PH = /^(Загрузка|Загружаем|Считаем|Обновляем)/i;
+        const cab = () => { try { return typeof currentCabinetId !== 'undefined' && currentCabinetId ? String(currentCabinetId) : ''; } catch (_) { return ''; } };
+        Object.defineProperty(Element.prototype, 'innerHTML', {
+            configurable: true,
+            enumerable: desc.enumerable,
+            get: desc.get,
+            set(v) {
+                if (typeof v === 'string') {
+                    if (v.length < 420 && PH.test(v.replace(/<[^>]*>/g, '').trim())) {
+                        const cur = (this.textContent || '').trim();
+                        if (this.childElementCount > 0 && cur.length > 60 && !PH.test(cur) && this.dataset && this.dataset.nsCab === cab() && !this.hasAttribute('data-ns-fresh')) {
+                            this.classList.add('nr-stale');
+                            return;
+                        }
+                    } else {
+                        desc.set.call(this, v);
+                        if (this.classList && this.classList.contains('nr-stale')) this.classList.remove('nr-stale');
+                        if (v.length > 200 && this.dataset) this.dataset.nsCab = cab();
+                        return;
+                    }
+                }
+                desc.set.call(this, v);
+            },
+        });
+    } catch (_) { /* без подмены всё работает как раньше */ }
+})();
+
 (function () {
     'use strict';
     const wrapId = 'admin-spaces-table-wrap';
