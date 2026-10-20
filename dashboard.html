@@ -8,8 +8,7 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1C1C1E">
     <script>
-        /* Тема до первого кадра: иначе html[data-theme=ios] красит РНП белым, а JS
-           в конце страницы уже потом ставит neon. */
+        /* Тема до первого кадра */
         try {
             var __nrTheme = localStorage.getItem('nr_theme');
             if (__nrTheme === 'neon' || __nrTheme === 'ios' || __nrTheme === 'tabler') {
@@ -22,7 +21,7 @@
             }
         } catch (e) {}
     </script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script>document.write('<meta id="nr-vp" name="viewport" content="width='+(screen.width<500&&innerHeight>innerWidth?Math.round(screen.width/.92):'device-width')+',initial-scale=1,viewport-fit=cover">')</script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -6123,7 +6122,7 @@
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.51fa5cbd17.css">
 <link rel="stylesheet" href="/dist/rnp-extra.4380ae8234.css">
-<link rel="stylesheet" href="/dist/ads-pulse.a8660035d3.css">
+<link rel="stylesheet" href="/dist/ads-pulse.a35cd304da.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
@@ -8512,7 +8511,7 @@
 <script src="/dist/nr-ff.e6be48baef.min.js"></script>
 <script src="/dist/nr-hints.3faa7d9f19.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
-<script src="/dist/nr-motion.b8b1eb025f.min.js"></script>
+<script src="/dist/nr-motion.d00e0f0722.min.js"></script>
 <script src="/dist/nr-ui.758e49d7ac.min.js"></script>
 <script src="/dist/nr-goods-ui.fc42544245.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
