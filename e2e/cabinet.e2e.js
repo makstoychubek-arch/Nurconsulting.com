@@ -145,6 +145,23 @@ test('клик по заголовку группы сворачивает её,
     assert.strictEqual(await heroOrders(page), DAYS * ORDERS_PER_DAY.reduce((a, b) => a + b, 0), 'вид остался общим');
 });
 
+test('вкладка артикула и «Заметки по дням» отвечают за 100 мс (тяжёлая отрисовка после кадра)', async ({ page }) => {
+    const first = (fnSrc) => page.evaluate(async (src) => {
+        const t0 = performance.now();
+        let hit = 0;
+        const obs = new MutationObserver(() => { if (!hit) hit = performance.now(); });
+        obs.observe(document.getElementById('tab-rnp'), { childList: true, subtree: true, attributes: true });
+        eval(src);
+        await new Promise((r) => setTimeout(r, 600));
+        obs.disconnect();
+        return hit ? Math.round(hit - t0) : null;
+    }, fnSrc);
+    const a = await first('RNP.pick(1001)');
+    assert.ok(a !== null && a < 100, 'вкладка артикула ответила за ' + a + ' мс');
+    const b = await first('RNP.toggleNotes(!RNP.notesVisible())');
+    assert.ok(b !== null && b < 100, '«Заметки по дням» ответили за ' + b + ' мс');
+});
+
 (async () => {
     const srv = await serve();
     const base = 'http://127.0.0.1:' + srv.address().port;

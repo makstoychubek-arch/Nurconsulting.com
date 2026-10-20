@@ -479,7 +479,11 @@
                     ? rows.map((r) => renderSecuritySessionRow(r, currentKey, terminateHandler)).join('')
                     : '<div class="text-center py-10 text-sm px-6" style="color:var(--text-muted)">Нет зарегистрированных сеансов.</div>';
                 if (endAllBtn) endAllBtn.disabled = others.length === 0;
+                AX.sess[opts.listId] = listEl.innerHTML;
             };
+            // Повторное открытие вкладки: сразу показываем прошлый список, свежий подтянется следом.
+            AX.sess = AX.sess || {};
+            if (AX.sess[opts.listId] && !listEl.querySelector('.security-session-row')) listEl.innerHTML = AX.sess[opts.listId];
             const read = () => supabase.from('user_sessions').select('*').eq('user_id', currentUserId).order('last_active', { ascending: false });
             const first = await read();
             if (first.error) {
@@ -511,6 +515,100 @@
         };
     }
 
+    // ===== Остальные «долгие» кнопки кабинета: ответ сразу, тяжёлое (синхронизация WB) идёт в фоне =====
+    function syncInBackground(cabinetId, mode, onDone) {
+        return Promise.resolve().then(async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Сессия истекла, перезайдите.');
+            const res = await fetch(AUTO_SYNC_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+                body: JSON.stringify({ mode, cabinet_id: cabinetId }),
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || 'HTTP ' + res.status);
+            return result;
+        }).then(onDone, (e) => toast('error', 'Загрузка данных не удалась', (e && e.message) || 'Попробуйте ещё раз позже.'));
+    }
+
+    function addCabinetFast(read, closeForm, restoreForm) {
+        const { name, token } = read();
+        if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
+        if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
+        closeForm(); // окно закрывается сразу, кабинет создаётся в фоне
+        toast('info', 'Добавляем кабинет', '«' + name + '»: проверяем токен.');
+        supabase.functions.invoke('cabinet-token', { body: { action: 'create', name, token } }).then(({ data, error }) => {
+            const cabinet = data && data.cabinet;
+            if (error || !cabinet) {
+                toast('error', 'Кабинет не добавился', 'Проверьте токен и повторите: введённые данные сохранены в окне.');
+                restoreForm(name, token);
+                return;
+            }
+            const long = !!(token && token.length > 50);
+            toast('success', 'Кабинет добавлен', long ? 'Данные грузятся в фоне, они появятся сами.' : 'Токен можно добавить позже в «Кабинеты».');
+            try { if (typeof loadCabinetsAPIList === 'function') loadCabinetsAPIList(); } catch (_) {}
+            loadCabinets();
+            if (long) {
+                syncInBackground(cabinet.id, 'full', () => {
+                    toast('success', 'Данные загружены', '«' + name + '»: заказы и остатки подтянуты.');
+                    if (currentCabinetId === cabinet.id) { try { loadFromDB(); } catch (_) {} }
+                });
+            }
+        });
+    }
+
+    function backgroundFlows() {
+        window.submitAddCabinetModal = () => addCabinetFast(
+            () => ({ name: (document.getElementById('modal-cabinet-name')?.value || '').trim(), token: (document.getElementById('modal-cabinet-token')?.value || '').trim().replace(/\s+/g, '') }),
+            () => closeAddCabinetModal(),
+            (n, t) => { openAddCabinetModal(); const a = document.getElementById('modal-cabinet-name'), b = document.getElementById('modal-cabinet-token'); if (a) a.value = n; if (b) b.value = t; });
+        window.addNewCabinet = () => addCabinetFast(
+            () => ({ name: (document.getElementById('new-cabinet-name')?.value || '').trim(), token: (document.getElementById('new-cabinet-token')?.value || '').trim().replace(/\s+/g, '') }),
+            () => hideAddCabinetForm(),
+            (n, t) => { showAddCabinetForm(); const a = document.getElementById('new-cabinet-name'), b = document.getElementById('new-cabinet-token'); if (a) a.value = n; if (b) b.value = t; });
+
+        // «Синхронизировать сейчас»: кнопка не зависает на минуты, результат приходит уведомлением.
+        let syncing = false;
+        window.manualSync = function () {
+            if (!hasUserCabinets || !currentCabinetId || syncing) return;
+            syncing = true;
+            const btn = document.getElementById('manual-sync-btn');
+            if (btn) btn.textContent = 'Идёт загрузка…';
+            const cab = currentCabinetId;
+            toast('info', 'Синхронизация запущена', 'Идёт в фоне, можно работать дальше. Скажем, когда закончится.');
+            syncInBackground(cab, 'full', async (result) => {
+                if (currentCabinetId === cab) { try { await loadFromDB(); await loadLastSyncTime(); } catch (_) {} }
+                const r = (result && result.results && result.results[0]) || {};
+                toast('success', 'Синхронизация завершена', 'Загружено: ' + (r.stocks || 0) + ' остатков, ' + (r.orders || 0) + ' заказов.');
+            }).then(() => { syncing = false; if (btn) btn.textContent = 'Синхронизировать сейчас'; });
+        };
+
+        // Заказы склада: старая таблица остаётся на месте, пока приходят новые.
+        window.syncWarehouseOrdersNow = async function () {
+            if (!hasUserCabinets || !currentCabinetId) return;
+            const tbody = document.getElementById('warehouse-sales-tbody');
+            const hasRows = !!(tbody && tbody.querySelector('tr td:not([colspan])'));
+            if (tbody && !hasRows) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Загружаем заказы из WB…</td></tr>';
+            if (hasRows) toast('info', 'Обновляем заказы', 'Таблица обновится сама.');
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error('Сессия истекла, перезайдите.');
+                const res = await fetch(AUTO_SYNC_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+                    body: JSON.stringify({ mode: 'rnp', cabinet_id: currentCabinetId }),
+                });
+                const result = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(result.error || 'HTTP ' + res.status);
+                _warehouseSalesLoadedForCabinet = null;
+                await loadWarehouseSales(true);
+            } catch (e) {
+                if (hasRows) toast('error', 'Заказы не обновились', (e && e.message) || '');
+                else if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">Не удалось загрузить заказы: ' + esc((e && e.message) || String(e)) + '<div class="mt-3"><button class="ui-btn ui-btn-secondary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">Повторить</button></div></td></tr>';
+            }
+        };
+    }
+
     function keepSessions(listEl, fn) {
         const box = scrollBox(listEl);
         const top = box ? box.scrollTop : 0;
@@ -521,6 +619,7 @@
     function init() {
         installOverrides();
         try { sessionsFast(); } catch (_) {}
+        try { backgroundFlows(); } catch (_) {}
         const wrap = document.getElementById(wrapId);
         if (!wrap) return;
         // Подстраховка: если какой-то другой код перерисовал таблицу мимо нашей обёртки, кнопки всё равно появятся.
