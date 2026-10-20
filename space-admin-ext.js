@@ -419,6 +419,20 @@
 #tab-settings #settings-security .security-sessions-card h3{font-size:15px;font-weight:600}
 #tab-settings #settings-security .security-sessions-card>.px-6{padding:0!important}
 #tab-settings #security-sessions-list{background:var(--surface-solid,var(--surface));border:1px solid var(--border);border-radius:14px;overflow:hidden}
+#tab-settings #settings-devsessions .security-sessions-card{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-radius:0;overflow:visible}
+#tab-settings #settings-devsessions .security-sessions-card>.p-6{padding:0 0 10px!important}
+#tab-settings #settings-devsessions .security-sessions-card h3{font-size:15px;font-weight:600}
+#tab-settings #settings-devsessions .security-sessions-card>.px-6{padding:0!important}
+#tab-settings #dev-sessions-list{background:var(--surface-solid,var(--surface));border:1px solid var(--border);border-radius:14px;overflow:hidden}
+#tab-settings #settings-profile>.widget-card,#tab-settings #settings-api>.widget-card,#tab-settings #settings-features>.widget-card,#tab-settings #settings-about>.widget-card{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}
+#tab-settings #settings-profile h3,#tab-settings #settings-api h3,#tab-settings #settings-features h3,#tab-settings #settings-about h3{font-size:15px;font-weight:600;margin-bottom:12px}
+#tab-settings #settings-api .flex.items-center.justify-between h3{margin-bottom:0}
+#tab-settings #settings-user-info,#tab-settings #settings-about .text-sm[class*="space-y"]{background:var(--surface-solid,var(--surface));border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+#tab-settings #settings-profile button[onclick^="handleLogout"]{background:none!important;border:1px solid var(--border)!important;color:var(--red,#d4372c)!important;border-radius:9px!important;padding:8px 16px!important;margin-top:14px!important;font-weight:550}
+#tab-settings #cabinets-api-list>*{background:var(--surface-solid,var(--surface));border:1px solid var(--border)!important;border-radius:14px;padding:14px 16px}
+#tab-settings #settings-api button[onclick^="showAddCabinetForm"]{background:var(--text-primary);color:var(--bg,#fff);border:1px solid var(--text-primary);border-radius:9px}
+#tab-settings #add-cabinet-form{background:var(--surface-solid,var(--surface))!important;border:1px solid var(--border)!important;border-radius:14px}
+#tab-settings #settings-features .ft-list>*,#tab-settings #settings-features .ft-all{border-radius:14px}
 #tab-settings #settings-security.space-y-4>*+*{margin-top:36px}
 #tab-settings #settings-security .security-sessions-card+.security-sessions-card,#tab-settings #settings-security #admin-access-card+.security-sessions-card{margin-top:36px}
 #tab-settings .security-device-icon{width:34px;height:34px;border-radius:9px;border:0;background:var(--sel,#ededed)}
