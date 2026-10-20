@@ -3,8 +3,6 @@
 (function () {
     'use strict';
     const wrapId = 'admin-spaces-table-wrap';
-    let busy = false;
-    let timer = null;
 
     async function authedPost(body) {
         const { data: { session } } = await supabase.auth.getSession();
@@ -42,15 +40,13 @@
         b.type = 'button';
         b.className = cls;
         b.setAttribute('data-ext', '1');
-        const paint = () => { b.innerHTML = (icon ? ICO[icon] : '') + '<span>' + esc(text) + '</span>'; };
-        paint();
-        b.onclick = async () => {
-            b.disabled = true; b.innerHTML = '<span>…</span>';
-            try { await handler(); }
-            catch (e) {
-                showPremiumModal('error', 'Ошибка', e.message || 'Не получилось');
-                b.disabled = false; paint();
-            }
+        b.innerHTML = (icon ? ICO[icon] : '') + '<span>' + esc(text) + '</span>';
+        // Кнопка отвечает сразу: обработчик сам обновляет экран, сервер догоняет в фоне.
+        b.onclick = () => {
+            try {
+                const r = handler();
+                if (r && typeof r.catch === 'function') r.catch((e) => toast('error', 'Ошибка', (e && e.message) || 'Не получилось'));
+            } catch (e) { toast('error', 'Ошибка', (e && e.message) || 'Не получилось'); }
         };
         return b;
     }
@@ -77,13 +73,11 @@
     const escH = (t) => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
     async function openViewerModal(uid, email) {
-        const [cabs, cur] = await Promise.all([
-            supabase.from('cabinets').select('id, name').order('name'),
-            authedPost({ action: 'get_viewer', user_id: uid }),
-        ]);
-        const list = (cabs.data || []).filter(c => typeof isHiddenCabinet !== 'function' || !isHiddenCabinet(c));
-        const have = new Set((cur.rows || []).map(r => r.cabinet_id));
-        let secs = new Set(((cur.rows || [])[0]?.sections) || ['dashboard', 'rnp', 'goods']);
+        // Окно открывается сразу из кэша; свежие данные подтягиваются в фоне. Новому человеку по умолчанию только РНП.
+        const curRows = AX.viewers.get(uid) || [];
+        const list = AX.cabs.filter(c => typeof isHiddenCabinet !== 'function' || !isHiddenCabinet(c));
+        const have = new Set(curRows.map(r => r.cabinet_id));
+        let secs = new Set((curRows[0] && curRows[0].sections) || ['rnp']);
         document.getElementById('nr-viewer-modal')?.remove();
         const ov = document.createElement('div');
         ov.id = 'nr-viewer-modal';
@@ -107,7 +101,11 @@
             if (pill) {
                 const k = pill.dataset.sec;
                 if (k === 'all') secs = new Set(['all']);
-                else { secs.delete('all'); secs.has(k) ? secs.delete(k) : secs.add(k); if (!secs.size) secs.add('all'); }
+                else {
+                    secs.delete('all');
+                    if (secs.has(k)) { if (secs.size > 1) secs.delete(k); } // последний выбранный раздел не снимаем, иначе доступ молча стал бы «ко всему»
+                    else secs.add(k);
+                }
                 ov.querySelector('.nrv-pills').innerHTML = pills();
                 return;
             }
@@ -116,16 +114,21 @@
             const btn = save || rem;
             const ids = rem ? [] : [...ov.querySelectorAll('.nrv-cab input:checked')].map(i => i.value);
             if (save && !ids.length) { showPremiumModal('error', 'Выберите кабинет', 'Отметьте хотя бы один кабинет или нажмите «Убрать доступ».'); return; }
-            btn.disabled = true;
+            const prevRows = AX.viewers.get(uid) || [];
+            const secList = [...secs];
+            // Сразу закрываем окно и обновляем кэш, запрос уходит в фоне; при ошибке возвращаем как было.
+            if (ids.length) AX.viewers.set(uid, ids.map(id => ({ user_id: uid, cabinet_id: id, sections: secList }))); else AX.viewers.delete(uid);
+            close();
+            toast('success', rem ? 'Доступ снят' : 'Доступ на просмотр выдан',
+                rem ? 'Пользователь больше не видит кабинеты.' : 'Кабинетов: ' + ids.length + ', разделы: ' + secList.map((x) => (SECTIONS.find((r) => r[0] === x) || [x, x])[1]).join(', ') + '. Изменять данные он не сможет.');
+            renderSpacesAdminView();
             try {
-                await authedPost({ action: 'set_viewer', user_id: uid, cabinet_ids: ids, sections: [...secs] });
-                close();
-                showPremiumModal('success', rem ? 'Доступ снят' : 'Доступ на просмотр выдан',
-                    rem ? 'Пользователь больше не видит кабинеты.' : `Кабинетов: ${ids.length}. Изменять данные пользователь не сможет. Пусть обновит страницу.`);
-                await refresh('allowed');
+                await authedPost({ action: 'set_viewer', user_id: uid, cabinet_ids: ids, sections: secList });
+                softRefresh();
             } catch (err) {
-                btn.disabled = false;
-                showPremiumModal('error', 'Ошибка', err.message || 'Не получилось');
+                if (prevRows.length) AX.viewers.set(uid, prevRows); else AX.viewers.delete(uid);
+                renderSpacesAdminView();
+                toast('error', 'Доступ не сохранился', err.message || 'Не получилось');
             }
         });
         document.body.appendChild(ov);
@@ -144,20 +147,16 @@
     function chip(t, cls) { return '<span class="acx-chip ' + cls + '">' + escH(t) + '</span>'; }
 
     async function openAccessModal(uid) {
-        const sp = await supabase.from('spaces').select('user_id, email, tariff_plan, plan_until, status').eq('user_id', uid).maybeSingle();
-        const row = sp.data;
-        if (!row) { showPremiumModal('error', 'Не найдено', 'Пользователь не найден.'); return; }
-        const [st, vw] = await Promise.all([
-            supabase.from('team_staff').select('email'),
-            authedPost({ action: 'get_viewer', user_id: uid }),
-        ]);
+        // Окно открывается мгновенно из кэша списка; сервер подтверждает изменения в фоне.
+        const cached = rowsAll().find((r) => r.user_id === uid) || AX.sp.get(uid);
+        if (!cached) { toast('error', 'Не найдено', 'Пользователь не найден.'); return; }
+        const row = Object.assign({}, AX.sp.get(uid) || {}, cached);
         const state = {
             row,
-            staff: (st.data || []).some((r) => String(r.email || '').toLowerCase() === String(row.email || '').toLowerCase()),
-            views: vw.rows || [],
+            staff: AX.staff.has(String(row.email || '').toLowerCase()),
+            views: AX.viewers.get(uid) || [],
         };
-        const cabs = await supabase.from('cabinets').select('id, name');
-        const cabName = new Map((cabs.data || []).map((c) => [c.id, c.name]));
+        const cabName = AX.cabName;
         document.getElementById('nr-access-modal')?.remove();
         const ov = document.createElement('div');
         ov.id = 'nr-access-modal';
@@ -188,30 +187,43 @@
         const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
         const onKey = (e) => { if (e.key === 'Escape') close(); };
         document.addEventListener('keydown', onKey);
-        const reload = async () => {
-            const f = await supabase.from('spaces').select('user_id, email, tariff_plan, plan_until, status').eq('user_id', uid).maybeSingle();
-            if (f.data) state.row = f.data;
-            paint();
-            try { await loadSpacesAdmin(); switchSpacesAdminTab('allowed'); } catch (_) {}
-        };
+        const reload = async () => { paint(); softRefresh(); };
         ov.addEventListener('click', async (e) => {
             if (e.target === ov || e.target.closest('.rnp-plan-close')) { close(); return; }
             const t = e.target.closest('[data-plan],[data-staff],[data-view],[data-act]');
             if (!t || t.disabled) return;
             try {
                 if (t.dataset.plan) {
-                    t.disabled = true;
                     const k = t.dataset.plan;
-                    await authedPost(k === 'free' ? { action: 'set_plan', user_id: uid, plan: 'start' } : k === 'trial' ? { action: 'set_plan', user_id: uid, plan: 'premium', days: 1 } : { action: 'set_plan', user_id: uid, plan: 'premium' });
-                    await reload();
+                    const patch = k === 'free' ? { tariff_plan: 'start', plan_until: null }
+                        : k === 'trial' ? { tariff_plan: 'premium', plan_until: new Date(Date.now() + 864e5).toISOString() }
+                        : { tariff_plan: 'premium', plan_until: null };
+                    const prev = { tariff_plan: state.row.tariff_plan, plan_until: state.row.plan_until };
+                    Object.assign(state.row, patch);
+                    syncRow(uid, patch);
+                    paint();
+                    const body = k === 'free' ? { action: 'set_plan', user_id: uid, plan: 'start' }
+                        : k === 'trial' ? { action: 'set_plan', user_id: uid, plan: 'premium', days: 1 }
+                        : { action: 'set_plan', user_id: uid, plan: 'premium' };
+                    authedPost(body).then(softRefresh).catch((err) => {
+                        Object.assign(state.row, prev); syncRow(uid, prev); paint();
+                        toast('error', 'Тариф не сохранился', err.message || 'Не получилось');
+                    });
                 } else if (t.dataset.staff) {
-                    t.disabled = true;
-                    await authedPost({ action: 'set_staff', user_id: uid, value: !state.staff });
-                    state.staff = !state.staff;
-                    await reload();
+                    const want = !state.staff;
+                    state.staff = want;
+                    const mail = String(state.row.email || '').toLowerCase();
+                    if (want) AX.staff.add(mail); else AX.staff.delete(mail);
+                    paint();
+                    authedPost({ action: 'set_staff', user_id: uid, value: want }).then(softRefresh).catch((err) => {
+                        state.staff = !want;
+                        if (want) AX.staff.delete(mail); else AX.staff.add(mail);
+                        paint();
+                        toast('error', 'Роль не сохранилась', err.message || 'Не получилось');
+                    });
                 } else if (t.dataset.view) {
                     close();
-                    await openViewerModal(uid, row.email);
+                    openViewerModal(uid, state.row.email);
                 } else if (t.dataset.act === 'block') {
                     close();
                     if (typeof adminBlockSpace === 'function') adminBlockSpace(uid, null);
@@ -228,102 +240,292 @@
         paint();
     }
 
-    function emailOf(tr) {
-        const m = /[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.exec(tr.textContent || '');
-        return m ? m[0] : '';
+    // ===== Быстрый слой: один кэш, оптимистичные действия, перерисовка на месте =====
+    // Правило проекта (CLAUDE.md): кнопка отвечает сразу, тяжёлая работа идёт в фоне после нажатия.
+    const AX = { sp: new Map(), staff: new Set(), viewers: new Map(), cabs: [], cabName: new Map() };
+
+    function toast(type, title, text) {
+        try { if (window.NrUi && typeof window.NrUi.toast === 'function') return window.NrUi.toast(type, title, text || ''); } catch (_) {}
+        try { showPremiumModal(type === 'error' ? 'error' : 'success', title, text || ''); } catch (_) {}
     }
 
-    async function refresh(tabAfter) {
-        await loadSpacesAdmin();
-        if (tabAfter) switchSpacesAdminTab(tabAfter);
+    function rowsAll() {
+        const c = typeof _spacesAdminCache !== 'undefined' ? _spacesAdminCache : null;
+        return c ? [...c.allowedRows, ...c.requestRows, ...c.blockedRows] : [];
     }
 
-    async function decorate() {
+    function scrollBox(el) {
+        let n = el;
+        while (n && n !== document.body) {
+            const cs = getComputedStyle(n);
+            if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight) return n;
+            n = n.parentElement;
+        }
+        return document.scrollingElement || document.documentElement;
+    }
+
+    // Перерисовка на месте: положение прокрутки и высота блока сохраняются, страница не прыгает.
+    function keepPlace(fn) {
         const wrap = document.getElementById(wrapId);
-        if (!wrap || busy) return;
-        const rows = [...wrap.querySelectorAll('tbody tr')].filter(tr => !tr.querySelector('[data-ext]'));
-        if (!rows.length) return;
-        busy = true;
-        try {
-            const [sp, st, vw, cb] = await Promise.all([
-                supabase.from('spaces').select('user_id, email, tariff_plan, plan_until'),
-                supabase.from('team_staff').select('email'),
-                supabase.from('cabinet_viewers').select('user_id, cabinet_id, sections'),
-                supabase.from('cabinets').select('id, name'),
-            ]);
-            const viewByUser = new Map();
-            (vw.data || []).forEach((v) => { if (!viewByUser.has(v.user_id)) viewByUser.set(v.user_id, []); viewByUser.get(v.user_id).push(v); });
-            const cabNameById = new Map((cb.data || []).map((c) => [c.id, c.name]));
-            const byId = new Map((sp.data || []).map(r => [r.user_id, r]));
-            const staff = new Set((st.data || []).map(r => String(r.email || '').toLowerCase()));
-            rows.forEach(tr => {
-                if (tr.querySelector('[data-ext]')) return;
-                const grant = tr.querySelector('button[onclick^="adminGrantSpaceAccess("]');
-                const block = tr.querySelector('button[onclick^="adminBlockSpace("]');
-                const box = tr.querySelector('.admin-space-actions') || (block || grant)?.parentElement;
-                if (!box) return;
-                styleNative(box);
-                if (grant && !tr.querySelector('button[onclick^="adminUnblockSpace("]')) {
-                    const uid = uidOf(grant);
-                    // Запрос: разрешить сразу сотрудником с полной подпиской.
-                    // Новый клиент: разрешить вход и сразу выдать «Фулл» на 1 день (потом замок до оплаты).
-                    grant.after(mkBtn('Тест: Фулл на 1 день', 'ax ax-test', async () => {
-                        await authedPost({ action: 'activate', user_id: uid, trial_days: 1 });
-                        showPremiumModal('success', 'Тест на 1 день', 'Доступ разрешён, «Фулл» выдан на 24 часа. Потом разделы закроются до оплаты.');
-                        await refresh('allowed');
-                    }, 'gift'));
-                    grant.after(mkBtn('Как сотрудник', 'ax ax-staff', async () => {
-                        await authedPost({ action: 'activate', user_id: uid, as_staff: true });
-                        showPremiumModal('success', 'Сотрудник добавлен', 'Доступ разрешён, подписка «Фулл» выдана, права сотрудника включены.');
-                        await refresh('allowed');
-                    }, 'user'));
-                    box.querySelectorAll('button[onclick^="adminDeleteUser("]').forEach((x) => x.remove());
-                    styleNative(box);
-                    return;
-                }
-                if (block && !grant) {
-                    const uid = uidOf(block);
-                    const row = byId.get(uid);
-                    if (!row) return;
-                    const isStaff = staff.has(String(row.email || '').toLowerCase());
-                    const pi = planInfo(row);
-                    const views = viewByUser.get(uid) || [];
-                    box.innerHTML = '';
-                    box.classList.add('ax-box');
-                    const info = document.createElement('div');
-                    info.className = 'acx-chips acx-row';
-                    info.setAttribute('data-ext', '1');
-                    info.innerHTML = chip(pi.label, pi.cls) + (isStaff ? chip('Сотрудник', 'purple') : '') + (views.length ? chip('Просмотр: ' + views.map((v) => cabNameById.get(v.cabinet_id) || 'кабинет').join(', '), 'blue') : '');
-                    const btns = document.createElement('div');
-                    btns.className = 'acx-btns';
-                    if (pi.key === 'free' && !isStaff) {
-                        btns.appendChild(mkBtn('Тест: Фулл на 1 день', 'ax ax-test', async () => {
-                            await authedPost({ action: 'set_plan', user_id: uid, plan: 'premium', days: 1 });
-                            showPremiumModal('success', 'Тест на 1 день', '«Фулл» выдан на 24 часа. Потом разделы закроются до оплаты.');
-                            await refresh();
-                        }, 'gift'));
-                    }
-                    btns.appendChild(mkBtn('Управлять', 'ax ax-manage', async () => { await openAccessModal(uid); }, 'gear'));
-                    box.append(info, btns);
-                }
-            });
-        } catch (e) {
-            console.warn('[space-admin-ext]', e.message || e);
-        } finally {
-            busy = false;
+        const box = wrap ? scrollBox(wrap) : null;
+        const top = box ? box.scrollTop : 0;
+        const h = wrap ? wrap.offsetHeight : 0;
+        if (wrap && h) wrap.style.minHeight = h + 'px';
+        try { fn(); } finally {
+            if (box) box.scrollTop = top;
+            requestAnimationFrame(() => { if (wrap) wrap.style.minHeight = ''; if (box) box.scrollTop = top; });
         }
     }
 
-    function schedule() {
-        clearTimeout(timer);
-        timer = setTimeout(decorate, 60);
+    // Правка строки в кэше списка и перерисовка (без запросов).
+    function patchRow(uid, patch) {
+        if (typeof _spacesAdminCache === 'undefined' || !_spacesAdminCache) return null;
+        const all = rowsAll();
+        const row = all.find((r) => r.user_id === uid);
+        if (!row) return null;
+        const prev = {};
+        Object.keys(patch).forEach((k) => { prev[k] = row[k]; });
+        Object.assign(row, patch);
+        const c = _spacesAdminCache;
+        c.allowedRows = sortAllowedSpaces(all);
+        c.requestRows = sortPendingRequests(all);
+        c.blockedRows = sortBlockedSpaces(all);
+        const sp = AX.sp.get(uid);
+        if (sp) Object.assign(sp, patch);
+        renderSpacesAdminView();
+        return prev;
+    }
+    function syncRow(uid, patch) { patchRow(uid, patch); }
+
+    function dropRow(uid) {
+        const c = _spacesAdminCache;
+        if (!c) return;
+        c.allowedRows = c.allowedRows.filter((r) => r.user_id !== uid);
+        c.requestRows = c.requestRows.filter((r) => r.user_id !== uid);
+        c.blockedRows = c.blockedRows.filter((r) => r.user_id !== uid);
+        renderSpacesAdminView();
+    }
+
+    let softTimer = null;
+    function softRefresh() {
+        clearTimeout(softTimer);
+        softTimer = setTimeout(() => { try { window.loadSpacesAdmin(); } catch (_) {} }, 1500);
+    }
+
+    // Действие «сначала на экране, потом на сервере»: при ошибке экран возвращается назад.
+    function act(uid, patch, call, okTitle, okText, extra) {
+        const prev = patchRow(uid, patch);
+        if (!prev) { Promise.resolve().then(call).then(softRefresh).catch((e) => toast('error', 'Ошибка', e.message || 'Не получилось')); return; }
+        if (extra && extra.apply) extra.apply();
+        toast('success', okTitle, okText);
+        Promise.resolve().then(call).then(softRefresh).catch((e) => {
+            patchRow(uid, prev);
+            if (extra && extra.revert) extra.revert();
+            toast('error', 'Не получилось', (e && e.message) || 'Сервер не принял действие, вернул как было.');
+        });
+    }
+
+    async function loadAll() {
+        const [sp, cb, st, vw] = await Promise.all([
+            supabase.from('spaces').select('id, user_id, email, status, tariff_plan, plan_until, created_at, is_super_admin, first_name, last_name, full_name, avatar_url, last_sign_in_at, sign_in_attempts'),
+            supabase.from('cabinets').select('id, name, user_id'),
+            supabase.from('team_staff').select('email'),
+            supabase.from('cabinet_viewers').select('user_id, cabinet_id, sections'),
+        ]);
+        if (sp.error) return { error: sp.error };
+        AX.sp = new Map((sp.data || []).map((r) => [r.user_id, r]));
+        AX.staff = new Set((st.data || []).map((r) => String(r.email || '').toLowerCase()));
+        AX.viewers = new Map();
+        (vw.data || []).forEach((v) => { if (!AX.viewers.has(v.user_id)) AX.viewers.set(v.user_id, []); AX.viewers.get(v.user_id).push(v); });
+        AX.cabs = (cb.data || []).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru'));
+        AX.cabName = new Map(AX.cabs.map((c) => [c.id, c.name]));
+        const counts = {};
+        (cb.data || []).forEach((c) => { if (c.user_id) counts[c.user_id] = (counts[c.user_id] || 0) + 1; });
+        return { spaces: sp.data || [], counts };
+    }
+
+    // Список «Доступ к NR Space»: никакого «Загрузка…» поверх готовой таблицы, один набор запросов вместо двенадцати.
+    async function loadSpacesAdminFast() {
+        const wrap = document.getElementById(wrapId);
+        if (!wrap || typeof isSuperAdmin === 'undefined' || !isSuperAdmin) return;
+        if (!wrap.querySelector('table') && !_spacesAdminCache) wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка…</div>';
+        const r = await loadAll();
+        if (r.error) {
+            if (!_spacesAdminCache) wrap.innerHTML = '<div class="text-center py-10 text-sm px-6" style="color:var(--red)">' + esc(r.error.message || 'Не удалось загрузить') + '</div>';
+            else toast('error', 'Не удалось обновить список', r.error.message || '');
+            return;
+        }
+        const all = r.spaces;
+        _spacesAdminCache = {
+            allowedRows: sortAllowedSpaces(all),
+            requestRows: sortPendingRequests(all),
+            blockedRows: sortBlockedSpaces(all),
+            counts: r.counts,
+        };
+        renderSpacesAdminView();
+    }
+
+    // Кнопки строки добавляются в той же задаче, что и отрисовка таблицы, поэтому ничего не мигает и не перестраивается позже.
+    function decorate() {
+        const wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+        const rows = [...wrap.querySelectorAll('tbody tr')].filter((tr) => !tr.querySelector('[data-ext]'));
+        rows.forEach((tr) => {
+            const grant = tr.querySelector('button[onclick^="adminGrantSpaceAccess("]');
+            const block = tr.querySelector('button[onclick^="adminBlockSpace("]');
+            const box = tr.querySelector('.admin-space-actions') || (block || grant)?.parentElement;
+            if (!box) return;
+            styleNative(box);
+            if (grant && !tr.querySelector('button[onclick^="adminUnblockSpace("]')) {
+                const uid = uidOf(grant);
+                const mail = String((AX.sp.get(uid) || {}).email || '').toLowerCase();
+                // Новый клиент: сразу «Фулл» на 1 день (потом замок до оплаты) или сразу сотрудником.
+                grant.after(mkBtn('Тест: Фулл на 1 день', 'ax ax-test', () => act(uid,
+                    { status: 'active', tariff_plan: 'premium', plan_until: new Date(Date.now() + 864e5).toISOString() },
+                    () => authedPost({ action: 'activate', user_id: uid, trial_days: 1 }),
+                    'Тест на 1 день', 'Доступ разрешён, «Фулл» на 24 часа, потом замок до оплаты.'), 'gift'));
+                grant.after(mkBtn('Как сотрудник', 'ax ax-staff', () => act(uid,
+                    { status: 'active', tariff_plan: 'premium', plan_until: null },
+                    () => authedPost({ action: 'activate', user_id: uid, as_staff: true }),
+                    'Сотрудник добавлен', 'Доступ разрешён, «Фулл» выдан, права сотрудника включены.',
+                    { apply: () => { if (mail) AX.staff.add(mail); }, revert: () => { if (mail) AX.staff.delete(mail); } }), 'user'));
+                box.querySelectorAll('button[onclick^="adminDeleteUser("]').forEach((x) => x.remove());
+                styleNative(box);
+                return;
+            }
+            if (block && !grant) {
+                const uid = uidOf(block);
+                const row = AX.sp.get(uid) || rowsAll().find((r) => r.user_id === uid);
+                if (!row) return;
+                const isStaff = AX.staff.has(String(row.email || '').toLowerCase());
+                const pi = planInfo(row);
+                const views = AX.viewers.get(uid) || [];
+                box.innerHTML = '';
+                box.classList.add('ax-box');
+                const info = document.createElement('div');
+                info.className = 'acx-chips acx-row';
+                info.setAttribute('data-ext', '1');
+                info.innerHTML = chip(pi.label, pi.cls) + (isStaff ? chip('Сотрудник', 'purple') : '') + (views.length ? chip('Просмотр: ' + views.map((v) => AX.cabName.get(v.cabinet_id) || 'кабинет').join(', ') + ' · ' + (views[0].sections || ['all']).join(', '), 'blue') : '');
+                const btns = document.createElement('div');
+                btns.className = 'acx-btns';
+                if (pi.key === 'free' && !isStaff) {
+                    btns.appendChild(mkBtn('Тест: Фулл на 1 день', 'ax ax-test', () => act(uid,
+                        { tariff_plan: 'premium', plan_until: new Date(Date.now() + 864e5).toISOString() },
+                        () => authedPost({ action: 'set_plan', user_id: uid, plan: 'premium', days: 1 }),
+                        'Тест на 1 день', '«Фулл» выдан на 24 часа, потом разделы закроются до оплаты.'), 'gift'));
+                }
+                btns.appendChild(mkBtn('Управлять', 'ax ax-manage', () => openAccessModal(uid), 'gear'));
+                box.append(info, btns);
+            }
+        });
+    }
+
+    function installOverrides() {
+        if (window.__axFast) return;
+        window.__axFast = true;
+        const origRender = window.renderSpacesAdminView;
+        window.renderSpacesAdminView = function () {
+            keepPlace(() => { if (typeof origRender === 'function') origRender(); decorate(); });
+        };
+        window.loadSpacesAdmin = loadSpacesAdminFast;
+        window.adminGrantSpaceAccess = (uid) => {
+            if (!uid || !isSuperAdmin) return;
+            act(uid, { status: 'active' }, () => authedPost({ action: 'activate', user_id: uid }), 'Доступ разрешён', 'Пользователь в «Разрешённые».');
+        };
+        window.adminUnblockSpace = (uid) => {
+            if (!uid || !isSuperAdmin) return;
+            act(uid, { status: 'active' }, () => authedPost({ action: 'activate', user_id: uid }), 'Спейс разблокирован', 'Пользователь снова в «Разрешённые».');
+        };
+        window.adminBlockSpace = async (uid) => {
+            if (!uid || !isSuperAdmin) return;
+            if (!(await nrAsk('Заблокировать спейс? Все сессии клиента будут аннулированы, WB-синхронизация заморожена.'))) return;
+            act(uid, { status: 'blocked' }, () => authedPost({ action: 'block', user_id: uid }), 'Спейс заблокирован', 'Сессии завершены, войти он не сможет.');
+        };
+        window.adminDeleteUser = async (uid) => {
+            if (!uid || !isSuperAdmin) return;
+            const row = findAdminSpaceRow(uid);
+            if (row && isSuperAdminRow(row)) return;
+            const email = (row && row.email) || 'этого пользователя';
+            const ok = await showConfirmModal('Удалить пользователя?',
+                'Удалить ' + email + '? Аккаунт будет удалён без возможности восстановления. Кабинеты и их данные останутся, но владелец будет снят.');
+            if (!ok) return;
+            const snapshot = row ? Object.assign({}, row) : null;
+            dropRow(uid);
+            toast('success', 'Пользователь удалён', 'Кабинеты и данные сохранены, владелец снят.');
+            callDeleteUser(uid).then(softRefresh).catch((e) => {
+                if (snapshot && _spacesAdminCache) {
+                    const all = [...rowsAll(), snapshot];
+                    _spacesAdminCache.allowedRows = sortAllowedSpaces(all);
+                    _spacesAdminCache.requestRows = sortPendingRequests(all);
+                    _spacesAdminCache.blockedRows = sortBlockedSpaces(all);
+                    renderSpacesAdminView();
+                }
+                toast('error', 'Не удалили', (e && e.message) || 'Не получилось');
+            });
+        };
+    }
+
+    // ===== «Активные сеансы»: список сразу, регистрация устройства и геолокация позже =====
+    function sessionsFast() {
+        window.loadSessionsPanel = async function (opts) {
+            const listEl = document.getElementById(opts.listId);
+            const endAllBtn = document.getElementById(opts.endAllBtnId);
+            if (!listEl || !currentUserId) return;
+            const currentKey = getOrCreateSessionKey();
+            const terminateHandler = opts.terminateHandler || 'terminateSession';
+            const paintRows = (rows) => {
+                const others = rows.filter((r) => r.current_session_token !== currentKey);
+                listEl.innerHTML = rows.length
+                    ? rows.map((r) => renderSecuritySessionRow(r, currentKey, terminateHandler)).join('')
+                    : '<div class="text-center py-10 text-sm px-6" style="color:var(--text-muted)">Нет зарегистрированных сеансов.</div>';
+                if (endAllBtn) endAllBtn.disabled = others.length === 0;
+            };
+            const read = () => supabase.from('user_sessions').select('*').eq('user_id', currentUserId).order('last_active', { ascending: false });
+            const first = await read();
+            if (first.error) {
+                listEl.innerHTML = '<div class="text-center py-10 text-sm px-6" style="color:var(--red)">Не удалось загрузить сеансы: ' + esc(first.error.message) + '</div>';
+                if (endAllBtn) endAllBtn.disabled = true;
+                return;
+            }
+            keepSessions(listEl, () => paintRows(first.data || []));
+            // Свой сеанс записываем в фоне (там внешний запрос геолокации, он медленный) и обновляем список без «Загрузка…».
+            registerUserSession().then(read).then((r) => { if (!r.error) keepSessions(listEl, () => paintRows(r.data || [])); }).catch(() => {});
+            if (opts.heartbeatPaneId) {
+                clearInterval(_securityHeartbeatTimer);
+                _securityHeartbeatTimer = setInterval(() => {
+                    const pane = document.getElementById(opts.heartbeatPaneId);
+                    if (pane && !pane.classList.contains('hidden')) touchUserSession().then(() => (opts.reloadFn || loadSecuritySessions)());
+                }, 120000);
+            }
+        };
+        // Завершить сеанс: строка исчезает сразу, удаление идёт в фоне, при ошибке строка возвращается.
+        window.terminateSessionById = async function (sessionId, reloadFn) {
+            if (!sessionId || !currentUserId) return;
+            const currentKey = getOrCreateSessionKey();
+            const rowEl = document.querySelector('.security-session-row[data-session-id="' + (window.CSS && CSS.escape ? CSS.escape(String(sessionId)) : String(sessionId).replace(/"/g, '')) + '"]');
+            if (rowEl && !rowEl.querySelector('.security-end-btn')) return; // текущий сеанс завершить нельзя
+            if (rowEl) rowEl.remove();
+            toast('success', 'Сеанс завершён', 'Устройство удалено из списка.');
+            const { error } = await supabase.from('user_sessions').delete().eq('id', sessionId).eq('user_id', currentUserId).neq('current_session_token', currentKey);
+            if (error) { toast('error', 'Не получилось завершить', error.message); await (reloadFn || loadSecuritySessions)(); }
+        };
+    }
+
+    function keepSessions(listEl, fn) {
+        const box = scrollBox(listEl);
+        const top = box ? box.scrollTop : 0;
+        fn();
+        if (box) box.scrollTop = top;
     }
 
     function init() {
+        installOverrides();
+        try { sessionsFast(); } catch (_) {}
         const wrap = document.getElementById(wrapId);
         if (!wrap) return;
-        new MutationObserver(schedule).observe(wrap, { childList: true, subtree: true });
-        schedule();
+        // Подстраховка: если какой-то другой код перерисовал таблицу мимо нашей обёртки, кнопки всё равно появятся.
+        new MutationObserver(() => decorate()).observe(wrap, { childList: true });
+        if (typeof _spacesAdminCache !== 'undefined' && _spacesAdminCache) decorate();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
