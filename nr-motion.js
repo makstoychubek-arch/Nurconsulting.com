@@ -148,5 +148,20 @@
             if (Object.keys(saved).length) setTimeout(tick, 200);
         })();
     })();
+    /* Телефон: кнопка меню слева в шапке открывает ту же боковую панель, что и на сайте */
+    (function () {
+        document.addEventListener('click', function (e) {
+            var t = e.target; if (!t || !t.closest || !root.innerWidth || root.innerWidth > 768) return;
+            var sb = document.getElementById('sidebar-app'), ov = document.getElementById('mobile-overlay');
+            if (!sb) return;
+            if (t.closest('#mobile-menu-btn')) {
+                e.stopPropagation(); e.preventDefault();
+                var open = sb.classList.toggle('mobile-open');
+                if (ov) ov.classList.toggle('active', open);
+                return;
+            }
+            if (sb.classList.contains('mobile-open') && t.closest('#sidebar-app .rail-btn')) setTimeout(function () { if (root.closeMobileMenu) root.closeMobileMenu(); }, 60);
+        }, true);
+    })();
     root.NrMotion = { shake: shake, count: count, slot: slot, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);
