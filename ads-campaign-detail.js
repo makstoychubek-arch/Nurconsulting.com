@@ -136,7 +136,7 @@
 
     document.addEventListener('click', function (ev) {
         var t = ev.target; if (!t || !t.closest) return;
-        if (t.closest('.adx-detail, .tg-switch, .adp-tg, input, select, a')) return;
+        if (t.closest('.adx-detail, .tg-switch, .ads-sl, .adp-tg, input, select, a')) return;
         var tab = document.getElementById('tab-advertising'); if (!tab || !tab.contains(t)) return;
         var card = t.closest('#ads-hq-phone .ads-hq-phone-card');
         if (card) {

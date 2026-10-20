@@ -24,7 +24,7 @@ async function open(browser, base) {
     env.t0 = Date.now();
     await env.page.evaluate(() => showTab('advertising'));
     await env.page.waitForFunction(() => window.AdsHQ && window.AdsHQ.getModelReady && window.AdsHQ.getModelReady(), null, { timeout: 15000 });
-    await env.page.locator('.ads-hq-toggle').first().waitFor({ state: 'attached' });
+    await env.page.locator('.ads-sl').first().waitFor({ state: 'attached' });
     return env;
 }
 
@@ -39,14 +39,36 @@ test('РК открывается одной волной запросов, а �
 });
 
 test('«Пауза» по кампании: статус на экране меняется сразу, WB догоняет в фоне', async ({ page, calls }) => {
-    const sel = '.ads-hq-toggle[data-act="pause"]';
-    const wb = await page.locator(sel).first().getAttribute('data-wb');
+    const sel = '.ads-sl:not(.p0) .ads-sl-b[data-pos="0"]';
+    const wb = await page.locator(sel).first().evaluate((el) => el.closest('.ads-sl').dataset.wb);
     const t0 = Date.now();
     await page.evaluate((s) => document.querySelector(s).click(), sel);
-    await page.waitForFunction((w) => !document.querySelector('.ads-hq-toggle[data-act="pause"][data-wb="' + w + '"]'), wb, { timeout: 300 });
+    await page.waitForFunction((w) => document.querySelector('.ads-sl.p0[data-wb="' + w + '"]'), wb, { timeout: 300 });
     assert.ok(Date.now() - t0 < 300, 'экран обновился за ' + (Date.now() - t0) + ' мс, а WB отвечает ' + SERVER_DELAY + ' мс');
     await page.waitForTimeout(SERVER_DELAY + 500);
     assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'wb-proxy'), 'команда ушла в WB');
+});
+
+test('ползунок 0 / 1 / A: «A» помечает кампанию автопилотом сразу, «1» снимает', async ({ page, calls }) => {
+    const sel = '.ads-sl.p1 .ads-sl-b[data-pos="2"]';
+    const wb = await page.locator(sel).first().evaluate((el) => el.closest('.ads-sl').dataset.wb);
+    const t0 = Date.now();
+    await page.evaluate((s) => document.querySelector(s).click(), sel);
+    await page.waitForFunction((w) => document.querySelector('.ads-sl.p2[data-wb="' + w + '"]'), wb, { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'ползунок переехал за ' + (Date.now() - t0) + ' мс');
+    await page.waitForTimeout(600);
+    assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
+});
+
+test('Пульт: ползунок «A» меняется сразу и ставит пометку автопилота', async ({ page, calls }) => {
+    const sel = '.adp2-sl.p1 button[data-pos="2"]';
+    const key = await page.locator(sel).first().getAttribute('data-key');
+    const t0 = Date.now();
+    await page.evaluate((s) => document.querySelector(s).click(), sel);
+    await page.waitForFunction((k) => document.querySelector('.adp2-sl.p2 button[data-key="' + k + '"]'), key, { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'ползунок переехал за ' + (Date.now() - t0) + ' мс');
+    await page.waitForTimeout(600);
+    assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
 });
 
 test('повторное открытие вкладки показывает прошлые цифры сразу', async ({ page }) => {
@@ -54,7 +76,7 @@ test('повторное открытие вкладки показывает п
     await page.waitForTimeout(300);
     const t0 = Date.now();
     await page.evaluate(() => showTab('advertising'));
-    await page.waitForFunction(() => document.querySelectorAll('.ads-hq-toggle').length > 0, null, { timeout: 200 });
+    await page.waitForFunction(() => document.querySelectorAll('.ads-sl').length > 0, null, { timeout: 200 });
     assert.ok(Date.now() - t0 < 200, 'список виден через ' + (Date.now() - t0) + ' мс');
 });
 
