@@ -1930,13 +1930,24 @@
             if (modal) modal('error', 'Правило не сохранилось', error.message);
             return;
         }
-        if (modal) modal('success', 'Правило сохранено', 'Тик v2 подхватит его на следующем проходе (DRY_RUN пока включён).');
-        await load();
+        notify('success', 'Правило сохранено', 'Тик v2 подхватит его на следующем проходе (DRY_RUN пока включён).');
+        load();
+    }
+
+    // Короткое уведомление без блокировки экрана; если библиотеки уведомлений нет, обычное окно.
+    function notify(type, title, text) {
+        try { if (typeof window !== 'undefined' && window.NrUi && typeof window.NrUi.toast === 'function') return window.NrUi.toast(type, title, text || ''); } catch (e) { /* fall through */ }
+        const modal = dep().showPremiumModal;
+        if (modal) modal(type, title, text || '');
+    }
+
+    function findCampaign(cabinetId, wbId) {
+        const row = state.model && state.model.rows.find((r) => r.id === cabinetId);
+        return row ? (row.campaigns || []).find((c) => String(c.wbId) === String(wbId)) : null;
     }
 
     async function runBulk(verb, items) {
         const call = dep().callWbProxy;
-        const modal = dep().showPremiumModal;
         if (!call) return;
         const camps = [];
         const seen = new Set();
@@ -1957,27 +1968,57 @@
             }
         }
         if (!camps.length) {
-            if (modal) modal('error', 'Ничего не выбрано', 'Отметьте кабинеты или кампании.');
+            notify('error', 'Ничего не выбрано', 'Отметьте кабинеты или кампании.');
             return;
         }
         for (const c of camps) touchRecent(c.cabinetId, c.wbId);
+        // Сначала на экране: статус меняется сразу, WB догоняет в фоне, при отказе возвращаем как было.
+        const target = verb === 'start' ? 9 : 11;
+        const prev = new Map();
+        for (const c of camps) {
+            const obj = findCampaign(c.cabinetId, c.wbId);
+            if (!obj) continue;
+            prev.set(c.cabinetId + ':' + c.wbId, { obj, status: obj.status, live: obj.live });
+            obj.status = target;
+            obj.live = campaignLive(target);
+        }
+        paintTree();
+        notify('info', verb === 'start' ? 'Запускаем' : 'Ставим на паузу', camps.length === 1 ? 'Кампания: подтверждение от WB придёт в фоне.' : 'Кампаний: ' + camps.length + '. Подтверждение от WB придёт в фоне.');
         let ok = 0;
         let fail = 0;
+        const failed = [];
+        const okList = [];
         window._nrBulkQuiet = true; window._nrBulkErr = '';
         try {
-            for (const c of camps) {
-                const result = await call(verb === 'start' ? 'advert_start' : 'advert_pause', { advertId: c.wbId }, c.cabinetId);
-                if (result) ok += 1;
-                else fail += 1;
-            }
+            // WB не любит шквал запросов: по три одновременно
+            let idx = 0;
+            const worker = async () => {
+                while (idx < camps.length) {
+                    const c = camps[idx++];
+                    let result = null;
+                    try { result = await call(verb === 'start' ? 'advert_start' : 'advert_pause', { advertId: c.wbId }, c.cabinetId); } catch (e) { result = null; }
+                    if (result) { ok += 1; okList.push(c); } else { fail += 1; failed.push(c); }
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(3, camps.length) }, worker));
         } finally { window._nrBulkQuiet = false; }
-        if (modal) {
-            const what = verb === 'start' ? 'запустить' : 'поставить на паузу';
-            if (!fail) modal('success', verb === 'start' ? 'Кампании запущены' : 'Кампании на паузе', ok === 1 ? 'Готово.' : 'Готово: ' + ok + '.');
-            else modal(ok ? 'warning' : 'error', ok ? 'Часть кампаний не удалось ' + (verb === 'start' ? 'запустить' : 'остановить') : 'Не удалось ' + what,
-                (ok ? 'Получилось: ' + ok + ', не получилось: ' + fail + '. ' : '') + (window._nrBulkErr || 'Попробуйте ещё раз чуть позже.'));
+        for (const c of failed) {
+            const p = prev.get(c.cabinetId + ':' + c.wbId);
+            if (p) { p.obj.status = p.status; p.obj.live = p.live; }
         }
-        await load();
+        if (failed.length) paintTree();
+        // Статус в базе, чтобы тихое обновление не вернуло старое значение, пока WB применяет изменение.
+        const sb = dep().supabase;
+        if (sb && okList.length) {
+            Promise.all(okList.map((c) => sb.from('advertising_campaigns').update({ status: target, updated_at: new Date().toISOString() })
+                .eq('cabinet_id', c.cabinetId).eq('campaign_id', c.wbId))).catch(() => {});
+        }
+        const word = verb === 'start' ? 'запустить' : 'поставить на паузу';
+        if (!fail) notify('success', verb === 'start' ? 'Кампании запущены' : 'Кампании на паузе', ok === 1 ? 'Готово.' : 'Готово: ' + ok + '.');
+        else notify(ok ? 'warning' : 'error', ok ? 'Часть кампаний не удалось ' + (verb === 'start' ? 'запустить' : 'остановить') : 'Не удалось ' + word,
+            (ok ? 'Получилось: ' + ok + ', не получилось: ' + fail + '. ' : '') + (window._nrBulkErr || 'Попробуйте ещё раз чуть позже.'));
+        // свежие цифры подтянем тихо, экран не трогая, если ничего не поменялось
+        setTimeout(() => { if (!state.loading) load(); }, 2500);
     }
 
     async function applyTemplate() {
@@ -2021,8 +2062,8 @@
                 : await sb.from('autobidder_rules').insert(payload);
             if (!error) saved += 1;
         }
-        if (modal) modal(saved ? 'success' : 'error', 'Шаблон', saved ? ('Правила с текущей формой: ' + saved) : 'Нужен uuid кампании из adv_campaigns.');
-        await load();
+        notify(saved ? 'success' : 'error', 'Шаблон', saved ? ('Правила с текущей формой: ' + saved) : 'Нужен uuid кампании из adv_campaigns.');
+        load();
     }
 
     function bindOnce() {
@@ -2180,6 +2221,23 @@
         return { from, to };
     }
 
+    function paintModel() {
+        renderKpis(state.model.totals);
+        paintFilters();
+        paintTree();
+        paintForm();
+        const advanced = typeof document !== 'undefined' && document.querySelector
+            ? document.querySelector('.ads-hq-advanced')
+            : null;
+        if (!advanced || advanced.open) renderJournal();
+    }
+
+    // Прошлая модель этого же кабинета и периода: открываем РК мгновенно, свежее подтягиваем следом.
+    function modelCacheKey() {
+        const r = activeHqRange();
+        return (state.filterCabinetId || '*') + '|' + r.from + '|' + r.to;
+    }
+
     async function fetchAndRender() {
         const cab = state.filterCabinetId;
         const note = document.getElementById('ads-hq-freshness');
@@ -2189,7 +2247,30 @@
         const to = range.to;
         const now = new Date();
         const rank = extendRangeForRanking(range, now);
-        const cabs = await safeRows('cabinets', cab ? [{ op: 'eq', column: 'id', value: cab }] : [], 'id, name, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
+        const cabCols = 'id, name, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap';
+        const fetchCore = (ids) => Promise.all([
+            safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
+            safeRows('advertising_daily_stats', [
+                { op: 'in', column: 'cabinet_id', value: ids },
+                { op: 'gte', column: 'stat_date', value: rank.from },
+                { op: 'lte', column: 'stat_date', value: rank.to },
+            ]),
+            safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
+            safeRows('rnp_articles', [{ op: 'in', column: 'cabinet_id', value: ids }], 'cabinet_id,nm_id,photo_url,name,manual_data'),
+            safeRows('wb_stocks', [{ op: 'in', column: 'cabinet_id', value: ids }], 'cabinet_id,nm_id,quantity'),
+            safeRows('adv_start_schedule', [
+                { op: 'in', column: 'cabinet_id', value: ids },
+                { op: 'eq', column: 'status', value: 'pending' },
+            ]),
+        ]);
+        // Кабинет выбран: все запросы уходят одновременно (раньше шли четырьмя волнами друг за другом).
+        let cabs;
+        let core;
+        if (cab) {
+            [cabs, core] = await Promise.all([safeRows('cabinets', [{ op: 'eq', column: 'id', value: cab }], cabCols), fetchCore([cab])]);
+        } else {
+            cabs = await safeRows('cabinets', [], cabCols);
+        }
         if (cab !== state.filterCabinetId) return null;
         const cabinets = (cabs || []).filter((c) => {
             if (cab && c.id !== cab) return false;
@@ -2199,21 +2280,8 @@
             return true;
         });
         const ids = cabinets.map((c) => c.id);
-        const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks] = ids.length ? await Promise.all([
-            safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
-            safeRows('advertising_daily_stats', [
-                { op: 'in', column: 'cabinet_id', value: ids },
-                { op: 'gte', column: 'stat_date', value: rank.from },
-                { op: 'lte', column: 'stat_date', value: rank.to },
-            ]),
-            safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
-            safeRows('rnp_articles', [
-                { op: 'in', column: 'cabinet_id', value: ids },
-            ], 'cabinet_id,nm_id,photo_url,name,manual_data'),
-            safeRows('wb_stocks', [
-                { op: 'in', column: 'cabinet_id', value: ids },
-            ], 'cabinet_id,nm_id,quantity'),
-        ]) : [[], [], [], [], []];
+        if (!core) core = ids.length ? await fetchCore(ids) : [[], [], [], [], [], []];
+        const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks, schedules] = core;
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
         const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
@@ -2227,11 +2295,6 @@
             ]),
         ]) : [[], [], [], []];
         if (cab !== state.filterCabinetId) return null;
-        const schedules = ids.length ? await safeRows('adv_start_schedule', [
-            { op: 'in', column: 'cabinet_id', value: ids },
-            { op: 'eq', column: 'status', value: 'pending' },
-        ]) : [];
-        if (cab !== state.filterCabinetId) return null;
         state.schedules = schedules || [];
         state.model = buildHqModel({
             from, to, yesterday: rank.yesterday, now, today: to, from7: from,
@@ -2239,21 +2302,22 @@
             articles, stocks,
         });
         if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
-        renderKpis(state.model.totals);
-        paintFilters();
-        paintTree();
-        paintForm();
-        const advanced = typeof document !== 'undefined' && document.querySelector
-            ? document.querySelector('.ads-hq-advanced')
-            : null;
-        if (!advanced || advanced.open) renderJournal();
+        state.cache = state.cache || new Map();
+        state.cache.set(modelCacheKey(), { model: state.model, schedules: state.schedules });
+        if (state.cache.size > 8) state.cache.delete(state.cache.keys().next().value);
+        paintModel();
         if (note) note.textContent = '';
         return state.model;
     }
 
     async function load() {
         const gen = ++state.loadGen;
-        if (!cabinetRows().length) paintPending();
+        const cached = state.cache && state.cache.get(modelCacheKey());
+        if (cached) {
+            state.model = cached.model;
+            state.schedules = cached.schedules;
+            paintModel(); // прошлые цифры показываем сразу, свежие придут следом
+        } else if (!cabinetRows().length) paintPending();
         state.loading = true;
         try {
             await fetchAndRender();
