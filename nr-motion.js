@@ -193,10 +193,23 @@
         };
         function $(s) { return doc.querySelector(s); }
         function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
-        function txt(sel) { var e = $(sel); var t = e ? (e.textContent || '').replace(/\s+/g, ' ').trim() : ''; return t; }
-        function num(s) { var m = String(s || '').replace(/[\s ]/g, '').replace(/[−–]/g, '-').replace(',', '.').match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; }
+        // Некоторые числа на столе (pnl-profit и т.п.) крутятся слот-машиной (NrMotion.slot): пока едут барабаны,
+        // textContent — это куча цифр-заготовок в reel-дорожках, не готовое значение. slot() всегда синхронно
+        // кладёт итоговый текст в data-slot, поэтому читаем сначала его.
+        function txt(sel) {
+            var e = $(sel); if (!e) return '';
+            var ds = e.getAttribute && e.getAttribute('data-slot');
+            if (ds != null) return ds.replace(/\s+/g, ' ').trim();
+            return (e.textContent || '').replace(/\s+/g, ' ').trim();
+        }
+        // Защита от мусора: если в тексте попалась цифровая лесенка «…012345…6 подряд по возрастанию»
+        // (так выглядит textContent заготовки слот-машины, пока не готово настоящее значение), это
+        // не настоящее число: реальная сумма или процент такой последовательности не даёт.
+        // Проверяем и до парсинга (num), и при показе готового текста (ok).
+        var LADDER = /(?:0123456|1234567|2345678|3456789)/;
+        function num(s) { var str = String(s || ''); if (LADDER.test(str)) return NaN; var m = str.replace(/[\s ]/g, '').replace(/[−–]/g, '-').replace(',', '.').match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; }
         function fmt(n) { return isFinite(n) ? Math.round(n).toLocaleString('ru-RU').replace(/ /g, ' ') : '—'; }
-        function ok(s) { return s && s !== '—' && !/^н\/д$/i.test(s); }
+        function ok(s) { return !!s && s !== '—' && !/^н\/д$/i.test(s) && !LADDER.test(s); }
         function cabId() { try { return localStorage.getItem('selected_cabinet_id') || (typeof currentCabinetId !== 'undefined' ? currentCabinetId : '') || ''; } catch (e) { return ''; } }
         function viewer() { return root.NrViewer && root.NrViewer.on ? root.NrViewer : null; }
         function allowed(tab) { var v = viewer(); return !v || (v.tabs && v.tabs.has(tab)); }
