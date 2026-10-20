@@ -365,6 +365,23 @@
         }).join('');
         return '<div class="adp2-prs">' + rows + '<button type="button" class="adp2-addp" data-pact="addp" data-key="' + esc(key) + '">＋ Добавить товар</button></div>';
     }
+    /* Фото главного товара РК (самая высокая ставка); без фото остаётся значок типа оплаты */
+    function mainPhotoHtml(cab, camp, kind) {
+        var url = (camp.mainNm && artPhoto(cab.id, camp.mainNm)) || camp.photoUrl || '';
+        if (!url) return badge(kind, 'xl');
+        return '<img class="adp2-mph" src="' + esc(url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement(\'i\'),{className:\'adp2-mph\'}))">';
+    }
+    function mainLine(cab, camp, nmCount) {
+        var t = camp.mainNm ? (camp.mainTitle || artName(cab.id, camp.mainNm)) : '';
+        if (!t || (nmCount || 0) < 2) return '';
+        return '<small class="adp2-main">главный: ' + esc(t) + '</small>';
+    }
+    /* Ползунок: 0 — выкл, 1 — включена, A — автопилот */
+    function switchHtml(key, camp, live) {
+        var pos = !live ? 0 : (camp.auto ? 2 : 1);
+        function b(n, l, t) { return '<button type="button" data-pact="pos" data-pos="' + n + '" data-key="' + esc(key) + '" class="' + (pos === n ? 'on' : '') + '" aria-pressed="' + (pos === n) + '" title="' + t + '">' + l + '</button>'; }
+        return '<div class="adp2-sl p' + pos + '" role="group" aria-label="Режим кампании">' + b(0, '0', 'Выключена') + b(1, '1', 'Включена') + b(2, 'A', 'Автопилот сам ведёт ставки') + '</div>';
+    }
     function rowHtml(cab, camp) {
         var key = keyOf(cab, camp), kind = payKind(camp), open = !!S.open[key];
         var ov = S.ov[key], live = ov && ov.paused != null ? !ov.paused : camp.live;
@@ -372,8 +389,9 @@
         var info = S.info[key], nmCount = info && info.loaded ? effectiveNms(info.nms, ov).length : (camp.nmId ? 1 : 0);
         return '<article class="adp2-row' + (open ? ' open' : '') + (live ? '' : ' off') + '" data-key="' + esc(key) + '">' +
             '<div class="adp2-head" data-pact="open" data-key="' + esc(key) + '">' +
-            '<div class="adp2-tc">' + badge(kind, 'xl') + '</div>' +
-            '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + '</b><small>' + unitText(kind) + ' · № ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small></div>' +
+            '<div class="adp2-pos" data-nostop="1">' + switchHtml(key, camp, live) + '</div>' +
+            '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
+            '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small>' + unitText(kind) + ' · № ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small>' + mainLine(cab, camp, nmCount) + '</div>' +
             '<div class="adp2-st">' + drrPill(c) + '</div>' +
             '<div class="adp2-bw" data-nostop="1">' + bidControlHtml(key, camp, kind) + '</div>' +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
@@ -800,6 +818,7 @@
         else if (act === 'rm') removeProduct(key, Number(t.dataset.nm));
         else if (act === 'addp') addProductsFlow(key);
         else if (act === 'toggle') togglePause(key);
+        else if (act === 'pos') { var fp = findCamp(key); if (fp && root.AdsHQ && root.AdsHQ.setCampPos) root.AdsHQ.setCampPos(fp.cab.id, fp.camp.wbId, Number(t.dataset.pos)); }
         else if (act === 'retry') retryOps(key);
         else if (act === 'drop') dropOps(key);
         else if (act === 'vretry') { var o = S.ops[t.dataset.v]; if (o) { o.tries = 0; send(t.dataset.v); render(); } }

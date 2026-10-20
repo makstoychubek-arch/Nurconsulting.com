@@ -562,6 +562,7 @@
         const statsNmByCamp = nmIdByCampaignFromStats(legacyStats);
         const artIdx = articleIndex(input.articles);
         const stocks = stockIndex(input.stocks);
+        const autoSet = new Set((input.autoRows || []).map((x) => String(x.cabinet_id) + ':' + String(x.campaign_id)));
 
         const spendToday = new Map();
         const spend7 = new Map();
@@ -768,13 +769,29 @@
                 const stock = nmId
                     ? (stocks.get(String(cab.id) + ':' + nmId) || stocks.get(nmId) || 0)
                     : 0;
+                // Главный товар РК = артикул с самой высокой ставкой (фото и подпись берём у него)
+                const bidsList = Array.isArray(raw.current_bids) ? raw.current_bids : [];
+                const topBid = new Map();
+                for (const b of bidsList) {
+                    const id = Number(b && b.nm_id);
+                    if (id) topBid.set(id, Math.max(topBid.get(id) || 0, Number(b.bid_kopecks) || 0));
+                }
+                let mainNm = 0;
+                let mainBid = -1;
+                for (const [id, v] of topBid) { if (v > mainBid) { mainBid = v; mainNm = id; } }
+                const mainStored = mainNm ? (artIdx.photos.get(String(cab.id) + ':' + mainNm) || artIdx.photos.get(mainNm) || '') : stored;
+                const mainTitle = mainNm ? (artIdx.titles.get(String(cab.id) + ':' + mainNm) || artIdx.titles.get(mainNm) || '') : '';
                 return {
                     cabinetId: cab.id,
                     wbId,
                     uuid: campUuid || null,
                     name,
                     nmId: nmId || 0,
-                    photoUrl: campPhotoUrl(nmId, stored),
+                    mainNm: mainNm || nmId || 0,
+                    mainTitle,
+                    nmCount: topBid.size || (nmId ? 1 : 0),
+                    auto: autoSet.has(String(cab.id) + ':' + String(wbId)),
+                    photoUrl: campPhotoUrl(mainNm || nmId, mainNm ? mainStored : stored),
                     price,
                     stock,
                     status,
@@ -1344,13 +1361,26 @@
         return 'Нет активных ' + noun + ' в этом кабинете.<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
     }
 
+    /* Ползунок из трёх положений: 0 — выключена, 1 — включена, A — автопилот ведёт ставки. */
     function toggleHtml(cab, camp) {
-        const on = camp.live ? ' on' : '';
-        const act = camp.live ? 'pause' : 'start';
-        return '<button type="button" class="tg-switch ads-hq-toggle' + on + '" data-act="' + act +
-            '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) +
-            '" aria-pressed="' + (camp.live ? 'true' : 'false') +
-            '" title="' + (camp.live ? 'Пауза' : 'Запуск') + '"><span></span></button>';
+        const pos = !camp.live ? 0 : (camp.auto ? 2 : 1);
+        const btn = (n, label, title) => '<button type="button" class="ads-sl-b' + (pos === n ? ' on' : '') + '" data-pos="' + n +
+            '" aria-pressed="' + (pos === n ? 'true' : 'false') + '" title="' + title + '">' + label + '</button>';
+        return '<div class="ads-sl ads-hq-toggle p' + pos + '" role="group" aria-label="Режим кампании" data-cabinet="' + esc(cab.id) +
+            '" data-wb="' + esc(camp.wbId) + '">' +
+            btn(0, '0', 'Выключена') + btn(1, '1', 'Включена') + btn(2, 'A', 'Автопилот сам ведёт ставки') + '</div>';
+    }
+
+    function mainLineHtml(camp) {
+        const n = Number(camp.nmCount) || 0;
+        const title = camp.mainTitle || '';
+        if (n < 2 && !title) return '';
+        return '<div class="ads-hq-main">' + (n > 1 ? n + ' арт.' : '') +
+            (title ? (n > 1 ? ' · ' : '') + 'главный: ' + esc(title) : '') + '</div>';
+    }
+
+    function autoTagHtml(camp) {
+        return camp.auto ? '<span class="ads-auto-tag" title="Ставками управляет автопилот">авто</span>' : '';
     }
 
     function typeCellHtml(camp) {
@@ -1377,8 +1407,8 @@
             campThumbHtml(camp.photoUrl, camp.nmId) +
             '<div class="ads-hq-camp-meta">' +
             '<button type="button" class="ads-hq-wb-name" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">' +
-            esc(camp.name) + '</button>' + usedMark(camp) + scheduleMark(cab.id, camp.wbId) +
-            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' +
+            esc(camp.name) + '</button>' + autoTagHtml(camp) + usedMark(camp) + scheduleMark(cab.id, camp.wbId) +
+            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' + mainLineHtml(camp) +
             statusPill(camp.status) +
             '</div>' + autopilotToggleHtml(cab, camp) + '</div>';
     }
@@ -1526,8 +1556,8 @@
             campThumbHtml(camp.photoUrl, camp.nmId) +
             '<div class="ads-hq-camp-meta">' +
             '<button type="button" class="ads-hq-wb-name" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">' +
-            esc(camp.name) + '</button>' + usedMark(camp) +
-            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' +
+            esc(camp.name) + '</button>' + autoTagHtml(camp) + usedMark(camp) +
+            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' + mainLineHtml(camp) +
             statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) +
             '</div>' + autopilotToggleHtml(cab, camp) + '</div>'
         );
@@ -1946,6 +1976,51 @@
         return row ? (row.campaigns || []).find((c) => String(c.wbId) === String(wbId)) : null;
     }
 
+    /* Автопилот у кампании: строка в ad_autopilot_campaigns. Первый раз включаем кабинет в безопасном режиме (dry_run как был). */
+    async function saveAutoFlag(cabinetId, wbId, on) {
+        const sb = dep().supabase;
+        if (!sb) throw new Error('нет связи с базой');
+        if (on) {
+            const st = await sb.from('ad_autopilot_settings').select('enabled,dry_run').eq('cabinet_id', cabinetId).maybeSingle();
+            if (st.error) throw st.error;
+            if (!st.data || !st.data.enabled) {
+                const up = await sb.from('ad_autopilot_settings').upsert({
+                    cabinet_id: cabinetId, enabled: true, dry_run: st.data ? st.data.dry_run !== false : true, updated_at: new Date().toISOString(),
+                }, { onConflict: 'cabinet_id' });
+                if (up.error) throw up.error;
+            }
+            const ins = await sb.from('ad_autopilot_campaigns').upsert({ cabinet_id: cabinetId, campaign_id: Number(wbId) }, { onConflict: 'cabinet_id,campaign_id' });
+            if (ins.error) throw ins.error;
+        } else {
+            const del = await sb.from('ad_autopilot_campaigns').delete().eq('cabinet_id', cabinetId).eq('campaign_id', Number(wbId));
+            if (del.error) throw del.error;
+        }
+    }
+
+    /* Ползунок 0 / 1 / A: экран меняется сразу, WB и база догоняют в фоне, при отказе возвращаем и говорим коротко. */
+    function setCampPos(cabinetId, wbId, pos) {
+        const obj = findCampaign(cabinetId, wbId);
+        if (!obj) return;
+        const cur = !obj.live ? 0 : (obj.auto ? 2 : 1);
+        if (cur === pos) return;
+        const wasAuto = !!obj.auto;
+        const wantAuto = pos === 2;
+        const wantLive = pos > 0;
+        obj.auto = wantAuto;
+        if (wantLive !== obj.live) runBulk(wantLive ? 'start' : 'pause', [{ kind: 'campaign', cabinetId, wbId }]);
+        else paintTree();
+        if (wantAuto !== wasAuto) {
+            saveAutoFlag(cabinetId, wbId, wantAuto).then(() => {
+                if (state.cache) state.cache.clear();
+                notify('success', wantAuto ? 'Автопилот включён' : 'Автопилот выключен', obj.name || '');
+            }).catch((err) => {
+                obj.auto = wasAuto;
+                paintTree();
+                notify('error', 'Автопилот не переключился', 'Попробуйте ещё раз. ' + ((err && err.message) || ''));
+            });
+        }
+    }
+
     async function runBulk(verb, items) {
         const call = dep().callWbProxy;
         if (!call) return;
@@ -2114,6 +2189,12 @@
                 pickRow(pick.dataset.cabinet, pick.dataset.camp, pick.dataset.cluster, pick.dataset.wb);
                 return;
             }
+            const slb = e.target.closest('.ads-sl-b');
+            if (slb) {
+                const sl = slb.closest('.ads-sl');
+                setCampPos(sl.dataset.cabinet, sl.dataset.wb, Number(slb.dataset.pos));
+                return;
+            }
             const act = e.target.closest('[data-act]');
             if (act) {
                 if (act.dataset.act === 'sync-wb') {
@@ -2262,6 +2343,7 @@
                 { op: 'in', column: 'cabinet_id', value: ids },
                 { op: 'eq', column: 'status', value: 'pending' },
             ]),
+            safeRows('ad_autopilot_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }], 'cabinet_id,campaign_id'),
         ]);
         // Кабинет выбран: все запросы уходят одновременно (раньше шли четырьмя волнами друг за другом).
         let cabs;
@@ -2280,8 +2362,8 @@
             return true;
         });
         const ids = cabinets.map((c) => c.id);
-        if (!core) core = ids.length ? await fetchCore(ids) : [[], [], [], [], [], []];
-        const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks, schedules] = core;
+        if (!core) core = ids.length ? await fetchCore(ids) : [[], [], [], [], [], [], []];
+        const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks, schedules, autoRows] = core;
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
         const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
@@ -2299,7 +2381,7 @@
         state.model = buildHqModel({
             from, to, yesterday: rank.yesterday, now, today: to, from7: from,
             cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
-            articles, stocks,
+            articles, stocks, autoRows,
         });
         if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
         state.cache = state.cache || new Map();
@@ -2397,6 +2479,7 @@
         setListView,
         setSearch,
         getVisibleRows: visibleRows,
+        setCampPos,
         onRendered: (fn) => { renderListeners.push(fn); },
         getDeps: () => state.deps,
         getModelReady: () => !!state.model,
