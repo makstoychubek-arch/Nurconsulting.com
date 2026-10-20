@@ -175,7 +175,7 @@
             var m = document.getElementById('nr-vp'); if (!m || !root.screen) return;
             var phone = Math.min(root.screen.width, root.screen.height) < 500;
             var portrait = root.innerHeight > root.innerWidth;
-            m.setAttribute('content', 'width=' + (phone && portrait ? Math.round(Math.min(root.screen.width, root.screen.height) / 0.92) : 'device-width') + ',initial-scale=1,viewport-fit=cover');
+            m.setAttribute('content', 'width=' + (phone && portrait ? Math.round(Math.min(root.screen.width, root.screen.height) / 0.92) : 'device-width') + ',viewport-fit=cover');
         }
         root.addEventListener('orientationchange', function () { setTimeout(fit, 250); });
     })();
