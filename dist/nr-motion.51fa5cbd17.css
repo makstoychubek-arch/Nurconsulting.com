@@ -109,7 +109,8 @@ html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolut
     html .mobile-overlay.active { z-index: 10000 !important; }
     html .sidebar-app.mobile-open .sidebar-rail { box-shadow: 8px 0 32px rgba(0, 0, 0, .25); }
     html, html body { background-color: var(--surface-solid) !important; }
-    html .bottom-nav::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 80px; background: inherit; }
+    html .bottom-nav { display: none !important; }
+    html .main-rail { padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 @media (max-width: 768px) {
     body:has(.sidebar-app.mobile-open) header.app-header, body:has(.sidebar-app.mobile-open) .bottom-nav { z-index: 1 !important; }

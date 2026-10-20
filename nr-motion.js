@@ -160,6 +160,12 @@
                 if (ov) ov.classList.toggle('active', open);
                 return;
             }
+            if (sb.classList.contains('mobile-open') && t.closest('#sidebar-app .rail-btn[data-flyout="fly-beta"]')) {
+                e.stopPropagation(); e.preventDefault();
+                if (root.closeMobileMenu) root.closeMobileMenu();
+                if (root.toggleBetaSheet) root.toggleBetaSheet();
+                return;
+            }
             if (sb.classList.contains('mobile-open') && t.closest('#sidebar-app .rail-btn')) setTimeout(function () { if (root.closeMobileMenu) root.closeMobileMenu(); }, 60);
         }, true);
     })();
