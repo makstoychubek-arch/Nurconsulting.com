@@ -167,6 +167,38 @@ test('«Синхронизировать сейчас» не вешает кно
     await page.waitForFunction(() => document.getElementById('manual-sync-btn').textContent === 'Синхронизировать сейчас', null, { timeout: 6000 });
 });
 
+test('«Загрузка…» не стирает готовый блок того же кабинета, а при смене кабинета не показывает чужое', async ({ page }) => {
+    const r = await page.evaluate(() => {
+        const box = document.createElement('div');
+        document.body.appendChild(box);
+        const rows = Array.from({ length: 12 }, (_, i) => '<tr><td>строка ' + i + ' с данными кабинета</td></tr>').join('');
+        const out = {};
+        box.innerHTML = '<table>' + rows + '</table>';                 // настоящее содержимое
+        box.innerHTML = '<div class="text-center">Загрузка…</div>';    // загрузчик хочет заменить на заглушку
+        out.kept = box.querySelectorAll('tr').length;
+        out.stale = box.classList.contains('nr-stale');
+        box.innerHTML = '<table>' + rows + '<tr><td>новая</td></tr></table>'; // пришли свежие данные
+        out.fresh = box.querySelectorAll('tr').length;
+        out.staleGone = !box.classList.contains('nr-stale');
+        const prev = currentCabinetId;
+        currentCabinetId = 'другой-кабинет';
+        box.innerHTML = '<div>Загрузка…</div>';                         // сменили кабинет: чужие данные оставлять нельзя
+        out.afterSwitch = box.textContent.trim();
+        currentCabinetId = prev;
+        const empty = document.createElement('div');
+        document.body.appendChild(empty);
+        empty.innerHTML = '<span>Загружаем…</span>';                   // пустой блок получает заглушку как обычно
+        out.empty = empty.textContent.trim();
+        return out;
+    });
+    assert.strictEqual(r.kept, 12, 'готовые строки остались');
+    assert.ok(r.stale, 'блок помечен как обновляется');
+    assert.strictEqual(r.fresh, 13, 'свежие данные встали на место');
+    assert.ok(r.staleGone, 'пометка снята');
+    assert.match(r.afterSwitch, /Загрузка/, 'при смене кабинета показана заглушка, а не чужие данные');
+    assert.match(r.empty, /Загружаем/, 'пустой блок получает заглушку');
+});
+
 (async () => {
     const srv = await serve();
     const base = 'http://127.0.0.1:' + srv.address().port;
