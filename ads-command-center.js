@@ -1366,7 +1366,7 @@
         const pos = !camp.live ? 0 : (camp.auto ? 2 : 1);
         const btn = (n, label, title) => '<button type="button" class="ads-sl-b' + (pos === n ? ' on' : '') + '" data-pos="' + n +
             '" aria-pressed="' + (pos === n ? 'true' : 'false') + '" title="' + title + '">' + label + '</button>';
-        return '<div class="ads-sl ads-hq-toggle p' + pos + '" role="group" aria-label="Режим кампании" data-cabinet="' + esc(cab.id) +
+        return '<div class="ads-sl p' + pos + '" role="group" aria-label="Режим кампании" data-cabinet="' + esc(cab.id) +
             '" data-wb="' + esc(camp.wbId) + '">' +
             btn(0, '0', 'Выключена') + btn(1, '1', 'Включена') + btn(2, 'A', 'Автопилот сам ведёт ставки') + '</div>';
     }
