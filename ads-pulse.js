@@ -322,12 +322,19 @@
         if (ops.some(function (o) { return o.status === 'done' && Date.now() - (o.doneAt || 0) < 4000; })) return '<span class="adp2-chip ok">✓ В WB</span>';
         return '';
     }
-    function drrPill(camp) {
-        var d = (root.AdsHQ && root.AdsHQ.formatDrr) ? root.AdsHQ.formatDrr(camp) : '';
-        if (!camp.live) return '<span class="adp2-pill off">пауза</span>';
-        var n = parseFloat(String(d).replace(',', '.'));
-        var cl = isFinite(n) ? (n < 9 ? 'ok' : n < 13 ? 'wa' : 'bad') : '';
-        return '<span class="adp2-pill ' + cl + '">ДРР ' + esc(d || '—') + '</span>';
+    function campWord(n) { var m = n % 10, h = n % 100; return m === 1 && h !== 11 ? 'кампания' : (m >= 2 && m <= 4 && (h < 12 || h > 14)) ? 'кампании' : 'кампаний'; }
+    function drrOf(camp) {
+        var sp = Number(camp.spendToday) || 0, rev = Number(camp.revenue7) || 0;
+        return rev > 0 ? sp / rev * 100 : null;
+    }
+    function fmtInt(v) { return Math.round(Number(v) || 0).toLocaleString('ru-RU').replace(/\u00a0/g, ' '); }
+    /* Расход, заказы и ДРР за выбранный период прямо в строке */
+    function metricsHtml(camp) {
+        var d = drrOf(camp), has = (Number(camp.spendToday) || 0) > 0 || (Number(camp.orders) || 0) > 0;
+        var cl = d == null ? '' : (d < 8 ? 'ok' : d < 12 ? 'wa' : 'bad');
+        return '<div class="adp2-m"><small>Расход</small><b>' + (has ? fmtInt(camp.spendToday) + ' ₽' : '—') + '</b></div>' +
+            '<div class="adp2-m"><small>Заказы</small><b>' + (has ? fmtInt(camp.orders) : '—') + '</b></div>' +
+            '<div class="adp2-m"><small>ДРР</small><b class="' + cl + '">' + (d == null ? '—' : d.toFixed(1).replace('.', ',') + '%') + '</b></div>';
     }
     function bidControlHtml(key, camp, kind) {
         var inf = S.info[key], list = entriesOf(key, camp);
@@ -392,7 +399,7 @@
             '<div class="adp2-pos" data-nostop="1">' + switchHtml(key, camp, live) + '</div>' +
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
             '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small>' + unitText(kind) + ' · № ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small>' + mainLine(cab, camp, nmCount) + '</div>' +
-            '<div class="adp2-st">' + drrPill(c) + '</div>' +
+            '<div class="adp2-st">' + metricsHtml(c) + '</div>' +
             '<div class="adp2-bw" data-nostop="1">' + bidControlHtml(key, camp, kind) + '</div>' +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<span class="adp2-cv">⌄</span></div>' +
@@ -416,7 +423,7 @@
         S.rows = (root.AdsHQ && root.AdsHQ.getVisibleRows) ? root.AdsHQ.getVisibleRows() : [];
         var total = 0, html = '';
         S.rows.forEach(function (cab) {
-            if (S.rows.length > 1 && cab.campaigns.length) html += '<h3 class="adp2-cab">' + esc(cab.name) + '</h3>';
+            if (cab.campaigns.length) html += '<h3 class="adp2-cab"><b>' + esc(cab.name) + '</b><span>' + cab.campaigns.length + ' ' + campWord(cab.campaigns.length) +'</span></h3>';
             cab.campaigns.forEach(function (camp) { total++; html += rowHtml(cab, camp); });
         });
         if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = '<div class="adp2-empty"><span class="adp2-skel big"></span><span class="adp2-skel big"></span><span class="adp2-skel big"></span></div>';
