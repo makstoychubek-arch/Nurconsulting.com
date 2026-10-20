@@ -50,7 +50,7 @@ async function open(browser, base, opts = {}) {
     const { page } = env;
     await page.evaluate(() => localStorage.setItem('nr_session_key', 'tok-current'));
     await page.evaluate(() => showTab('settings'));
-    await page.locator('#admin-spaces-table-wrap tbody tr').first().waitFor({ state: 'attached' });
+    await page.locator('#admin-spaces-table-wrap .axm-card').first().waitFor({ state: 'attached' });
     await page.waitForTimeout(800);
     return { ...env, spaces, viewers, adminCalls };
 }
