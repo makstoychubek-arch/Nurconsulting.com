@@ -46,7 +46,7 @@
         '.nru-hd{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border,rgba(0,0,0,.1))}.nru-hd h3{margin:0;font-size:16px;font-weight:700}' +
         '.nru-hd .nru-x{margin-left:auto;font-size:22px}.nru-bd{padding:18px 20px;overflow:auto;color:var(--text-secondary,#3f3f46);font-size:14px}' +
         '.nru-ft{padding:14px 20px;border-top:1px solid var(--border,rgba(0,0,0,.1));display:flex;gap:10px;justify-content:flex-end;background:color-mix(in srgb,var(--text-primary,#111) 3%,var(--surface-solid,#fff));border-radius:0 0 var(--radius-card,20px) var(--radius-card,20px)}' +
-        '@media (max-width:640px){.nru-wrap{left:12px;right:12px;top:12px}.nru-toast{width:100%}}' +
+        '@media (max-width:640px){.nru-wrap{left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 8px)}.nru-toast{width:100%}}' +
         '@media (prefers-reduced-motion:reduce){.nru-toast,.nru-ov,.nru-dlg,.nru-win{transition:none}.nru-bar{animation:none}}';
     var st = doc.createElement('style'); st.id = 'nru-css'; st.textContent = css; (doc.head || doc.documentElement).appendChild(st);
 
