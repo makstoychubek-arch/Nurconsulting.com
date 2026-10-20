@@ -231,3 +231,9 @@
 .adp2-m{min-width:64px;text-align:right;white-space:nowrap}.adp2-m small{display:block;color:var(--text-muted);font-size:11px}.adp2-m b{font-size:14px;font-weight:600;white-space:nowrap}
 .adp2-m b.ok{color:var(--green)}.adp2-m b.wa{color:var(--amber)}.adp2-m b.bad{color:var(--red)}
 @media (max-width:760px){.adp2-st{justify-content:flex-start;gap:16px}.adp2-m{text-align:left;min-width:0}}
+
+/* Таблица: колонка с ползунком 0 / 1 / A шире, остальные закреплённые колонки сдвинуты */
+#ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-tg{width:100px!important;min-width:100px!important;max-width:100px!important;padding-left:8px!important}
+#ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-camp{left:100px!important}
+#ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-sku{left:320px!important}
+#ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-type{left:392px!important}
