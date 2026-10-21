@@ -2229,6 +2229,7 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
             function _fmtKpi() { return '0'; }
             function _imgHtml() { return '<img class="rnp-gs-photo-img">'; }
             function _phoneCollapseHtml(id, title, open, inner) { return inner; }
+            function _copyMiniBtn() { return ''; }
             ${grabFn(rnpSrc, '_collectKpiView')}
             ${grabFn(rnpSrc, '_kpiGridHTML')}
             ${grabFn(rnpSrc, '_buildKpiTopHTML')}
