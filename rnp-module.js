@@ -3578,13 +3578,8 @@ const RNP = (() => {
             <div class="rnp-gh-sec" onclick="RNP.ghOpen('zero')">Без продаж, но платим →</div>
             ${zero.slice(0, 3).map((o, i) => `<div class="rnp-gh-li neg" onclick="RNP.pick(${o.nm})"><em>${i + 1}</em><span title="${_ghEsc(o.name)}">${_ghEsc(o.name)}</span><b>−${_ghNum(o.storage + o.ads + o.penalty)}</b></div>`).join('') || '<div class="rnp-gh-empty">Нет</div>'}
             </div>`;
-        // У конкретной группы (Σ Общее) не дублируем прибыль/баланс/здоровье кабинета и остальное из «Общий» —
-        // только остатки (во всю ширину) и под ними категории + топ/аутсайдеры, крупнее (макет F).
-        const groupBody = `<div class="rnp-gh-group-stock">${stockRunwayCard}</div>
-          <div class="rnp-gh-group-row">
-            <div class="rnp-gh-col">${catCard}</div>
-            <div class="rnp-gh-col rnp-gh-col-wide">${topCard}${lossCard}</div>
-          </div>`;
+        // У конкретной группы (Σ Общее) из всего «Общий» оставляем только остатки — компактно, на всю ширину.
+        const groupBody = `<div class="rnp-gh-group-stock">${stockRunwayCard}</div>`;
         const generalBody = `<div class="rnp-gh-grid">
             <div class="rnp-gh-col">${hero}${balance}${health}${stockCard}</div>
             <div class="rnp-gh-rings">${revCard}${logCard}${buyCard}${catCard}</div>
@@ -4621,6 +4616,40 @@ const RNP = (() => {
         }
     }
 
+    /** Мини-кнопки копирования у артикула WB/продавца: копируем, показываем короткий тост с лисёнком. */
+    let _copyToastTimer = null;
+    function _copyToast(text) {
+        let t = document.getElementById('rnp-copy-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'rnp-copy-toast';
+            t.className = 'rnp-copy-toast';
+            document.body.appendChild(t);
+        }
+        t.innerHTML = '';
+        if (window.NrFox) t.appendChild(window.NrFox.mount(null, { size: 26, rest: 'delighted' }));
+        const span = document.createElement('span');
+        span.textContent = text;
+        t.appendChild(span);
+        t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');
+        clearTimeout(_copyToastTimer);
+        _copyToastTimer = setTimeout(() => t.classList.remove('on'), 1600);
+    }
+    async function _copyMini(text, label, btn) {
+        const ok = window.copyTextToClipboard ? await window.copyTextToClipboard(String(text)) : false;
+        if (!ok) return;
+        if (btn) { btn.classList.add('is-ok'); setTimeout(() => btn.classList.remove('is-ok'), 900); }
+        _copyToast(`${label} скопирован`);
+    }
+    function copyNmId(nmId, btn) { _copyMini(nmId, 'Артикул WB', btn); }
+    function copySellerArticle(text, btn) { _copyMini(text, 'Артикул продавца', btn); }
+    function _copyMiniBtn(fn, arg, title) {
+        const argJs = typeof arg === 'number' ? arg : `'${String(arg).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+        return `<button type="button" class="rnp-copy-mini" title="${title}" aria-label="${title}" onclick="event.stopPropagation();RNP.${fn}(${argJs},this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5h10"></path></svg>
+          </button>`;
+    }
+
     function _collectKpiView(art, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
         const er = 1; // суммы уже в сомах
@@ -4665,8 +4694,8 @@ const RNP = (() => {
         return `<div class="rnp-layout-info">
             ${v.photoHtml}
             <div class="rnp-layout-info-meta">
-              <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
-              <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a></div>
+              <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
+              <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
               <div class="rnp-gs-money-lbl">В деньгах</div>
               <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
               <div class="rnp-gs-usd-lbl">В долларах</div>
@@ -4680,8 +4709,8 @@ const RNP = (() => {
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
           <div class="rnp-kpi-top${_isPhone() ? ' rnp-kpi-top--nophoto' : ''}">
             ${v.photoHtml}
-            <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
-            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a></div>
+            <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
+            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
             <div class="rnp-gs-money-lbl">В деньгах</div>
             <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
             <div class="rnp-gs-usd-lbl">В долларах</div>
@@ -9301,7 +9330,7 @@ const RNP = (() => {
 
     return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
-             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего
