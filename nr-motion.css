@@ -137,7 +137,9 @@ html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolut
     .nmd-per i { font-style: normal; padding: 7px 13px; border-radius: 99px; background: var(--surface-solid); font-weight: 600; font-size: 12.5px; color: var(--text-muted); white-space: nowrap; cursor: pointer; }
     .nmd-per i.on { background: #7c3aed; color: #fff; }
     .nmd-card { background: var(--surface-solid); border-radius: 24px; padding: 14px 16px; margin-bottom: 8px; }
-    .nmd-skel { height: 110px; opacity: .6; }
+    .nmd-skel { height: 110px; background: linear-gradient(90deg, var(--sel, #eee) 25%, var(--border, rgba(0,0,0,.08)) 50%, var(--sel, #eee) 75%); background-size: 200% 100%; animation: nrSkel 1.4s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { .nmd-skel { animation: none; opacity: .6; } }
+    .nmd-empty-msg { text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.5; padding: 28px 16px; }
     .nmd-lbl { color: var(--text-muted); font-size: 11.5px; }
     .nmd-big { font-size: 26px; font-weight: 700; letter-spacing: -.5px; margin-top: 2px; }
     .nmd-big small, .nmd-mid small { font-size: 12px; font-weight: 500; color: var(--text-muted); }

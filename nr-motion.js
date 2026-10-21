@@ -306,18 +306,34 @@
                 at.map(function (x) { return '<div class="nmd-att"><span>' + x[0] + '</span><div><b>' + esc(x[1]) + '</b><div class="nmd-lbl">' + esc(x[2]) + '</div></div>' + x[3] + '</div>'; }).join('') + '</div>';
             return h;
         }
+        // Пока не пришли первые цифры, держим скелет не дольше ~9 с: если за это время build() так и не
+        // собрался (на этот период и правда нечего показать, не просто «ещё грузится»), честно говорим
+        // об этом вместо вечных пустых полосок — по тому же правилу, что и везде на сайте.
+        var EMPTY_TIMEOUT = 9000;
         function paint() {
             var tab = $('#tab-dashboard'); if (!tab) return;
             if (!mq.matches) { tab.classList.remove('nmd-on'); return; }
             var host = $('#nr-md');
             if (!host) { host = doc.createElement('div'); host.id = 'nr-md'; host.className = 'nmd'; tab.insertBefore(host, tab.firstChild); }
             var h = build();
-            if (h == null) { if (!host.innerHTML) host.innerHTML = '<div class="nmd-card nmd-skel"></div><div class="nmd-card nmd-skel"></div>'; tab.classList.add('nmd-on'); return; }
+            if (h == null) {
+                if (S.emptySince == null) S.emptySince = Date.now();
+                if (!host.innerHTML) host.innerHTML = '<div class="nmd-card nmd-skel"></div><div class="nmd-card nmd-skel"></div>';
+                else if (host.querySelector('.nmd-skel') && Date.now() - S.emptySince > EMPTY_TIMEOUT) {
+                    host.innerHTML = '<div class="nmd-card nmd-empty-msg">Нет данных за этот период.<br>Попробуйте другой диапазон дат или кабинет.</div>';
+                }
+                tab.classList.add('nmd-on');
+                return;
+            }
+            S.emptySince = null;
             if (h !== S.last) { S.last = h; host.innerHTML = h; }
             tab.classList.add('nmd-on');
         }
         var tmr = null;
         function later() { clearTimeout(tmr); tmr = setTimeout(function () { paint(); loadMoney(); loadAdBalance(); }, 160); }
+        // Пока держим скелет — больше ничего в DOM может и не измениться (нет данных на этот период),
+        // а наблюдатель ниже молчит без мутаций. Перепроверяем сами, чтобы таймаут выше вообще сработал.
+        setInterval(function () { if (S.emptySince != null) paint(); }, 2000);
         doc.addEventListener('click', function (e) {
             var a = e.target.closest && e.target.closest('#nr-md [data-nmd]'); if (!a) return;
             var p = a.getAttribute('data-nmd').split(':');
