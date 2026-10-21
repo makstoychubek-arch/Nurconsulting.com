@@ -399,19 +399,12 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-sheet-table th.rnp-period-total-th, .rnp-sheet-table td.rnp-cell-period { background: #f1eefc !important; color: #3a2a9a; font-weight: 800; position: sticky; right: 0; z-index: 6; box-shadow: -1px 0 0 var(--border); min-width: 86px; }
 .rnp-period-total-th small { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
 /* --accent-soft полупрозрачен в тёмной теме — просвечивал на липких колонках метрик/спарклайна; кладём его
-   поверх непрозрачного --surface-solid, как у недель/ИТОГа. Safari также не всегда перерисовывает липкие
-   ячейки кадр за кадром при скролле — против «плывущего» текста переводим их на свой композитный слой. */
+   поверх непрозрачного --surface-solid, как у недель/ИТОГа. (translateZ/will-change здесь не ставим:
+   в Safari это иногда отклеивает position:sticky — колонка зависает поверх того, что идёт после таблицы,
+   вместо того чтобы честно уехать вместе со своей строкой.) */
 .rnp-sheet-table tbody tr:not(.rnp-row-plan):hover .rnp-metric-col,
 .rnp-sheet-table tbody tr:not(.rnp-row-plan):hover .rnp-spark-col {
     background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--surface-solid) !important;
-}
-.rnp-sheet-table .rnp-col-sticky,
-.rnp-sheet-table .rnp-metric-col,
-.rnp-sheet-table .rnp-spark-col,
-.rnp-sheet-table .rnp-th-metric,
-.rnp-sheet-table .rnp-th-spark {
-    transform: translateZ(0);
-    will-change: transform;
 }
 /* «Общее по артикулам»: масштаб как в РНП, без названий под фото */
 .rnp-byart { width: max-content !important; min-width: 0 !important; }
