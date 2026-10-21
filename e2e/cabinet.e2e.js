@@ -102,6 +102,10 @@ const heroOrders = (page) => page.evaluate(() => {
     return m ? Number(m[1].replace(/\D/g, '')) : null;
 });
 const heroChip = (page) => page.evaluate(() => document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || '');
+// В «Σ Общее» по группе карточка «Прибыль» (а с ней и её чип) скрыта — какая группа активна,
+// теперь видно по кнопке Σ Общее в списке категорий, не по шапке.
+const activeGroupName = (page) => page.evaluate(() => document.querySelector('.rnp-cat-sigma.active')?.closest('.rnp-cat-group')?.querySelector('.rnp-cat-name')?.textContent || '');
+const activeGroupCount = (page) => page.evaluate(() => document.querySelector('.rnp-cat-sigma.active')?.closest('.rnp-cat-group')?.querySelector('.rnp-cat-count')?.textContent || '');
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -112,12 +116,13 @@ test('РНП открывается: две группы с кнопкой «Σ 
     assert.deepStrictEqual(errors, [], 'ошибок скриптов нет: ' + errors.join('; '));
 });
 
-test('«Σ Общее» у группы: заказы только по её артикулам, в шапке название группы', async ({ page }) => {
+test('«Σ Общее» у группы: заказы только по её артикулам, название группы активно в списке категорий', async ({ page }) => {
     const sigma = (name) => page.locator('.rnp-cat-group', { has: page.locator('.rnp-cat-name', { hasText: name }) }).locator('.rnp-cat-sigma');
     await sigma('Укороченные').click();
-    await page.waitForFunction(() => /Укороченные/.test(document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || ''));
-    assert.strictEqual(await heroOrders(page), DAYS * (ORDERS_PER_DAY[0] + ORDERS_PER_DAY[1]));
-    assert.match(await heroChip(page), /2 арт\./);
+    await page.waitForFunction(() => /Укороченные/.test(document.querySelector('.rnp-cat-sigma.active')?.closest('.rnp-cat-group')?.querySelector('.rnp-cat-name')?.textContent || ''));
+    assert.strictEqual(await activeGroupCount(page), '2');
+    assert.strictEqual(await page.locator('.rnp-gh-profit').count(), 0, 'в «Σ Общее» по группе карточки прибыль/баланс/здоровье кабинета скрыты');
+    assert.strictEqual(await page.locator('.rnp-gh-runway').count(), 1, 'вместо них — остатки с «хватит на N дней» и хранением в день');
     const todayOrders = await page.evaluate(() => {
         const row = [...document.querySelectorAll('tr')].find((r) => /ЗАКАЗЫ/.test(r.textContent));
         const cells = row ? [...row.querySelectorAll('td')].map((t) => t.textContent.trim()) : [];
@@ -125,13 +130,13 @@ test('«Σ Общее» у группы: заказы только по её а�
     });
     assert.strictEqual(Number(todayOrders), ORDERS_PER_DAY[0] + ORDERS_PER_DAY[1], 'в таблице за день сумма по группе');
     await sigma('Оверсайз').click();
-    await page.waitForFunction(() => /Оверсайз/.test(document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || ''));
-    assert.strictEqual(await heroOrders(page), DAYS * (ORDERS_PER_DAY[2] + ORDERS_PER_DAY[3]));
+    await page.waitForFunction(() => /Оверсайз/.test(document.querySelector('.rnp-cat-sigma.active')?.closest('.rnp-cat-group')?.querySelector('.rnp-cat-name')?.textContent || ''));
+    assert.strictEqual(await activeGroupCount(page), '2');
 });
 
 test('«Общий» возвращает все артикулы после просмотра группы', async ({ page }) => {
     await page.locator('.rnp-cat-sigma').first().click();
-    await page.waitForFunction(() => /арт\./.test(document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || '') && /·/.test(document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || ''));
+    await page.waitForFunction(() => !!document.querySelector('.rnp-cat-sigma.active'));
     await page.locator('.rnp-tab-general').click();
     await page.waitForFunction(() => /4 арт\./.test(document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || ''));
     assert.strictEqual(await heroOrders(page), DAYS * ORDERS_PER_DAY.reduce((a, b) => a + b, 0));
