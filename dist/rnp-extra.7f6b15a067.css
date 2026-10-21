@@ -253,8 +253,8 @@ transition: opacity .18s ease, transform .18s ease;
 @media (max-width:1180px){.rnp-gh-grid{grid-template-columns:1fr 1fr}.rnp-gh-rings{grid-column:1 / -1;order:3}}
 @media (max-width:768px){.rnp-gh-grid{grid-template-columns:1fr}.rnp-gh-rings{grid-template-columns:1fr;grid-template-rows:none}}
 
-/* Σ Общее по группе (макет F): прибыль/баланс/здоровье кабинета и выручка/логистика/выкупы скрыты —
-   только широкие остатки сверху, под ними категории и топ/аутсайдеры покрупнее. */
+/* Σ Общее по группе: прибыль/баланс/здоровье кабинета и остальные карточки скрыты —
+   остаются только широкие остатки сверху, компактно. */
 .rnp-gh-group-stock{margin-bottom:0}
 .rnp-gh-runway{cursor:pointer}
 .rnp-gh-runway-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
