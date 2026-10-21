@@ -22,6 +22,13 @@ const tables = {
     rnp_daily_data: ARTS.flatMap((a, i) => Array.from({ length: DAYS }, (_, d) => ({ cabinet_id: CAB, nm_id: a.nm, date: day(d), orders_count: 10 + i, orders_sum: (10 + i) * 5000, sales_count: 6 + i, sales_sum: (6 + i) * 5000, ad_spend: 500, impressions: 1000, clicks: 50 }))),
     user_sessions: [],
 };
+const CAMPS = [[39497221, 'СРС Пиджаки оверсайз', 9], [39497232, 'СРС Костюм оверсайз', 9], [39497335, 'СРС Свитера', 9], [40489986, 'Поиск оверсайз черный', 11]];
+if (section === 'ads') {
+    tables.cabinets = [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID, adv_token_valid: true, adv_daily_budget_cap: 60000 }];
+    tables.advertising_campaigns = CAMPS.map(([id, n, st]) => ({ cabinet_id: CAB, campaign_id: id, campaign_name: n, status: st, type: 9, created_at: '2026-09-01T00:00:00Z' }));
+    tables.advertising_daily_stats = CAMPS.flatMap(([id], i) => Array.from({ length: 14 }, (_, d) => ({ cabinet_id: CAB, campaign_id: id, stat_date: day(d), spend: 800 + i * 120 + d * 7, sum_price: 6000 + i * 900, clicks: 90 + d, atbs: 20, orders: 8 + (i % 3), views: 4000, shks: 6, data: {} })));
+    tables.adv_campaigns = []; tables.rnp_articles = []; tables.wb_stocks = [];
+}
 
 const SKIP = /handleLogout|logout|signOut|adminDeleteUser|delete|remove|terminate|Удалить|Выйти|reload|location/i;
 
@@ -103,7 +110,7 @@ async function clickOne(page, calls, c, how) {
     const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     const env = await openApp(browser, base, {
         userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 150, tables, rpcs: { is_super_admin: true },
-        functions: { 'admin-space': async () => { await new Promise((r) => setTimeout(r, 700)); return { ok: true }; }, 'wb-proxy': async () => { await new Promise((r) => setTimeout(r, 700)); return {}; } },
+        functions: { 'admin-space': async () => { await new Promise((r) => setTimeout(r, 700)); return { ok: true }; }, 'wb-proxy': async () => { await new Promise((r) => setTimeout(r, 700)); return { confirmedStatus: 11 }; } },
     });
     const { page, calls } = env;
     const rows = [];
@@ -127,6 +134,12 @@ async function clickOne(page, calls, c, how) {
             await page.waitForTimeout(1200);
             await run(id.replace('settings-tab-btn-', 'settings/'), '#tab-settings');
         }
+    } else if (section === 'ads') {
+        await page.evaluate(() => showTab('advertising'));
+        await page.waitForFunction(() => window.AdsHQ && window.AdsHQ.getModelReady && window.AdsHQ.getModelReady(), null, { timeout: 15000 });
+        await page.locator('.ads-sl').first().waitFor({ state: 'attached' });
+        await page.waitForTimeout(600);
+        await run('ads/главная', '#tab-advertising');
     } else if (section.startsWith('tab:')) {
         const tab = section.slice(4);
         await page.evaluate((t) => showTab(t), tab);
