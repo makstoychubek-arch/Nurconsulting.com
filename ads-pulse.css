@@ -1,9 +1,8 @@
-/* Пульт РК: список кампаний со ставками, товарами и созданием. Цвета берём из переменных темы. */
-#adv-pulse { display: none; }
-#adv-view-ads.adp2-on #adv-pulse { display: block; }
-#adv-view-ads.adp2-on #ads-hq-camps-wrap,
-#adv-view-ads.adp2-on #ads-hq-phone,
-#adv-view-ads.adp2-on #ads-hq-schedule { display: none !important; }
+/* Пульт РК: список кампаний со ставками, товарами и созданием. Цвета берём из переменных темы.
+   Старую таблицу/телефонный список прячем безусловно (CSS, не через класс от JS-инициализации) —
+   если AdsPulse.init() по какой-то причине не отработает на конкретном аккаунте, пользователь должен
+   увидеть пустой/загружающийся Пульт, а не молча откатиться на старую таблицу. */
+#ads-hq-camps-wrap, #ads-hq-phone, #ads-hq-schedule { display: none !important; }
 
 .adp2-switch { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; flex-shrink: 0; }
 .adp2-newbtn { height: 32px; padding: 0 12px; border-radius: 10px; border: 0; background: var(--accent); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }

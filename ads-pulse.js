@@ -924,9 +924,13 @@
     }
     function init(deps) {
         if (S.inited) { S.deps = deps || S.deps; return; }
-        S.inited = true; S.deps = deps;
-        S.view = 'pulse'; // таблица убрана: один вид, список как в макете
+        S.deps = deps;
+        // Если #adv-pulse ещё не в DOM (вкладка открылась раньше, чем вставилась разметка) —
+        // не помечаем инициализацию выполненной: следующий вызов (следующий заход на вкладку)
+        // должен попробовать снова, а не молча остаться ни с чем навсегда.
         var host = $('adv-pulse'); if (!host) return;
+        S.inited = true;
+        S.view = 'pulse'; // таблица убрана: один вид, список как в макете
         host.addEventListener('click', onClick); host.addEventListener('input', onInput); host.addEventListener('change', onChange); host.addEventListener('keydown', onKey);
         mountSwitch();
         if (root.AdsHQ && root.AdsHQ.onRendered) root.AdsHQ.onRendered(function () { if (S.view === 'pulse') render(); });
