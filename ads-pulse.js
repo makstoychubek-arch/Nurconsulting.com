@@ -413,7 +413,7 @@
             var o = S.ops[v.opId] || {};
             var st = o.status === 'error' ? '<span class="adp2-chip bad">⚠ ' + esc(o.err || 'не создалась') + ' <button type="button" data-pact="vretry" data-v="' + esc(v.opId) + '">Повторить</button> <button type="button" data-pact="vdrop" data-v="' + esc(v.opId) + '">Убрать</button></span>' :
                 '<span class="adp2-chip wait">Создаётся в WB…</span>';
-            return '<article class="adp2-row virt"><div class="adp2-head"><div class="adp2-tc">' + badge(v.kind, 'xl') + '</div><div class="adp2-nm"><b><span class="adp2-dot"></span>' + esc(v.name) + '</b><small>новая кампания · ' + v.nms.length + ' тов.</small></div><div class="adp2-st"></div><div class="adp2-bw"></div><div class="adp2-ch">' + st + '</div></div></article>';
+            return '<article class="adp2-row virt" data-key="virt:' + esc(v.opId) + '"><div class="adp2-head"><div class="adp2-tc">' + badge(v.kind, 'xl') + '</div><div class="adp2-nm"><b><span class="adp2-dot"></span>' + esc(v.name) + '</b><small>новая кампания · ' + v.nms.length + ' тов.</small></div><div class="adp2-st"></div><div class="adp2-bw"></div><div class="adp2-ch">' + st + '</div></div></article>';
         }).join('');
     }
 
@@ -422,12 +422,16 @@
         S.rows = (root.AdsHQ && root.AdsHQ.getVisibleRows) ? root.AdsHQ.getVisibleRows() : [];
         var total = 0, html = '';
         S.rows.forEach(function (cab) {
-            if (S.rows.length > 1 && cab.campaigns.length) html += '<h3 class="adp2-cab"><b>' + esc(cab.name) + '</b><span>' + cab.campaigns.length + ' ' + campWord(cab.campaigns.length) +'</span></h3>';
+            if (S.rows.length > 1 && cab.campaigns.length) html += '<h3 class="adp2-cab" data-key="cab:' + esc(cab.id) + '"><b>' + esc(cab.name) + '</b><span>' + cab.campaigns.length + ' ' + campWord(cab.campaigns.length) +'</span></h3>';
             cab.campaigns.forEach(function (camp) { total++; html += rowHtml(cab, camp); });
         });
-        if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = '<div class="adp2-empty"><span class="adp2-skel big"></span><span class="adp2-skel big"></span><span class="adp2-skel big"></span></div>';
-        else if (!total && !S.virtual.length) html = '<div class="adp2-empty">Кампаний по выбранному фильтру нет. Нажмите «Новая РК», чтобы создать.</div>';
-        host.innerHTML = virtualHtml() + html;
+        if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = '<div class="adp2-empty" data-key="skel"><span class="adp2-skel big"></span><span class="adp2-skel big"></span><span class="adp2-skel big"></span></div>';
+        else if (!total && !S.virtual.length) html = '<div class="adp2-empty" data-key="empty">Кампаний по выбранному фильтру нет. Нажмите «Новая РК», чтобы создать.</div>';
+        var full = virtualHtml() + html;
+        // Полная перерисовка списка на каждое обновление данных роняла фокус и сбрасывала ползунки
+        // («трясло» при любом обновлении) — теперь патчим по data-key, как в ads-command-center.js.
+        if (root.domMorph && host.querySelector('[data-key]')) root.domMorph.morphList(host, full, 'data-key');
+        else host.innerHTML = full;
         // подгружаем ставки активных кампаний по очереди, не блокируя экран
         var keys = [];
         S.rows.forEach(function (cab) { cab.campaigns.forEach(function (c) { if (c.live) keys.push(keyOf(cab, c)); }); });
@@ -441,7 +445,10 @@
         var focused = doc.activeElement && el.contains(doc.activeElement) ? doc.activeElement : null;
         if (focused && (focused.classList.contains('adp2-num') || focused.classList.contains('adp2-rg'))) { refreshBid(key); var cb = el.querySelector('[data-chipbox]'); if (cb) cb.innerHTML = chipHtml(key); return; }
         var tmp = doc.createElement('div'); tmp.innerHTML = rowHtml(f.cab, f.camp);
-        el.replaceWith(tmp.firstChild);
+        // Патчим узел на месте, а не меняем целиком: replaceWith сбрасывал ползунок/фокус
+        // при каждой фоновой подгрузке ставок (enqueueInfo зовёт patchRow на каждую кампанию).
+        if (root.domMorph && typeof root.domMorph.patchNode === 'function') root.domMorph.patchNode(el, tmp.firstChild);
+        else el.replaceWith(tmp.firstChild);
     }
     function refreshBid(key) {
         var host = $('adv-pulse'), f = findCamp(key); if (!host || !f) return;

@@ -71,6 +71,24 @@ test('Пульт: ползунок «A» меняется сразу и став
     assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
 });
 
+test('Пульт: обновление и фоновая подгрузка ставок не пересоздают строки (без «трясёт»)', async ({ page }) => {
+    // Раньше render() целиком стирал #adv-pulse через innerHTML при каждой перерисовке AdsHQ,
+    // а patchRow() подменял строку через replaceWith — ползунки теряли фокус и мигали на каждое обновление.
+    await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-row').length >= 4, null, { timeout: 5000 });
+    await page.evaluate(() => {
+        window.__tagged = [];
+        document.querySelectorAll('#adv-pulse .adp2-row, #adv-pulse .adp2-sl button').forEach((el, i) => {
+            el.__identityTag = 'keep-' + i;
+            window.__tagged.push(el);
+        });
+    });
+    await page.evaluate(() => document.getElementById('ads-hq-reload')?.click());
+    await page.waitForTimeout(SERVER_DELAY + 700);
+    const survived = await page.evaluate(() =>
+        window.__tagged.every((el) => el.isConnected && el.__identityTag));
+    assert.ok(survived, 'строки/ползунки Пульта пережили «Обновить» без пересоздания DOM-узлов');
+});
+
 test('Дашборд на телефоне: новый компактный вид берёт цифры из блоков дашборда', async ({ page }) => {
     await page.setViewportSize({ width: 424, height: 900 });
     await page.evaluate(() => showTab('dashboard'));

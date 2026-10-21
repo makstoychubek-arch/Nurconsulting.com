@@ -202,12 +202,17 @@
             var cab = nameBtn.getAttribute('data-cabinet'), camp = nameBtn.getAttribute('data-keys');
             var host = nameBtn.parentNode && nameBtn.parentNode.querySelector('.ads-hq-wb-id');
             if (!host || !cab || !camp) return;
+            // Плейсхолдер уже в разметке карточки (ads-command-center.js) — число детей .ads-hq-wb-id
+            // не должно меняться между перерисовками, иначе морф-патч сносит всю строку целиком.
             var btn = host.querySelector('.adx-guard');
             if (!btn) {
-                btn = document.createElement('button'); btn.type = 'button'; btn.className = 'adx-guard'; btn.title = 'Когда остановить и когда запустить';
-                btn.innerHTML = ICON; btn.setAttribute('data-gcab', cab); btn.setAttribute('data-gcamp', camp);
+                btn = document.createElement('button'); btn.type = 'button'; btn.className = 'adx-guard';
                 host.appendChild(btn);
             }
+            btn.title = 'Когда остановить и когда запустить';
+            if (!btn.querySelector('svg')) btn.insertAdjacentHTML('afterbegin', ICON);
+            if (btn.getAttribute('data-gcab') !== cab) btn.setAttribute('data-gcab', cab);
+            if (btn.getAttribute('data-gcamp') !== camp) btn.setAttribute('data-gcamp', camp);
             var g = guards[cab + ':' + camp], on = !!(g && g.active);
             var dot = btn.querySelector('i');
             if (on && !dot) btn.insertAdjacentHTML('beforeend', '<i></i>'); else if (!on && dot) dot.remove();
