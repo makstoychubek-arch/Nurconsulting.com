@@ -3578,14 +3578,20 @@ const RNP = (() => {
             <div class="rnp-gh-sec" onclick="RNP.ghOpen('zero')">Без продаж, но платим →</div>
             ${zero.slice(0, 3).map((o, i) => `<div class="rnp-gh-li neg" onclick="RNP.pick(${o.nm})"><em>${i + 1}</em><span title="${_ghEsc(o.name)}">${_ghEsc(o.name)}</span><b>−${_ghNum(o.storage + o.ads + o.penalty)}</b></div>`).join('') || '<div class="rnp-gh-empty">Нет</div>'}
             </div>`;
-        // У конкретной группы (Σ Общее) не дублируем прибыль/баланс/здоровье кабинета — это вкладка «Общий».
-        const leftCol = _activeGroup ? stockRunwayCard : `${hero}${balance}${health}${stockCard}`;
-        return `<div class="rnp-general-topbar rnp-gh">
-          <div class="rnp-gh-grid${_activeGroup ? ' is-group' : ''}">
-            <div class="rnp-gh-col">${leftCol}</div>
+        // У конкретной группы (Σ Общее) не дублируем прибыль/баланс/здоровье кабинета и остальное из «Общий» —
+        // только остатки (во всю ширину) и под ними категории + топ/аутсайдеры, крупнее (макет F).
+        const groupBody = `<div class="rnp-gh-group-stock">${stockRunwayCard}</div>
+          <div class="rnp-gh-group-row">
+            <div class="rnp-gh-col">${catCard}</div>
+            <div class="rnp-gh-col rnp-gh-col-wide">${topCard}${lossCard}</div>
+          </div>`;
+        const generalBody = `<div class="rnp-gh-grid">
+            <div class="rnp-gh-col">${hero}${balance}${health}${stockCard}</div>
             <div class="rnp-gh-rings">${revCard}${logCard}${buyCard}${catCard}</div>
             <div class="rnp-gh-col">${topCard}${lossCard}</div>
-          </div>
+          </div>`;
+        return `<div class="rnp-general-topbar rnp-gh">
+          ${_activeGroup ? groupBody : generalBody}
           <div class="rnp-general-bar-photos rnp-gh-photos">${_buildGeneralTopGallery(active)}</div>
         </div>`;
     }
