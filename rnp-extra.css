@@ -253,6 +253,26 @@ transition: opacity .18s ease, transform .18s ease;
 @media (max-width:1180px){.rnp-gh-grid{grid-template-columns:1fr 1fr}.rnp-gh-rings{grid-column:1 / -1;order:3}}
 @media (max-width:768px){.rnp-gh-grid{grid-template-columns:1fr}.rnp-gh-rings{grid-template-columns:1fr;grid-template-rows:none}}
 
+/* Σ Общее по группе: без прибыли/баланса/здоровья кабинета (они дублируют вкладку «Общий») — вместо них широкая карточка остатков с «хватит на N дней» и хранением в день. */
+.rnp-gh-grid.is-group{grid-template-columns:minmax(0,1fr) 370px;grid-template-areas:"stock top" "rings rings"}
+.rnp-gh-grid.is-group>.rnp-gh-col:first-child{grid-area:stock}
+.rnp-gh-grid.is-group>.rnp-gh-rings{grid-area:rings;grid-template-columns:repeat(4,1fr);grid-template-rows:none}
+.rnp-gh-grid.is-group>.rnp-gh-col:last-child{grid-area:top}
+@media (max-width:1180px){.rnp-gh-grid.is-group{grid-template-columns:1fr;grid-template-areas:"stock" "top" "rings"}.rnp-gh-grid.is-group>.rnp-gh-rings{grid-template-columns:1fr 1fr}}
+@media (max-width:768px){.rnp-gh-grid.is-group>.rnp-gh-rings{grid-template-columns:1fr}}
+.rnp-gh-runway{cursor:pointer}
+.rnp-gh-runway-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.rnp-gh-runway-sep{width:1px;align-self:stretch;min-height:48px;background:var(--border,#e1e3ea)}
+.rnp-gh-runway-stat{display:flex;flex-direction:column;gap:2px;min-width:108px}
+.rnp-gh-runway-stat span{font-size:10.5px;color:var(--text-muted)}
+.rnp-gh-runway-stat b{font-size:20px;font-weight:800;color:var(--text-primary);line-height:1.1}
+.rnp-gh-runway-stat b small{font-size:11px;font-weight:600;color:var(--text-muted)}
+.rnp-gh-runway-stat b.warn{color:#d97706}
+.rnp-gh-runway-stat em{font-style:normal;font-size:10.5px;color:var(--text-muted)}
+.rnp-gh-pill{align-self:flex-start;font-size:9.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#fde8c8;color:#92400e}
+:root[data-theme="dark"] .rnp-gh-pill{background:rgba(217,119,6,.22);color:#f0b84f}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rnp-gh-pill{background:rgba(217,119,6,.22);color:#f0b84f}}
+
 /* Единая модалка сайта (как «План/факт»): размытый прозрачный фон, одна ширина */
 .rnp-modal-panel{width:min(1040px,96vw)}
 .rnp-modal-titles{margin-right:auto;min-width:0}

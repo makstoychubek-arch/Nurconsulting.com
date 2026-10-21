@@ -3300,6 +3300,7 @@ const RNP = (() => {
         buyout: 'Заказы, которые покупатель выкупил, отказы и возвраты за период.',
         cats: 'Остаток на складах WB и своих складах по категориям включённых артикулов.',
         stock: 'Остаток на складе WB (FBO) и на своих складах (FBS).',
+        runway: '«Хватит на» — остаток ÷ средние продажи в день за период. «Хранение в день» — расход на хранение из финотчёта ÷ число дней периода.',
         top: 'Самая высокая маржа среди включённых артикулов с продажами за период.',
         loss: 'Включённые артикулы, у которых за период прибыль ниже нуля, и артикулы без продаж, но с расходами на хранение, рекламу или штрафы.',
     };
@@ -3512,6 +3513,23 @@ const RNP = (() => {
         const stockCard = `<div class="rnp-gh-card"><div class="rnp-gh-title">Остатки: FBO и FBS ${_ghInfoIcon('stock')}</div>
             <div class="rnp-gh-flex">${_ghRing([{ name: 'FBO', v: fbo, c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS', v: fbs, c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }], _ghNum(stockT), 'шт', 92)}
             ${_ghLegend([{ name: 'FBO · склад WB', val: pc.fbo + '%', c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS · свой склад', val: pc.fbs + '%', c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }])}</div></div>`;
+        // В «Σ Общее» по группе баланс/прибыль/здоровье кабинета дублируют вкладку «Общий» — вместо них
+        // остатки с «хватит на N дней» и расходом на хранение в день (идея владельца после 5 макетов).
+        const avgDailySales = M.per.days > 0 ? sum('sales') / M.per.days : 0;
+        const runwayDays = avgDailySales > 0 ? stockT / avgDailySales : null;
+        const storagePerDay = M.per.days > 0 ? sum('storage') / M.per.days : 0;
+        const runwayPill = runwayDays == null ? ''
+            : runwayDays <= 21 ? '<span class="rnp-gh-pill warn">докупать скоро</span>'
+            : '';
+        const stockRunwayCard = `<div class="rnp-gh-card rnp-gh-runway"><div class="rnp-gh-title">Остатки и хранение ${_ghInfoIcon('runway')}</div>
+            <div class="rnp-gh-runway-row">
+              <div class="rnp-gh-flex">${_ghRing([{ name: 'FBO', v: fbo, c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS', v: fbs, c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }], _ghNum(stockT), 'шт', 92)}
+              ${_ghLegend([{ name: 'FBO · склад WB', val: pc.fbo + '%', c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS · свой склад', val: pc.fbs + '%', c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }])}</div>
+              <div class="rnp-gh-runway-sep"></div>
+              <div class="rnp-gh-runway-stat"><span>Хватит на</span><b>${runwayDays == null ? '—' : '≈ ' + Math.round(runwayDays)} <small>${runwayDays == null ? '' : 'дней'}</small></b>${runwayPill}<em>при ${_ghNum(Math.round(avgDailySales))} шт/день</em></div>
+              <div class="rnp-gh-runway-sep"></div>
+              <div class="rnp-gh-runway-stat"><span>Хранение в день</span><b class="warn">${_ghNum(Math.round(storagePerDay))} <small>сом</small></b><em>≈ ${_ghNum(Math.round(storagePerDay * 30))} сом/мес</em></div>
+            </div></div>`;
         // кружки
         const real = sum('realization');
         const comm = Math.max(0, real - transfer), deliv = sum('delivery'), stp = sum('storage') + sum('penalty');
@@ -3560,9 +3578,11 @@ const RNP = (() => {
             <div class="rnp-gh-sec" onclick="RNP.ghOpen('zero')">Без продаж, но платим →</div>
             ${zero.slice(0, 3).map((o, i) => `<div class="rnp-gh-li neg" onclick="RNP.pick(${o.nm})"><em>${i + 1}</em><span title="${_ghEsc(o.name)}">${_ghEsc(o.name)}</span><b>−${_ghNum(o.storage + o.ads + o.penalty)}</b></div>`).join('') || '<div class="rnp-gh-empty">Нет</div>'}
             </div>`;
+        // У конкретной группы (Σ Общее) не дублируем прибыль/баланс/здоровье кабинета — это вкладка «Общий».
+        const leftCol = _activeGroup ? stockRunwayCard : `${hero}${balance}${health}${stockCard}`;
         return `<div class="rnp-general-topbar rnp-gh">
-          <div class="rnp-gh-grid">
-            <div class="rnp-gh-col">${hero}${balance}${health}${stockCard}</div>
+          <div class="rnp-gh-grid${_activeGroup ? ' is-group' : ''}">
+            <div class="rnp-gh-col">${leftCol}</div>
             <div class="rnp-gh-rings">${revCard}${logCard}${buyCard}${catCard}</div>
             <div class="rnp-gh-col">${topCard}${lossCard}</div>
           </div>
