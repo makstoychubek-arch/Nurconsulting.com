@@ -150,6 +150,52 @@ test('клик по заголовку группы сворачивает её,
     assert.strictEqual(await heroOrders(page), DAYS * ORDERS_PER_DAY.reduce((a, b) => a + b, 0), 'вид остался общим');
 });
 
+test('один клик по группе сворачивает/разворачивает её мгновенно, второй клик не нужен', async ({ page }) => {
+    // Раньше toggleCategory перерисовывал всю панель вкладок (innerHTML) на каждый клик — на
+    // кабинете с десятками артикулов это заметно лагало, и нетерпеливый повторный клик успевал
+    // отменить первое переключение («приходится нажимать дважды»).
+    const group = page.locator('.rnp-cat-group', { has: page.locator('.rnp-cat-name', { hasText: 'Укороченные' }) });
+    const header = group.locator('.rnp-cat-header');
+    const wasCollapsed = await group.evaluate((el) => el.classList.contains('collapsed'));
+    const t0 = Date.now();
+    await header.click();
+    await page.waitForFunction(
+        (was) => {
+            const g = [...document.querySelectorAll('.rnp-cat-group')].find((el) => el.querySelector('.rnp-cat-name')?.textContent.trim() === 'Укороченные');
+            return g && g.classList.contains('collapsed') !== was;
+        },
+        wasCollapsed,
+        { timeout: 300 }
+    );
+    assert.ok(Date.now() - t0 < 300, 'группа переключилась за ' + (Date.now() - t0) + ' мс после одного клика');
+    const nowCollapsed = await group.evaluate((el) => el.classList.contains('collapsed'));
+    assert.notStrictEqual(nowCollapsed, wasCollapsed, 'состояние группы изменилось ровно на один клик');
+});
+
+test('«Настройки РНП»: тумблер артикула/группы переключается мгновенно, не ждёт запись в базу', async ({ page }) => {
+    // Раньше тумблер визуально отставал от клика на время сетевого запроса (в тесте — latencyMs
+    // сети нет, но раньше DOM-патч стоял ПОСЛЕ await записи в базу, и из открытой модалки ещё
+    // синхронно перерисовывал всю панель вкладок и таблицу РНП за ней — вместе давало заметный лаг).
+    await page.evaluate(() => RNP.openSettings());
+    await page.locator('.rnp-settings-groups').waitFor({ state: 'visible' });
+    await page.waitForTimeout(200);
+    const t0 = Date.now();
+    const r = await page.evaluate(() => {
+        return new Promise((resolve) => {
+            const btn = document.querySelector('#rnp-settings-articles-tbody [data-toggle-nm]');
+            if (!btn) return resolve({ error: 'no toggle found' });
+            const before = btn.style.background;
+            const t0 = performance.now();
+            const mo = new MutationObserver(() => { mo.disconnect(); resolve({ ms: Math.round(performance.now() - t0) }); });
+            mo.observe(btn, { attributes: true, subtree: true, childList: true });
+            RNP.toggleArt(Number(btn.getAttribute('data-toggle-nm')));
+            setTimeout(() => resolve({ timeout: true }), 500);
+        });
+    });
+    assert.ok(r.ms != null && r.ms < 100, 'тумблер отреагировал за ' + JSON.stringify(r));
+    assert.ok(Date.now() - t0 < 300, 'вызов вернулся быстро, не повис на ожидании записи в базу');
+});
+
 test('вкладка артикула и «Заметки по дням» отвечают за 100 мс (тяжёлая отрисовка после кадра)', async ({ page }) => {
     const first = (fnSrc) => page.evaluate(async (src) => {
         const t0 = performance.now();

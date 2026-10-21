@@ -1352,9 +1352,21 @@ const RNP = (() => {
         }
         let map = {};
         try { map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'); } catch (e) {}
-        map[cat] = !_isCatCollapsed(cat);
+        const nowCollapsed = !wasCollapsed;
+        map[cat] = nowCollapsed;
         try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
-        _refreshTabsBar();
+        // Простое сворачивание/разворачивание — точечно переключаем класс и стрелку у уже
+        // существующего узла, без полной перерисовки панели вкладок (RNP.refresh() вызывал
+        // innerHTML всей панели на каждый клик — на кабинетах с десятками артикулов это заметно
+        // лагало, и нетерпеливый повторный клик успевал отменить первое переключение).
+        const groupEl = Array.from(document.querySelectorAll('.rnp-cat-group')).find(el => el.dataset.cat === cat);
+        if (groupEl) {
+            groupEl.classList.toggle('collapsed', nowCollapsed);
+            const arrow = groupEl.querySelector('.rnp-cat-arrow');
+            if (arrow) arrow.textContent = nowCollapsed ? '▸' : '▾';
+        } else {
+            _refreshTabsBar();
+        }
         if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _afterPaint().then(() => _renderActiveTable());
     }
 
@@ -1553,11 +1565,13 @@ const RNP = (() => {
     }
 
     async function _setAllActive(on) {
-        if (!_db || !_cab) return;
-        if (!_articles.some(a => a.is_active !== on)) return;
-        const { error } = await _db.from('rnp_articles').update({ is_active: on }).eq('cabinet_id', _cab);
-        if (error) { console.warn('[RNP] setAllActive:', error.message); return; }
+        if (!_db || !_cab) return true;
+        if (!_articles.some(a => a.is_active !== on)) return true;
+        const prev = _articles;
         _articles = _articles.map(a => ({ ...a, is_active: on }));
+        const { error } = await _db.from('rnp_articles').update({ is_active: on }).eq('cabinet_id', _cab);
+        if (error) { console.warn('[RNP] setAllActive:', error.message); _articles = prev; return false; }
+        return true;
     }
 
     async function _bootstrapCabinetIfNeeded() {
@@ -1610,9 +1624,23 @@ const RNP = (() => {
     }
 
     async function _updateArticle(nmId, updates) {
-        await _db.from('rnp_articles').update(updates).eq('cabinet_id', _cab).eq('nm_id', nmId);
+        // Локальное состояние меняем сразу — кнопка должна отреагировать в этот же кадр, не ждать
+        // ответ WB-базы (раньше в «Настройках РНП» тумблер визуально отставал от клика на время
+        // запроса — отсюда ощущение «лагает»). Запись в базу идёт следом, в фоне; если она не
+        // прошла — тихо откатываем локальное состояние и сообщаем через возвращаемое значение,
+        // не ломая остальных вызывающих (контракт «никогда не бросает» не меняем).
         const idx = _articles.findIndex(a => a.nm_id == nmId);
+        const prev = idx >= 0 ? { ..._articles[idx] } : null;
         if (idx >= 0) _articles[idx] = { ..._articles[idx], ...updates };
+        try {
+            const { error } = await _db.from('rnp_articles').update(updates).eq('cabinet_id', _cab).eq('nm_id', nmId);
+            if (error) throw error;
+            return true;
+        } catch (e) {
+            if (idx >= 0 && prev) _articles[idx] = prev;
+            console.warn('[RNP] updateArticle:', e && e.message);
+            return false;
+        }
     }
 
     // ─── CALENDAR ─────────────────────────────────────────────────────────────
@@ -4168,7 +4196,10 @@ const RNP = (() => {
             const collapsed = _isCatCollapsed(cat);
             const hasActive = list.some(a => a.nm_id == _activeNm);
             const catEsc = cat.replace(/'/g, "\\'");
-            const tabsHtml = collapsed ? '' : list.map(a => {
+            // Рендерим список всегда (даже свёрнутый) — сворачивание/разворачивание тогда можно
+            // переключить одним классом в DOM (см. toggleCategory), без полной перерисовки панели
+            // вкладок, которая раньше заметно лагала на кабинетах с десятками артикулов.
+            const tabsHtml = list.map(a => {
                 const heavy = lite || list.length > 25;
                 const st = heavy ? { level: 'green' } : _syncStatus(a.nm_id);
                 const label = _sellerArticle(a);
@@ -4189,7 +4220,7 @@ const RNP = (() => {
                 <span class="rnp-cat-count">${list.length}</span>
                 ${cat !== UNCATEGORIZED && !_editMode ? `<button type="button" class="rnp-cat-sigma${_activeNm === GENERAL_TAB && _activeGroup === cat ? ' active' : ''}" onclick="event.stopPropagation();RNP.pickGroup('${catEsc}')" title="Общее по группе: все артикулы за день одной цифрой">Σ Общее</button>` : ''}
               </div>
-              ${collapsed ? '' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}
+              <div class="rnp-cat-tabs">${tabsHtml}</div>
             </div>`;
         }).join('');
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
@@ -6575,12 +6606,14 @@ const RNP = (() => {
         });
     }
 
-    async function toggleGroupVisible(cat) {
+    function toggleGroupVisible(cat) {
         const name = String(cat || '').trim() || UNCATEGORIZED;
         const hidden = new Set(_hiddenGroupList());
         if (hidden.has(name)) hidden.delete(name);
         else hidden.add(name);
-        await _saveSettings({ options: { ..._settingsOptions(), hiddenGroups: [...hidden] } });
+        // _saveSettings применяет _settings синхронно до своего внутреннего await — дальше
+        // ждать саму запись в базу не нужно, чтобы тумблер переключился в этот же кадр.
+        _saveSettings({ options: { ..._settingsOptions(), hiddenGroups: [...hidden] } }).catch(() => {});
         _ensureActiveVisible();
         _patchGroupVisUi();
         _refreshRnpAfterArticleToggle();
@@ -8659,6 +8692,10 @@ const RNP = (() => {
         if (overlay) overlay.classList.remove('is-open');
         document.body.classList.remove('rnp-settings-open');
         _unbindOverlayKeydown();
+        if (_settingsDirtyBehindModal) {
+            _settingsDirtyBehindModal = false;
+            _refreshRnpAfterArticleToggle();
+        }
     }
 
     function closePlanFact() {
@@ -8981,7 +9018,16 @@ const RNP = (() => {
         if (document.getElementById('rnp-settings-overlay')?.classList.contains('is-open')) _renderSettings({ preserveScroll: true });
     }
 
+    let _settingsDirtyBehindModal = false;
     function _refreshRnpAfterArticleToggle() {
+        // Пока открыто окно «Настройки РНП», панель вкладок и таблица за ним всё равно не видны —
+        // на каждый переключатель (группа/артикул/«включить все») не нужно гонять их полную
+        // перерисовку синхронно с кликом в модалке, это и давало ощущение «лагает». Один раз
+        // досчитаем при закрытии окна (см. closeSettings).
+        if (document.body.classList.contains('rnp-settings-open')) {
+            _settingsDirtyBehindModal = true;
+            return;
+        }
         _refreshTabsBar();
         if (document.getElementById('tab-rnp')?.classList.contains('active')) {
             _renderActiveTable().catch(() => {});
@@ -8992,20 +9038,36 @@ const RNP = (() => {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
         const next = !art.is_active;
-        await _updateArticle(nmId, { is_active: next });
+        // Сразу показываем переключённым и перерисовываем — не ждём ответ базы.
         _patchSettingsToggleUi(nmId, next);
         _updateSettingsActiveCounts();
         if (!next && Number(_activeNm) === Number(nmId)) _activeNm = GENERAL_TAB;
         _refreshRnpAfterArticleToggle();
+        const ok = await _updateArticle(nmId, { is_active: next });
+        if (!ok) {
+            // Не записалось — откатываем тумблер и счётчики обратно.
+            _patchSettingsToggleUi(nmId, !next);
+            _updateSettingsActiveCounts();
+            _refreshRnpAfterArticleToggle();
+        }
     }
 
     async function enableAll(on) {
-        await _setAllActive(on);
         document.querySelectorAll('#rnp-settings-articles-tbody [data-toggle-nm]').forEach(btn => {
             _patchSettingsToggleUi(btn.getAttribute('data-toggle-nm'), on);
         });
         _updateSettingsActiveCounts();
         _refreshRnpAfterArticleToggle();
+        const ok = await _setAllActive(on);
+        if (!ok) {
+            document.querySelectorAll('#rnp-settings-articles-tbody [data-toggle-nm]').forEach(btn => {
+                const nmId = btn.getAttribute('data-toggle-nm');
+                const art = _articles.find(a => a.nm_id == nmId);
+                _patchSettingsToggleUi(nmId, art ? art.is_active : !on);
+            });
+            _updateSettingsActiveCounts();
+            _refreshRnpAfterArticleToggle();
+        }
     }
 
     async function setCost(nmId, val) {
