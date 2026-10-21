@@ -1408,7 +1408,7 @@
             '<div class="ads-hq-camp-meta">' +
             '<button type="button" class="ads-hq-wb-name" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">' +
             esc(camp.name) + '</button>' + autoTagHtml(camp) + usedMark(camp) + scheduleMark(cab.id, camp.wbId) +
-            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' + mainLineHtml(camp) +
+            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '<button type="button" class="adx-guard" data-gcab="' + esc(cab.id) + '" data-gcamp="' + esc(camp.wbId) + '"></button></div>' + mainLineHtml(camp) +
             statusPill(camp.status) +
             '</div>' + autopilotToggleHtml(cab, camp) + '</div>';
     }
@@ -1557,10 +1557,14 @@
             '<div class="ads-hq-camp-meta">' +
             '<button type="button" class="ads-hq-wb-name" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">' +
             esc(camp.name) + '</button>' + autoTagHtml(camp) + usedMark(camp) +
-            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' + mainLineHtml(camp) +
+            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '<button type="button" class="adx-guard" data-gcab="' + esc(cab.id) + '" data-gcamp="' + esc(camp.wbId) + '"></button></div>' + mainLineHtml(camp) +
             statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) +
             '</div>' + autopilotToggleHtml(cab, camp) + '</div>'
         );
+        // Плейсхолдер: содержимое заполняет ads-campaign-detail.js (decorateCards). Число детей
+        // артикла должно совпадать между перерисовками, иначе morphList сносит всю карточку
+        // целиком при каждом обновлении — ползунки состояния теряют фокус и мигают.
+        html.push('<div class="adx-sum"></div>');
         html.push('<div class="ads-hq-phone-type">' + typeCellHtml(camp) + ' · ' + productCellHtml(camp) + '</div>');
         html.push(
             '<div class="ads-hq-phone-metrics">' +
