@@ -169,20 +169,6 @@
             if (sb.classList.contains('mobile-open') && t.closest('#sidebar-app .rail-btn')) setTimeout(function () { if (root.closeMobileMenu) root.closeMobileMenu(); }, 60);
         }, true);
     })();
-    /* Телефон в портрете: страница на 8% мельче (шире окно вёрстки); в ландшафте обычный масштаб.
-       Тег viewport в HTML — обычный статичный (на случай если этот скрипт не загрузится или
-       сработает не сразу, сайт всё равно открывается нормально, просто без этой плотности). */
-    (function () {
-        function fit() {
-            var m = document.getElementById('nr-vp'); if (!m || !root.screen) return;
-            var phone = Math.min(root.screen.width, root.screen.height) < 500;
-            var portrait = root.innerHeight > root.innerWidth;
-            m.setAttribute('content', 'width=' + (phone && portrait ? Math.round(Math.min(root.screen.width, root.screen.height) / 0.92) : 'device-width') + ', initial-scale=1, viewport-fit=cover');
-        }
-        fit();
-        if (root.requestAnimationFrame) root.requestAnimationFrame(fit); // на случай, если при самом первом вызове размеры ещё не устоялись
-        root.addEventListener('orientationchange', function () { setTimeout(fit, 250); });
-    })();
     /* Дашборд на телефоне: компактный вид (как в WB). Числа берём из уже посчитанных блоков дашборда,
        баланс и «к выводу» читаем из базы в фоне; на экране всё остаётся, пока подтягивается новое. */
     (function () {
