@@ -417,6 +417,20 @@
         }).join('');
     }
 
+    /* Карточка-скелет той же формы, что и настоящая строка (ползунок/фото/имя/метрики/статус) —
+       когда данные придут, меняется не форма блока, а только содержимое внутри неё. */
+    function skelRowHtml(i) {
+        var bar = function (w, h, extra) { return '<span class="adp2-skel" style="max-width:' + w + 'px;height:' + h + 'px' + (extra || '') + '"></span>'; };
+        return '<article class="adp2-row skel" data-key="skel:' + i + '" aria-hidden="true">' +
+            '<div class="adp2-head">' +
+            '<div class="adp2-pos">' + bar(84, 30, ';border-radius:10px') + '</div>' +
+            '<div class="adp2-tc">' + bar(40, 40, ';border-radius:50%') + '</div>' +
+            '<div class="adp2-nm">' + bar(150, 14, ';margin-bottom:6px') + bar(90, 11, '') + '</div>' +
+            '<div class="adp2-st">' + bar(46, 20, '') + bar(46, 20, '') + bar(46, 20, '') + '</div>' +
+            '<div class="adp2-ch">' + bar(74, 22, ';border-radius:999px') + '</div>' +
+            '<span class="adp2-cv"></span>' +
+            '</div></article>';
+    }
     function render() {
         var host = $('adv-pulse'); if (!host || S.view !== 'pulse') return;
         S.rows = (root.AdsHQ && root.AdsHQ.getVisibleRows) ? root.AdsHQ.getVisibleRows() : [];
@@ -425,7 +439,7 @@
             if (S.rows.length > 1 && cab.campaigns.length) html += '<h3 class="adp2-cab" data-key="cab:' + esc(cab.id) + '"><b>' + esc(cab.name) + '</b><span>' + cab.campaigns.length + ' ' + campWord(cab.campaigns.length) +'</span></h3>';
             cab.campaigns.forEach(function (camp) { total++; html += rowHtml(cab, camp); });
         });
-        if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = '<div class="adp2-empty" data-key="skel"><span class="adp2-skel big"></span><span class="adp2-skel big"></span><span class="adp2-skel big"></span></div>';
+        if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = [0, 1, 2, 3].map(skelRowHtml).join('');
         else if (!total && !S.virtual.length) html = '<div class="adp2-empty" data-key="empty">Кампаний по выбранному фильтру нет. Нажмите «Новая РК», чтобы создать.</div>';
         var full = virtualHtml() + html;
         // Полная перерисовка списка на каждое обновление данных роняла фокус и сбрасывала ползунки

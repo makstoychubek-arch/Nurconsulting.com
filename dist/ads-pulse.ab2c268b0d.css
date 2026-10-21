@@ -27,6 +27,7 @@
 .adp2-row.open { border-color: var(--border-strong); }
 .adp2-row.off .adp2-nm b, .adp2-row.off .adp2-tc { opacity: .6; }
 .adp2-row.virt { border-style: dashed; }
+.adp2-row.skel .adp2-head { cursor: default; }
 
 .adp2-head { display: grid; grid-template-columns: 96px 54px minmax(200px, 1.6fr) 228px minmax(0, 190px) 18px; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
 .adp2-tc { display: flex; justify-content: center; }
