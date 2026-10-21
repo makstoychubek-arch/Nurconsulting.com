@@ -857,11 +857,16 @@ assert.ok(rnpSrc.includes("label: 'Показатели воронки'"), 'funn
 assert.ok(!rnpSrc.includes('WB 7 дней, старше из кэша'), 'technical funnel footnote must stay off the sheet');
 assert.ok(!rnpSrc.includes('•live'), 'live badge text must not sit on the grid');
 assert.ok(!rnpSrc.includes('enrichment ограничен'), 'English enrichment warning must stay hidden');
-assert.ok(rnpSrc.includes("map[cat] = !_isCatCollapsed(cat)"), 'clicking a category group hides or shows its articles');
+assert.ok(rnpSrc.includes("const nowCollapsed = !wasCollapsed") && rnpSrc.includes("map[cat] = nowCollapsed"), 'clicking a category group hides or shows its articles');
 assert.ok(rnpSrc.includes('pick(list[0].nm_id)') && rnpSrc.includes('!inGroup'),
     'clicking another RNP category opens that group\'s first article');
 assert.ok(rnpSrc.includes("localStorage.getItem('rnp_collapsed_cats')"), 'collapsed category groups persist');
-assert.ok(rnpSrc.includes('${collapsed ? \'\' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}'), 'collapsed groups hide their article tabs');
+// Вкладки группы теперь рендерятся всегда (сворачивание — класс .collapsed + CSS display:none),
+// чтобы toggleCategory мог просто переключить класс точечно, без полной перерисовки панели вкладок
+// (раньше та перерисовка заметно лагала на кабинетах с десятками артикулов).
+assert.ok(rnpSrc.includes('<div class="rnp-cat-tabs">${tabsHtml}</div>'), 'article tabs render unconditionally (collapse is CSS-only)');
+assert.ok(html.includes('.rnp-cat-group.collapsed .rnp-cat-tabs') && /\.rnp-cat-group\.collapsed \.rnp-cat-tabs\s*\{[^}]*display:\s*none/.test(html),
+    'collapsed groups hide their article tabs via CSS');
 assert.ok(!rnpSrc.includes('function _isCatCollapsed(cat) {\n        return false;'), 'category groups must be able to collapse');
 assert.ok(!rnpSrc.includes('lite ? true'), 'lite mode must not force-collapse every article group');
 assert.ok(rnpSrc.includes('const DAY_COL_W = 48'), 'day cells fit 6-digit sums and 4-digit percents');
