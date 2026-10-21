@@ -7727,6 +7727,7 @@ const RNP = (() => {
         const c = _priceCtx;
         const host = document.querySelector('#rnp-modal .rnp-modal-body');
         if (!c || !host) return;
+        const up = c.dir > 0;
         const rows = _priceRows().filter(r => !r.skip);
         if (!rows.length || !(c.amount > 0)) return;
         const btn = host.querySelector('.rnp-pr-send');
@@ -7750,6 +7751,16 @@ const RNP = (() => {
                 ? `<div class="rnp-pr-err">WB принял загрузку, но есть ошибки: ${_ghEsc(status.slice(4) || 'см. кабинет WB')}</div>`
                 : `<div class="rnp-pr-ok"><b>${status === 'ok' ? 'Цена применена' : 'Отправлено в WB'}</b><br>${rows.length} арт.${status === 'ok' ? '' : ' Обработка занимает несколько минут — в РНП новая цена отобразится после следующей синхронизации.'}</div>`;
             host.innerHTML = msg;
+            // Заметка за сегодня — иначе в «Заметках по дням» не видно, что и почему поменялось.
+            // Не пишем за те артикулы, по которым WB вернул ошибку.
+            const failed = new Set();
+            if (status.startsWith('err:')) status.slice(4).split('; ').forEach(s => { const id = Number(s.split(':')[0]); if (id) failed.add(id); });
+            const today = _wbTodayStr();
+            rows.forEach(r => {
+                if (failed.has(r.a.nm_id)) return;
+                const text = (up ? 'Цена поднята' : 'Цена снижена') + ': ' + r.nowDisc + '→' + r.newDisc + ' сом (' + r.d + '%→' + r.nd + '%)';
+                saveNote(r.a.nm_id, today, text.slice(0, 100)).catch(() => {});
+            });
         } catch (e) {
             host.innerHTML = `<div class="rnp-pr-err">WB отклонил запрос: ${_ghEsc(String(e?.message || e).slice(0, 240))}</div>`;
         }
