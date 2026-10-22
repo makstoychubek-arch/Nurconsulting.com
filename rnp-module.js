@@ -1402,6 +1402,28 @@ const RNP = (() => {
         if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _afterPaint().then(() => _renderActiveTable());
     }
 
+    // Названия групп и скрытые группы дополнительно держим на устройстве: если база отказала в записи
+    // (права, сеть), настройка всё равно не пропадает после обновления страницы.
+    function _localOptsKey(cab) { return 'rnp_local_opts:' + (cab || _cab || ''); }
+    function _writeLocalOpts() {
+        try {
+            localStorage.setItem(_localOptsKey(), JSON.stringify({
+                ts: Date.now(),
+                groupNames: _normGroupNames(_settings.groupNames),
+                hiddenGroups: _hiddenGroupList(),
+            }));
+        } catch (e) {}
+    }
+    function _readLocalOpts(cab) {
+        try { return JSON.parse(localStorage.getItem(_localOptsKey(cab)) || 'null'); } catch (e) { return null; }
+    }
+    function _failToast(msg) {
+        try {
+            if (window.NrUi && window.NrUi.toast) { window.NrUi.toast('error', 'Не сохранилось', msg, { duration: 6000 }); return; }
+        } catch (e) {}
+        _copyToast(msg);
+    }
+
     async function _loadSettings(cab, gen) {
         _settingsInDb = false;
         try {
@@ -1416,6 +1438,11 @@ const RNP = (() => {
                     promotionToken: data.promotion_api_token || '',
                     ..._normalizeOptions(data.options),
                 };
+            }
+            // Запись на устройстве новее записи в базе (база отказала при сохранении): берём локальную.
+            const loc = _readLocalOpts(cab);
+            if (loc && loc.ts && (!data || !data.updated_at || loc.ts > Date.parse(data.updated_at))) {
+                _settings = { ..._settings, groupNames: _normGroupNames(loc.groupNames), hiddenGroups: Array.isArray(loc.hiddenGroups) ? loc.hiddenGroups : _settings.hiddenGroups };
             }
         } catch(e) { console.warn('[RNP] settings load:', e.message); }
     }
@@ -1434,6 +1461,7 @@ const RNP = (() => {
         if (updates.calcPeriod !== undefined) _settings.calcPeriod = updates.calcPeriod;
         if (updates.promotionToken !== undefined) _settings.promotionToken = updates.promotionToken;
         if (updates.options) Object.assign(_settings, _normalizeOptions({ ..._settingsOptions(), ...updates.options }));
+        if (updates.options) _writeLocalOpts();
         try {
             const { error } = await _db.from('rnp_settings').upsert({
                 cabinet_id: _cab,
@@ -1448,7 +1476,7 @@ const RNP = (() => {
             if (error) throw error;
         } catch(e) {
             console.warn('[RNP] settings save:', e && e.message);
-            _copyToast('Не удалось сохранить настройку. Повторите');
+            _failToast('Настройка сохранена только на этом устройстве: ' + String((e && e.message) || 'база не ответила').slice(0, 80));
         }
     }
 
@@ -7125,6 +7153,17 @@ const RNP = (() => {
         const tabsFilled = !!(tabs && tabs.querySelector('.rnp-sheet-tab') && (!active.length || tabs.querySelector('.rnp-cat-group, .rnp-sheet-tab:not(.rnp-tab-general):not(.rnp-tab-byart)')));
         const chromeReady = !!(bar && bar.querySelector('[data-bar-v="5"]') && tabsFilled);
         if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
+            // Панель вкладок могла прийти из сохранённого снимка: названия групп и список артикулов в нём бывают старыми
+            // (переименовали группу или выключили артикул, обновили страницу). Сверяем с актуальными и подменяем, если разошлись.
+            const fresh = _renderTabsHTML(active, { lite: active.length > 40 });
+            const sig = (root) => [...root.querySelectorAll('.rnp-cat-name, .rnp-sheet-tab')].map(e => e.classList.contains('rnp-cat-name') ? 'g:' + e.textContent.trim() : 't:' + (e.getAttribute('title') || '')).join('|');
+            const tmp = document.createElement('div');
+            tmp.innerHTML = fresh;
+            if (tabs && sig(tmp) !== sig(tabs)) {
+                const left = tabs.scrollLeft;
+                tabs.innerHTML = fresh;
+                tabs.scrollLeft = left;
+            }
             _updateTabHighlight();
             return false;
         }
@@ -9393,7 +9432,7 @@ const RNP = (() => {
         const ok = await _updateArticle(nmId, { is_active: next });
         if (!ok) {
             // Не записалось — откатываем тумблер и счётчики обратно.
-            _copyToast('Не удалось сохранить. Повторите');
+            _failToast('Артикул не удалось сохранить в базе, тумблер возвращён');
             _patchSettingsToggleUi(nmId, !next);
             _updateSettingsActiveCounts();
             _refreshRnpAfterArticleToggle();

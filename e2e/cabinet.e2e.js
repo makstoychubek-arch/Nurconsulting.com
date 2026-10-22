@@ -225,6 +225,18 @@ test('«Настройки РНП»: группу можно переимено�
     void tabGroups;
 });
 
+test('«Настройки РНП»: если база отказала в записи, название группы всё равно сохраняется на устройстве и пользователь это видит', async ({ page }) => {
+    await page.route(/rnp_settings/, (r) => r.request().method() === 'GET' ? r.fallback() : r.fulfill({ status: 403, contentType: 'application/json', json: { message: 'denied' } }));
+    await page.evaluate(() => RNP.openSettings());
+    await page.locator('.rnp-st-name').first().waitFor({ state: 'visible' });
+    await page.locator('.rnp-st-name').first().fill('Мои любимые');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(600);
+    const local = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('rnp_local_opts:') === 0).map((k) => localStorage.getItem(k)).join(''));
+    assert.ok(local.includes('Мои любимые'), 'название группы лежит в хранилище устройства: ' + local.slice(0, 120));
+    assert.ok(await page.locator('.nru-toast').filter({ hasText: 'Не сохранилось' }).count() > 0, 'пользователь видит сообщение, что запись в базу не прошла');
+});
+
 test('вкладка артикула и «Заметки по дням» отвечают за 100 мс (тяжёлая отрисовка после кадра)', async ({ page }) => {
     const first = (fnSrc) => page.evaluate(async (src) => {
         const t0 = performance.now();
