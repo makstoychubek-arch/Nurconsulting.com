@@ -1054,7 +1054,7 @@ assert.ok(html.includes('.rnp-num--m'), 'CSS shrinks million values so they stay
     const start = rnpSrc.indexOf('function _fmt(val, type)');
     const end = rnpSrc.indexOf('function _cellColor');
     assert.ok(start > 0 && end > start, 'number fit helpers sit next to _fmt');
-    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _fmt, _numFitClass, _fitNum };`)();
+    const fns = new Function(`function _isPhone() { return false; } function _compactNum(s) { return s; } ${rnpSrc.slice(start, end)}; return { _fmt, _numFitClass, _fitNum };`)();
     assert.strictEqual(fns._fmt(100000, 'som'), '100\u00a0000');
     assert.ok(!fns._numFitClass(fns._fmt(100000, 'som')).includes('rnp-num--m'));
     assert.ok(fns._numFitClass(fns._fmt(1000000, 'som')).includes('rnp-num--m'));
@@ -1354,10 +1354,10 @@ assert.ok(html.includes('.rnp-compare-month-menu') && html.includes('.rnp-compar
         'August compare weeks start on 2026-08-01');
 }
 assert.ok(html.includes('id="rnp-settings-overlay"'), 'RNP settings open as an overlay, not a second page');
-assert.ok(rnpSrc.includes('Группы в РНП') && rnpSrc.includes('function _settingsGroupsHtml'),
+assert.ok(rnpSrc.includes('function _stGroupHtml') && rnpSrc.includes('function _settingsGroupsHtml'),
     'settings has a group visibility card');
 {
-    const start = rnpSrc.indexOf('function _normalizeOptions');
+    const start = rnpSrc.indexOf('function _normGroupNames');
     const end = rnpSrc.indexOf('function _settingsOptions');
     assert.ok(start > 0 && end > start);
     const fns = new Function(`${rnpSrc.slice(start, end)}; return { _normalizeOptions };`)();
@@ -2181,7 +2181,7 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
 
     const hero = new Function(`
         function _isPhone() { return true; }
-        const _phoneStockOpen = true;
+        const _phoneStockOpen = true; function _sellerArticle() { return "A"; } function _schemeWhTotals() { return { total: 12 }; } const _phoneHeadOpen = false; function _buildPhoneMetaHtml() { return ""; } function _phoneToolTilesHtml() { return ""; }
         function _stockCollapseTitle() { return 'Остатки'; }
         function _phoneCollapseHtml(id, title, open, inner) {
             return '<div class="rnp-collapse' + (open ? ' is-open' : '') + '" data-block="' + id + '">' + title + inner + '</div>';
