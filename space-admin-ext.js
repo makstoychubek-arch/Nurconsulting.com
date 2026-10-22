@@ -10,7 +10,7 @@
         if (!desc || !desc.set || Element.prototype.__nrKeepStale) return;
         Element.prototype.__nrKeepStale = true;
         const st = document.createElement('style');
-        st.textContent = '.nr-stale{opacity:.62;transition:opacity .2s}';
+        st.textContent = '.nr-stale{opacity:.82;transition:opacity .2s}';
         (document.head || document.documentElement).appendChild(st);
         const PH = /^(Загрузка|Загружаем|Считаем|Обновляем)/i;
         const cab = () => { try { return typeof currentCabinetId !== 'undefined' && currentCabinetId ? String(currentCabinetId) : ''; } catch (_) { return ''; } };

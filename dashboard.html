@@ -8493,7 +8493,7 @@
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.5e12c6a9cc.min.js"></script>
 <script src="/dist/viewer-mode.c5843fa198.min.js"></script>
-<script src="/dist/space-admin-ext.edfd250cab.min.js"></script>
+<script src="/dist/space-admin-ext.25870b3d90.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
@@ -13023,8 +13023,10 @@
     /** Подставляет сохранённый период этой вкладки (или период по умолчанию) в общий выбор дат в шапке. */
     function loadDateRangeForTab(tab) {
         const map = readRangeMap();
-        // Старый общий период один раз достаётся только Дашборду, остальные начинают с периода по умолчанию.
-        const r = validRange(map[tab]) || (tab === 'dashboard' ? validRange(savedRange) : null) || defaultRangeForTab(tab);
+        // Одиночный давний день на Дашборде не берём (там пусто).
+        let own = validRange(map[tab]);
+        if (tab === 'dashboard' && own && own.from === own.to && own.from < new Date(Date.now() - 1728e5).toISOString().slice(0, 10)) own = null;
+        const r = own || (tab === 'dashboard' ? validRange(savedRange) : null) || defaultRangeForTab(tab);
         const changed = r.from !== activeDateFrom || r.to !== activeDateTo;
         activeDateFrom = r.from;
         activeDateTo = r.to;
