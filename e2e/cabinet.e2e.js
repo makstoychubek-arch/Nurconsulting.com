@@ -225,6 +225,34 @@ test('«Настройки РНП»: группу можно переимено�
     void tabGroups;
 });
 
+test('«Настройки РНП»: стрелки меняют порядок групп и артикулов сразу, порядок виден во вкладках и сохраняется', async ({ page }) => {
+    await page.evaluate(() => RNP.openSettings());
+    await page.locator('.rnp-st-group').first().waitFor({ state: 'visible' });
+    const groups = () => page.evaluate(() => [...document.querySelectorAll('.rnp-st-name')].map((i) => i.value));
+    const before = await groups();
+    assert.ok(before.length >= 2, 'есть минимум две группы: ' + before.join(', '));
+    const t0 = Date.now();
+    await page.locator('.rnp-st-group').first().locator('.rnp-st-mv button').nth(1).click();
+    const after = await groups();
+    assert.ok(Date.now() - t0 < 1000, 'группа сдвинулась сразу');
+    assert.strictEqual(after[1], before[0], 'первая группа ушла вниз: ' + after.join(', '));
+    const saved = await page.evaluate(() => RNP && JSON.stringify(Object.keys(localStorage).filter((k) => k.indexOf('rnp_local_opts:') === 0).map((k) => localStorage.getItem(k))));
+    assert.ok(saved.includes('groupOrder') && saved.includes(before[0]), 'порядок записан: ' + saved.slice(0, 160));
+    const gi = await page.evaluate(() => { const g = [...document.querySelectorAll('.rnp-st-group')].find((x) => x.querySelectorAll('.rnp-st-art').length >= 2); return g ? g.getAttribute('data-g') : null; });
+    if (gi) {
+        await page.evaluate((k) => { const g = document.querySelector('.rnp-st-group[data-g="' + k + '"]'); g.classList.add('is-open'); }, gi);
+        const ids = () => page.evaluate((k) => [...document.querySelectorAll('.rnp-st-group[data-g="' + k + '"] .rnp-st-art')].map((a) => a.dataset.nm), gi);
+        const a0 = await ids();
+        await page.locator('.rnp-st-group[data-g="' + gi + '"] .rnp-st-art').first().locator('.rnp-st-mv button').nth(1).click();
+        const a1 = await ids();
+        assert.strictEqual(a1[1], a0[0], 'артикул сдвинулся вниз: ' + a0.join(',') + ' -> ' + a1.join(','));
+    }
+    await page.evaluate(() => RNP.closeSettings());
+    await page.waitForTimeout(500);
+    const tabGroups = await page.evaluate(() => [...document.querySelectorAll('.rnp-cat-name')].map((e) => e.textContent.trim()));
+    if (tabGroups.length >= 2) assert.strictEqual(tabGroups.indexOf(before[0]) > tabGroups.indexOf(before[1]), true, 'во вкладках тот же порядок: ' + tabGroups.join(', '));
+});
+
 test('«Настройки РНП»: если база отказала в записи, название группы всё равно сохраняется на устройстве и пользователь это видит', async ({ page }) => {
     await page.route(/rnp_settings/, (r) => r.request().method() === 'GET' ? r.fallback() : r.fulfill({ status: 403, contentType: 'application/json', json: { message: 'denied' } }));
     await page.evaluate(() => RNP.openSettings());
