@@ -20,6 +20,7 @@ const RNP = (() => {
         showGiveaways: true,
         showCompetitor: true,
         hiddenGroups: [],
+        groupNames: {},
         wbGroups: false,
     };
     let _settingsInDb = false;
@@ -1070,6 +1071,18 @@ const RNP = (() => {
     async function _fetchCardPhoto(nmId) { await _fetchPhotosViaProxy([nmId]); return _photoResolveCache[nmId] || null; }
 
     // ─── SETTINGS ─────────────────────────────────────────────────────────────
+    // Свои названия групп: { «название из WB / категория»: «своё название» }.
+    function _normGroupNames(raw) {
+        const out = {};
+        if (raw && typeof raw === 'object') {
+            Object.keys(raw).slice(0, 500).forEach(k => {
+                const key = String(k || '').trim(), val = String(raw[k] == null ? '' : raw[k]).trim().slice(0, 120);
+                if (key && val && val !== key) out[key] = val;
+            });
+        }
+        return out;
+    }
+
     function _normalizeOptions(raw) {
         const o = raw && typeof raw === 'object' ? raw : {};
         return {
@@ -1082,6 +1095,7 @@ const RNP = (() => {
             hiddenGroups: Array.isArray(o.hiddenGroups)
                 ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
                 : [],
+            groupNames: _normGroupNames(o.groupNames),
             wbGroups: o.wbGroups === true,
             responsibles: Array.isArray(o.responsibles) ? [...new Set(o.responsibles.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 20) : [],
         };
@@ -1097,6 +1111,7 @@ const RNP = (() => {
             showCompetitor: _settings.showCompetitor,
             responsibles: Array.isArray(_settings.responsibles) ? _settings.responsibles : [],
             hiddenGroups: _hiddenGroupList(),
+            groupNames: _normGroupNames(_settings.groupNames),
             wbGroups: _settings.wbGroups === true,
         };
     }
@@ -1258,9 +1273,20 @@ const RNP = (() => {
         return _wbGroupMap;
     }
     function _wbGroupsOn() { _wbGroupLabels(); return _wbOn; }
-    function _articleCategory(a) {
+    function _baseCategory(a) {
         if (_wbGroupsOn()) return _wbGroupLabels().get(a.nm_id) || UNCATEGORIZED;
         return (a.category || '').trim() || UNCATEGORIZED;
+    }
+    function _articleCategory(a) {
+        const base = _baseCategory(a);
+        const al = _settings.groupNames && _settings.groupNames[base];
+        return al || base;
+    }
+    // Название группы в WB (или категория) по тому, что показано в РНП.
+    function _origGroupName(shown) {
+        const m = _settings.groupNames || {};
+        const k = Object.keys(m).find(key => m[key] === shown);
+        return k || shown;
     }
     function _groupByCategory(list) {
         const groups = new Map();
@@ -6598,29 +6624,6 @@ const RNP = (() => {
     }
 
     // ─── RENDER SETTINGS ──────────────────────────────────────────────────────
-    function _settingsArticleRowHtml(a, cats, esc) {
-        const sa = _sellerArticle(a).replace(/</g, '&lt;');
-        const auto = !!(a.manual_data?.seller_article);
-        const cur = (a.category || '').trim();
-        const catOpts = [
-            `<option value=""${!cur ? ' selected' : ''}>— Без категории —</option>`,
-            ...cats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`),
-            `<option value="__new__">＋ Новая категория…</option>`,
-        ].join('');
-        return `<tr data-key="${a.nm_id}" data-nm="${a.nm_id}">
-          <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:12px;object-fit:cover;display:block')}</td>
-          <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
-          <td style="color:var(--text-muted)">${a.nm_id}</td>
-          <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name || '—').replace(/</g, '&lt;')}</td>
-          <td><select data-rnp-cat="${a.nm_id}" onchange="RNP.setCategory(${a.nm_id},this.value)"
-            style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
-          <td><button type="button" data-toggle-nm="${a.nm_id}" onclick="RNP.toggleArt(${a.nm_id})" class="rnp-settings-toggle relative w-9 h-5 rounded-full"
-            style="background:${a.is_active ? 'var(--accent)' : '#b4b4bd'}">
-            <span style="position:absolute;top:2px;left:${a.is_active ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
-          </button></td>
-        </tr>`;
-    }
-
     function _activeArticleCount() {
         return _articles.filter(a => a.is_active).length;
     }
@@ -6633,7 +6636,8 @@ const RNP = (() => {
         const tEl = document.getElementById('rnp-settings-total-n');
         if (tEl) tEl.textContent = String(total);
         const label = document.getElementById('rnp-settings-arts-label');
-        if (label) label.textContent = `${n} / ${total} в РНП · артикул продавца из WB`;
+        if (label) label.textContent = `${n} / ${total} в РНП`;
+        _patchGroupCounts();
     }
 
     function _patchSettingsToggleUi(nmId, isActive) {
@@ -6642,6 +6646,8 @@ const RNP = (() => {
         btn.style.background = isActive ? 'var(--accent)' : '#b4b4bd';
         const knob = btn.querySelector('span');
         if (knob) knob.style.left = isActive ? '18px' : '2px';
+        const row = btn.closest('.rnp-st-art');
+        if (row) row.classList.toggle('is-off', !isActive);
     }
 
     function _settingsHost() {
@@ -6656,50 +6662,132 @@ const RNP = (() => {
             && document.getElementById('rnp-settings-articles-tbody'));
     }
 
-    async function _fillSettingsArticlesAsync(opts = {}) {
-        const tbody = document.getElementById('rnp-settings-articles-tbody');
-        if (!tbody) return;
-        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-        const cats = [...new Set(_articles.map(a => (a.category || '').trim()).filter(Boolean))]
-            .sort((x, y) => x.localeCompare(y, 'ru'));
-        const sorted = _articles.slice().sort(_sortBySeller);
-        const html = sorted.map(a => _settingsArticleRowHtml(a, cats, esc)).join('');
-        const hasKeyed = !!tbody.querySelector('tr[data-key]');
-        _preserveRnpScroll(() => {
-            if (hasKeyed) _domMorph().morphList(tbody, html, 'data-key');
-            else tbody.innerHTML = html;
-        });
-        if (opts.preserveScroll && opts.scrollTop) {
-            const scrollEl = (_settingsHost() || document).querySelector('.rnp-settings-articles-scroll');
-            if (scrollEl) scrollEl.scrollTop = opts.scrollTop;
-        }
+    let _stOpen = null; // какие группы раскрыты в настройках (по названию)
+
+    function _stGroupsList() {
+        return _groupByCategory(_articles);
+    }
+
+    function _stEsc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
+    function _stArtRowHtml(a) {
+        const sa = _stEsc(_sellerArticle(a));
+        const on = !!a.is_active;
+        return `<div class="rnp-st-art${on ? '' : ' is-off'}" data-key="${a.nm_id}" data-nm="${a.nm_id}">
+          ${_imgHtml(a, 'rnp-st-photo', 'c246x328')}
+          <div class="rnp-st-ids" onclick="RNP.copyArtIds(${a.nm_id})" title="Нажмите, чтобы скопировать артикул продавца и артикул WB">
+            <b>${sa || '—'}</b><span>${a.nm_id}</span>
+          </div>
+          <button type="button" data-toggle-nm="${a.nm_id}" onclick="RNP.toggleArt(${a.nm_id})" class="rnp-settings-toggle relative w-9 h-5 rounded-full" aria-label="Показывать артикул в РНП"
+            style="background:${on ? 'var(--accent)' : '#b4b4bd'}"><span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span></button>
+        </div>`;
+    }
+
+    function _stGroupHtml(cat, list, open) {
+        const on = !_isGroupHidden(cat);
+        const key = encodeURIComponent(cat);
+        const orig = _origGroupName(cat);
+        const shown = on ? list.filter(a => a.is_active).length : 0;
+        const wbLine = orig !== cat
+            ? `<div class="rnp-st-wb">из WB: ${_stEsc(orig)} · <a href="#" onclick="RNP.resetGroupName(decodeURIComponent('${key}'));return false">сбросить</a></div>` : '';
+        return `<div class="rnp-st-group${open ? ' is-open' : ''}${on ? '' : ' is-off'}" data-key="g:${key}" data-g="${key}">
+          <div class="rnp-group-vis rnp-st-head">
+            <button type="button" class="rnp-st-arrow" onclick="RNP.toggleSettingsGroupOpen(decodeURIComponent('${key}'))" aria-label="Раскрыть группу">▸</button>
+            <div class="rnp-st-namewrap">
+              <input class="rnp-st-name" value="${_stEsc(cat)}" data-cur="${_stEsc(cat)}" maxlength="120" ondblclick="this.select()"
+                onchange="RNP.renameGroup(this.dataset.cur, this.value)" title="Название группы в РНП. Можно переименовать, исходное название WB сохранится">
+              ${wbLine}
+            </div>
+            <span class="rnp-group-vis-n rnp-st-n" data-g-cnt="${key}">${shown} из ${list.length}</span>
+            <button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" data-group-key="${key}"
+              title="${on ? 'Скрыть группу из РНП' : 'Показать группу в РНП'}"
+              style="background:${on ? 'var(--accent)' : '#b4b4bd'}"
+              onclick="RNP.toggleGroupVisible(decodeURIComponent('${key}'))">
+              <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
+            </button>
+          </div>
+          <div class="rnp-st-body">${list.map(_stArtRowHtml).join('')}</div>
+        </div>`;
     }
 
     function _settingsGroupsHtml() {
-        const groups = _groupByCategory(_articles);
+        const groups = _stGroupsList();
+        if (!_stOpen) _stOpen = new Set(groups.length ? [groups[0][0]] : []);
+        const active = _articles.filter(a => a.is_active).length;
         const rows = groups.length
-            ? groups.map(([cat, list]) => {
-                const on = !_isGroupHidden(cat);
-                const esc = String(cat).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-                const key = encodeURIComponent(cat);
-                return `<div class="rnp-group-vis">
-              <span class="rnp-group-vis-name">${esc}</span>
-              <span class="rnp-group-vis-n">${list.length} арт.</span>
-              <button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" data-group-key="${key}"
-                title="${on ? 'Скрыть группу из РНП' : 'Показать группу в РНП'}"
-                style="background:${on ? 'var(--accent)' : '#b4b4bd'}"
-                onclick="RNP.toggleGroupVisible(decodeURIComponent('${key}'))">
-                <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
-              </button>
-            </div>`;
-            }).join('')
-            : `<p class="text-xs" style="color:var(--text-muted)">Категорий пока нет — задайте группу в таблице артикулов ниже.</p>`;
+            ? groups.map(([cat, list]) => _stGroupHtml(cat, list, _stOpen.has(cat))).join('')
+            : `<p class="text-xs" style="color:var(--text-muted)">Артикулы подтянутся автоматически из заказов и карточек WB — ничего нажимать не нужно.</p>`;
         return `<div class="widget-card p-5 rnp-settings-groups">
-          <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Группы в РНП</h3>
-          <p class="text-xs mb-3 leading-snug" style="color:var(--text-muted)">Выключите группу — она пропадёт из вкладок и таблиц. Не нужно скрывать артикулы по одному. В списке ниже они останутся.</p>
-          <div class="rnp-group-vis-list">${rows}</div>
+          <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+            <h3 class="font-semibold" style="color:var(--text-primary)">Группы и артикулы <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${active} / ${_articles.length} в РНП</span></h3>
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="RNP.enableAll(true)" class="ui-btn ui-btn-secondary text-xs">Включить все</button>
+              <button onclick="RNP.enableAll(false)" class="ui-btn ui-btn-secondary text-xs">Выключить все</button>
+            </div>
+          </div>
+          <p class="text-xs mb-3 leading-snug" style="color:var(--text-muted)">Артикул виден в РНП, когда включены и его группа, и он сам. Название группы можно изменить, оно сразу поменяется во вкладках. Нажмите на артикул, чтобы скопировать оба номера.</p>
+          <div class="rnp-settings-articles-scroll" style="max-height:calc(100vh - 300px);overflow-y:auto;overflow-anchor:none">
+            <div id="rnp-settings-articles-tbody" class="rnp-st-tree">${rows}</div>
+          </div>
         </div>`;
     }
+
+    function toggleSettingsGroupOpen(cat) {
+        if (!_stOpen) _stOpen = new Set();
+        if (_stOpen.has(cat)) _stOpen.delete(cat); else _stOpen.add(cat);
+        const g = document.querySelector(`.rnp-st-group[data-g="${encodeURIComponent(cat)}"]`);
+        if (g) g.classList.toggle('is-open', _stOpen.has(cat));
+    }
+
+    // Счётчики «N из M» у групп и в заголовке — без перерисовки списка.
+    function _patchGroupCounts() {
+        _stGroupsList().forEach(([cat, list]) => {
+            const key = encodeURIComponent(cat);
+            const el = document.querySelector(`[data-g-cnt="${key}"]`);
+            if (el) el.textContent = `${_isGroupHidden(cat) ? 0 : list.filter(a => a.is_active).length} из ${list.length}`;
+            const g = document.querySelector(`.rnp-st-group[data-g="${key}"]`);
+            if (g) g.classList.toggle('is-off', _isGroupHidden(cat));
+        });
+    }
+
+    function _copyArtIds(a) {
+        const text = `${_sellerArticle(a)} ${a.nm_id}`;
+        const done = (ok) => { if (ok) _copyToast('Скопировано: ' + text); };
+        if (window.copyTextToClipboard) window.copyTextToClipboard(text).then(done);
+    }
+    function copyArtIds(nmId) {
+        const a = _articles.find(x => x.nm_id == nmId);
+        if (a) _copyArtIds(a);
+    }
+
+    function _stMigrateName(oldName, newName) {
+        const hidden = _hiddenGroupList();
+        const nextHidden = hidden.map(h => h === oldName ? newName : h);
+        try {
+            const order = _catOrder().map(c => c === oldName ? newName : c);
+            localStorage.setItem(_catOrderKey(), JSON.stringify(order));
+        } catch (e) {}
+        if (_activeGroup === oldName) _activeGroup = newName;
+        return [...new Set(nextHidden)];
+    }
+
+    function renameGroup(current, value) {
+        const cur = String(current || '').trim();
+        const next = String(value || '').trim().slice(0, 120);
+        if (!cur) return;
+        const orig = _origGroupName(cur);
+        const names = { ...(_settings.groupNames || {}) };
+        const finalName = next || orig;
+        if (finalName === cur) return;
+        if (finalName === orig) delete names[orig]; else names[orig] = finalName;
+        const hidden = _stMigrateName(cur, finalName);
+        if (_stOpen && _stOpen.has(cur)) { _stOpen.delete(cur); _stOpen.add(finalName); }
+        _saveSettings({ options: { ..._settingsOptions(), groupNames: names, hiddenGroups: hidden } }).catch(() => {});
+        _syncSettingsGroups();
+        _refreshRnpAfterArticleToggle();
+    }
+
+    function resetGroupName(current) { renameGroup(current, ''); }
 
     function _syncSettingsGroups() {
         const host = _settingsHost();
@@ -6707,12 +6795,14 @@ const RNP = (() => {
         const html = _settingsGroupsHtml();
         const cur = host.querySelector('.rnp-settings-groups');
         if (cur) {
-            cur.outerHTML = html;
+            const sc = cur.querySelector('.rnp-settings-articles-scroll');
+            const top = sc ? sc.scrollTop : 0;
+            _preserveRnpScroll(() => { cur.outerHTML = html; });
+            const nsc = host.querySelector('.rnp-settings-groups .rnp-settings-articles-scroll');
+            if (nsc && top) nsc.scrollTop = top;
             return;
         }
-        const arts = [...host.querySelectorAll('.widget-card')].find(c => c.querySelector('#rnp-settings-arts-label'));
-        if (arts) arts.insertAdjacentHTML('beforebegin', html);
-        else host.insertAdjacentHTML('beforeend', html);
+        host.insertAdjacentHTML('beforeend', html);
     }
 
     function _patchGroupVisUi() {
@@ -6725,6 +6815,7 @@ const RNP = (() => {
             const knob = btn.querySelector('span');
             if (knob) knob.style.left = on ? '18px' : '2px';
         });
+        _patchGroupCounts();
     }
 
     function toggleGroupVisible(cat) {
@@ -6746,9 +6837,6 @@ const RNP = (() => {
         if (opts.preserveScroll && !opts.forceFull && _settingsShellReady() && _articles.length) {
             _updateSettingsActiveCounts();
             _syncSettingsGroups();
-            _fillSettingsArticlesAsync({ preserveScroll: true }).catch(e => {
-                console.warn('[RNP] settings articles:', e.message);
-            });
             return;
         }
         const scrollEl = el.querySelector('.rnp-settings-articles-scroll');
@@ -6766,51 +6854,10 @@ const RNP = (() => {
           </div>
 
           ${_settingsGroupsHtml()}
-
-          <div class="widget-card p-5">
-            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">
-                Артикулы
-                <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
-              </h3>
-              <div class="flex gap-2 flex-wrap">
-                <button onclick="RNP.enableAll(true)" class="ui-btn ui-btn-secondary text-xs">Включить все</button>
-                <button onclick="RNP.enableAll(false)" class="ui-btn ui-btn-secondary text-xs">Выключить все</button>
-              </div>
-            </div>
-            ${_articles.length === 0 ? `
-            <div class="text-center py-10" style="color:var(--text-muted)">
-              <p class="text-sm">Артикулы подтянутся автоматически из заказов и карточек WB — ничего нажимать не нужно.</p>
-            </div>` : `
-            <div class="rnp-settings-articles-scroll" style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto;overflow-anchor:none">
-              <table class="rnp-sheet-table" style="font-size:11px">
-                <thead>
-                  <tr>
-                    <th class="rnp-th-metric" style="width:40px"></th>
-                    <th style="min-width:120px">Артикул продавца <span style="font-weight:400;color:var(--text-muted)">(из WB)</span></th>
-                    <th style="min-width:90px">Артикул WB</th>
-                    <th class="rnp-th-metric">Название WB</th>
-                    <th style="min-width:110px">Категория/группа</th>
-                    <th style="min-width:60px">В РНП</th>
-                  </tr>
-                </thead>
-                <tbody id="rnp-settings-articles-tbody">
-                  <tr><td colspan="6" class="text-center py-6" style="color:var(--text-muted)">Загрузка списка артикулов…</td></tr>
-                </tbody>
-              </table>
-            </div>`}
-          </div>
         </div>`;
         if (scrollTop > 0) {
             const nextScroll = el.querySelector('.rnp-settings-articles-scroll');
             if (nextScroll) nextScroll.scrollTop = scrollTop;
-        }
-        if (_articles.length) {
-            _fillSettingsArticlesAsync({ preserveScroll: opts.preserveScroll, scrollTop }).catch(e => {
-                console.warn('[RNP] settings articles:', e.message);
-                const tbody = document.getElementById('rnp-settings-articles-tbody');
-                if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6" style="color:var(--text-muted)">Ошибка: ${String(e.message || e).replace(/</g, '&lt;')}</td></tr>`;
-            });
         }
     }
 
@@ -9731,7 +9778,7 @@ const RNP = (() => {
 
     return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
-             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, toggleSettingsGroupOpen };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего

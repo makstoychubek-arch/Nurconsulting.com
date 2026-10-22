@@ -196,6 +196,35 @@ test('«Настройки РНП»: тумблер артикула/групп�
     assert.ok(Date.now() - t0 < 300, 'вызов вернулся быстро, не повис на ожидании записи в базу');
 });
 
+test('«Настройки РНП»: группу можно переименовать, она видна под новым именем; артикул виден, только если включены и группа, и он сам', async ({ page }) => {
+    await page.evaluate(() => RNP.openSettings());
+    await page.locator('.rnp-st-group').first().waitFor({ state: 'visible' });
+    const groupNames = () => page.evaluate(() => [...document.querySelectorAll('.rnp-st-name')].map((i) => i.value));
+    const tabGroups = () => page.evaluate(() => [...document.querySelectorAll('.rnp-cat-name')].map((e) => e.textContent.trim()));
+    const before = await groupNames();
+    assert.ok(before.length >= 2, 'группы показаны в настройках: ' + before.join(', '));
+    const first = before[0];
+    await page.locator('.rnp-st-name').first().fill('Мои любимые');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    assert.ok((await groupNames()).includes('Мои любимые'), 'в настройках новое название');
+    assert.ok(await page.locator('.rnp-st-wb').count() >= 1, 'исходное название из WB остаётся мелким текстом');
+    // сброс возвращает исходное название
+    await page.evaluate((name) => RNP.resetGroupName(name), 'Мои любимые');
+    await page.waitForTimeout(300);
+    assert.ok((await groupNames()).includes(first), 'после «сбросить» вернулось исходное название ' + first);
+    // выключили артикул, он пропал из РНП, выключили группу, пропала вся; включили группу, вернулся только включённый артикул
+    const nm = await page.evaluate(() => Number(document.querySelector('.rnp-st-group [data-toggle-nm]').getAttribute('data-toggle-nm')));
+    await page.evaluate((n) => RNP.toggleArt(n), nm);
+    const g = await page.evaluate(() => document.querySelector('.rnp-st-group').getAttribute('data-g'));
+    await page.evaluate((k) => { RNP.toggleGroupVisible(decodeURIComponent(k)); RNP.toggleGroupVisible(decodeURIComponent(k)); }, g);
+    await page.evaluate(() => RNP.closeSettings());
+    await page.waitForTimeout(500);
+    const tabs = await page.evaluate(() => [...document.querySelectorAll('.rnp-sheet-tab:not(.rnp-tab-general):not(.rnp-tab-byart)')].map((e) => e.title));
+    assert.ok(!tabs.some((t) => t.includes('WB ' + nm)), 'выключенный артикул не вернулся вместе с группой: ' + tabs.join(' | '));
+    void tabGroups;
+});
+
 test('вкладка артикула и «Заметки по дням» отвечают за 100 мс (тяжёлая отрисовка после кадра)', async ({ page }) => {
     const first = (fnSrc) => page.evaluate(async (src) => {
         const t0 = performance.now();

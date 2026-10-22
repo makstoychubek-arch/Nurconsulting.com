@@ -1415,3 +1415,37 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 /* Тумблеры настроек: выключенный — серый, а не «белый»; движок с тенью, чтобы его было видно на любой теме */
 .rnp-settings-toggle { flex: none; cursor: pointer; border: 0; transition: background .15s; }
 .rnp-settings-toggle > span { box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+
+/* ── Настройки РНП: группы с артикулами внутри ── */
+.rnp-st-tree { display: flex; flex-direction: column; gap: 8px; }
+.rnp-st-group { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-solid, var(--surface)); overflow: hidden; }
+.rnp-st-group.is-off .rnp-st-body { opacity: .45; }
+.rnp-st-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--surface); }
+.rnp-st-arrow { border: 0; background: transparent; color: var(--text-muted); width: 22px; height: 22px; font-size: 12px; cursor: pointer; flex: none; transition: transform .15s; }
+.rnp-st-group.is-open .rnp-st-arrow { transform: rotate(90deg); }
+.rnp-st-namewrap { flex: 1; min-width: 0; }
+.rnp-st-name { width: 100%; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-weight: 800; font-size: 13px; padding: 3px 5px; border-radius: 7px; text-overflow: ellipsis; }
+.rnp-st-name:hover { background: rgba(120,120,140,.12); }
+.rnp-st-name:focus { outline: 2px solid var(--accent); background: rgba(120,120,140,.12); }
+.rnp-st-wb { font-size: 10px; color: var(--text-muted); padding: 0 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rnp-st-wb a { color: var(--accent); }
+.rnp-st-n { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex: none; }
+.rnp-st-body { display: none; }
+.rnp-st-group.is-open .rnp-st-body { display: block; }
+.rnp-st-art { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--border); }
+.rnp-st-art.is-off { opacity: .6; }
+.rnp-st-photo { width: 26px; height: 34px; border-radius: 6px; object-fit: cover; flex: none; background: var(--surface); }
+.rnp-st-ids { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; cursor: copy; }
+.rnp-st-ids b { font-size: 12px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rnp-st-ids span { font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rnp-st-ids:hover b { color: var(--accent); }
+/* включённый тумблер зелёный */
+.rnp-st-tree .rnp-settings-toggle { flex: none; }
+
+/* Телефон: окно настроек на весь экран, без «окна» с кнопками для компьютера */
+@media (max-width: 768px) {
+  #rnp-settings-overlay.is-open { padding: 0 !important; align-items: stretch; }
+  #rnp-settings-overlay .rnp-settings-dialog { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; border-radius: 0 !important; transform: none !important; }
+  #rnp-settings-overlay .nr-win-resize { display: none !important; }
+  #rnp-settings-overlay .rnp-settings-articles-scroll { max-height: none !important; }
+}

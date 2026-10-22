@@ -749,7 +749,7 @@ assert.ok(
     !grabFn(rnpSrc, '_buildInfoBlockHTML').includes('RNP.setCost') &&
     !grabFn(rnpSrc, '_buildKpiTopHTML').includes('rnp-gs-cost-input') &&
     !grabFn(rnpSrc, '_buildKpiTopHTML').includes('RNP.setCost') &&
-    !grabFn(rnpSrc, '_settingsArticleRowHtml').includes('RNP.setCost'), // себестоимость — в «Товарах» (rnp_articles.cost_price), здесь не правится
+    !grabFn(rnpSrc, '_stArtRowHtml').includes('RNP.setCost'), // себестоимость — в «Товарах» (rnp_articles.cost_price), здесь не правится
     'себестоимость правится только в Товарах: ни в шапке артикула, ни в настройках РНП её поля нет'
 );
 assert.ok(
@@ -2281,7 +2281,7 @@ assert.ok(
 
 {
     const start = rnpSrc.indexOf('function _planHitKind');
-    const end = rnpSrc.indexOf('function _settingsArticleRowHtml');
+    const end = rnpSrc.indexOf('function _activeArticleCount');
     assert.ok(start > 0 && end > start, '_planHitKind sits next to cell color helpers');
     const fns = new Function(`${rnpSrc.slice(start, end)}; return { _planHitKind };`)();
     assert.strictEqual(fns._planHitKind(28, 28), 'hit');
