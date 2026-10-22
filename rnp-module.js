@@ -6643,7 +6643,7 @@ const RNP = (() => {
     function _patchSettingsToggleUi(nmId, isActive) {
         const btn = document.querySelector(`#rnp-settings-articles-tbody [data-toggle-nm="${nmId}"]`);
         if (!btn) return;
-        btn.style.background = isActive ? 'var(--accent)' : '#b4b4bd';
+        btn.style.background = isActive ? '#22a05a' : '#b4b4bd';
         const knob = btn.querySelector('span');
         if (knob) knob.style.left = isActive ? '18px' : '2px';
         const row = btn.closest('.rnp-st-art');
@@ -6679,7 +6679,7 @@ const RNP = (() => {
             <b>${sa || '—'}</b><span>${a.nm_id}</span>
           </div>
           <button type="button" data-toggle-nm="${a.nm_id}" onclick="RNP.toggleArt(${a.nm_id})" class="rnp-settings-toggle relative w-9 h-5 rounded-full" aria-label="Показывать артикул в РНП"
-            style="background:${on ? 'var(--accent)' : '#b4b4bd'}"><span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span></button>
+            style="background:${on ? '#22a05a' : '#b4b4bd'}"><span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span></button>
         </div>`;
     }
 
@@ -6701,7 +6701,7 @@ const RNP = (() => {
             <span class="rnp-group-vis-n rnp-st-n" data-g-cnt="${key}">${shown} из ${list.length}</span>
             <button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" data-group-key="${key}"
               title="${on ? 'Скрыть группу из РНП' : 'Показать группу в РНП'}"
-              style="background:${on ? 'var(--accent)' : '#b4b4bd'}"
+              style="background:${on ? '#22a05a' : '#b4b4bd'}"
               onclick="RNP.toggleGroupVisible(decodeURIComponent('${key}'))">
               <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
             </button>
@@ -6810,7 +6810,7 @@ const RNP = (() => {
             let cat = '';
             try { cat = decodeURIComponent(btn.getAttribute('data-group-key') || ''); } catch (e) { cat = btn.getAttribute('data-group-key') || ''; }
             const on = !_isGroupHidden(cat);
-            btn.style.background = on ? 'var(--accent)' : '#b4b4bd';
+            btn.style.background = on ? '#22a05a' : '#b4b4bd';
             btn.title = on ? 'Скрыть группу из РНП' : 'Показать группу в РНП';
             const knob = btn.querySelector('span');
             if (knob) knob.style.left = on ? '18px' : '2px';
