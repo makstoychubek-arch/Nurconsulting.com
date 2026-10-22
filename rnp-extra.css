@@ -1449,3 +1449,13 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
   #rnp-settings-overlay .nr-win-resize { display: none !important; }
   #rnp-settings-overlay .rnp-settings-articles-scroll { max-height: none !important; }
 }
+
+/* Настройки РНП: кнопка «Назад» (только телефон) и отступ под строку состояния */
+.rnp-st-back { display: none; }
+@media (max-width: 768px) {
+  #rnp-settings-overlay .nr-win-bar { display: none !important; }
+  #rnp-settings-overlay .rnp-settings-close { display: none !important; }
+  #rnp-settings-overlay .rnp-settings-dialog { padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important; }
+  .rnp-st-back { display: inline-flex; align-items: center; height: 36px; padding: 0 14px 0 10px; border: 0; border-radius: 999px; background: rgba(120,120,140,.16); color: var(--text-primary); font-size: 14px; font-weight: 700; cursor: pointer; }
+  #rnp-settings-overlay #rnp-settings-modal-body > .space-y-5 > .flex:first-of-type { position: sticky; top: 0; z-index: 5; background: var(--surface-solid, var(--bg)); padding: 6px 0 10px; }
+}
