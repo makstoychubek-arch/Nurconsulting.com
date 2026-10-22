@@ -102,6 +102,24 @@ test('Дашборд на телефоне: новый компактный ви
     assert.strictEqual(hiddenOld, 'none', 'старые блоки скрыты на телефоне');
 });
 
+test('Дашборд на телефоне: число с барабанами цифр (NrWow) читается как число, а не скелет', async ({ page }) => {
+    // Раньше textContent барабана — «0123456789…» на каждый разряд; компактный вид считал это мусором
+    // и вечно держал серый скелет («мутно»), потом писал «Нет данных».
+    await page.setViewportSize({ width: 424, height: 900 });
+    await page.evaluate(() => showTab('dashboard'));
+    await page.waitForFunction(() => document.getElementById('tab-dashboard').classList.contains('nmd-on'), null, { timeout: 3000 });
+    await page.evaluate(() => {
+        const host = document.getElementById('m-orders-sum');
+        host.classList.remove('nr-skel');
+        window.NrWow.tickHost(host, '0', '1 200 000');
+        const c = document.getElementById('m-orders-count'); if (c) c.textContent = '220 шт';
+        const p = document.getElementById('pnl-profit'); if (p) p.textContent = '50 000';
+    });
+    await page.waitForTimeout(800);
+    const dbg = await page.evaluate(() => ({ md: document.getElementById('nr-md').innerText.slice(0, 120), host: document.getElementById('m-orders-sum').outerHTML.slice(0, 200) }));
+    assert.ok(/1 200 000/.test(dbg.md) && !/NaN/.test(dbg.md), JSON.stringify(dbg));
+});
+
 test('повторное открытие вкладки показывает прошлые цифры сразу', async ({ page }) => {
     await page.evaluate(() => showTab('dashboard'));
     await page.waitForTimeout(300);
