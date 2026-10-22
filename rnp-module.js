@@ -7105,8 +7105,16 @@ const RNP = (() => {
         try { return sessionStorage.getItem(key) || localStorage.getItem(key) || ''; } catch (e) { return ''; }
     }
 
+    // Временные «затемнения» (смена артикула на телефоне, подгрузка) не должны попадать в сохранённый снимок:
+    // иначе при следующем открытии экран восстанавливается приглушённым и никто это не снимает.
+    function _stripTransientClasses(root) {
+        const nodes = [root, ...root.querySelectorAll('.rnp-sheet-body--swap, .nr-stale')];
+        nodes.forEach(n => { if (n && n.classList) n.classList.remove('rnp-sheet-body--swap', 'nr-stale'); });
+    }
+
     function _compactRnpWorkspace(ws) {
         const clone = ws.cloneNode(true);
+        _stripTransientClasses(clone);
         clone.querySelectorAll('.rnp-marquee-track').forEach(track => {
             const n = parseInt(track.dataset.baseCount || '6', 10) || 6;
             while (track.children.length > n) track.lastElementChild.remove();
@@ -7192,6 +7200,7 @@ const RNP = (() => {
         const html = want ? _readRnpKey(_rnpShellKey(want)) : '';
         if (html && html.indexOf('rnp-workspace') >= 0) {
             el.innerHTML = html;
+            _stripTransientClasses(el);
             return !!el.querySelector('.rnp-workspace');
         }
         if (!el.querySelector('.rnp-workspace') || (domCab && want && domCab !== want)) {
@@ -9054,19 +9063,26 @@ const RNP = (() => {
         await _afterPaint();
         if (_isPhone()) _phoneKpiOpen = false;
         const body = document.getElementById('rnp-sheet-body');
-        if (body && _isPhone()) {
-            if (body.classList.contains('rnp-sheet-body--swap')) return;
+        const swap = !!(body && _isPhone());
+        // Приглушение на время смены артикула обязательно снимаем (даже при ошибке или повторном нажатии),
+        // иначе экран на телефоне остаётся «мутным».
+        const clearSwap = () => { if (body) body.classList.remove('rnp-sheet-body--swap'); };
+        if (swap) {
             body.classList.add('rnp-sheet-body--swap');
+            setTimeout(clearSwap, 1500);
             await new Promise(r => setTimeout(r, 140));
         }
         // Запоминаем положение прокрутки: после перерисовки таблица не должна прыгать вверх и вправо.
         const keepTop = body ? body.scrollTop : 0;
         const keepLeft = body ? body.scrollLeft : 0;
-        await _renderActiveTable();
-        if (body && _isPhone()) {
-            body.scrollTop = keepTop;
-            body.scrollLeft = keepLeft;
-            requestAnimationFrame(() => body.classList.remove('rnp-sheet-body--swap'));
+        try {
+            await _renderActiveTable();
+        } finally {
+            if (swap) {
+                body.scrollTop = keepTop;
+                body.scrollLeft = keepLeft;
+                requestAnimationFrame(clearSwap);
+            }
         }
     }
 
