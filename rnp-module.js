@@ -7136,6 +7136,7 @@ const RNP = (() => {
         if (!ws || !_cab) return;
         _bindRnpLockUnload();
         _saveRnpChrome();
+        if (ws.querySelector('tr.rnp-lazy-sec')) return;
         if (!_rnpMainRendered()) return;
         _markPaintedCab(ws);
         const html = _compactRnpWorkspace(ws);
@@ -7523,13 +7524,20 @@ const RNP = (() => {
         }
 
         _metricRowSeq = 0;
+        // Первая отрисовка артикула: строки ниже экрана — заглушки. Обновление уже нарисованного листа идёт целиком (патч).
+        _cancelLazyFill();
+        _lazyRowsOn = !(body.querySelector('.rnp-sheet-table') && _sameArticleSheet(body)) || !!body.querySelector('tr.rnp-lazy-sec');
+        let tableHtml;
+        try { tableHtml = _buildTableHTML(art, stockBySize, rawData, cal); } finally { _lazyRowsOn = false; }
         const nextInner = `
           ${topHTML}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
-            ${_buildTableHTML(art, stockBySize, rawData, cal)}
+            ${tableHtml}
           </div>
           ${_selectionBarHTML()}`;
+        const lazyNow = _lazyPending;
         const painted = _paintSheetBody(body, nextInner, cal);
+        if (lazyNow && body.querySelector('tr.rnp-lazy-sec')) _startLazyFill(body); else _lazyPending = null;
 
         _updateTabHighlight();
         _applyResolvedPhotos(body);
@@ -8024,7 +8032,7 @@ const RNP = (() => {
           </thead>
           <tbody>
             ${_buildMetaRows(cols, art)}
-            ${_sectionsForView().map(s => _renderSection(s, cols, art, firstTimelineIdx)).join('')}
+            ${_renderSectionsLazy(_sectionsForView(), cols, art, firstTimelineIdx)}
           </tbody>
         </table>`;
         }
@@ -8079,7 +8087,7 @@ const RNP = (() => {
           </thead>
           <tbody>
             ${_buildMetaRows(cols, art)}
-            ${_sectionsForView().map(s => _renderSection(s, cols, art, firstDayIdx)).join('')}
+            ${_renderSectionsLazy(_sectionsForView(), cols, art, firstDayIdx)}
           </tbody>
         </table>`;
     }
@@ -8276,6 +8284,74 @@ const RNP = (() => {
         const map = _priceDaily[Number(art.nm_id)] || {};
         const vs = (col.dates || []).map(d => Number(map[d]?.[key])).filter(v => v > 0);
         return vs.length ? vs.reduce((x, y) => x + y, 0) / vs.length : 0;
+    }
+
+    // ─── Ленивые секции таблицы артикула ────────────────────────────────────────
+    // Строки ниже первого экрана на первой отрисовке — заглушки с высотой; настоящие строки
+    // подставляются, когда заглушка подъезжает к экрану, либо по одной секции в простое браузера.
+    const LAZY_ROW_BUDGET = 40;
+    const LAZY_ROW_H = 26;
+    let _lazyRowsOn = false;
+    let _lazyPending = null;
+    let _lazyIo = null;
+
+    function _renderSectionsLazy(secs, cols, art, firstIdx) {
+        if (!_lazyRowsOn) return secs.map(s => _renderSection(s, cols, art, firstIdx)).join('');
+        let used = 0;
+        const total = secs.reduce((n, s) => n + (_collapsedSections.has(`${art.nm_id}:${s.id}`) ? 1 : _sectionRows(s, art).length + 1), 0);
+        if (total <= LAZY_ROW_BUDGET + 25) return secs.map(s => _renderSection(s, cols, art, firstIdx)).join('');
+        const pending = { nm: art.nm_id, fns: new Map() };
+        const out = secs.map(s => {
+            const n = _sectionRows(s, art).length;
+            if (!n) return '';
+            const collapsed = _collapsedSections.has(`${art.nm_id}:${s.id}`);
+            const rows = collapsed ? 1 : n + 1;
+            if (used < LAZY_ROW_BUDGET) { used += rows; return _renderSection(s, cols, art, firstIdx); }
+            pending.fns.set(s.id, () => _renderSection(s, cols, art, firstIdx));
+            return `<tr class="rnp-lazy-sec" data-lazy-sec="${s.id}"><td colspan="${cols.length + 2}" style="height:${rows * LAZY_ROW_H}px;padding:0;border:0"></td></tr>`;
+        }).join('');
+        _lazyPending = pending.fns.size ? pending : null;
+        return out;
+    }
+
+    function _lazyFillOne(stub, pending) {
+        const fn = pending.fns.get(stub.getAttribute('data-lazy-sec'));
+        pending.fns.delete(stub.getAttribute('data-lazy-sec'));
+        if (_lazyIo) _lazyIo.unobserve(stub);
+        if (fn) stub.insertAdjacentHTML('beforebegin', fn());
+        stub.remove();
+    }
+
+    function _startLazyFill(body) {
+        const pending = _lazyPending;
+        if (_lazyIo) { _lazyIo.disconnect(); _lazyIo = null; }
+        if (!pending || !body) return;
+        const alive = () => _lazyPending === pending && document.contains(body) && String(_activeNm) === String(pending.nm);
+        const finish = () => { if (_lazyPending === pending) _lazyPending = null; _saveRnpShell(); };
+        const stubs = () => [...body.querySelectorAll('tr.rnp-lazy-sec')];
+        if ('IntersectionObserver' in window) {
+            _lazyIo = new IntersectionObserver((es) => {
+                if (!alive()) return;
+                let did = false;
+                es.forEach(e => { if (e.isIntersecting && e.target.isConnected) { _lazyFillOne(e.target, pending); did = true; } });
+                if (did && !stubs().length) finish();
+            }, { root: null, rootMargin: '700px 0px' });
+            stubs().forEach(st => _lazyIo.observe(st));
+        }
+        const step = () => {
+            if (!alive()) return;
+            const st = stubs()[0];
+            if (!st) { finish(); return; }
+            _lazyFillOne(st, pending);
+            if (stubs().length) idle(step); else finish();
+        };
+        const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 600 }) : setTimeout(f, 80));
+        setTimeout(() => idle(step), 250);
+    }
+
+    function _cancelLazyFill() {
+        _lazyPending = null;
+        if (_lazyIo) { _lazyIo.disconnect(); _lazyIo = null; }
     }
 
     function _renderSection(sec, cols, art, firstDayIdx) {
