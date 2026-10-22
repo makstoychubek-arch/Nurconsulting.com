@@ -5627,7 +5627,7 @@ const RNP = (() => {
         });
     }
 
-    async function _loadRnpData() {
+    async function _loadRnpData(opts) {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
         if (!_cab || !_db) return false;
@@ -5675,6 +5675,7 @@ const RNP = (() => {
         _metricsCache = _buildRnpMetricsFromDaily(dailyRows, stocks, settings, _articles);
         _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings);
         _applyStocksToCache(stocks, nmIds);
+        if (opts && opts.onCore) opts.onCore();
         _loadSupply().catch(e => console.warn('[RNP] supply:', e.message));
         // Итоги кабинета и шапка «Общего» пишут в свои переменные, кэш по дням не трогают —
         // грузим их параллельно со слиянием финансов/рекламы/FBS (которое идёт по порядку).
@@ -5697,11 +5698,11 @@ const RNP = (() => {
     }
 
     const RNP_LOAD_TIMEOUT_MS = 45000;
-    async function _loadRnpDataTimed() {
+    async function _loadRnpDataTimed(opts) {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
         const result = await Promise.race([
-            _loadRnpData(),
+            _loadRnpData(opts),
             new Promise((_, rej) => setTimeout(
                 () => rej(new Error('Таймаут загрузки данных РНП (45 с). Нажмите «Повторить».')),
                 RNP_LOAD_TIMEOUT_MS,
@@ -7290,7 +7291,19 @@ const RNP = (() => {
         let loadErr = null;
         try {
             window.NrLoader && window.NrLoader.step('rnp', 1);
-            loadOk = await _loadRnpDataTimed();
+            // Первую отрисовку не держим до тяжёлых итогов (финансы/реклама/FBS): таблица появляется,
+            // как только пришли заказы, планы и остатки, остальное подставляется следом без перерисовки всего экрана.
+            let coreDone; const corePromise = new Promise((r) => { coreDone = r; });
+            const fullP = _loadRnpDataTimed({ onCore: () => coreDone('core') });
+            const first = await Promise.race([corePromise, fullP.then((v) => ({ v }), (e) => ({ e }))]);
+            if (first === 'core') {
+                loadOk = true;
+                fullP.then((ok) => {
+                    if (!ok || _abandonStaleMain(renderId, snapReq, snapCab)) return;
+                    _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null;
+                    _renderActiveTable();
+                }).catch((e) => console.warn('[RNP] догрузка итогов:', e.message || e));
+            } else if (first.e) { throw first.e; } else { loadOk = first.v; }
             if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             if (loadOk === false) {
                 _setRnpSheetState('empty', 'Нет данных за выбранный период. Запустите синхронизацию на дашборде.');
