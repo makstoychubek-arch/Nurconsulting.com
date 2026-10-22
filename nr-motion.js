@@ -190,6 +190,8 @@
             var e = $(sel); if (!e) return '';
             var ds = e.getAttribute && e.getAttribute('data-slot');
             if (ds != null) return ds.replace(/\s+/g, ' ').trim();
+            var wow = e.hasAttribute && e.hasAttribute('data-nr-text') ? e : (e.querySelector && e.querySelector('[data-nr-text]'));
+            if (wow) return wow.getAttribute('data-nr-text').replace(/\s+/g, ' ').trim();
             return (e.textContent || '').replace(/\s+/g, ' ').trim();
         }
         // Защита от мусора: если в тексте попалась цифровая лесенка «…012345…6 подряд по возрастанию»

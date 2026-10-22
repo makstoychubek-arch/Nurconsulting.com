@@ -34,6 +34,9 @@
     function tickSpan(span, prevText, nextText) {
         if (!span || nextText == null) return;
         const next = String(nextText);
+        // Барабаны цифр в textContent — «0123456789» на каждый разряд. Итоговое значение кладём в атрибут,
+        // чтобы другие модули (мобильный дашборд) читали число, а не мусор.
+        span.removeAttribute('data-nr-text');
         if (reduced() || !next || next === '—') {
             span.textContent = next;
             return;
@@ -50,6 +53,7 @@
         const fromN = parseLoose(prev);
         const toN = parseLoose(next);
         span.setAttribute('data-nr-dir', fromN != null && toN != null ? (toN > fromN ? 'up' : toN < fromN ? 'down' : '') : '');
+        span.setAttribute('data-nr-text', next);
         const chars = next.split('');
         const prevChars = prev.split('');
         span.textContent = '';
