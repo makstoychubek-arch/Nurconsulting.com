@@ -431,11 +431,46 @@
 
     function shellHtml(model) {
         return '<div class="pf-bar">'
+            + '<button type="button" class="pf-back" onclick="RnpPlanFact.close()" aria-label="Назад">‹ Назад</button>'
             + '<div class="pf-bar-title" id="rnp-plan-fact-title">' + esc(model.title) + '</div>'
             + '<button type="button" class="pf-close" onclick="RnpPlanFact.close()" aria-label="Закрыть">×</button>'
             + '</div>'
             + pagerHtml(model)
             + tableHtml(model);
+    }
+
+    function isPhone() { return typeof matchMedia === 'function' && matchMedia('(max-width: 768px)').matches; }
+
+    // Телефон: за один жест таблица едет либо вбок, либо вверх-вниз (не по диагонали), за край не тянется.
+    function bindAxisLock(sc) {
+        if (!sc || sc.__pfLock) return;
+        sc.__pfLock = true;
+        var x0 = 0, y0 = 0, px = 0, py = 0, axis = '', timer = 0, touching = false;
+        function restore() { clearTimeout(timer); sc.style.overflowX = ''; sc.style.overflowY = ''; axis = ''; }
+        function later() { clearTimeout(timer); timer = setTimeout(restore, 160); }
+        sc.addEventListener('touchstart', function (e) {
+            if (!isPhone() || !e.touches || e.touches.length !== 1) return;
+            clearTimeout(timer); touching = true; axis = '';
+            x0 = px = e.touches[0].clientX; y0 = py = e.touches[0].clientY;
+        }, { passive: true });
+        sc.addEventListener('touchmove', function (e) {
+            if (!isPhone() || !e.touches || e.touches.length !== 1) return;
+            var x = e.touches[0].clientX, y = e.touches[0].clientY, dx = x - px, dy = y - py;
+            px = x; py = y;
+            if (!axis) {
+                var ax = Math.abs(x - x0), ay = Math.abs(y - y0);
+                if (Math.max(ax, ay) < 6) return;
+                axis = ax > ay ? 'x' : 'y';
+                if (axis === 'x') sc.style.overflowY = 'hidden'; else sc.style.overflowX = 'hidden';
+            }
+            if (!e.cancelable) return;
+            var maxL = sc.scrollWidth - sc.clientWidth, maxT = sc.scrollHeight - sc.clientHeight;
+            if (axis === 'x' && ((dx > 0 && sc.scrollLeft <= 0) || (dx < 0 && sc.scrollLeft >= maxL - 1))) e.preventDefault();
+            if (axis === 'y' && ((dy > 0 && sc.scrollTop <= 0) || (dy < 0 && sc.scrollTop >= maxT - 1))) e.preventDefault();
+        }, { passive: false });
+        sc.addEventListener('touchend', function () { touching = false; later(); }, { passive: true });
+        sc.addEventListener('touchcancel', function () { touching = false; restore(); }, { passive: true });
+        sc.addEventListener('scroll', function () { if (axis && !touching) later(); }, { passive: true });
     }
 
     function ensureOverlay() {
@@ -467,6 +502,7 @@
         if (body) body.innerHTML = shellHtml(model);
         var cur = body && body.querySelector('.pf-scroll');
         if (cur && (sx || sy)) { cur.scrollLeft = sx; cur.scrollTop = sy; }
+        bindAxisLock(cur);
         overlay.classList.add('is-open');
         document.body.classList.add('rnp-pf-open');
         if (root.NrWin && !overlay.classList.contains('is-bound')) { root.NrWin.bind(overlay); overlay.classList.add('is-bound'); }
