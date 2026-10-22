@@ -6846,6 +6846,7 @@ const RNP = (() => {
         <div class="space-y-5">
           ${_settingsPhoneToolsHtml()}
           <div class="flex items-center justify-between gap-3 flex-wrap px-1">
+            <button type="button" class="rnp-st-back" onclick="RNP.closeSettings()" aria-label="Назад">‹ Назад</button>
             <h3 id="rnp-settings-title" class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">Настройки РНП</h3>
             <div class="flex items-center gap-3 text-xs" style="color:var(--text-muted)">
               <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / <span id="rnp-settings-total-n">${_articles.length}</span></span>
