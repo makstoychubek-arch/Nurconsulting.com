@@ -10,7 +10,7 @@
         if (!desc || !desc.set || Element.prototype.__nrKeepStale) return;
         Element.prototype.__nrKeepStale = true;
         const st = document.createElement('style');
-        st.textContent = '.nr-stale{opacity:.82;transition:opacity .2s}';
+        st.textContent = '.nr-stale{opacity:.94;transition:opacity .2s}';
         (document.head || document.documentElement).appendChild(st);
         const PH = /^(Загрузка|Загружаем|Считаем|Обновляем)/i;
         const cab = () => { try { return typeof currentCabinetId !== 'undefined' && currentCabinetId ? String(currentCabinetId) : ''; } catch (_) { return ''; } };
@@ -24,6 +24,7 @@
                         const cur = (this.textContent || '').trim();
                         if (this.childElementCount > 0 && cur.length > 60 && !PH.test(cur) && this.dataset && this.dataset.nsCab === cab() && !this.hasAttribute('data-ns-fresh')) {
                             this.classList.add('nr-stale');
+                            clearTimeout(this.__nrStaleT); this.__nrStaleT = setTimeout(() => this.classList.remove('nr-stale'), 6000);
                             return;
                         }
                     } else {
