@@ -55,6 +55,9 @@ const tables = {
         const restored = await page.evaluate(() => document.getElementById('rnp-sheet-body').style.overflowY);
         assert.strictEqual(restored, '', 'после жеста вертикальная прокрутка возвращена');
         console.log('ok   телефон: горизонтальный жест едет вбок и не трогает вертикаль (замок оси не ломает прокрутку)');
+        const ov = await page.evaluate(() => getComputedStyle(document.getElementById('rnp-sheet-body')).overscrollBehaviorX);
+        assert.strictEqual(ov, 'none', 'таблица не тянется за край (нет пустого угла): ' + ov);
+        console.log('ok   телефон: таблицу нельзя оттянуть за край');
         // свёрнутая шапка: стрелка раскрывает панель с ответственным, статусом, ценой и заметками
         const vis = () => page.evaluate(() => { const e = document.querySelector('.rnp-ph2-panel .rnp-ph2-meta'); return !!e && e.getBoundingClientRect().height > 10; });
         assert.strictEqual(await vis(), false, 'панель закрыта');
