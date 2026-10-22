@@ -3196,12 +3196,20 @@ const RNP = (() => {
             _setCssVar(table, '--rnp-frozen-left', `${frozen}px`);
             if (scroll) _setCssVar(scroll, '--rnp-frozen-left', `${frozen}px`);
 
-            table.querySelectorAll('tr').forEach(tr => {
-                const stickies = [...tr.children].filter(c => c.classList.contains('rnp-col-sticky'));
-                stickies.forEach((cell, i) => {
-                    if (lefts[i] != null) _setInlineLeft(cell, lefts[i]);
+            // Проход по всем строкам нужен, только если есть закреплённые колонки и что-то поменялось
+            // (позиции или число строк, например после дорисовки ленивых секций).
+            const stickKey = lefts.join(',') + '|' + table.rows.length;
+            if (lefts.length && table.__rnpStickKey !== stickKey) {
+                table.__rnpStickKey = stickKey;
+                table.querySelectorAll('tr').forEach(tr => {
+                    let i = 0;
+                    for (const cell of tr.children) {
+                        if (!cell.classList.contains('rnp-col-sticky')) continue;
+                        if (lefts[i] != null) _setInlineLeft(cell, lefts[i]);
+                        i++;
+                    }
                 });
-            });
+            }
 
             const prev = table.querySelector('.rnp-th-month-prev');
             if (prev) _setInlineLeft(prev, metricW + sparkW);
@@ -8295,7 +8303,9 @@ const RNP = (() => {
     let _lazyPending = null;
     let _lazyIo = null;
 
+    let _secCtx = null;
     function _renderSectionsLazy(secs, cols, art, firstIdx) {
+        _secCtx = { nm: art.nm_id, cols, firstIdx, art };
         if (!_lazyRowsOn) return secs.map(s => _renderSection(s, cols, art, firstIdx)).join('');
         let used = 0;
         const total = secs.reduce((n, s) => n + (_collapsedSections.has(`${art.nm_id}:${s.id}`) ? 1 : _sectionRows(s, art).length + 1), 0);
@@ -8327,7 +8337,7 @@ const RNP = (() => {
         if (_lazyIo) { _lazyIo.disconnect(); _lazyIo = null; }
         if (!pending || !body) return;
         const alive = () => _lazyPending === pending && document.contains(body) && String(_activeNm) === String(pending.nm);
-        const finish = () => { if (_lazyPending === pending) _lazyPending = null; _saveRnpShell(); };
+        const finish = () => { if (_lazyPending === pending) _lazyPending = null; _renumberRnpRows(body); _saveRnpShell(); };
         const stubs = () => [...body.querySelectorAll('tr.rnp-lazy-sec')];
         if ('IntersectionObserver' in window) {
             _lazyIo = new IntersectionObserver((es) => {
@@ -8359,7 +8369,7 @@ const RNP = (() => {
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
-        const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
+        const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr" data-sec="${sec.id}" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
           <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}</td>
           <td class="rnp-spark-col rnp-section-stick"></td>
           <td class="rnp-section-fill" colspan="${cols.length}"></td>
@@ -9379,8 +9389,47 @@ const RNP = (() => {
         }
     }
 
+    // Порядковые номера ячеек (для выделения диапазона) должны идти в порядке DOM.
+    function _renumberRnpRows(body) {
+        let n = 0;
+        body.querySelectorAll('[data-rnp-row]').forEach(td => { td.setAttribute('data-rnp-row', String(n++)); });
+    }
+
+    // Свернуть/развернуть секцию: правим только её строки в DOM, без пересборки всей таблицы.
+    function _toggleSectionInPlace(nmId, sectionId, key) {
+        const ctx = _secCtx;
+        const body = document.getElementById('rnp-sheet-body');
+        if (!ctx || String(ctx.nm) !== String(nmId) || !body) return false;
+        const hdr = body.querySelector(`tr.rnp-section-hdr[data-sec="${sectionId}"]`);
+        if (!hdr) return false;
+        const sec = _sectionsForView().find(s => s.id === sectionId);
+        if (!sec) return false;
+        if (_collapsedSections.has(key)) {
+            _collapsedSections.delete(key);
+            _metricRowSeq = 0;
+            const html = _renderSection(sec, ctx.cols, ctx.art, ctx.firstIdx);
+            hdr.insertAdjacentHTML('beforebegin', html);
+            hdr.remove();
+            _renumberRnpRows(body);
+            if (_editMode) _applyEditMode();
+        } else {
+            _collapsedSections.add(key);
+            const first = hdr.firstElementChild;
+            if (first) first.textContent = first.textContent.replace('▾', '▸');
+            let next = hdr.nextElementSibling;
+            while (next && !next.classList.contains('rnp-section-hdr') && !next.classList.contains('rnp-lazy-sec')) {
+                const cur = next;
+                next = next.nextElementSibling;
+                cur.remove();
+            }
+        }
+        _saveRnpShell();
+        return true;
+    }
+
     async function toggleSection(nmId, sectionId) {
         const key = `${nmId}:${sectionId}`;
+        if (_toggleSectionInPlace(nmId, sectionId, key)) return;
         if (_collapsedSections.has(key)) _collapsedSections.delete(key);
         else _collapsedSections.add(key);
         await _afterPaint();
