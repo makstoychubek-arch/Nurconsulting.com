@@ -336,13 +336,13 @@
     }
     function balHtml(key, camp) {
         var b = balOf(key, camp), low = b != null && b < 300;
-        return '<button type="button" class="adp2-m adp2-bal" data-pact="topup" data-key="' + esc(key) + '" title="Баланс кампании. Нажмите, чтобы пополнить">' +
-            '<small>Баланс</small><b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : fmtInt(b) + ' ₽') + '</b></button>';
+        return '<button type="button" class="adp2-bal' + (low ? ' low' : '') + '" data-pact="topup" data-key="' + esc(key) + '" title="Баланс кампании. Нажмите, чтобы пополнить">' +
+            '<b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : fmtInt(b) + ' ₽') + '</b><i>+</i></button>';
     }
     function metricsHtml(camp, key) {
         var d = drrOf(camp), has = (Number(camp.spendToday) || 0) > 0 || (Number(camp.orders) || 0) > 0;
         var cl = d == null ? '' : (d < 8 ? 'ok' : d < 12 ? 'wa' : 'bad');
-        return (key ? balHtml(key, camp) : '') + '<div class="adp2-m"><small>Расход</small><b>' + (has ? fmtInt(camp.spendToday) + ' ₽' : '—') + '</b></div>' +
+        return '<div class="adp2-m"><small>Расход</small><b>' + (has ? fmtInt(camp.spendToday) + ' ₽' : '—') + '</b></div>' +
             '<div class="adp2-m"><small>Заказы</small><b>' + (has ? fmtInt(camp.orders) : '—') + '</b></div>' +
             '<div class="adp2-m"><small>ДРР</small><b class="' + cl + '">' + (d == null ? '—' : d.toFixed(1).replace('.', ',') + '%') + '</b></div>';
     }
@@ -406,10 +406,10 @@
         var info = S.info[key], nmCount = info && info.loaded ? effectiveNms(info.nms, ov).length : (camp.nmId ? 1 : 0);
         return '<article class="adp2-row' + (open ? ' open' : '') + (live ? '' : ' off') + '" data-key="' + esc(key) + '">' +
             '<div class="adp2-head" data-pact="open" data-key="' + esc(key) + '">' +
-            '<div class="adp2-pos" data-nostop="1">' + switchHtml(key, camp, live) + '</div>' +
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
             '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small>' + unitText(kind) + ' · № ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small>' + mainLine(cab, camp, nmCount) + '</div>' +
-            '<div class="adp2-st">' + metricsHtml(c, key) + '</div>' +
+            '<div class="adp2-st">' + metricsHtml(c) + '</div>' +
+            '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + '</div></div>' +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<span class="adp2-cv">⌄</span></div>' +
             (open ? '<div class="adp2-body"><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
