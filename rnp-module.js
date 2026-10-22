@@ -7542,7 +7542,9 @@ const RNP = (() => {
         _cancelLazyFill();
         _lazyRowsOn = !(body.querySelector('.rnp-sheet-table') && _sameArticleSheet(body)) || !!body.querySelector('tr.rnp-lazy-sec');
         let tableHtml;
-        try { tableHtml = _buildTableHTML(art, stockBySize, rawData, cal); } finally { _lazyRowsOn = false; }
+        const tableCal = _phoneTrimCal(cal);
+        try { tableHtml = _buildTableHTML(art, stockBySize, rawData, tableCal); } finally { _lazyRowsOn = false; }
+        if (tableCal._hiddenDays) tableHtml = `<div class="rnp-phone-trim">Показаны последние ${PHONE_DAYS} дн. · <a href="#" onclick="RNP.phoneAllDays();return false">весь период (${tableCal._hiddenDays + PHONE_DAYS} дн.)</a></div>` + tableHtml;
         const nextInner = `
           ${topHTML}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
@@ -7985,13 +7987,29 @@ const RNP = (() => {
         </tr>`;
     }
 
+    // Телефон: таблица на весь месяц (30+ колонок × 80 строк) слишком тяжела для мобильного браузера.
+    // Рисуем последние 14 дней; ИТОГ за период по-прежнему считается по всему периоду (_allDays).
+    const PHONE_DAYS = 14;
+    let _phoneAllDays = false;
+    function _phoneTrimCal(cal) {
+        if (!_isPhone() || _phoneAllDays || !cal || cal.mode === 'month') return cal;
+        const past = cal.days.filter(d => !d.isFuture);
+        if (past.length <= PHONE_DAYS) return cal;
+        const keep = past.slice(-PHONE_DAYS);
+        return { ...cal, days: keep, _allDays: cal.days, _hiddenDays: past.length - keep.length };
+    }
+    function phoneAllDays() {
+        _phoneAllDays = true;
+        return _renderActiveTable();
+    }
+
     function _buildTableHTML(art, stockBySize, rawData, cal) {
         _metricRowSeq = 0;
         const cols = _buildCols(rawData, art, cal);
         // «ИТОГ за период» в конце таблицы (только недельный вид): сумма или среднее по дням текущего месяца до сегодня.
         let periodExtra = 0;
         if (cal.mode !== 'month') {
-            const pd = cal.days.filter(d => !d.isFuture).map(d => d.date);
+            const pd = (cal._allDays || cal.days).filter(d => !d.isFuture).map(d => d.date);
             if (pd.length) {
                 cols.push({ type: 'period', isPeriodCol: true, colKey: 'period-total', date: pd[pd.length - 1], dates: pd,
                     data: _applyColPlans(_derive(_aggWeek(rawData, pd), art), art, pd) });
@@ -9584,7 +9602,7 @@ const RNP = (() => {
 
     return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
-             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего

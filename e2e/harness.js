@@ -36,7 +36,9 @@ function serve() {
 async function openApp(browser, base, opts = {}) {
     const userId = opts.userId || USER_ID;
     const email = opts.email || 'qa@example.test';
-    const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+    const ctx = await browser.newContext(opts.phone
+        ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' }
+        : { viewport: { width: 1400, height: 900 } });
     const now = Math.floor(Date.now() / 1000);
     const user = { id: userId, aud: 'authenticated', role: 'authenticated', email, app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' };
     const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
