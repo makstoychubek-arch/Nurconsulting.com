@@ -112,9 +112,9 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 48;
     const DAY_COL_W = 48;
-    const PHONE_METRIC_W = 94;
-    const PHONE_SPARK_W = 24;
-    const PHONE_COL_W = 36;
+    const PHONE_METRIC_W = 62;
+    const PHONE_SPARK_W = 0;
+    const PHONE_COL_W = 28;
 
     function _isPhone() {
         try { return window.matchMedia('(max-width: 768px)').matches; }
@@ -4773,16 +4773,38 @@ const RNP = (() => {
         </div>`;
     }
 
+    // Телефон: шапка артикула свёрнута в одну строку (миниатюра, название, остатки, мини-галерея, стрелка).
+    // По нажатию раскрывается панель: все фото, ответственный, статус, цена ▲▼, заметки, остатки.
+    let _phoneHeadOpen = false;
     function _buildPhoneHeroHTML(art, stockBySize, cal) {
         const slides = cal
             ? _buildMarqueeHTML(art, cal)
             : `<button type="button" class="rnp-phone-hero-banner" title="Открыть фото" onclick="RNP.openPhoto(this)" aria-label="Фото товара">
             ${_imgHtml(art, 'rnp-phone-hero-img', 'c516x688')}
           </button>`;
-        return `<div class="rnp-phone-hero product-card-mobile-layout">
-          <div class="rnp-phone-hero-slides">${slides}</div>
-          ${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>`)}
+        const name = String(_sellerArticle(art) || art.nm_id).replace(/</g, '&lt;');
+        const status = String((art.manual_data || {}).status || '').replace(/</g, '&lt;');
+        const stockN = _schemeWhTotals(stockBySize).total;
+        const mini = [2, 3, 4].map(i => _imgHtml(art, 'rnp-ph2-mini', 'c246x328', '', i)).join('');
+        return `<div class="rnp-phone-hero product-card-mobile-layout rnp-ph2${_phoneHeadOpen ? ' is-open' : ''}">
+          <div class="rnp-ph2-bar" role="button" tabindex="0" onclick="RNP.togglePhoneHead()">
+            ${_imgHtml(art, 'rnp-ph2-thumb', 'c246x328')}
+            <div class="rnp-ph2-name"><b>${name}</b><span>Остатки ${stockN}${status ? ' · ' + status : ''}</span></div>
+            <div class="rnp-ph2-minis">${mini}</div>
+            <span class="rnp-ph2-chev" aria-hidden="true">▾</span>
+          </div>
+          <div class="rnp-ph2-panel">
+            <div class="rnp-phone-hero-slides">${slides}</div>
+            ${_buildHeadMetaHtml(art)}
+            ${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>`)}
+          </div>
         </div>`;
+    }
+
+    function togglePhoneHead() {
+        _phoneHeadOpen = !_phoneHeadOpen;
+        document.querySelectorAll('.rnp-ph2').forEach(el => el.classList.toggle('is-open', _phoneHeadOpen));
+        if (_phoneHeadOpen) requestAnimationFrame(() => { try { _syncMarqueeFill(document.getElementById('rnp-sheet-body') || document); } catch (e) {} });
     }
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
@@ -6486,11 +6508,23 @@ const RNP = (() => {
         return 'rnp-num';
     }
 
+    // Телефон: узкие колонки дней. Целые от 10 000: «12к», «215к», «1,1м».
+    function _compactNum(s) {
+        if (!/^-?[\d\s\u00a0]+$/.test(s)) return s;
+        const n = Number(s.replace(/[\s\u00a0]/g, ''));
+        const a = Math.abs(n);
+        if (!Number.isFinite(n) || a < 10000) return s;
+        if (a >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',').replace(',0', '') + 'м';
+        if (a >= 100000) return Math.round(n / 1000) + 'к';
+        return (n / 1000).toFixed(1).replace('.', ',').replace(',0', '') + 'к';
+    }
+
     function _fitNum(str) {
         if (str == null || str === '') return '';
         const s = String(str);
         if (s === '—') return s;
-        return `<span class="${_numFitClass(s)}">${s}</span>`;
+        const c = _isPhone() ? _compactNum(s) : s;
+        return `<span class="${_numFitClass(c)}">${c}</span>`;
     }
 
     function _cellColor(val, hm) {
@@ -9651,7 +9685,7 @@ const RNP = (() => {
 
     return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
-             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего
