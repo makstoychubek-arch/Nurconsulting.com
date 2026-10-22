@@ -58,6 +58,9 @@ const tables = {
         const ov = await page.evaluate(() => getComputedStyle(document.getElementById('rnp-sheet-body')).overscrollBehaviorX);
         assert.strictEqual(ov, 'none', 'таблица не тянется за край (нет пустого угла): ' + ov);
         console.log('ok   телефон: таблицу нельзя оттянуть за край');
+        const topRows = await page.evaluate(() => { const t = document.querySelector('.rnp-cal-month-row .rnp-th-month'); const tr = document.querySelector('.rnp-phone-trim'); return { mh: t ? t.getBoundingClientRect().height : 0, trim: tr ? getComputedStyle(tr).display : 'none' }; });
+        assert.ok(topRows.mh < 2 && topRows.trim === 'none', 'на телефоне нет названия месяца и строки «Показаны последние 14 дн.»: ' + JSON.stringify(topRows));
+        console.log('ok   телефон: названия месяца и строки «Показаны последние дни» нет, место свободно');
         // План/факт на телефоне: на весь экран, «Назад» слева сверху, столбец артикулов узкий даже с длинными названиями
         await page.evaluate(() => RNP.openPlanFact());
         await page.locator('.pf-sheet .pf-b').first().waitFor({ state: 'visible', timeout: 5000 });
