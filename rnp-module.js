@@ -8251,6 +8251,16 @@ const RNP = (() => {
             axis = dx > dy ? 'x' : 'y';
             if (axis === 'x') body.style.overflowY = 'hidden'; else body.style.overflowX = 'hidden';
         }, { passive: true });
+        // Упор в край таблицы: дальше тянуть нельзя (на старых iOS резинка показывает пустой угол).
+        let px = 0, py = 0;
+        body.addEventListener('touchstart', (e) => { if (e.touches && e.touches.length === 1) { px = e.touches[0].clientX; py = e.touches[0].clientY; } }, { passive: true });
+        body.addEventListener('touchmove', (e) => {
+            if (!_isPhone() || !e.cancelable || !e.touches || e.touches.length !== 1) return;
+            const x = e.touches[0].clientX, y = e.touches[0].clientY, dx = x - px, dy = y - py;
+            px = x; py = y;
+            const maxL = body.scrollWidth - body.clientWidth;
+            if (Math.abs(dx) > Math.abs(dy) && ((dx > 0 && body.scrollLeft <= 0) || (dx < 0 && body.scrollLeft >= maxL - 1))) e.preventDefault();
+        }, { passive: false });
         body.addEventListener('touchend', () => { touching = false; restoreLater(); }, { passive: true });
         body.addEventListener('touchcancel', () => { touching = false; restore(); }, { passive: true });
         body.addEventListener('scroll', () => { if (axis && !touching) restoreLater(); }, { passive: true });
