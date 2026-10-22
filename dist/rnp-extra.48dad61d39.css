@@ -1470,3 +1470,20 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 @media (max-width: 768px) {
   #rnp-sheet-body { overscroll-behavior: none !important; -webkit-overflow-scrolling: auto; }
 }
+
+/* План/факт на телефоне: на весь экран, «Назад» на краю сверху, узкий столбец артикулов, без оттягивания за край */
+.pf-back { display: none; }
+@media (max-width: 768px) {
+  #rnp-plan-fact-overlay { padding: 0 !important; align-items: stretch; }
+  #rnp-plan-fact-overlay .rnp-plan-fact-dialog.nr-win { width: 100% !important; height: 100dvh !important; max-width: 100vw !important; max-height: 100dvh !important; border-radius: 0; padding: env(safe-area-inset-top, 0px) 0 0 !important; }
+  #rnp-plan-fact-overlay .nr-win-bar { display: none !important; }
+  #rnp-plan-fact-overlay .rnp-plan-fact-dialog .pf-bar { display: flex; gap: 8px; padding: 6px 10px 6px 6px; }
+  #rnp-plan-fact-overlay .pf-bar .pf-close { display: none !important; }
+  .pf-back { display: inline-flex; align-items: center; height: 34px; padding: 0 14px 0 10px; border: 0; border-radius: 999px; background: #e8f0e4; color: #274e13; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .pf-scroll { overscroll-behavior: none !important; -webkit-overflow-scrolling: auto; }
+  .pf-sheet .pf-b { width: 92px !important; min-width: 92px !important; max-width: 92px !important; font-size: 9.5px; line-height: 1.05; overflow: hidden; overflow-wrap: anywhere; word-break: break-word; padding-top: 1px; }
+  .pf-sheet col.pf-cb { width: 92px !important; }
+  .pf-sheet tbody tr td, .pf-sheet tbody tr th, .pf-sheet tbody tr td.pf-b { height: 32px; }
+  .pf-sheet .pf-nm { font-size: 7.5px; }
+  .pf-sheet .pf-title { font-size: 13px; }
+}

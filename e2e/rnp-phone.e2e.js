@@ -6,7 +6,7 @@ const assert = require('assert');
 const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
 
 const day = (n) => new Date(Date.now() + 6 * 3600e3 - n * 86400e3).toISOString().slice(0, 10);
-const ARTS = [{ nm: 1001, sa: 'a', cat: 'К1' }, { nm: 1002, sa: 'b', cat: 'К1' }, { nm: 2001, sa: 'c', cat: 'К2' }];
+const ARTS = [{ nm: 1001, sa: 'костюм_оверсайз_бежевый', cat: 'К1' }, { nm: 1002, sa: 'b', cat: 'К1' }, { nm: 2001, sa: 'c', cat: 'К2' }];
 const tables = {
     spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }],
     cabinets: [{ id: CAB, name: 'T', wb_token_set: true, user_id: ADMIN_ID }],
@@ -58,6 +58,23 @@ const tables = {
         const ov = await page.evaluate(() => getComputedStyle(document.getElementById('rnp-sheet-body')).overscrollBehaviorX);
         assert.strictEqual(ov, 'none', 'таблица не тянется за край (нет пустого угла): ' + ov);
         console.log('ok   телефон: таблицу нельзя оттянуть за край');
+        // План/факт на телефоне: на весь экран, «Назад» слева сверху, столбец артикулов узкий даже с длинными названиями
+        await page.evaluate(() => RNP.openPlanFact());
+        await page.locator('.pf-sheet .pf-b').first().waitFor({ state: 'visible', timeout: 5000 });
+        await page.waitForTimeout(600);
+        const pf = await page.evaluate(() => {
+            const d = document.querySelector('.rnp-plan-fact-dialog').getBoundingClientRect();
+            const b = document.querySelector('.pf-sheet tbody td.pf-b').getBoundingClientRect();
+            const back = document.querySelector('.pf-back').getBoundingClientRect();
+            return { dl: d.left, dw: d.width, vw: innerWidth, bw: b.width, bl: back.left, bt: back.top, bv: back.width > 0, ov: getComputedStyle(document.querySelector('.pf-scroll')).overscrollBehaviorX };
+        });
+        assert.ok(Math.abs(pf.dl) < 1 && Math.abs(pf.dw - pf.vw) < 1, 'план/факт на весь экран: ' + JSON.stringify(pf));
+        assert.ok(pf.bw <= 96, 'столбец артикулов узкий: ' + pf.bw);
+        assert.ok(pf.bv && pf.bl < 16 && pf.bt < 24, '«Назад» на краю сверху: ' + JSON.stringify(pf));
+        assert.strictEqual(pf.ov, 'none', 'таблицу плана нельзя оттянуть за край');
+        await page.locator('.pf-back').click();
+        assert.strictEqual(await page.evaluate(() => document.getElementById('rnp-plan-fact-overlay').classList.contains('is-open')), false, '«Назад» закрывает план/факт');
+        console.log('ok   телефон: план/факт на весь экран, «Назад» на краю, узкий столбец артикулов');
         // свёрнутая шапка: стрелка раскрывает панель с ответственным, статусом, ценой и заметками
         const vis = () => page.evaluate(() => { const e = document.querySelector('.rnp-ph2-panel .rnp-ph2-meta'); return !!e && e.getBoundingClientRect().height > 10; });
         assert.strictEqual(await vis(), false, 'панель закрыта');
