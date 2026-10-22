@@ -92,6 +92,21 @@ const tables = {
         const pr = await page.evaluate(() => { const d = document.getElementById('axis-probe'); const r = { l: d.scrollLeft, t: d.scrollTop, oy: d.style.overflowY }; d.remove(); return r; });
         assert.ok(pr.l > 20 && pr.t < 4 && pr.oy === 'auto', 'любой блок едет по одной оси: ' + JSON.stringify(pr));
         console.log('ok   телефон: общий замок оси работает для любого прокручиваемого блока (РК и другие)');
+        // Экран целиком не уезжает вбок: горизонтальный жест вне прокручиваемых блоков гасится (во всех разделах)
+        await page.evaluate(() => {
+            window.__tmPrevented = 0;
+            window.addEventListener('touchmove', (e) => { if (e.defaultPrevented) window.__tmPrevented++; }, { passive: true });
+            const f = document.createElement('div');
+            f.id = 'free-probe'; f.style.cssText = 'position:fixed;left:0;top:200px;width:300px;height:200px;background:#ddd;z-index:99999';
+            document.body.appendChild(f);
+        });
+        const cdp3 = await page.context().newCDPSession(page);
+        await cdp3.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 200, y: 300 }] });
+        for (let i = 1; i <= 10; i++) await cdp3.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200 - i * 14, y: 300 - i }] });
+        await cdp3.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        const prevented = await page.evaluate(() => { document.getElementById('free-probe').remove(); return window.__tmPrevented; });
+        assert.ok(prevented > 0, 'горизонтальный жест вне прокручиваемых блоков гасится: ' + prevented);
+        console.log('ok   телефон: экран целиком не уезжает вбок во всех разделах');
         // свёрнутая шапка: стрелка раскрывает панель с ответственным, статусом, ценой и заметками
         const vis = () => page.evaluate(() => { const e = document.querySelector('.rnp-ph2-panel .rnp-ph2-meta'); return !!e && e.getBoundingClientRect().height > 10; });
         assert.strictEqual(await vis(), false, 'панель закрыта');

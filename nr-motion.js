@@ -351,10 +351,11 @@
         if (!doc || !root.matchMedia) return;
         var mq = root.matchMedia('(max-width: 768px)');
         var el = null, x0 = 0, y0 = 0, px = 0, py = 0, axis = '', saved = null, timer = 0, touching = false;
+        var SELF = { __nrmX: false, __nrmY: false };
         function scrollable(n) {
             while (n && n !== doc.body && n !== doc.documentElement) {
                 if (n.nodeType === 1) {
-                    if (n.__rnpAxisLock || n.__pfLock) return null;
+                    if (n.__rnpAxisLock || n.__pfLock) return SELF;
                     var cs = root.getComputedStyle(n);
                     var ox = /(auto|scroll)/.test(cs.overflowX) && n.scrollWidth > n.clientWidth + 1;
                     var oy = /(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1;
@@ -369,27 +370,31 @@
             if (saved) { saved.n.style.overflowX = saved.x; saved.n.style.overflowY = saved.y; saved = null; }
             axis = '';
         }
+        var free = false;
         doc.addEventListener('touchstart', function (e) {
-            if (!mq.matches || !e.touches || e.touches.length !== 1) { el = null; return; }
+            if (!mq.matches || !e.touches || e.touches.length !== 1) { el = null; free = false; return; }
             restore(); touching = true;
             el = scrollable(e.target);
+            // Жест начался не на прокручиваемом блоке: сам экран вбок не уезжает (кроме полей ввода и холстов).
+            free = !el && !(e.target.closest && e.target.closest('input,textarea,select,canvas,[contenteditable],[data-nr-hswipe]'));
             x0 = px = e.touches[0].clientX; y0 = py = e.touches[0].clientY;
         }, { passive: true, capture: true });
         doc.addEventListener('touchmove', function (e) {
-            if (!el || !e.touches || e.touches.length !== 1) return;
+            if ((!el && !free) || !e.touches || e.touches.length !== 1) return;
             var x = e.touches[0].clientX, y = e.touches[0].clientY, dx = x - px, dy = y - py;
             px = x; py = y;
             if (!axis) {
                 var ax = Math.abs(x - x0), ay = Math.abs(y - y0);
                 if (Math.max(ax, ay) < 6) return;
                 axis = ax > ay ? 'x' : 'y';
-                if (el.__nrmX && el.__nrmY) {
+                if (el && el.__nrmX && el.__nrmY) {
                     saved = { n: el, x: el.style.overflowX, y: el.style.overflowY };
                     if (axis === 'x') el.style.overflowY = 'hidden'; else el.style.overflowX = 'hidden';
                 }
             }
-            if (axis === 'x' && el.__nrmX && e.cancelable &&
-                ((dx > 0 && el.scrollLeft <= 0) || (dx < 0 && el.scrollLeft >= el.scrollWidth - el.clientWidth - 1))) e.preventDefault();
+            if (!e.cancelable || axis !== 'x') return;
+            if (free) { e.preventDefault(); return; }
+            if (el.__nrmX && ((dx > 0 && el.scrollLeft <= 0) || (dx < 0 && el.scrollLeft >= el.scrollWidth - el.clientWidth - 1))) e.preventDefault();
         }, { passive: false, capture: true });
         function end() { touching = false; clearTimeout(timer); timer = setTimeout(restore, 160); }
         doc.addEventListener('touchend', end, { passive: true, capture: true });
