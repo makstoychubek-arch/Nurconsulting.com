@@ -83,6 +83,12 @@
         if (box.classList.contains('nr-win-max') || box.classList.contains('nr-win-min')) return;
         // Лист план/факт широкий — размер задаёт его CSS, общий размер окон ему не подходит.
         if (box.classList.contains('rnp-plan-fact-dialog')) { box.style.removeProperty('width'); box.style.removeProperty('height'); return; }
+        // Настройки РНП на телефоне: на весь экран, а не окном размером для компьютера.
+        if (box.parentElement && box.parentElement.id === 'rnp-settings-overlay' && typeof matchMedia === 'function' && matchMedia('(max-width: 768px)').matches) {
+            box.style.setProperty('width', '100%', 'important');
+            box.style.setProperty('height', '100%', 'important');
+            return;
+        }
         box.style.setProperty('width', size.w + 'px', 'important');
         box.style.setProperty('height', size.h + 'px', 'important');
     }
