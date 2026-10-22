@@ -169,14 +169,15 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
         }
     });
 
-    /* Долгий режим: запрос к данным идёт дольше 1,5 с → лисёнок в углу */
-    var pend = 0, tShow = null, tHide = null, tPhrase = null, tCap = null, corner = null, shownAt = 0, gaveUp = false;
-    function relevant(u) { return /supabase\.co\/(rest|functions)\//.test(u) && !/perf-sample|client-error/.test(u); }
+    /* Лисёнок в углу показываем только при первой загрузке данных нового кабинета (auto-sync, mode: full).
+       Обычные долгие запросы больше не показывают плашку: она мешала и не относилась к делу. */
+    var firstSync = 0, pend = 0, tShow = null, tHide = null, tPhrase = null, tCap = null, corner = null, shownAt = 0, gaveUp = false;
+    function relevant(u) { return firstSync > 0 && /supabase\.co\/(rest|functions)\//.test(u) && !/perf-sample|client-error/.test(u); }
     function showLong() {
         if (corner || gaveUp) return;
         corner = doc.createElement('div'); corner.id = 'nr-fox-long'; corner.setAttribute('role', 'status');
         corner.appendChild(slot(52, null));
-        var tx = doc.createElement('div'); tx.innerHTML = '<b>Считаем, секунду…</b><small>Данные из Wildberries</small>';
+        var tx = doc.createElement('div'); tx.innerHTML = '<b>Загружаем данные кабинета…</b><small>Первая синхронизация с Wildberries</small>';
         corner.appendChild(tx);
         doc.body.appendChild(corner);
         requestAnimationFrame(function () { corner && corner.classList.add('on'); });
@@ -185,7 +186,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
             if (!corner) return;
             var f = corner.querySelector('.nr-fox-slot'); if (f) f.remove();
             corner.insertBefore(slot(52, 'surprised'), corner.firstChild);
-            tx.innerHTML = '<b>Большой кабинет, ещё чуть-чуть</b><small>Мы сохраняем ваши данные</small>';
+            tx.innerHTML = '<b>Большой кабинет, ещё чуть-чуть</b><small>Мы сохраняем ваши данные, это занимает несколько минут</small>';
         }, 5000);
         tCap = setTimeout(function () { gaveUp = true; hideLong(true); }, 30000);
     }
@@ -208,12 +209,17 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
     }
     if (isApp && root.fetch) {
         var f0 = root.fetch;
-        root.fetch = function (input) {
+        root.fetch = function (input, init) {
             var url = typeof input === 'string' ? input : (input && input.url) || '';
-            var counted = false;
-            try { counted = begin(url); } catch (e) { /* не мешаем запросу */ }
+            var counted = false, first = false;
+            try {
+                first = /functions\/v1\/auto-sync/.test(url) && init && typeof init.body === 'string' && /"mode"\s*:\s*"full"/.test(init.body);
+                if (first) firstSync++;
+                counted = begin(url);
+            } catch (e) { /* не мешаем запросу */ }
             var p = f0.apply(this, arguments);
-            if (counted) p.then(end, end);
+            var done = function () { if (first) firstSync = Math.max(0, firstSync - 1); if (counted) end(); };
+            if (counted || first) p.then(done, done);
             return p;
         };
     }
