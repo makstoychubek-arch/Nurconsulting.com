@@ -38,6 +38,23 @@ const tables = {
         assert.ok(saved.length > 1000, 'снимок экрана сохранён');
         assert.ok(!/rnp-sheet-body--swap|nr-stale/.test(saved), 'в сохранённом снимке нет классов приглушения');
         console.log('ok   телефон: снимок экрана не хранит приглушение');
+        // жест почти по диагонали, но больше вправо: едет только вправо, вертикаль не плывёт
+        const cdp = await page.context().newCDPSession(page);
+        const pos = () => page.evaluate(() => { const b = document.getElementById('rnp-sheet-body'); return { l: b.scrollLeft, t: b.scrollTop, sw: b.scrollWidth - b.clientWidth, sh: b.scrollHeight - b.clientHeight }; });
+        const before = await pos();
+        assert.ok(before.sw > 50 && before.sh > 50, 'таблица прокручивается по обеим осям: ' + JSON.stringify(before));
+        const box = await page.evaluate(() => { const r = document.getElementById('rnp-sheet-body').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+        const pt = (x, y) => [{ x, y }];
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(box.x + 100, box.y + 50) });
+        for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(box.x + 100 - i * 12, box.y + 50 - i * 5) });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.waitForTimeout(600);
+        const after = await pos();
+        assert.ok(after.l > before.l + 20, 'по горизонтали проехало: ' + JSON.stringify(after));
+        assert.ok(Math.abs(after.t - before.t) < 4, 'по вертикали не поехало при горизонтальном жесте: ' + JSON.stringify([before, after]));
+        const restored = await page.evaluate(() => document.getElementById('rnp-sheet-body').style.overflowY);
+        assert.strictEqual(restored, '', 'после жеста вертикальная прокрутка возвращена');
+        console.log('ok   телефон: горизонтальный жест едет вбок и не трогает вертикаль (замок оси не ломает прокрутку)');
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
         console.log('e2e РНП на телефоне: все проверки прошли');
     } catch (e) {
