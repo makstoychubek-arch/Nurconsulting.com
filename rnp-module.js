@@ -112,9 +112,9 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 48;
     const DAY_COL_W = 48;
-    const PHONE_METRIC_W = 108;
-    const PHONE_SPARK_W = 32;
-    const PHONE_COL_W = 44;
+    const PHONE_METRIC_W = 94;
+    const PHONE_SPARK_W = 24;
+    const PHONE_COL_W = 36;
 
     function _isPhone() {
         try { return window.matchMedia('(max-width: 768px)').matches; }
