@@ -1393,3 +1393,25 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 [data-theme="neon"] .rnp-sheet-table th.rnp-period-total-th, [data-theme="neon"] .rnp-sheet-table td.rnp-cell-period { background: #2b2a33 !important; color: #fff !important; }
 [data-theme="neon"] .rnp-sheet-table td.rnp-cell-period *, [data-theme="neon"] .rnp-sheet-table th.rnp-period-total-th * { color: #fff !important; }
 .rnp-sheet-table td.rnp-cell-period *, .rnp-sheet-table th.rnp-period-total-th * { color: inherit; }
+
+/* ── Телефон: инструменты внутри раскрытой шапки (плитки), верхняя полоса убрана ── */
+@media (max-width: 768px) {
+  body .rnp-action-bar--phone { display: none !important; }
+  body .rnp-ph2-tools { display: flex; gap: 6px; margin: 8px 0 0; }
+  body .rnp-ph2-tile { flex: 1; min-width: 0; width: auto; height: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 2px 7px; border: 0; border-radius: 14px; background: rgba(120, 120, 140, .14); color: var(--text-primary); font-size: 10.5px; font-weight: 700; cursor: pointer; }
+  body .rnp-ph2-tile svg { width: 20px; height: 20px; }
+  body .rnp-ph2-tile span { display: block !important; }
+  body .rnp-ph2-tile.is-main { background: var(--accent); color: #fff; }
+  body .rnp-ph2-tile.is-on { background: var(--accent-soft); color: var(--accent); }
+  body .rnp-ph2-meta { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; }
+  body .rnp-ph2-row { display: flex; gap: 6px; align-items: center; }
+  body .rnp-ph2-row .rnp-meta-input, body .rnp-ph2-row .rnp-meta-select { flex: 1 1 0; min-width: 0; width: auto; height: 36px; font-size: 16px; border-radius: 12px; }
+  body .rnp-ph2-price { display: flex; align-items: center; gap: 4px; flex: none; height: 36px; padding: 0 3px 0 12px; border-radius: 12px; background: var(--surface); font-size: 12px; font-weight: 700; }
+  body .rnp-ph2-price .rnp-price-btn { width: 34px; height: 30px; border-radius: 9px; font-size: 12px; }
+  body .rnp-ph2-row .rnp-head-notes-btn { flex: 1 1 0; width: auto; height: 36px; font-size: 13px; border-radius: 12px; justify-content: center; }
+  body .rnp-ph2-panel .rnp-head-meta { display: none !important; }
+}
+
+/* Тумблеры настроек: выключенный — серый, а не «белый»; движок с тенью, чтобы его было видно на любой теме */
+.rnp-settings-toggle { flex: none; cursor: pointer; border: 0; transition: background .15s; }
+.rnp-settings-toggle > span { box-shadow: 0 1px 3px rgba(0,0,0,.35); }
