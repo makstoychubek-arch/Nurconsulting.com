@@ -3939,7 +3939,6 @@
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }
         .rnp-sheet-table .rnp-cell-week { background: rgba(147, 196, 125, 0.18); }
         .rnp-sheet-table .rnp-cell-today { border: none !important; background: var(--accent-soft) !important; }
-        /* Preliminary/live indicator for today's orders_count cell (see rnp-module.js _renderSection) */
         .rnp-sheet-table .rnp-cell-live { border-bottom: none !important; position: relative; }
         .rnp-live-badge { display: none; }
         .rnp-sheet-table .rnp-cell-month-start { border: none !important; }
@@ -6108,7 +6107,7 @@
                     __nrCss += '.rail-btn[data-tab="' + __nrTab + '"]{background:var(--sel) !important}';
                 }
                 if (__nrPane === 'advertising') {
-                    // Как у готовой страницы: плашка периода занимает место сразу (скрыта, пока не подставится период), кнопки «назад» нет.
+                    // Как у готовой страницы: плашка периода занимает место сразу, кнопки «назад» нет.
                     __nrCss += 'html[data-nr-early] #header-date-chip-wrap{display:flex !important;visibility:hidden}';
                     __nrCss += 'html[data-nr-early] #header-back-btn{display:none !important}';
                 } else {
@@ -8196,7 +8195,8 @@
 
 <script src="/dist/nr-win.2608c3728e.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.ab386c2c2f.min.js"></script>
+<script src="/nr-snap.js"></script>
+<script src="/dist/rnp-module.e642c51e2b.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -9603,6 +9603,7 @@
 
     // Загружает ВСЕ строки таблицы с пагинацией (обходит лимит Supabase 1000)
     async function fetchAllRows(table, filters, columns = '*') {
+        const pk = window.NrSnap && await window.NrSnap.fetchRows(supabase, table, filters, columns); if (pk) return pk;
         const PAGE = 1000;
         let all = [];
         let from = 0;

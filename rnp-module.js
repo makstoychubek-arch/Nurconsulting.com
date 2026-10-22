@@ -741,6 +741,12 @@ const RNP = (() => {
     }
 
     async function _fetchAllRowsRaw(table, filters, columns = '*') {
+        // Сначала упакованная выгрузка с кэшем устройства (nr-snap.js): одна компактная загрузка вместо десятков страниц.
+        // null = не получилось / не подходит, идём прежним постраничным путём.
+        if (window.NrSnap) {
+            const packed = await window.NrSnap.fetchRows(_db, table, filters, columns);
+            if (packed) return packed;
+        }
         const PAGE = 1000;
         const MAX_PAGES = 40;
         const BATCH = 6; // страницы после первой тянем пачками параллельно, а не по одной
