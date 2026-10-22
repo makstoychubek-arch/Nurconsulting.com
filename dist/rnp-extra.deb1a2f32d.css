@@ -1367,7 +1367,7 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
   body .rnp-ph2-panel .rnp-head-meta { display: flex !important; grid-template-columns: none; height: auto; flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 8px 0 4px; }
   body .rnp-ph2-panel .rnp-head-meta .rnp-meta-input,
   body .rnp-ph2-panel .rnp-head-meta .rnp-meta-select,
-  body .rnp-ph2-panel .rnp-head-notes-btn { width: auto; flex: 1 1 120px; height: 30px; font-size: 12px; }
+  body .rnp-ph2-panel .rnp-head-notes-btn { width: auto; flex: 1 1 120px; height: 32px; font-size: 16px; }
   body .rnp-ph2-panel .rnp-price-btn { flex: 0 0 34px; width: 34px; height: 30px; }
   /* левый блок таблицы (ответственный/статус/заметки) теперь живёт в панели */
   body .rnp-sheet-table .rnp-th-metric .rnp-head-meta { display: none !important; }
