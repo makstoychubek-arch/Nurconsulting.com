@@ -31,7 +31,7 @@
 .adp2-row.virt { border-style: dashed; }
 .adp2-row.skel .adp2-head { cursor: default; }
 
-.adp2-head { display: grid; grid-template-columns: 96px 54px minmax(200px, 1.6fr) 228px minmax(0, 190px) 18px; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
+.adp2-head { display: grid; grid-template-columns: 96px 54px minmax(160px, 1.6fr) 300px minmax(0, 190px) 18px; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
 .adp2-tc { display: flex; justify-content: center; }
 .adp2-nm { min-width: 0; }
 .adp2-nm b { display: flex; align-items: center; gap: 7px; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -230,8 +230,8 @@
 .adp2-nm small.adp2-main{color:var(--text-muted)}
 .adp2-mph{width:44px;height:56px;border-radius:10px;object-fit:cover;object-position:center top;background:var(--sel);display:block}
 
-.adp2-st{display:flex;gap:14px;justify-content:flex-end}
-.adp2-m{min-width:64px;text-align:right;white-space:nowrap}.adp2-m small{display:block;color:var(--text-muted);font-size:11px}.adp2-m b{font-size:14px;font-weight:600;white-space:nowrap}
+.adp2-st{display:flex;gap:10px;justify-content:flex-end}
+.adp2-m{min-width:60px;text-align:right;white-space:nowrap}.adp2-m small{display:block;color:var(--text-muted);font-size:11px}.adp2-m b{font-size:14px;font-weight:600;white-space:nowrap}
 .adp2-m b.ok{color:var(--green)}.adp2-m b.wa{color:var(--amber)}.adp2-m b.bad{color:var(--red)}
 @media (max-width:760px){.adp2-st{justify-content:flex-start;gap:16px}.adp2-m{text-align:left;min-width:0}}
 
@@ -254,3 +254,12 @@
     .adp2-sl { padding: 2px; }
     .adp2-sl button { min-width: 22px; height: 20px; font-size: 10px; padding: 0 4px; }
 }
+
+/* Баланс кампании в строке и окно пополнения */
+.adp2-bal{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;padding:2px 6px;border-radius:8px;transition:background .15s}
+.adp2-bal:hover{background:rgba(120,120,140,.14)}
+.adp2-bal b.bad{color:var(--red)}
+.adp2-pre{display:flex;gap:6px;flex-wrap:wrap}
+.adp2-pre button{flex:1;min-width:64px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text-primary);font:inherit;font-weight:700;cursor:pointer}
+.adp2-pre button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.adp2-go:disabled{opacity:.5;cursor:not-allowed}

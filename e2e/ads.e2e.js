@@ -10,7 +10,7 @@ const CAMPS = [[39497221, 'СРС Пиджаки оверсайз', 9], [3949723
 const tables = {
     spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }],
     cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID, adv_token_valid: true, adv_daily_budget_cap: 60000 }],
-    advertising_campaigns: CAMPS.map(([id, n, st]) => ({ cabinet_id: CAB, campaign_id: id, campaign_name: n, status: st, type: 9, created_at: '2026-09-01T00:00:00Z' })),
+    advertising_campaigns: CAMPS.map(([id, n, st], i) => ({ cabinet_id: CAB, campaign_id: id, campaign_name: n, status: st, type: 9, budget_total: i === 0 ? 120 : 4500, created_at: '2026-09-01T00:00:00Z' })),
     advertising_daily_stats: CAMPS.flatMap(([id], i) => Array.from({ length: 14 }, (_, d) => ({ cabinet_id: CAB, campaign_id: id, stat_date: day(d), spend: 800 + i * 120 + d * 7, sum_price: 6000 + i * 900, clicks: 90 + d, atbs: 20, orders: 8 + (i % 3), views: 4000, shks: 6, data: {} }))),
     adv_campaigns: [], rnp_articles: [], wb_stocks: [],
 };
@@ -102,6 +102,25 @@ test('Дашборд на телефоне: новый компактный ви
     assert.strictEqual(hiddenOld, 'none', 'старые блоки скрыты на телефоне');
 });
 
+test('Пульт: у каждой РК виден баланс, по нажатию открывается пополнение и сумма уходит в WB', async ({ page, calls }) => {
+    await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-bal').length >= 4, null, { timeout: 5000 });
+    const bals = await page.evaluate(() => [...document.querySelectorAll('#adv-pulse .adp2-bal b')].map((b) => b.textContent.trim()));
+    assert.ok(bals.every((t) => /₽|—/.test(t)), 'в каждой строке есть баланс: ' + bals.join(', '));
+    assert.ok(await page.locator('#adv-pulse .adp2-bal b.bad').count() >= 1, 'маленький баланс (меньше 300 ₽) подсвечен');
+    const t0 = Date.now();
+    await page.locator('#adv-pulse .adp2-bal').first().click();
+    await page.locator('.adp2-md #adp2-dep').waitFor({ state: 'visible' });
+    assert.ok(Date.now() - t0 < 300, 'окно пополнения открылось за ' + (Date.now() - t0) + ' мс');
+    await page.locator('.adp2-pre button[data-sum="2000"]').click();
+    const before = await page.locator('#adv-pulse .adp2-bal b').first().textContent();
+    await page.locator('#adp2-dep').click();
+    await page.waitForFunction((b) => document.querySelector('#adv-pulse .adp2-bal b').textContent.trim() !== b.trim(), before, { timeout: 300 });
+    await page.waitForTimeout(SERVER_DELAY + 400);
+    const dep = calls.filter((c) => c.kind === 'fn' && c.name === 'wb-proxy' && c.body && c.body.action === 'advert_deposit');
+    assert.strictEqual(dep.length, 1, 'пополнение ушло в WB один раз');
+    assert.strictEqual(dep[0].body.params.sum, 2000, 'сумма 2000 ₽');
+});
+
 test('Дашборд на телефоне: число с барабанами цифр (NrWow) читается как число, а не скелет', async ({ page }) => {
     // Раньше textContent барабана — «0123456789…» на каждый разряд; компактный вид считал это мусором
     // и вечно держал серый скелет («мутно»), потом писал «Нет данных».
@@ -137,7 +156,7 @@ test('повторное открытие вкладки показывает п
     for (const t of tests) {
         let env;
         try { env = await open(browser, base); await t.fn(env); console.log('ok   ' + t.name); }
-        catch (e) { failed++; console.log('FAIL ' + t.name + '\n     ' + String(e.message || e).split('\n')[0]); }
+        catch (e) { failed++; console.log('FAIL ' + t.name + '\n     ' + String(e.message || e).split('\n').slice(0,14).join('\n     ')); }
         if (env) await env.ctx.close();
     }
     await browser.close();

@@ -771,6 +771,50 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Пополнение баланса одной кампании ────────────────────────────
+            // POST /adv/v1/budget/deposit?id={id} {sum, type:1 (баланс), return:true}.
+            // Деньги списываются с баланса рекламного кабинета WB, поэтому сумма ограничена.
+            case 'advert_deposit': {
+                const advertId = Number(params.advertId || 0);
+                const sum = Math.round(Number(params.sum || 0));
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                if (!Number.isFinite(sum) || sum < 500 || sum > 1_000_000) {
+                    return json({ error: 'Сумма пополнения от 500 до 1 000 000 ₽' }, 400);
+                }
+                const url = `https://advert-api.wildberries.ru/adv/v1/budget/deposit?id=${advertId}`;
+                const wbRes = await fetch(url, {
+                    method: 'POST',
+                    headers: { Authorization: WB_PROMO_TOKEN, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sum, type: 1, return: true }),
+                });
+                const text = await wbRes.text();
+                if (!wbRes.ok) {
+                    console.warn('[wb-proxy] advert_deposit failed:', wbRes.status, text.slice(0, 300));
+                    let detail = text.slice(0, 200);
+                    try {
+                        const parsed = JSON.parse(text);
+                        detail = String(parsed?.error || parsed?.errorText || parsed?.message || detail);
+                    } catch { /* не JSON */ }
+                    let friendly = '';
+                    if (wbRes.status === 401 || wbRes.status === 403) {
+                        friendly = 'Токен WB не имеет прав на пополнение рекламы. Включите у токена категорию «Продвижение» с доступом на изменение.';
+                    } else if (/balance|баланс|недостаточно|insufficient/i.test(detail)) {
+                        friendly = 'На балансе рекламного кабинета WB не хватает средств для пополнения РК.';
+                    }
+                    return json({ error: friendly || `WB deposit error ${wbRes.status}: ${detail}` }, wbRes.status >= 500 ? 502 : 400);
+                }
+                let total: number | null = null;
+                try { const parsed = JSON.parse(text); if (parsed && parsed.total != null) total = Number(parsed.total); } catch { /* пустое тело */ }
+                try {
+                    if (total != null) {
+                        await admin.from('advertising_campaigns').update({ budget_total: total })
+                            .eq('cabinet_id', cabinet_id).eq('campaign_id', advertId);
+                    }
+                } catch (e) { console.warn('[wb-proxy] advert_deposit budget cache:', String(e)); }
+                result = { ok: true, advertId, sum, total };
+                break;
+            }
+
             // ── Управление кампанией: старт / пауза ──────────────────────────
             // GET /adv/v0/start|pause?id={id}. Ставки/бюджет не трогаем —
             // это только включение/выключение уже настроенной кампании.

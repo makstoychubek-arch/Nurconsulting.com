@@ -72,7 +72,7 @@
     }
 
     /* ───────── состояние ───────── */
-    var S = {
+    var S = { bal: {},
         deps: null, rows: [], open: {}, tab: {}, info: {}, ov: {}, ops: {}, timers: {}, arts: {}, virtual: [],
         view: 'pulse', kw: {}, kwOps: {}, kwBusy: false, kwTab: {}, polling: 0, queue: [], qBusy: false, toastTimer: 0, undo: null,
     };
@@ -329,10 +329,20 @@
     }
     function fmtInt(v) { return Math.round(Number(v) || 0).toLocaleString('ru-RU').replace(/\u00a0/g, ' '); }
     /* Расход, заказы и ДРР за выбранный период прямо в строке */
-    function metricsHtml(camp) {
+    function balOf(key, camp) {
+        var o = S.bal && S.bal[key];
+        if (o != null) return o;
+        return camp.budget == null || !isFinite(Number(camp.budget)) ? null : Number(camp.budget);
+    }
+    function balHtml(key, camp) {
+        var b = balOf(key, camp), low = b != null && b < 300;
+        return '<button type="button" class="adp2-m adp2-bal" data-pact="topup" data-key="' + esc(key) + '" title="Баланс кампании. Нажмите, чтобы пополнить">' +
+            '<small>Баланс</small><b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : fmtInt(b) + ' ₽') + '</b></button>';
+    }
+    function metricsHtml(camp, key) {
         var d = drrOf(camp), has = (Number(camp.spendToday) || 0) > 0 || (Number(camp.orders) || 0) > 0;
         var cl = d == null ? '' : (d < 8 ? 'ok' : d < 12 ? 'wa' : 'bad');
-        return '<div class="adp2-m"><small>Расход</small><b>' + (has ? fmtInt(camp.spendToday) + ' ₽' : '—') + '</b></div>' +
+        return (key ? balHtml(key, camp) : '') + '<div class="adp2-m"><small>Расход</small><b>' + (has ? fmtInt(camp.spendToday) + ' ₽' : '—') + '</b></div>' +
             '<div class="adp2-m"><small>Заказы</small><b>' + (has ? fmtInt(camp.orders) : '—') + '</b></div>' +
             '<div class="adp2-m"><small>ДРР</small><b class="' + cl + '">' + (d == null ? '—' : d.toFixed(1).replace('.', ',') + '%') + '</b></div>';
     }
@@ -399,7 +409,7 @@
             '<div class="adp2-pos" data-nostop="1">' + switchHtml(key, camp, live) + '</div>' +
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
             '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small>' + unitText(kind) + ' · № ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small>' + mainLine(cab, camp, nmCount) + '</div>' +
-            '<div class="adp2-st">' + metricsHtml(c) + '</div>' +
+            '<div class="adp2-st">' + metricsHtml(c, key) + '</div>' +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<span class="adp2-cv">⌄</span></div>' +
             (open ? '<div class="adp2-body"><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
@@ -827,6 +837,47 @@
         $('adp2-wok').addEventListener('click', function () { m.close(); kwSetOff(key, w.items.map(kwKey), true); });
     }
 
+    /* ───────── пополнение баланса кампании ───────── */
+    function topupFlow(key) {
+        var f = findCamp(key); if (!f) return;
+        var cur = balOf(key, f.camp), presets = [500, 1000, 2000, 5000], sel = 1000, busy = false;
+        var m = modal('<div class="adp2-mh"><b>Пополнить РК</b><button type="button" data-close="1" class="adp2-x" aria-label="Закрыть">✕</button></div>' +
+            '<p class="adp2-mut" style="font-size:13px;margin:0 0 10px"><b>' + esc(f.camp.name) + '</b> · № ' + esc(f.camp.wbId) + '<br>Сейчас на балансе: <b>' + (cur == null ? '—' : fmtInt(cur) + ' ₽') + '</b></p>' +
+            '<div class="adp2-pre" id="adp2-pre">' + presets.map(function (v) { return '<button type="button" data-sum="' + v + '" class="' + (v === sel ? 'on' : '') + '">' + fmtInt(v) + ' ₽</button>'; }).join('') + '</div>' +
+            '<label class="adp2-mut" style="font-size:12px;display:block;margin:10px 0 4px">Или другая сумма, от 500 ₽</label>' +
+            '<input type="text" inputmode="numeric" id="adp2-sum" class="adp2-num" style="width:100%;font-size:16px" value="' + sel + '" aria-label="Сумма пополнения">' +
+            '<p class="adp2-mut" style="font-size:12px;margin:10px 0 0">Деньги спишутся с баланса рекламного кабинета WB и придут на эту кампанию.</p>' +
+            '<div class="adp2-mf"><button type="button" class="adp2-gh" data-close="1">Отмена</button><button type="button" class="adp2-go" id="adp2-dep">Пополнить на ' + fmtInt(sel) + ' ₽</button></div>');
+        var inp = $('adp2-sum'), go = $('adp2-dep');
+        function val() { return Math.round(Number(String(inp.value).replace(/[^\d]/g, '')) || 0); }
+        function sync() {
+            var v = val();
+            m.el.querySelectorAll('#adp2-pre button').forEach(function (b) { b.classList.toggle('on', Number(b.dataset.sum) === v); });
+            go.disabled = v < 500 || v > 1000000;
+            go.textContent = v < 500 ? 'Минимум 500 ₽' : 'Пополнить на ' + fmtInt(v) + ' ₽';
+        }
+        m.el.querySelector('#adp2-pre').addEventListener('click', function (e) { var b = e.target.closest('button[data-sum]'); if (b) { inp.value = b.dataset.sum; sync(); } });
+        inp.addEventListener('input', sync);
+        go.addEventListener('click', function () {
+            if (busy) return; var sum = val(); if (sum < 500 || sum > 1000000) return; busy = true;
+            m.close();
+            var before = S.bal[key], base = balOf(key, f.camp);
+            // Баланс на экране меняется сразу; если WB откажет, возвращаем прежний и говорим об этом.
+            S.bal[key] = (base || 0) + sum; patchRow(key);
+            Promise.resolve(call('advert_deposit', { advertId: f.camp.wbId, sum: sum }, f.cab.id)).then(function (res) {
+                if (res && res.total != null && isFinite(Number(res.total))) S.bal[key] = Number(res.total);
+                patchRow(key);
+                toast('Баланс пополнен на ' + fmtInt(sum) + ' ₽');
+                setTimeout(function () { if (root.AdsHQ && root.AdsHQ.load) root.AdsHQ.load(); }, 2500);
+            }).catch(function (e) {
+                if (before == null) delete S.bal[key]; else S.bal[key] = before;
+                patchRow(key);
+                toast('Не удалось пополнить: ' + esc(String((e && e.message) || e || 'WB не ответил')) + '. Повторите', { label: 'Повторить', fn: function () { topupFlow(key); } });
+            });
+        });
+        setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 50);
+    }
+
     /* ───────── события ───────── */
     function onClick(e) {
         var t = e.target.closest('[data-pact]'); if (!t) return;
@@ -844,6 +895,7 @@
         }
         else if (act === 'rm') removeProduct(key, Number(t.dataset.nm));
         else if (act === 'addp') addProductsFlow(key);
+        else if (act === 'topup') topupFlow(key);
         else if (act === 'toggle') togglePause(key);
         else if (act === 'pos') { var fp = findCamp(key); if (fp && root.AdsHQ && root.AdsHQ.setCampPos) root.AdsHQ.setCampPos(fp.cab.id, fp.camp.wbId, Number(t.dataset.pos)); }
         else if (act === 'retry') retryOps(key);
