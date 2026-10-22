@@ -385,8 +385,11 @@
     /* Фото главного товара РК (самая высокая ставка); без фото остаётся значок типа оплаты */
     function mainPhotoHtml(cab, camp, kind) {
         var url = (camp.mainNm && artPhoto(cab.id, camp.mainNm)) || camp.photoUrl || '';
-        if (!url) return badge(kind, 'xl');
-        return '<img class="adp2-mph" src="' + esc(url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement(\'i\'),{className:\'adp2-mph\'}))">';
+        var img = url
+            ? '<img class="adp2-mph" src="' + esc(url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement(\'i\'),{className:\'adp2-mph\'}))">'
+            : '<i class="adp2-mph"></i>';
+        /* Тип оплаты (СРС / СРМ) маленькой меткой на углу фото */
+        return '<span class="adp2-ph">' + img + badge(kind, 's') + '</span>';
     }
     function mainLine(cab, camp, nmCount) {
         var t = camp.mainNm ? (camp.mainTitle || artName(cab.id, camp.mainNm)) : '';
