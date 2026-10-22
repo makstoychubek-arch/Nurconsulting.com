@@ -31,6 +31,14 @@ const tables = {
         const ms = Date.now() - t0;
         assert.ok(ms < SLOW, 'таблица с цифрами появилась за ' + ms + ' мс, хотя тяжёлая выборка идёт ' + SLOW + ' мс — отрисовка не должна её ждать');
         console.log('ok   РНП: таблица появляется, не дожидаясь тяжёлой выборки (' + ms + ' мс при задержке ' + SLOW + ' мс)');
+        // обычные долгие запросы не показывают лисёнка в углу: плашка нужна только при первой загрузке нового кабинета
+        await page.waitForTimeout(2200);
+        assert.strictEqual(await page.locator('#nr-fox-long').count(), 0, 'при долгой загрузке РНП лисёнок в углу не появляется');
+        console.log('ok   РНП: при долгой загрузке плашки с лисёнком нет');
+        await page.route(/functions\/v1\/auto-sync/, async (r) => { await new Promise((x) => setTimeout(x, 3500)); r.fulfill({ json: { ok: true } }); });
+        page.evaluate(() => fetch('https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'full', cabinet_id: 'x' }) }).catch(() => {})).catch(() => {});
+        await page.waitForSelector('#nr-fox-long.on', { timeout: 4000 });
+        console.log('ok   первая загрузка нового кабинета показывает плашку');
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
         console.log('e2e загрузки РНП: все проверки прошли');
     } catch (e) {
