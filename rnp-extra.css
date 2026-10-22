@@ -412,7 +412,7 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-byart th.rnp-byart-total-th, .rnp-byart tr > td:last-child { position: sticky; right: 0; z-index: 6; min-width: 96px; width: 96px; box-shadow: -1px 0 0 var(--border); }
 .rnp-byart .rnp-th-month-curr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; padding-left: 8px; }
 /* ИТОГ за период — последняя колонка таблицы артикула */
-.rnp-sheet-table th.rnp-period-total-th, .rnp-sheet-table td.rnp-cell-period { background: #f1eefc !important; color: #3a2a9a; font-weight: 800; position: sticky; right: 0; z-index: 6; box-shadow: -1px 0 0 var(--border); min-width: 86px; }
+.rnp-sheet-table th.rnp-period-total-th, .rnp-sheet-table td.rnp-cell-period { background: #f1eefc !important; color: #111 !important; font-weight: 800; position: sticky; right: 0; z-index: 6; box-shadow: -1px 0 0 var(--border); min-width: 86px; }
 .rnp-period-total-th small { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
 /* --accent-soft полупрозрачен в тёмной теме — просвечивал на липких колонках метрик/спарклайна; кладём его
    поверх непрозрачного --surface-solid, как у недель/ИТОГа. (translateZ/will-change здесь не ставим:
@@ -1388,3 +1388,8 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
   body .rnp-sheet-table thead th { font-size: 8px; }
   body .rnp-sheet-table th.rnp-th-date { font-size: 8.5px; }
 }
+
+/* ИТОГ за период: буквы и цифры чёрные на светлом фоне, белые на тёмном (в тёмной теме фон тоже тёмный) */
+[data-theme="neon"] .rnp-sheet-table th.rnp-period-total-th, [data-theme="neon"] .rnp-sheet-table td.rnp-cell-period { background: #2b2a33 !important; color: #fff !important; }
+[data-theme="neon"] .rnp-sheet-table td.rnp-cell-period *, [data-theme="neon"] .rnp-sheet-table th.rnp-period-total-th * { color: #fff !important; }
+.rnp-sheet-table td.rnp-cell-period *, .rnp-sheet-table th.rnp-period-total-th * { color: inherit; }
