@@ -1487,3 +1487,10 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
   .pf-sheet .pf-nm { font-size: 7.5px; }
   .pf-sheet .pf-title { font-size: 13px; }
 }
+
+/* Телефон: без строки «Показаны последние 14 дн.» и без названия месяца над датами, место важнее */
+@media (max-width: 768px) {
+  body .rnp-phone-trim { display: none !important; }
+  body .rnp-sheet-table { --rnp-row1: 0px; }
+  body .rnp-sheet-table thead tr.rnp-cal-month-row th.rnp-th-month { height: 0 !important; padding: 0 !important; border: 0 !important; font-size: 0 !important; line-height: 0 !important; overflow: hidden; visibility: hidden; }
+}
