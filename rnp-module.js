@@ -1083,6 +1083,14 @@ const RNP = (() => {
         return out;
     }
 
+    // Порядок групп (по показанным названиям) и артикулов (nm_id подряд): общий для всех устройств.
+    function _normGroupOrder(raw) {
+        return Array.isArray(raw) ? [...new Set(raw.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 500) : [];
+    }
+    function _normArtOrder(raw) {
+        return Array.isArray(raw) ? [...new Set(raw.map(x => Number(x)).filter(n => Number.isFinite(n) && n > 0))].slice(0, 5000) : [];
+    }
+
     function _normalizeOptions(raw) {
         const o = raw && typeof raw === 'object' ? raw : {};
         return {
@@ -1096,6 +1104,8 @@ const RNP = (() => {
                 ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
                 : [],
             groupNames: _normGroupNames(o.groupNames),
+            groupOrder: _normGroupOrder(o.groupOrder),
+            artOrder: _normArtOrder(o.artOrder),
             wbGroups: o.wbGroups === true,
             responsibles: Array.isArray(o.responsibles) ? [...new Set(o.responsibles.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 20) : [],
         };
@@ -1112,6 +1122,8 @@ const RNP = (() => {
             responsibles: Array.isArray(_settings.responsibles) ? _settings.responsibles : [],
             hiddenGroups: _hiddenGroupList(),
             groupNames: _normGroupNames(_settings.groupNames),
+            groupOrder: _normGroupOrder(_settings.groupOrder),
+            artOrder: _normArtOrder(_settings.artOrder),
             wbGroups: _settings.wbGroups === true,
         };
     }
@@ -1290,13 +1302,21 @@ const RNP = (() => {
     }
     function _groupByCategory(list) {
         const groups = new Map();
-        list.slice().sort(_sortBySeller).forEach(a => {
+        const artIdx = new Map(_normArtOrder(_settings.artOrder).map((n, i) => [n, i]));
+        const byOrder = (a, b) => {
+            const ia = artIdx.has(Number(a.nm_id)) ? artIdx.get(Number(a.nm_id)) : Infinity;
+            const ib = artIdx.has(Number(b.nm_id)) ? artIdx.get(Number(b.nm_id)) : Infinity;
+            if (ia !== ib) return ia === Infinity ? 1 : ib === Infinity ? -1 : ia - ib;
+            return _sortBySeller(a, b);
+        };
+        list.slice().sort(byOrder).forEach(a => {
             const cat = _articleCategory(a);
             if (!groups.has(cat)) groups.set(cat, []);
             groups.get(cat).push(a);
         });
         const entries = [...groups.entries()];
-        const order = _catOrder();
+        const own = _normGroupOrder(_settings.groupOrder);
+        const order = own.length ? own : _catOrder();
         entries.sort((x, y) => {
             if (x[0] === UNCATEGORIZED) return 1;
             if (y[0] === UNCATEGORIZED) return -1;
@@ -1326,6 +1346,7 @@ const RNP = (() => {
         if (after) i += 1;
         list.splice(i, 0, cat);
         try { localStorage.setItem(_catOrderKey(), JSON.stringify(list)); } catch (e) {}
+        _saveSettings({ options: { ..._settingsOptions(), groupOrder: list.concat(_normGroupOrder(_settings.groupOrder).filter(c => !list.includes(c))) } }).catch(() => {});
         _refreshTabsBar();
     }
     let _catDndBound = false;
@@ -1411,6 +1432,8 @@ const RNP = (() => {
                 ts: Date.now(),
                 groupNames: _normGroupNames(_settings.groupNames),
                 hiddenGroups: _hiddenGroupList(),
+                groupOrder: _normGroupOrder(_settings.groupOrder),
+                artOrder: _normArtOrder(_settings.artOrder),
             }));
         } catch (e) {}
     }
@@ -1442,7 +1465,8 @@ const RNP = (() => {
             // Запись на устройстве новее записи в базе (база отказала при сохранении): берём локальную.
             const loc = _readLocalOpts(cab);
             if (loc && loc.ts && (!data || !data.updated_at || loc.ts > Date.parse(data.updated_at))) {
-                _settings = { ..._settings, groupNames: _normGroupNames(loc.groupNames), hiddenGroups: Array.isArray(loc.hiddenGroups) ? loc.hiddenGroups : _settings.hiddenGroups };
+                _settings = { ..._settings, groupNames: _normGroupNames(loc.groupNames), hiddenGroups: Array.isArray(loc.hiddenGroups) ? loc.hiddenGroups : _settings.hiddenGroups,
+                    groupOrder: loc.groupOrder ? _normGroupOrder(loc.groupOrder) : _settings.groupOrder, artOrder: loc.artOrder ? _normArtOrder(loc.artOrder) : _settings.artOrder };
             }
         } catch(e) { console.warn('[RNP] settings load:', e.message); }
     }
@@ -6706,6 +6730,7 @@ const RNP = (() => {
           <div class="rnp-st-ids" onclick="RNP.copyArtIds(${a.nm_id})" title="Нажмите, чтобы скопировать артикул продавца и артикул WB">
             <b>${sa || '—'}</b><span>${a.nm_id}</span>
           </div>
+          <span class="rnp-st-mv"><button type="button" onclick="RNP.moveArt(${a.nm_id},-1)" aria-label="Выше">▲</button><button type="button" onclick="RNP.moveArt(${a.nm_id},1)" aria-label="Ниже">▼</button></span>
           <button type="button" data-toggle-nm="${a.nm_id}" onclick="RNP.toggleArt(${a.nm_id})" class="rnp-settings-toggle relative w-9 h-5 rounded-full" aria-label="Показывать артикул в РНП"
             style="background:${on ? '#22a05a' : '#b4b4bd'}"><span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span></button>
         </div>`;
@@ -6720,6 +6745,7 @@ const RNP = (() => {
             ? `<div class="rnp-st-wb">из WB: ${_stEsc(orig)} · <a href="#" onclick="RNP.resetGroupName(decodeURIComponent('${key}'));return false">сбросить</a></div>` : '';
         return `<div class="rnp-st-group${open ? ' is-open' : ''}${on ? '' : ' is-off'}" data-key="g:${key}" data-g="${key}">
           <div class="rnp-group-vis rnp-st-head">
+            <span class="rnp-st-mv"><button type="button" onclick="RNP.moveGroup(decodeURIComponent('${key}'),-1)" aria-label="Выше">▲</button><button type="button" onclick="RNP.moveGroup(decodeURIComponent('${key}'),1)" aria-label="Ниже">▼</button></span>
             <button type="button" class="rnp-st-arrow" onclick="RNP.toggleSettingsGroupOpen(decodeURIComponent('${key}'))" aria-label="Раскрыть группу">▸</button>
             <div class="rnp-st-namewrap">
               <input class="rnp-st-name" value="${_stEsc(cat)}" data-cur="${_stEsc(cat)}" maxlength="120" ondblclick="this.select()"
@@ -6810,12 +6836,51 @@ const RNP = (() => {
         if (finalName === orig) delete names[orig]; else names[orig] = finalName;
         const hidden = _stMigrateName(cur, finalName);
         if (_stOpen && _stOpen.has(cur)) { _stOpen.delete(cur); _stOpen.add(finalName); }
-        _saveSettings({ options: { ..._settingsOptions(), groupNames: names, hiddenGroups: hidden } }).catch(() => {});
+        const gOrder = _normGroupOrder(_settings.groupOrder).map(c => c === cur ? finalName : c);
+        _saveSettings({ options: { ..._settingsOptions(), groupNames: names, hiddenGroups: hidden, groupOrder: gOrder } }).catch(() => {});
         _syncSettingsGroups();
         _refreshRnpAfterArticleToggle();
     }
 
     function resetGroupName(current) { renameGroup(current, ''); }
+
+    // Порядок в настройках: сразу двигаем строку на экране, запись в базу идёт в фоне.
+    function _saveOrder(groupOrder, artOrder) {
+        _saveSettings({ options: { ..._settingsOptions(), groupOrder, artOrder } }).catch(() => {});
+        _refreshRnpAfterArticleToggle();
+    }
+    function _flatArtOrder(groups) {
+        const ids = [];
+        groups.forEach(([, list]) => list.forEach(a => ids.push(Number(a.nm_id))));
+        return ids;
+    }
+    function moveGroup(cat, dir) {
+        const groups = _stGroupsList();
+        const names = groups.map(g => g[0]);
+        const i = names.indexOf(cat), j = i + (dir < 0 ? -1 : 1);
+        if (i < 0 || j < 0 || j >= names.length || names[j] === UNCATEGORIZED || cat === UNCATEGORIZED) return;
+        [names[i], names[j]] = [names[j], names[i]];
+        _settings.groupOrder = names;
+        const tree = document.getElementById('rnp-settings-articles-tbody');
+        const els = tree ? [...tree.querySelectorAll(':scope > .rnp-st-group')] : [];
+        if (els[i] && els[j]) { if (dir < 0) tree.insertBefore(els[i], els[j]); else tree.insertBefore(els[j], els[i]); }
+        _saveOrder(names, _normArtOrder(_settings.artOrder));
+    }
+    function moveArt(nm, dir) {
+        const groups = _stGroupsList();
+        const g = groups.find(([, list]) => list.some(a => a.nm_id == nm));
+        if (!g) return;
+        const list = g[1];
+        const i = list.findIndex(a => a.nm_id == nm), j = i + (dir < 0 ? -1 : 1);
+        if (j < 0 || j >= list.length) return;
+        [list[i], list[j]] = [list[j], list[i]];
+        const order = _flatArtOrder(groups);
+        _settings.artOrder = order;
+        const row = document.querySelector(`.rnp-st-art[data-nm="${nm}"]`);
+        const other = document.querySelector(`.rnp-st-art[data-nm="${list[i].nm_id}"]`);
+        if (row && other) { if (dir < 0) row.parentNode.insertBefore(row, other); else row.parentNode.insertBefore(other, row); }
+        _saveOrder(_normGroupOrder(_settings.groupOrder), order);
+    }
 
     function _syncSettingsGroups() {
         const host = _settingsHost();
@@ -9818,7 +9883,7 @@ const RNP = (() => {
 
     return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
-             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, toggleSettingsGroupOpen };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего
