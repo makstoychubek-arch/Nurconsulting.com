@@ -15813,7 +15813,9 @@
             </div>`;
             return;
         }
-        container.innerHTML = list.map(test => renderTestCard(test)).join('');
+        const html = list.map(test => renderTestCard(test)).join('');
+        if (window.domMorph && container.querySelector('[data-key]')) window.domMorph.morphList(container, html, 'data-key');
+        else container.innerHTML = html;
     }
 
     function renderTestCard(test) {
@@ -15921,7 +15923,7 @@
 
         const tid = String(test.id);
         return `
-        <div class="abtest-card" id="abtest-card-${tid}" ${hasAdsData ? `style="cursor:pointer" onclick="openABReportModal('${tid}')" title="Открыть подробный отчёт"` : ''}>
+        <div class="abtest-card" id="abtest-card-${tid}" data-key="${tid}" ${hasAdsData ? `style="cursor:pointer" onclick="openABReportModal('${tid}')" title="Открыть подробный отчёт"` : ''}>
             <div class="abtest-card-row">
                 <div class="abtest-variants">${variantsHtml}</div>
                 <div class="abtest-card-info">
@@ -16070,6 +16072,8 @@
             const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Выбранные РК встанут на паузу, чтобы не жечь бюджет.');
             if (!ok) return;
         }
+        const prevStatus = test.status;
+        test.status = 'finished'; renderABTests();
 
         const current = (test.variants || [])[test.current_variant_index || 0];
         if (current) {
@@ -16112,6 +16116,7 @@
         }).eq('id', testId);
 
         if (error) {
+            test.status = prevStatus; renderABTests();
             showPremiumModal('error', 'Не удалось завершить', error.message);
             return;
         }
@@ -16137,31 +16142,32 @@
         await loadABTests();
     }
 
-    // Полное удаление теста — нужно, например, чтобы убрать случайные
-    // дубликаты (двойной клик на «Создать тест» и т.п.). Удаляет сам тест,
-    // его варианты и лог ротаций.
+    // Полное удаление теста, его вариантов и лога ротаций.
     async function deleteABTest(testId) {
         const test = allABTests.find(t => String(t.id) === String(testId));
         const ok = await showConfirmModal('Удалить тест?', `«${test?.product_name || 'Тест'}» будет удалён без возможности восстановления, вместе со всей статистикой по вариантам.`);
         if (!ok) return;
         clearInterval(abRotationTimers[String(testId)]);
         delete abRotationTimers[String(testId)];
+        const idx = allABTests.findIndex(t => String(t.id) === String(testId));
+        const removed = idx >= 0 ? allABTests.splice(idx, 1)[0] : null;
+        renderABTests();
         await supabase.from('ab_test_rotation_log').delete().eq('test_id', testId);
         await supabase.from('ab_test_variants').delete().eq('test_id', testId);
         const { error } = await supabase.from('ab_tests').delete().eq('id', testId);
-        if (error) { showPremiumModal('error', 'Не удалось удалить', error.message); return; }
+        if (error) {
+            if (removed) { allABTests.splice(idx, 0, removed); renderABTests(); }
+            showPremiumModal('error', 'Не удалось удалить', error.message);
+            return;
+        }
         try { localStorage.removeItem(abSettingsKey(testId)); } catch (e) {}
         showPremiumModal('success', 'Тест удалён', '');
-        await loadABTests();
     }
     window.deleteABTest = deleteABTest;
 
-    // ── Детальный отчёт по тесту (как у конкурента) ──────────────────────────
-    // CTR = клики/показы, CR1 (клик→корзина) = атбс/клики, CR (клик→заказ) = заказы/клики
-    // = заказы/атбс. Вероятность "победы" каждого варианта считаем через
-    // Beta-биномиальное Монте-Карло семплирование по CTR (Beta(clicks+1,
-    // views-clicks+1)) — та же модель, что и на сервере (ab-test-rotate),
-    // чтобы цифры совпадали с тем, что реально решает автозавершение теста.
+    // Детальный отчёт по тесту. Вероятность победы считаем Beta-биномиальным
+    // Монте-Карло по CTR (Beta(clicks+1, views-clicks+1)) — та же модель, что
+    // и на сервере (ab-test-rotate), чтобы цифры совпадали с автозавершением.
     function abGaussianRandom() {
         let u = 0, v = 0;
         while (u === 0) u = Math.random();
@@ -16213,6 +16219,7 @@
         const settings = { ...(test.settings || {}), stopOnWinner: true, minCtr };
         saveABSettings(testId, settings);
         test.settings = settings;
+        renderABTests();
         const variants = test.variants || [];
         if (variants.length >= 2) {
             const probs = computeProbabilityBestByCtr(variants);
