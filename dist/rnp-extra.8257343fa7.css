@@ -1333,7 +1333,7 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 
 @media (max-width:768px){.rnp-tab-general,.rnp-tab-byart,.rnp-cat-sigma{display:none!important}}
 
-/* ── РНП на телефоне: компактнее (кнопки, шапка, шрифты таблицы), чтобы цифрам хватало места ── */
+/* ── РНП на телефоне: свёрнутая шапка (миниатюра, название, мини-галерея), узкие колонки, мелкие шрифты ── */
 @media (max-width: 768px) {
   body .rnp-action-bar--phone { padding: 2px 6px !important; gap: 4px; min-height: 28px; }
   body .rnp-action-bar--phone .rnp-tool-icon,
@@ -1344,22 +1344,47 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
   body .rnp-sheet-tab { min-height: 26px; font-size: 11px; padding: 3px 8px; }
   body .rnp-sheet-tab .rnp-tab-img { width: 20px; height: 26px; }
   body .rnp-cat-header { min-height: 26px; font-size: 11px; padding: 3px 8px; }
-  body .rnp-article-panel--phone { padding: 2px 6px 3px; }
-  body .rnp-phone-hero, body .product-card-mobile-layout { gap: 4px; margin: 0 0 4px; }
-  body .rnp-phone-hero-slides,
-  body .rnp-phone-hero-slides .rnp-head-marquee-pin,
-  body .rnp-phone-hero-banner { height: 64px; min-height: 64px; border-radius: 10px; }
+  body .rnp-article-panel--phone { padding: 2px 6px 3px; position: sticky; }
+  body .rnp-phone-hero, body .product-card-mobile-layout { gap: 0; margin: 0; }
   body .rnp-phone-trim { padding: 2px 8px; font-size: 10.5px; }
 
-  /* таблица: мельче шрифты метрик и значений, уже колонки */
-  body .rnp-sheet-table { font-size: 9px; }
+  /* свёрнутая шапка артикула */
+  body .rnp-ph2 { position: relative; }
+  body .rnp-ph2-bar { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 2px 2px; cursor: pointer; }
+  body .rnp-ph2-thumb { width: 22px; height: 28px; border-radius: 5px; object-fit: cover; flex: none; background: var(--surface); }
+  body .rnp-ph2-name { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.15; }
+  body .rnp-ph2-name b { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body .rnp-ph2-name span { font-size: 9.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body .rnp-ph2-minis { display: flex; gap: 2px; flex: none; }
+  body .rnp-ph2-mini { width: 20px; height: 26px; border-radius: 4px; object-fit: cover; background: var(--surface); }
+  body .rnp-ph2-chev { font-size: 11px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 999px; background: var(--surface); transition: transform .15s; flex: none; }
+  body .rnp-ph2.is-open .rnp-ph2-chev { transform: rotate(180deg); }
+  /* раскрытая панель лежит поверх таблицы, высоту липкой шапки не меняет */
+  body .rnp-ph2-panel { display: none; position: absolute; left: -6px; right: -6px; top: 100%; z-index: 60; padding: 6px 8px 8px; background: var(--surface-solid); border-bottom: 1px solid var(--border); box-shadow: 0 12px 24px rgba(0,0,0,.18); }
+  body .rnp-ph2.is-open .rnp-ph2-panel { display: block; }
+  body .rnp-ph2-panel .rnp-phone-hero-slides,
+  body .rnp-ph2-panel .rnp-phone-hero-slides .rnp-head-marquee-pin { height: 110px; min-height: 110px; border-radius: 12px; }
+  body .rnp-ph2-panel .rnp-head-meta { display: flex !important; grid-template-columns: none; height: auto; flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 8px 0 4px; }
+  body .rnp-ph2-panel .rnp-head-meta .rnp-meta-input,
+  body .rnp-ph2-panel .rnp-head-meta .rnp-meta-select,
+  body .rnp-ph2-panel .rnp-head-notes-btn { width: auto; flex: 1 1 120px; height: 30px; font-size: 12px; }
+  body .rnp-ph2-panel .rnp-price-btn { flex: 0 0 34px; width: 34px; height: 30px; }
+  /* левый блок таблицы (ответственный/статус/заметки) теперь живёт в панели */
+  body .rnp-sheet-table .rnp-th-metric .rnp-head-meta { display: none !important; }
+  body .rnp-sheet-table { --rnp-row1: 14px; --rnp-row2: 14px; --rnp-row3: 13px; --rnp-row4: 14px; }
+
+  /* таблица: мелкие шрифты, узкие колонки, без спарклайнов */
+  body .rnp-sheet-table { font-size: 8px; }
+  body .rnp-sheet-table .rnp-spark-col, body .rnp-sheet-table .rnp-th-spark { width: 0 !important; min-width: 0 !important; max-width: 0 !important; padding: 0 !important; border: 0 !important; overflow: hidden; }
+  body .rnp-sheet-table .rnp-spark-col *, body .rnp-sheet-table .rnp-th-spark * { display: none; }
   body .rnp-sheet-table tbody .rnp-metric-col,
-  body .rnp-sheet-table .rnp-th-metric { font-size: 9px; padding: 2px 4px; line-height: 1.1; }
-  body .rnp-sheet-table tbody tr.rnp-row-hero .rnp-metric-col { font-size: 10px; }
-  body .rnp-sheet-table td.rnp-day-col, body .rnp-sheet-table td.rnp-data-col { font-size: 9px; letter-spacing: -0.03em; }
-  body .rnp-sheet-table tbody tr.rnp-row-hero td.rnp-day-col, body .rnp-sheet-table tbody tr.rnp-row-hero td.rnp-data-col { font-size: 10.5px; }
-  body .rnp-sheet-table .rnp-num--m { font-size: 8.5px; }
-  body .rnp-sheet-table td.rnp-cell-total, body .rnp-sheet-table td.rnp-cell-period { font-size: 8.5px; letter-spacing: -0.05em; }
-  body .rnp-sheet-table thead th { font-size: 9px; }
-  body .rnp-sheet-table th.rnp-th-date { font-size: 9.5px; }
+  body .rnp-sheet-table .rnp-th-metric { font-size: 8px; padding: 2px 3px; line-height: 1.1; }
+  body .rnp-sheet-table tbody tr.rnp-row-hero .rnp-metric-col { font-size: 9px; white-space: normal; overflow: visible; text-overflow: clip; }
+  body .rnp-sheet-table td.rnp-day-col, body .rnp-sheet-table td.rnp-data-col { font-size: 8px; letter-spacing: -0.04em; }
+  body .rnp-sheet-table tbody tr.rnp-row-hero td.rnp-day-col, body .rnp-sheet-table tbody tr.rnp-row-hero td.rnp-data-col { font-size: 10px; }
+  body .rnp-sheet-table .rnp-num--m { font-size: 8px; }
+  body .rnp-sheet-table td.rnp-cell-total, body .rnp-sheet-table td.rnp-cell-period { font-size: 8px; letter-spacing: -0.05em; }
+  body .rnp-sheet-table td.rnp-metric-hero, body .rnp-sheet-table td.rnp-metric-hero .rnp-split-toggle { font-size: 9px !important; line-height: 1.1; white-space: normal; }
+  body .rnp-sheet-table thead th { font-size: 8px; }
+  body .rnp-sheet-table th.rnp-th-date { font-size: 8.5px; }
 }

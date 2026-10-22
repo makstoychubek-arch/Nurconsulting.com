@@ -55,6 +55,18 @@ const tables = {
         const restored = await page.evaluate(() => document.getElementById('rnp-sheet-body').style.overflowY);
         assert.strictEqual(restored, '', 'после жеста вертикальная прокрутка возвращена');
         console.log('ok   телефон: горизонтальный жест едет вбок и не трогает вертикаль (замок оси не ломает прокрутку)');
+        // свёрнутая шапка: стрелка раскрывает панель с ответственным, статусом, ценой и заметками
+        const vis = () => page.evaluate(() => { const e = document.querySelector('.rnp-ph2-panel .rnp-head-meta'); return !!e && e.getBoundingClientRect().height > 10; });
+        assert.strictEqual(await vis(), false, 'панель закрыта');
+        const tableMetaHidden = await page.evaluate(() => getComputedStyle(document.querySelector('.rnp-sheet-table .rnp-th-metric .rnp-head-meta')).display === 'none');
+        assert.ok(tableMetaHidden, 'левый блок в таблице скрыт, он живёт в панели');
+        await page.click('.rnp-ph2-bar');
+        await page.waitForTimeout(200);
+        assert.strictEqual(await vis(), true, 'панель открылась по нажатию');
+        await page.click('.rnp-ph2-bar');
+        await page.waitForTimeout(200);
+        assert.strictEqual(await vis(), false, 'панель закрылась повторным нажатием');
+        console.log('ok   телефон: свёрнутая шапка открывает панель с ответственным, статусом и ценой');
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
         console.log('e2e РНП на телефоне: все проверки прошли');
     } catch (e) {
