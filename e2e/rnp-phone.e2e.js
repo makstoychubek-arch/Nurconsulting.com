@@ -75,6 +75,23 @@ const tables = {
         await page.locator('.pf-back').click();
         assert.strictEqual(await page.evaluate(() => document.getElementById('rnp-plan-fact-overlay').classList.contains('is-open')), false, '«Назад» закрывает план/факт');
         console.log('ok   телефон: план/факт на весь экран, «Назад» на краю, узкий столбец артикулов');
+        // Общий замок оси: любой прокручиваемый блок (например в РК) на телефоне едет по одной оси за жест
+        await page.evaluate(() => {
+            const d = document.createElement('div');
+            d.id = 'axis-probe';
+            d.style.cssText = 'position:fixed;left:10px;top:120px;width:300px;height:300px;overflow:auto;background:#eee;z-index:99999';
+            d.innerHTML = '<div style="width:900px;height:900px"></div>';
+            document.body.appendChild(d);
+        });
+        await page.waitForTimeout(100);
+        const cdp2 = await page.context().newCDPSession(page);
+        await cdp2.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 200, y: 300 }] });
+        for (let i = 1; i <= 12; i++) await cdp2.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200 - i * 12, y: 300 - i * 5 }] });
+        await cdp2.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.waitForTimeout(600);
+        const pr = await page.evaluate(() => { const d = document.getElementById('axis-probe'); const r = { l: d.scrollLeft, t: d.scrollTop, oy: d.style.overflowY }; d.remove(); return r; });
+        assert.ok(pr.l > 20 && pr.t < 4 && pr.oy === 'auto', 'любой блок едет по одной оси: ' + JSON.stringify(pr));
+        console.log('ok   телефон: общий замок оси работает для любого прокручиваемого блока (РК и другие)');
         // свёрнутая шапка: стрелка раскрывает панель с ответственным, статусом, ценой и заметками
         const vis = () => page.evaluate(() => { const e = document.querySelector('.rnp-ph2-panel .rnp-ph2-meta'); return !!e && e.getBoundingClientRect().height > 10; });
         assert.strictEqual(await vis(), false, 'панель закрыта');
