@@ -1409,7 +1409,7 @@ const RNP = (() => {
         if (updates.promotionToken !== undefined) _settings.promotionToken = updates.promotionToken;
         if (updates.options) Object.assign(_settings, _normalizeOptions({ ..._settingsOptions(), ...updates.options }));
         try {
-            await _db.from('rnp_settings').upsert({
+            const { error } = await _db.from('rnp_settings').upsert({
                 cabinet_id: _cab,
                 exchange_rate: _settings.exchangeRate,
                 calc_period: _settings.calcPeriod,
@@ -1417,7 +1417,13 @@ const RNP = (() => {
                 options: _settingsOptions(),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'cabinet_id' });
-        } catch(e) { console.warn('[RNP] settings save:', e.message); }
+            // supabase-js не бросает исключение при отказе базы: раньше настройка тихо не сохранялась
+            // и после обновления страницы группа снова появлялась.
+            if (error) throw error;
+        } catch(e) {
+            console.warn('[RNP] settings save:', e && e.message);
+            _copyToast('Не удалось сохранить настройку. Повторите');
+        }
     }
 
     // ─── ARTICLES ─────────────────────────────────────────────────────────────
@@ -4773,6 +4779,40 @@ const RNP = (() => {
         </div>`;
     }
 
+    // Телефон: ответственный и статус в одну строку; цена ▲▼ одним блоком слева, рядом «Заметки».
+    function _buildPhoneMetaHtml(art) {
+        const md = art.manual_data || {};
+        const responsible = (md.responsible || '').replace(/"/g, '&quot;');
+        const status = md.status || '';
+        const statusOptions = `<option value=""${!status ? ' selected' : ''}>Статус —</option>` +
+            PRODUCT_STATUSES.map(s => `<option value="${s}"${s === status ? ' selected' : ''}>${s}</option>`).join('');
+        const hasNotes = Object.values(_notesCache[art.nm_id] || {}).some(n => n && (n.text || n.image));
+        const on = _notesVisible ? ' is-on active' : '';
+        return `<div class="rnp-ph2-meta">
+          <div class="rnp-ph2-row">
+            <input class="rnp-meta-input" value="${responsible}" placeholder="Ответственный" onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
+            <select class="rnp-meta-select" onchange="RNP.saveMeta(${art.nm_id},'status',this.value)">${statusOptions}</select>
+          </div>
+          <div class="rnp-ph2-row">
+            <div class="rnp-ph2-price"><span>Цена</span>
+              <button type="button" class="rnp-price-btn up" title="Поднять цену на WB" onclick="RNP.openPrice(${art.nm_id},1)">▲</button>
+              <button type="button" class="rnp-price-btn dn" title="Снизить цену на WB" onclick="RNP.openPrice(${art.nm_id},-1)">▼</button>
+            </div>
+            <button type="button" class="rnp-head-notes-btn${on}" onclick="RNP.toggleNotes(!RNP.notesVisible())">${_noteSvg()}<span>Заметки${hasNotes ? ' •' : ''}</span></button>
+          </div>
+        </div>`;
+    }
+
+    function _phoneToolTilesHtml() {
+        const editOn = _editMode ? ' is-on active' : '';
+        return `<div class="rnp-ph2-tools">
+          <button type="button" class="rnp-ph2-tile is-main" onclick="RNP.openPlanFact()">${_planFactSvg()}<span>План/факт</span></button>
+          <button type="button" class="rnp-ph2-tile" onclick="RNP.openSettings()">${_settingsGearSvg()}<span>Настройки</span></button>
+          <button type="button" class="rnp-ph2-tile" data-staff-only="1" onclick="window.NrOrderSound && NrOrderSound.openSettings()">${_bellSvg()}<span>Звук</span></button>
+          <button type="button" class="rnp-ph2-tile rnp-ph2-edit${editOn}" onclick="RNP.toggleEditMode()">${_editSvg()}<span>Правка</span></button>
+        </div>`;
+    }
+
     // Телефон: шапка артикула свёрнута в одну строку (миниатюра, название, остатки, мини-галерея, стрелка).
     // По нажатию раскрывается панель: все фото, ответственный, статус, цена ▲▼, заметки, остатки.
     let _phoneHeadOpen = false;
@@ -4795,7 +4835,8 @@ const RNP = (() => {
           </div>
           <div class="rnp-ph2-panel">
             <div class="rnp-phone-hero-slides">${slides}</div>
-            ${_buildHeadMetaHtml(art)}
+            ${_phoneToolTilesHtml()}
+            ${_buildPhoneMetaHtml(art)}
             ${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>`)}
           </div>
         </div>`;
@@ -6574,7 +6615,7 @@ const RNP = (() => {
           <td><select data-rnp-cat="${a.nm_id}" onchange="RNP.setCategory(${a.nm_id},this.value)"
             style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
           <td><button type="button" data-toggle-nm="${a.nm_id}" onclick="RNP.toggleArt(${a.nm_id})" class="rnp-settings-toggle relative w-9 h-5 rounded-full"
-            style="background:${a.is_active ? 'var(--accent)' : 'var(--border)'}">
+            style="background:${a.is_active ? 'var(--accent)' : '#b4b4bd'}">
             <span style="position:absolute;top:2px;left:${a.is_active ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
           </button></td>
         </tr>`;
@@ -6598,7 +6639,7 @@ const RNP = (() => {
     function _patchSettingsToggleUi(nmId, isActive) {
         const btn = document.querySelector(`#rnp-settings-articles-tbody [data-toggle-nm="${nmId}"]`);
         if (!btn) return;
-        btn.style.background = isActive ? 'var(--accent)' : 'var(--border)';
+        btn.style.background = isActive ? 'var(--accent)' : '#b4b4bd';
         const knob = btn.querySelector('span');
         if (knob) knob.style.left = isActive ? '18px' : '2px';
     }
@@ -6646,7 +6687,7 @@ const RNP = (() => {
               <span class="rnp-group-vis-n">${list.length} арт.</span>
               <button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" data-group-key="${key}"
                 title="${on ? 'Скрыть группу из РНП' : 'Показать группу в РНП'}"
-                style="background:${on ? 'var(--accent)' : 'var(--border)'}"
+                style="background:${on ? 'var(--accent)' : '#b4b4bd'}"
                 onclick="RNP.toggleGroupVisible(decodeURIComponent('${key}'))">
                 <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
               </button>
@@ -6679,7 +6720,7 @@ const RNP = (() => {
             let cat = '';
             try { cat = decodeURIComponent(btn.getAttribute('data-group-key') || ''); } catch (e) { cat = btn.getAttribute('data-group-key') || ''; }
             const on = !_isGroupHidden(cat);
-            btn.style.background = on ? 'var(--accent)' : 'var(--border)';
+            btn.style.background = on ? 'var(--accent)' : '#b4b4bd';
             btn.title = on ? 'Скрыть группу из РНП' : 'Показать группу в РНП';
             const knob = btn.querySelector('span');
             if (knob) knob.style.left = on ? '18px' : '2px';
@@ -8735,6 +8776,10 @@ const RNP = (() => {
             btn.setAttribute('aria-label', btn.title);
             btn.innerHTML = _editSvg();
         });
+        document.querySelectorAll('.rnp-ph2-edit').forEach((btn) => {
+            btn.classList.toggle('is-on', _editMode);
+            btn.classList.toggle('active', _editMode);
+        });
     }
 
     function toggleEditMode() {
@@ -9300,6 +9345,7 @@ const RNP = (() => {
         const ok = await _updateArticle(nmId, { is_active: next });
         if (!ok) {
             // Не записалось — откатываем тумблер и счётчики обратно.
+            _copyToast('Не удалось сохранить. Повторите');
             _patchSettingsToggleUi(nmId, !next);
             _updateSettingsActiveCounts();
             _refreshRnpAfterArticleToggle();
