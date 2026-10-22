@@ -7568,6 +7568,7 @@ const RNP = (() => {
           ${_selectionBarHTML()}`;
         const lazyNow = _lazyPending;
         const painted = _paintSheetBody(body, nextInner, cal);
+        _bindAxisLock(body);
         if (lazyNow && body.querySelector('tr.rnp-lazy-sec')) _startLazyFill(body); else _lazyPending = null;
 
         _updateTabHighlight();
@@ -8000,6 +8001,32 @@ const RNP = (() => {
             </div>
           </td>
         </tr>`;
+    }
+
+    // Телефон: таблица едет только по одной оси за жест. Первое заметное движение пальца выбирает ось
+    // (вправо-влево или вверх-вниз), вторая ось на время жеста блокируется, так что по диагонали не «плывёт».
+    function _bindAxisLock(body) {
+        if (!body || body.__rnpAxisLock) return;
+        body.__rnpAxisLock = true;
+        let x0 = 0, y0 = 0, axis = '', timer = 0, touching = false;
+        const restore = () => { clearTimeout(timer); body.style.overflowX = ''; body.style.overflowY = ''; axis = ''; };
+        // Возвращаем обе оси, когда инерция закончилась (нет событий прокрутки 160 мс).
+        const restoreLater = () => { clearTimeout(timer); timer = setTimeout(restore, 160); };
+        body.addEventListener('touchstart', (e) => {
+            if (!_isPhone() || !e.touches || e.touches.length !== 1) return;
+            clearTimeout(timer); touching = true;
+            x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; axis = '';
+        }, { passive: true });
+        body.addEventListener('touchmove', (e) => {
+            if (axis || !_isPhone() || !e.touches || e.touches.length !== 1) return;
+            const dx = Math.abs(e.touches[0].clientX - x0), dy = Math.abs(e.touches[0].clientY - y0);
+            if (Math.max(dx, dy) < 6) return;
+            axis = dx > dy ? 'x' : 'y';
+            if (axis === 'x') body.style.overflowY = 'hidden'; else body.style.overflowX = 'hidden';
+        }, { passive: true });
+        body.addEventListener('touchend', () => { touching = false; restoreLater(); }, { passive: true });
+        body.addEventListener('touchcancel', () => { touching = false; restore(); }, { passive: true });
+        body.addEventListener('scroll', () => { if (axis && !touching) restoreLater(); }, { passive: true });
     }
 
     // Телефон: таблица на весь месяц (30+ колонок × 80 строк) слишком тяжела для мобильного браузера.

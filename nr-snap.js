@@ -13,7 +13,7 @@
     var DB_NAME = 'nr-snap', STORE = 'p', KEEP = 12, TIMEOUT_MS = 25000;
     var mem = new Map();
     var inflight = new Map();
-    var disabled = false;
+    var disabled = false, pausedUntil = 0;
 
     // Фильтры вызывающего кода ({op, column, value}) применяем к строкам локально.
     function applyFilters(rows, filters) {
@@ -129,7 +129,7 @@
 
     // Возвращает строки или null (значит: идите старым постраничным путём).
     async function fetchRows(db, table, filters, columns) {
-        if (disabled || !db || typeof db.rpc !== 'function') return null;
+        if (disabled || Date.now() < pausedUntil || !db || typeof db.rpc !== 'function') return null;
         var pl = plan(table, filters, columns);
         if (!pl) return null;
         // Запрос по одному артикулу не стоит выгрузки всего кабинета: берём кэш, если он уже есть.
@@ -153,12 +153,13 @@
         } catch (e) {
             // Нет функции на сервере или она падает: до перезагрузки страницы не пробуем, чтобы не тормозить.
             if (/Could not find|does not exist|not allowed|permission/i.test(String(e && e.message))) disabled = true;
+            else pausedUntil = Date.now() + 60000; // любой другой сбой: минуту не пробуем, идём прежним путём
             console.warn('[NrSnap] fallback:', e && e.message);
             return null;
         }
     }
 
-    var api = { fetchRows: fetchRows, plan: plan, applyFilters: applyFilters, unpack: unpack, _reset: function () { mem.clear(); inflight.clear(); disabled = false; } };
+    var api = { fetchRows: fetchRows, plan: plan, applyFilters: applyFilters, unpack: unpack, _reset: function () { mem.clear(); inflight.clear(); disabled = false; pausedUntil = 0; } };
     root.NrSnap = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
