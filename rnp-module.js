@@ -4238,11 +4238,12 @@ const RNP = (() => {
                 <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
                 <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
                 <span class="rnp-cat-count">${list.length}</span>
-                ${cat !== UNCATEGORIZED && !_editMode ? `<button type="button" class="rnp-cat-sigma${_activeNm === GENERAL_TAB && _activeGroup === cat ? ' active' : ''}" onclick="event.stopPropagation();RNP.pickGroup('${catEsc}')" title="Общее по группе: все артикулы за день одной цифрой">Σ Общее</button>` : ''}
+                ${cat !== UNCATEGORIZED && !_editMode && !_isPhone() ? `<button type="button" class="rnp-cat-sigma${_activeNm === GENERAL_TAB && _activeGroup === cat ? ' active' : ''}" onclick="event.stopPropagation();RNP.pickGroup('${catEsc}')" title="Общее по группе: все артикулы за день одной цифрой">Σ Общее</button>` : ''}
               </div>
               <div class="rnp-cat-tabs">${tabsHtml}</div>
             </div>`;
         }).join('');
+        if (_isPhone()) return groupsHtml;
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
             <span>Общий</span>
           </div>
@@ -7412,6 +7413,11 @@ const RNP = (() => {
         _hydratePhotoCacheFromArticles();
         _hydratePhotoCacheFromDom();
         _ensureActiveVisible();
+        // Телефон: только по артикулам. «Общий», «Общее по артикулам» и «Σ Общее» считают весь кабинет и слишком тяжёлые.
+        if (_isPhone() && (_activeNm === GENERAL_TAB || _activeNm === BYART_TAB || _activeNm === SUMMARY_TAB)) {
+            const first = _rnpVisibleArticles()[0];
+            if (first) { _activeNm = Number(first.nm_id); _activeGroup = null; _writeSavedActiveNm(); _updateTabHighlight(); }
+        }
         const active = _rnpVisibleArticles();
         const cal = _buildCalendar();
 
