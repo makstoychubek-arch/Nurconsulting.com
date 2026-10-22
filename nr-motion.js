@@ -345,5 +345,56 @@
         };
         if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', ready); else ready();
     })();
+    /* Телефон: любой прокручиваемый блок (РК, панели, таблицы) едет по одной оси за жест и не тянется за край,
+       как таблица РНП. Таблица РНП и план/факт держат это сами. */
+    (function () {
+        if (!doc || !root.matchMedia) return;
+        var mq = root.matchMedia('(max-width: 768px)');
+        var el = null, x0 = 0, y0 = 0, px = 0, py = 0, axis = '', saved = null, timer = 0, touching = false;
+        function scrollable(n) {
+            while (n && n !== doc.body && n !== doc.documentElement) {
+                if (n.nodeType === 1) {
+                    if (n.__rnpAxisLock || n.__pfLock) return null;
+                    var cs = root.getComputedStyle(n);
+                    var ox = /(auto|scroll)/.test(cs.overflowX) && n.scrollWidth > n.clientWidth + 1;
+                    var oy = /(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1;
+                    if (ox || oy) { n.__nrmX = ox; n.__nrmY = oy; return n; }
+                }
+                n = n.parentNode;
+            }
+            return null;
+        }
+        function restore() {
+            clearTimeout(timer);
+            if (saved) { saved.n.style.overflowX = saved.x; saved.n.style.overflowY = saved.y; saved = null; }
+            axis = '';
+        }
+        doc.addEventListener('touchstart', function (e) {
+            if (!mq.matches || !e.touches || e.touches.length !== 1) { el = null; return; }
+            restore(); touching = true;
+            el = scrollable(e.target);
+            x0 = px = e.touches[0].clientX; y0 = py = e.touches[0].clientY;
+        }, { passive: true, capture: true });
+        doc.addEventListener('touchmove', function (e) {
+            if (!el || !e.touches || e.touches.length !== 1) return;
+            var x = e.touches[0].clientX, y = e.touches[0].clientY, dx = x - px, dy = y - py;
+            px = x; py = y;
+            if (!axis) {
+                var ax = Math.abs(x - x0), ay = Math.abs(y - y0);
+                if (Math.max(ax, ay) < 6) return;
+                axis = ax > ay ? 'x' : 'y';
+                if (el.__nrmX && el.__nrmY) {
+                    saved = { n: el, x: el.style.overflowX, y: el.style.overflowY };
+                    if (axis === 'x') el.style.overflowY = 'hidden'; else el.style.overflowX = 'hidden';
+                }
+            }
+            if (axis === 'x' && el.__nrmX && e.cancelable &&
+                ((dx > 0 && el.scrollLeft <= 0) || (dx < 0 && el.scrollLeft >= el.scrollWidth - el.clientWidth - 1))) e.preventDefault();
+        }, { passive: false, capture: true });
+        function end() { touching = false; clearTimeout(timer); timer = setTimeout(restore, 160); }
+        doc.addEventListener('touchend', end, { passive: true, capture: true });
+        doc.addEventListener('touchcancel', function () { touching = false; restore(); }, { passive: true, capture: true });
+        doc.addEventListener('scroll', function () { if (saved && !touching) { clearTimeout(timer); timer = setTimeout(restore, 160); } }, { passive: true, capture: true });
+    })();
     root.NrMotion = { shake: shake, count: count, slot: slot, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);
