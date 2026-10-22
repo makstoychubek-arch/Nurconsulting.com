@@ -2621,4 +2621,11 @@ assert.ok(html.includes('class="pricing-card akylai-free-plan"') && html.include
     assert.ok((grid.match(/wa\.me\/996502446688\?text=/g) || []).length === 3, 'each plan requests via WhatsApp NR until payment is live');
     assert.ok(grid.includes('<em>(скоро)</em>'), 'agents that are not ready yet are marked «скоро»');
 }
+{
+    // Заставка с логотипом подключается самой первой: раньше таблиц стилей и шрифтов, иначе часть сайта успевает показаться до неё.
+    const iSplash = html.indexOf('<script id="nr-splash-js">');
+    const iCss = html.indexOf('<link rel="stylesheet"');
+    assert.ok(iSplash > 0 && iCss > 0 && iSplash < iCss, 'заставка идёт до первой таблицы стилей');
+}
 console.log('dashboard_html_test: ok');
+
