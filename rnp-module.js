@@ -5452,6 +5452,25 @@ const RNP = (() => {
         };
     }
 
+    // Дешёвая подпись данных: если дозагрузка ничего не изменила, второй полный рендер таблицы не нужен.
+    function _dataSig(nmIds) {
+        let h = 0, n = 0;
+        for (const nm of nmIds) {
+            const rows = _dataCache[nm];
+            if (!rows) continue;
+            for (const d in rows) {
+                const r = rows[d];
+                n++;
+                for (const k in r) {
+                    const v = r[k];
+                    if (typeof v === 'number') h = (h * 31 + (v * 100 | 0) + k.length) | 0;
+                    else if (v != null && typeof v !== 'object') h = (h * 31 + String(v).length) | 0;
+                }
+            }
+        }
+        return n + ':' + h;
+    }
+
     async function _hydrateFunnelAfterPaint(snapCab, renderId) {
         if (!_callProxy || !_cab) return;
         const nmIds = _cabArticles().filter(a => a.is_active).map(a => Number(a.nm_id)).filter(n => n > 0);
@@ -5475,6 +5494,10 @@ const RNP = (() => {
             });
             return !hasFunnel || recentHole || funnelLag;
         });
+        const sigIds = missing.slice();
+        const focus0 = Number(_activeNm);
+        if (focus0 > 0 && sigIds.indexOf(focus0) < 0) sigIds.push(focus0);
+        const sigBefore = _dataSig(sigIds);
         if (missing.length) {
             try {
                 await _syncFunnelHistory(missing);
@@ -5490,6 +5513,7 @@ const RNP = (() => {
         const focus = Number(_activeNm);
         if (focus > 0) await _loadDailyData(focus);
         if (_cab !== snapCab || renderId !== _mainRenderGen) return;
+        if (_dataSig(sigIds) === sigBefore) return;
         _cabinetColsCacheKey = '';
         _cabinetColsCacheVal = null;
         if (document.getElementById('rnp-sheet-body')) await _renderActiveTable();
@@ -7307,6 +7331,7 @@ const RNP = (() => {
         const snapCab = _cab;
         let loadOk = false;
         let loadErr = null;
+        let fullSettled = Promise.resolve();
         try {
             window.NrLoader && window.NrLoader.step('rnp', 1);
             // Первую отрисовку не держим до тяжёлых итогов (финансы/реклама/FBS): таблица появляется,
@@ -7316,6 +7341,7 @@ const RNP = (() => {
             const first = await Promise.race([corePromise, fullP.then((v) => ({ v }), (e) => ({ e }))]);
             if (first === 'core') {
                 loadOk = true;
+                fullSettled = fullP.then(() => {}, () => {});
                 fullP.then((ok) => {
                     if (!ok || _abandonStaleMain(renderId, snapReq, snapCab)) return;
                     _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null;
@@ -7348,7 +7374,11 @@ const RNP = (() => {
         window._rnpLoadedForCabinet = _cab;
         setTimeout(() => {
             if (renderId !== _mainRenderGen || _cab !== snapCab) return;
-            _hydrateFunnelAfterPaint(snapCab, renderId);
+            // Если итоги ещё догружаются, дозагрузку воронки начинаем после них: иначе она рисует таблицу второй раз зря.
+            fullSettled.then(() => {
+                if (renderId !== _mainRenderGen || _cab !== snapCab) return;
+                _hydrateFunnelAfterPaint(snapCab, renderId);
+            });
         }, 0);
         _applyResolvedPhotos();
         _preloadPhotosBackground(active).then(() => {
