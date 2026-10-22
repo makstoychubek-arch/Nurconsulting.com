@@ -1780,10 +1780,16 @@ const RNP = (() => {
         await _renderActiveTable();
     }
 
+    let _calMemoKey = '', _calMemoVal = null;
     function _buildCalendar() {
         // Режим «месяцы по плану» убран вместе с выбором «План → неделя/месяц»: период задаётся датами в шапке.
+        // Календарь пересчитывался десятки раз за отрисовку: кэшируем по входам (диапазон, месяц, сравнение, сегодня по WB).
+        const key = [_extRange ? _extRange.from + '~' + _extRange.to : '', _refMonthKey || '', _compareMonthKey || '', _wbTodayStr(new Date())].join('|');
+        if (key === _calMemoKey && _calMemoVal) return { ..._calMemoVal };
         const cal = _buildWeekCalendar(_refDate());
-        return { ...cal, weeksAvailable: (cal.weeks || []).length };
+        _calMemoVal = { ...cal, weeksAvailable: (cal.weeks || []).length };
+        _calMemoKey = key;
+        return { ..._calMemoVal };
     }
 
     function _calAllDates(cal) {
@@ -7011,7 +7017,7 @@ const RNP = (() => {
     function _bindRnpLockUnload() {
         if (window.__rnpLockUnload) return;
         window.__rnpLockUnload = true;
-        const save = () => { try { _saveRnpChrome(); _saveRnpShell(); } catch (e) {} };
+        const save = () => { try { _saveRnpChrome(); _saveRnpShellNow(); } catch (e) {} };
         window.addEventListener('pagehide', save);
         window.addEventListener('beforeunload', save);
     }
@@ -7088,7 +7094,19 @@ const RNP = (() => {
         _bindRnpLockUnload();
     }
 
+    // Снимок экрана (cloneNode+outerHTML+запись в хранилища) блокирует поток на сотни мс:
+    // вызовы из рендера откладываем на простой и склеиваем в один; при закрытии страницы пишем сразу.
+    let _shellSaveT = 0;
     function _saveRnpShell() {
+        if (_shellSaveT) return;
+        const run = () => { _shellSaveT = 0; try { _saveRnpShellNow(); } catch (e) {} };
+        _shellSaveT = setTimeout(() => {
+            if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 4000 });
+            else run();
+        }, 1500);
+    }
+
+    function _saveRnpShellNow() {
         const el = document.getElementById('tab-rnp');
         const ws = el?.querySelector('.rnp-workspace');
         if (!ws || !_cab) return;
