@@ -10,7 +10,7 @@
     var OPEN_KEY = 'nr_admin_open', CACHE_KEY = 'nr_admin_cache_v1';
     var PLAN_DB = 8 * 1024 * 1024 * 1024; // 8 ГБ на тарифе Pro
     var el = null;
-    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '' };
+    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null };
 
     var NAV = [
         ['home', 'Требует внимания'], ['acc', 'Аккаунты и кабинеты'], ['staff', 'Сотрудники консалтинга'],
@@ -129,13 +129,61 @@
         }).join('') + '</div>';
     }
     function sysH() {
-        var h = '<div class="nra-h">Система и задачи</div><p class="nra-sub">Регулярные задачи по карте системы. Данные обновляются при синхронизации карты.</p>';
+        var h = '<div class="nra-h">Система и задачи</div><p class="nra-sub">Сайт и регулярные задачи по карте системы. Данные задач обновляются при синхронизации карты.</p>' + siteCard();
         if (!S.jobs) return h + '<div class="nra-card"><div class="nra-skel"></div></div>';
         if (!S.jobs.length) return h + '<div class="nra-card"><p class="m" style="padding:16px">Задач в карте системы пока нет.</p></div>';
         return h + '<div class="nra-card">' + S.jobs.map(function (j) {
             var m = j.meta || {};
             return '<div class="nra-row"><span class="sd ' + (j.status === 'bad' ? 'bd' : j.status === 'warn' ? 'wn' : '') + '"></span><div class="t"><b>' + esc(j.title) + '</b><small>' + esc(m.schedule || j.subtitle || '') + '</small></div><span class="m">' + esc(m.lastStatus || '') + '</span></div>';
         }).join('') + '</div>';
+    }
+
+    var ALERTS = [
+        ['ai_balance', 'Баланс ИИ ниже порога', 'Иначе перестанут приходить ответы на отзывы и вопросы. Остаток вводишь вручную после пополнения.', 'порог, $'],
+        ['tokens', 'Токен WB или рекламы не работает', 'По кабинетам команды, сразу как заметили.', ''],
+        ['sync', 'Нет синхронизации с WB', 'Если данные давно не обновлялись или была ошибка.', 'часов без данных'],
+        ['jobs', 'Упала регулярная задача', 'Синхронизации, штрафы, рекламные рутины.', ''],
+        ['bots', 'Telegram-бот не отвечает', 'Бот выключен, без токена или Telegram его не видит.', ''],
+        ['db_full', 'База заполнена', 'Чтобы вовремя докупить место на тарифе.', 'порог, %'],
+        ['access', 'Изменился доступ к кабинету', 'Каждая выдача или отзыв доступа.', ''],
+        ['traffic', 'Кабинет тратит трафик слишком много', 'Появится, когда начнём замерять трафик по кабинетам.', 'раз выше среднего'],
+    ];
+    function alrH() {
+        var h = '<div class="nra-h">Оповещения</div><p class="nra-sub">Сообщения владельцу в Telegram. Проверка идёт каждые 15 минут, одно и то же повторяется не чаще раза в сутки.</p>';
+        if (!S.al) return h + '<div class="nra-card"><div class="nra-skel"></div></div>';
+        return h + '<div class="nra-card">' + ALERTS.map(function (a) {
+            var r = S.al[a[0]] || { enabled: false };
+            var th = a[3] ? '<label class="nra-th">' + a[3] + '<input type="number" step="any" data-th="' + a[0] + '" value="' + esc(r.threshold == null ? '' : r.threshold) + '"></label>' : '';
+            var val = a[0] === 'ai_balance' ? '<label class="nra-th">остаток сейчас, $<input type="number" step="any" data-val="ai_balance" value="' + esc(r.value == null ? '' : r.value) + '"></label>' + (r.value_at ? '<small class="m">обновлён ' + ago(r.value_at) + '</small>' : '') : '';
+            return '<div class="nra-row"><div class="t"><b>' + a[1] + '</b><small>' + a[2] + '</small></div>' + val + th + '<button type="button" class="nra-sw' + (r.enabled ? ' on' : '') + '" data-alr="' + a[0] + '" aria-pressed="' + (!!r.enabled) + '" aria-label="Включить или выключить"></button></div>';
+        }).join('') + '</div>';
+    }
+    var ACTION = {
+        access_granted: 'Выдан доступ', access_revoked: 'Доступ отозван', staff_added: 'Добавлен сотрудник', staff_removed: 'Сотрудник убран',
+        cabinet_added: 'Кабинет добавлен', cabinet_deleted: 'Кабинет удалён', wb_token_changed: 'Токен WB изменён', adv_token_changed: 'Токен рекламы изменён',
+        feature_toggled: 'Функция кабинета', bot_reconnect: 'Бот переподключён',
+    };
+    function logH() {
+        var h = '<div class="nra-h">Журнал действий</div><p class="nra-sub">Кто и что менял: доступы, сотрудники, кабинеты, токены (без значений), функции и боты.</p>';
+        if (!S.audit) return h + '<div class="nra-card"><div class="nra-skel"></div></div>';
+        if (!S.audit.length) return h + '<div class="nra-card"><p class="m" style="padding:16px">Записей пока нет. Журнал ведётся с момента включения.</p></div>';
+        return h + '<div class="nra-card">' + S.audit.map(function (a) {
+            return '<div class="nra-row"><span class="m" style="min-width:96px">' + new Date(a.at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span><b style="min-width:130px">' + esc(String(a.actor_email || 'система').replace(/@.*/, '')) + '</b><div class="t"><b>' + esc(ACTION[a.action] || a.action) + (a.target ? ': ' + esc(a.target) : '') + '</b>' + (a.detail ? '<small>' + esc(a.detail) + '</small>' : '') + '</div></div>';
+        }).join('') + '</div>';
+    }
+    function siteCard() {
+        if (!S.site) return '';
+        var u = S.site.up, e = S.site.errors;
+        return '<div class="nra-card nra-kv"><div><b class="' + (u && u.status === 'down' ? 'bad' : '') + '">' + (u ? (u.status === 'down' ? 'не отвечает' : 'работает') : '—') + '</b><small>сайт ' + (u && u.last_checked ? '· проверка ' + ago(u.last_checked) : '') + '</small></div><div><b>' + (e == null ? '—' : e) + '</b><small>ошибок в браузерах за сутки</small></div></div>';
+    }
+    function saveAlert(key, fields) {
+        var row = Object.assign({}, S.al[key] || { enabled: false }, fields);
+        S.al[key] = row; render();
+        var rec = { key: key, enabled: !!row.enabled, threshold: row.threshold === '' ? null : row.threshold, value: row.value === '' ? null : row.value, updated_at: new Date().toISOString() };
+        if (fields.value !== undefined) { row.value_at = rec.value_at = new Date().toISOString(); }
+        sb.from('admin_alert_settings').upsert(rec).then(function (r) {
+            if (r.error) { S.toast = 'Не сохранилось: ' + (r.error.message || 'ошибка'); render(); setTimeout(function () { S.toast = ''; render(); }, 4000); }
+        });
     }
     function soon(title, text) { return '<div class="nra-h">' + title + '</div><p class="nra-sub">' + text + '</p><div class="nra-card"><p class="m" style="padding:18px 16px">Этот раздел подключим на следующем шаге.</p></div>'; }
 
@@ -148,8 +196,8 @@
         else if (S.sec === 'staff') body = staffH();
         else if (S.sec === 'tg') body = tgH();
         else if (S.sec === 'sys') body = sysH();
-        else if (S.sec === 'alr') body = soon('Оповещения', 'Здесь будет настройка сообщений владельцу в Telegram: баланс ИИ, токены, упавшие задачи, боты.');
-        else if (S.sec === 'log') body = soon('Журнал действий', 'Здесь будет история: кто, что и когда менял в доступах, токенах и ботах.');
+        else if (S.sec === 'alr') body = alrH();
+        else if (S.sec === 'log') body = logH();
         else if (S.sec === 'own') body = soon('Спейс владельца', 'Здесь будет превью кабинета глазами владельца и подключение его Telegram.');
         var nav = NAV.map(function (n) {
             var d = sectionDot(n[0], att);
@@ -171,6 +219,14 @@
         sb.from('admin_map_nodes').select('title,subtitle,status,meta').eq('kind', 'cron').eq('hidden', false).order('title').then(function (r) {
             S.jobs = r.error ? [] : (r.data || []); writeCache(); render();
         });
+        sb.from('admin_alert_settings').select('key,enabled,threshold,value,value_at').then(function (r) {
+            var m = {}; (r.data || []).forEach(function (x) { m[x.key] = x; }); S.al = m; render();
+        });
+        sb.from('admin_audit').select('at,actor_email,action,target,detail').order('at', { ascending: false }).limit(100).then(function (r) { S.audit = r.error ? [] : (r.data || []); render(); });
+        Promise.all([
+            sb.from('site_uptime').select('status,last_checked').eq('id', 1).maybeSingle(),
+            sb.from('client_errors').select('count', { count: 'exact', head: false }).gte('last_seen', new Date(Date.now() - 86400000).toISOString()),
+        ]).then(function (a) { S.site = { up: a[0].data || null, errors: a[1].error ? null : (a[1].data || []).reduce(function (n, x) { return n + (Number(x.count) || 1); }, 0) }; render(); });
         loadBots();
     }
     function loadBots() {
@@ -185,7 +241,9 @@
         S.busy[id] = true; render();
         sb.functions.invoke('telegram-admin', { body: { action: 'set_webhook', bot_id: id } }).then(function (r) {
             S.busy[id] = false;
-            S.toast = r.error || !(r.data && r.data.ok) ? 'Не получилось переподключить бота. Попробуй ещё раз.' : 'Бот переподключён.';
+            var okRe = !r.error && r.data && r.data.ok;
+            S.toast = okRe ? 'Бот переподключён.' : 'Не получилось переподключить бота. Попробуй ещё раз.';
+            if (okRe) sb.rpc('admin_log', { p_action: 'bot_reconnect', p_target: id, p_detail: null }).then(function () {});
             render(); loadBots();
             setTimeout(function () { S.toast = ''; render(); }, 4000);
         });
@@ -196,8 +254,9 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload]'); if (!t) return;
+            var t = e.target.closest('[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr]'); if (!t) return;
             if (t.dataset.close) return close();
+            if (t.dataset.alr) { if (S.al) saveAlert(t.dataset.alr, { enabled: !(S.al[t.dataset.alr] && S.al[t.dataset.alr].enabled) }); return; }
             if (t.dataset.sec) { S.sec = t.dataset.sec; }
             else if (t.dataset.go) { S.sec = t.dataset.go; if (t.dataset.open) S.open[t.dataset.open] = true; }
             else if (t.dataset.cab) { S.open[t.dataset.cab] = !S.open[t.dataset.cab]; }
@@ -205,6 +264,11 @@
             else if (t.dataset.reload) { loadBots(); return; }
             else if (t.dataset.openc) { close(); try { if (root.nrSelectCabinet) root.nrSelectCabinet(t.dataset.openc); if (root.showTab) root.showTab('rnp'); } catch (err) { /* кабинет не открылся */ } return; }
             render();
+        });
+        el.addEventListener('change', function (e) {
+            var d = e.target.dataset || {};
+            if (d.th && S.al) saveAlert(d.th, { threshold: e.target.value === '' ? null : Number(e.target.value) });
+            else if (d.val && S.al) saveAlert(d.val, { value: e.target.value === '' ? null : Number(e.target.value) });
         });
         el.addEventListener('input', function (e) {
             if (e.target.id !== 'nra-q') return;
