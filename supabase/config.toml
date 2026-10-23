@@ -12,3 +12,7 @@ verify_jwt = false
 # Вебхук бота Акылай: Telegram не шлёт JWT, функция сверяет AKYLAI_WEBHOOK_SECRET.
 [functions.akylai-bot]
 verify_jwt = false
+
+# Проверка раз в 15 минут вызывается планировщиком без ключа и пишет только владельцу в Telegram.
+[functions.admin-alerts]
+verify_jwt = false

@@ -24,7 +24,10 @@ const BOTS = [
 async function open(browser, base) {
     const env = await openApp(browser, base, {
         userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 200,
-        tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }] },
+        tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }],
+            admin_alert_settings: [{ key: 'ai_balance', enabled: true, threshold: 5, value: 12, value_at: new Date().toISOString() }, { key: 'tokens', enabled: true }, { key: 'bots', enabled: false }],
+            admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
+            site_uptime: [{ id: 1, status: 'up', last_checked: new Date().toISOString() }], client_errors: [{ count: 3, last_seen: new Date().toISOString() }] },
         rpcs: { is_super_admin: true, admin_overview: OVERVIEW },
         functions: { 'telegram-admin': async (b) => (b.action === 'list' ? { bots: BOTS } : { ok: true }) },
     });
@@ -77,6 +80,32 @@ test('«Переподключить» бота: кнопка отвечает �
     assert.ok(Date.now() - t0 < 300, 'кнопка ответила за ' + (Date.now() - t0) + ' мс');
     await page.waitForTimeout(900);
     assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'telegram-admin' && c.body.action === 'set_webhook' && c.body.bot_id === 'amina'), 'set_webhook ушёл');
+});
+
+test('оповещения: переключатель и порог сохраняются, остаток ИИ вводится вручную', async ({ page, calls }) => {
+    await page.locator('.nra-side button[data-sec="alr"]').click();
+    await page.locator('.nra-sw').first().waitFor({ state: 'visible' });
+    assert.ok(/Баланс ИИ ниже порога/.test(await page.locator('.nra-main').innerText()), 'настройки показаны');
+    const before = calls.filter((c) => c.kind === 'write' && c.table === 'admin_alert_settings').length;
+    const t0 = Date.now();
+    await page.locator('button[data-alr="bots"]').click();
+    await page.waitForFunction(() => document.querySelector('button[data-alr="bots"]').classList.contains('on'), null, { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'переключатель ответил за ' + (Date.now() - t0) + ' мс');
+    await page.locator('input[data-val="ai_balance"]').fill('30');
+    await page.locator('input[data-val="ai_balance"]').blur();
+    await page.waitForTimeout(700);
+    const after = calls.filter((c) => c.kind === 'write' && c.table === 'admin_alert_settings').length;
+    assert.ok(after >= before + 2, 'настройки ушли в базу: ' + (after - before));
+});
+
+test('журнал показывает записи, а раздел «Система» показывает сайт и ошибки браузеров', async ({ page }) => {
+    await page.locator('.nra-side button[data-sec="log"]').click();
+    await page.locator('.nra-row').first().waitFor({ state: 'visible' });
+    const log = await page.locator('.nra-main').innerText();
+    assert.ok(/Выдан доступ: Zevina 1/.test(log) && /aizada@example\.test/.test(log), 'запись журнала: ' + log.slice(0, 120));
+    await page.locator('.nra-side button[data-sec="sys"]').click();
+    await page.locator('.nra-kv').first().waitFor({ state: 'visible' });
+    assert.ok(/работает/.test(await page.locator('.nra-main').innerText()), 'сайт работает');
 });
 
 (async () => {
