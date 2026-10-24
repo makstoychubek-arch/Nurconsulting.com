@@ -78,7 +78,8 @@
         S.busy = true;
         if (S.mo) S.mo.disconnect();
         try {
-            var groups = readTable(), ph = root.RNP && root.RNP.wbPhotoUrl;
+            var groups = readTable(), ph = root.RNP && root.RNP.wbPhotoUrl, ex = root.nrGoodsExtra ? root.nrGoodsExtra() : null;
+            if (S.dailyCab !== cab() && root.nrGoodsEnsureDaily && cab()) { S.dailyCab = cab(); root.nrGoodsEnsureDaily(); }
             var all = [], t = { stock: 0, r: 0, o: 0, g: 0, b: 0, n: 0 };
             groups.forEach(function (g) {
                 g.items.forEach(function (a) {
@@ -117,7 +118,7 @@
                 html += '<div class="ggx-grp" style="background:' + PAL[gi % PAL.length] + '"><div class="ggx-gh"><div class="ggx-strip">' +
                     g.items.slice(0, 3).map(function (a) { return photo(a, ph, 34); }).join('') + '</div><div><h3>' + esc(g.name) + '</h3><small>' + g.items.length + ' арт. · ' + fmt(gs) + ' шт</small></div></div>' +
                     '<div class="ggx-row ggx-rh"><span></span><span>АРТИКУЛ</span><span>ФБО / ФБС</span><span class="n">В ПУТИ</span><span class="n">В ПЛАНЕ</span><span class="n">ИТОГО</span><span>ЗАПАС</span></div>' +
-                    items.map(function (a) { return row(a, ph); }).join('') + '</div>';
+                    items.map(function (a) { return row(a, ph, ex); }).join('') + '</div>';
             });
             html += '</div>';
             if (hidden) html += '<button type="button" class="ggx-more" data-more="1">Показать ещё ' + Math.min(60, hidden) + ' · осталось ' + hidden + '</button>';
@@ -155,14 +156,24 @@
         return '<label class="ggx-ed" data-l="' + label + '"><input class="gg-edit-input' + (val ? '' : ' gg-zero') + '" type="text" inputmode="numeric" placeholder="0" data-nm="' + esc(a.nm) + '" data-cab="' + esc(a.cab) + '" data-field="' + field + '" value="' + (val ? String(val) : '') + '" onfocus="ggEditFocus(this)" oninput="ggEditInput(this)" onchange="ggEditCommit(this)" onkeydown="ggEditKey(event, this)"></label>';
     }
 
-    function row(a, ph) {
+    // Себестоимость и остаток по дням на каждом артикуле (вместо отдельных вкладок)
+    function sub(a, ex) {
+        if (!ex) return '';
+        var vals = ex.vals(a.nm), C = root.GoodsCatalog, svg = C && C.sparklineSvg ? C.sparklineSvg(vals, 150, 26) : '', last = [];
+        for (var i = vals.length - 1; i >= 0 && last.length < 7; i--) if (vals[i] != null) last.unshift([ex.days[i], vals[i]]);
+        var chips = last.map(function (x) { return '<span class="ggx-dc"><i>' + esc(C.dayLabel(x[0]).slice(0, 5)) + '</i>' + fmt(x[1]) + '</span>'; }).join('');
+        return '<div class="ggx-sub"><label class="ggx-ed ggx-cost" data-l="Себестоимость, ₽"><input class="gg-edit-input' + (ex.cost(a.nm) ? '' : ' gg-zero') + '" type="text" inputmode="numeric" placeholder="0" data-nm="' + esc(a.nm) + '" data-cab="' + esc(a.cab || cab()) + '" data-field="cost" value="' + (ex.cost(a.nm) || '') + '" onfocus="ggEditFocus(this)" oninput="ggEditInput(this)" onchange="ggEditCommit(this)" onkeydown="ggEditKey(event, this)"></label>' +
+            (last.length ? '<div class="ggx-dd" title="Остаток по дням"><span class="ggx-sp">' + svg + '</span><span class="ggx-dcs">' + chips + '</span></div>' : '<span class="ggx-dd ggx-mut">Остатки по дням: данные копятся</span>') + '</div>';
+    }
+
+    function row(a, ph, ex) {
         var tot = a.fbo + a.fbs || 1;
         return '<div class="ggx-row ggx-' + (a.c || 'n') + '" data-nm="' + esc(a.nm) + '">' + photo(a, ph, 38) +
             '<div class="ggx-nm"><b title="' + esc(a.name) + '">' + esc(a.name || '—') + '</b><small>WB ' + esc(a.nm) + '</small></div>' +
             '<div class="ggx-bar"><div class="ggx-bb"><i class="fbo" style="width:' + a.fbo / tot * 100 + '%"></i><i class="fbs" style="width:' + a.fbs / tot * 100 + '%"></i></div><small>ФБО ' + fmt(a.fbo) + ' · ФБС ' + fmt(a.fbs) + '</small></div>' +
             edit(a, 'transit', a.transit, 'В пути') + edit(a, 'plan', a.plan, 'В плане') +
             '<b class="ggx-tot">' + fmt(a.total || a.stock + a.transit + a.plan) + '</b>' +
-            (a.c ? '<span class="ggx-cv ' + a.c + '" title="' + (a.perDay ? 'Продажи: ' + a.perDay.toFixed(1).replace('.', ',') + ' заказов в день' : 'Продаж за 14 дней нет') + '"><span class="l">' + esc(covText(a, false)) + '</span><span class="s">' + esc(covText(a, true)) + '</span></span>' : '<span></span>') + '</div>';
+            (a.c ? '<span class="ggx-cv ' + a.c + '" title="' + (a.perDay ? 'Продажи: ' + a.perDay.toFixed(1).replace('.', ',') + ' заказов в день' : 'Продаж за 14 дней нет') + '"><span class="l">' + esc(covText(a, false)) + '</span><span class="s">' + esc(covText(a, true)) + '</span></span>' : '<span></span>') + sub(a, ex) + '</div>';
     }
 
     function onClick(e) {
@@ -175,7 +186,7 @@
         var i = e.target.closest('input[data-field]'); if (!i) return;
         var r = i.closest('.ggx-row'), tot = r && r.querySelector('.ggx-tot');
         if (!tot) return;
-        var vals = {}; Array.prototype.forEach.call(r.querySelectorAll('input[data-field]'), function (x) { vals[x.getAttribute('data-field')] = num(x.value); });
+        var vals = {}; Array.prototype.forEach.call(r.querySelectorAll('input[data-field]'), function (x) { if (x.getAttribute('data-field') !== 'cost') vals[x.getAttribute('data-field')] = num(x.value); });
         var sub = r.querySelector('.ggx-bar small'), m = sub && sub.textContent.match(/ФБО\s*([\d\s]+)\s*·\s*ФБС\s*([\d\s]+)/);
         var stock = m ? num(m[1]) + num(m[2]) : 0;
         tot.textContent = fmt(stock + (vals.transit || 0) + (vals.plan || 0));

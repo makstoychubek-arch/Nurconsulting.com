@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.b1f5ba04f6.css">
-<link rel="stylesheet" href="/dist/rnp-extra.279f969939.css">
+<link rel="stylesheet" href="/dist/rnp-extra.bb1c6ca208.css">
 <link rel="stylesheet" href="/dist/ads-pulse.75db0d6b54.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -6685,9 +6685,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             <div class="gg-toolbar">
                 <div class="gg-views" role="tablist" aria-label="Разделы Товаров">
                     <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Остатки</button>
-                    <button type="button" class="gg-view-btn" id="gg-view-daily-btn" role="tab" aria-selected="false" onclick="setGoodsView('daily')">Остатки по дням</button>
-                    <button type="button" class="gg-view-btn" id="gg-view-cost-btn" role="tab" aria-selected="false" onclick="setGoodsView('cost')">Себестоимость</button>
-                    <button type="button" class="gg-view-btn" id="gg-view-fbs-btn" role="tab" aria-selected="false" onclick="setGoodsView('fbs')">FBS</button>
                     <button type="button" class="gg-view-btn" id="gg-view-give-btn" data-staff-only="1" role="tab" aria-selected="false" onclick="setGoodsView('give')">Раздачи</button>
                 </div>
                 <div class="gg-now-tools rnp-tool-icons" id="gg-now-tools">
@@ -8514,7 +8511,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.fed20b8a96.min.js"></script>
 <script src="/dist/nr-ui.758e49d7ac.min.js"></script>
-<script src="/dist/nr-goods-ui.fc42544245.min.js"></script>
+<script src="/dist/nr-goods-ui.87d8b6eb59.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -12011,6 +12008,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (ggView === 'cost') renderGoodsCostTable();
     }
 
+    window.nrGoodsEnsureDaily = () => ensureDailyStocks();
+    window.nrGoodsExtra = () => {
+        const c = window.GoodsCatalog;
+        if (!c) return null;
+        const p = c.bishkekParts(), days = c.dailyDayKeys(p.y, p.m).filter((d) => d <= p.ymd), idx = c.indexDailyStocks(ggDaily.rows);
+        const cost = {};
+        (goodsGroupsRows || []).forEach((r) => { cost[r.nmId] = Number(r.cost || 0) || 0; });
+        return { days, cost: (nm) => cost[nm] || 0, vals: (nm) => days.map((d) => c.dailyQty(idx, nm, d)) };
+    };
+
     function ggPaint() {
         renderGoodsGroupsTable();
         if (ggView === 'daily') renderGoodsDailyTable();
@@ -12090,7 +12097,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     async function ensureDailyStocks() {
-        if (ggView !== 'daily') return;
+        if (ggView !== 'daily' && ggView !== 'now') return;
         if (ggDailyInflight) return ggDailyInflight;
         const catalog = window.GoodsCatalog;
         const cabId = goodsGroupsCabinetId || currentCabinetId;
@@ -12137,6 +12144,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     ggDaily.monthKey = monthKey;
                 }
                 renderGoodsDailyTable();
+                window.NrGoodsUi?.refresh();
             } catch (e) {
                 console.error('[goods-daily]', e);
                 if (body) {
