@@ -986,7 +986,9 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 }
 
 /* ===== Товары → Остатки: карточки по группам (nr-goods-ui.js) ===== */
-body.ggx-on #gg-view-now { display: none !important; }
+#gg-view-now { display: none !important; }
+#tab-goods-groups:not(:has(#ggx-cards))::after { content: ""; display: block; height: 260px; margin-top: 12px; border-radius: 18px; background: linear-gradient(90deg, var(--surface) 0%, var(--soft, #eeebff) 50%, var(--surface) 100%); background-size: 200% 100%; animation: ggx-sk 1.2s linear infinite; }
+@keyframes ggx-sk { to { background-position: -200% 0; } }
 #ggx-cards { margin-top: 2px; }
 .ggx-kp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
 .ggx-k { border-radius: 16px; padding: 12px 14px; color: #fff; box-shadow: 0 8px 22px rgba(40,30,90,.14); }
