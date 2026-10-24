@@ -234,6 +234,9 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         } catch (e) { /* без проверки всё работает как раньше */ }
     }
     setInterval(recheck, 30000);
+    // Сразу после входа первый запрос может уйти раньше сессии и вернуть пусто: первые 20 с проверяем каждые 2 с.
+    let fastN = 0;
+    const fast = setInterval(() => { recheck(); if (++fastN > 10) clearInterval(fast); }, 2000);
     document.addEventListener('visibilitychange', recheck);
 
     window.NrViewer = V;
