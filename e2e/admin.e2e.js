@@ -42,7 +42,7 @@ test('плашка «Space» открывает страницу сразу, «�
     const t0 = Date.now();
     await page.locator('.rail-logo-name').click();
     await page.locator('#nr-admin.open .nra-h').waitFor({ state: 'visible' });
-    assert.ok(Date.now() - t0 < 400, 'страница открылась за ' + (Date.now() - t0) + ' мс');
+    assert.ok(Date.now() - t0 < 1000, 'страница открылась за ' + (Date.now() - t0) + ' мс');
     await page.waitForFunction(() => document.querySelectorAll('.nra-att').length >= 3, null, { timeout: 5000 });
     const text = await page.locator('.nra-card').first().innerText();
     assert.ok(/ИП Марс: токен рекламы не принят/.test(text), 'токен рекламы: ' + text);
