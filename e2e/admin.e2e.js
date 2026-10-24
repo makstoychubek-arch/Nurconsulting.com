@@ -30,7 +30,7 @@ async function open(browser, base) {
             admin_alert_settings: [{ key: 'ai_balance', enabled: true, threshold: 5, value: 12, value_at: new Date().toISOString() }, { key: 'tokens', enabled: true }, { key: 'bots', enabled: false }],
             admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
             site_uptime: [{ id: 1, status: 'up', last_checked: new Date().toISOString() }], client_errors: [{ count: 3, last_seen: new Date().toISOString() }] },
-        rpcs: { is_super_admin: true, admin_overview: OVERVIEW },
+        rpcs: { is_super_admin: true, admin_overview: OVERVIEW, admin_assign_owner: { status: 'invited' }, admin_unassign_owner: null },
         functions: { 'telegram-admin': async (b) => (b.action === 'list' ? { bots: BOTS } : { ok: true }), 'cabinet-features': async (b) => ({ ok: true, features: FEATS.map((f) => (b.feature === f.feature && b.action === 'set' ? { ...f, enabled: false, active: false } : f)) }) },
     });
     await env.page.waitForFunction(() => window.NrAdmin && document.querySelector('.rail-logo-name.nra-entry'), null, { timeout: 20000 });
@@ -125,6 +125,21 @@ test('боты кабинета: тумблер выключает ответы 
     await page.locator('.nra-bot').nth(2).locator('select.nra-sel').selectOption('60');
     await page.waitForTimeout(800);
     assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'cabinet-features' && c.body.action === 'pause' && c.body.feature === 'ads' && c.body.minutes === 60), 'пауза на час ушла');
+});
+
+test('владелец кабинета: по почте, приглашение видно сразу, плохая почта не принимается', async ({ page }) => {
+    await page.locator('.nra-side button[data-sec="acc"]').click();
+    if (!(await page.locator('.nra-det').count())) await page.locator('.nra-t tr.r').first().click();
+    const input = page.locator('input[id^="nra-own-"]').first();
+    await input.waitFor({ state: 'visible' });
+    await input.fill('нет-собаки');
+    await page.locator('button[data-own]').first().click();
+    assert.ok(/Введи почту целиком/.test(await page.locator('.nra-toast').innerText()), 'плохая почта не принята');
+    await page.locator('input[id^="nra-own-"]').first().fill('Owner@Example.test');
+    const t0 = Date.now();
+    await page.locator('button[data-own]').first().click();
+    await page.waitForFunction(() => /owner@example\.test/.test(document.querySelector('.nra-det').innerText) && /ждёт первого входа/.test(document.querySelector('.nra-det').innerText), null, { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'приглашение появилось за ' + (Date.now() - t0) + ' мс');
 });
 
 (async () => {
