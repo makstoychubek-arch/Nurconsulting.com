@@ -159,6 +159,7 @@
         h += '<div class="nra-own"><input type="email" id="nra-own-' + c.id + '" placeholder="Google-почта владельца" autocomplete="off"><button type="button" class="nra-btn p" data-own="' + c.id + '"' + (S.busy['o' + c.id] ? ' disabled' : '') + '>Назначить</button></div>' +
             '<p class="m" style="margin:6px 0 0">Когда человек зайдёт на сайт под этой почтой, он сам увидит этот кабинет (только просмотр).</p>';
         if (viewers.length) h += '<h5>Доступ на просмотр</h5>' + viewers.map(function (x) { return '<div class="nra-who"><i class="av" style="background:' + colorOf(x.email) + '">' + initials(x.email) + '</i><span>' + esc(x.email) + '</span><small>просмотр · ' + ago(x.created_at) + '</small></div>'; }).join('');
+        h += '<h5>Знакомые (до 5)</h5><button type="button" class="nra-btn" data-acc="' + c.id + '|' + esc(c.name) + '">Управлять доступом</button>';
         return h;
     }
     function toast(t) { S.toast = t; render(); setTimeout(function () { S.toast = ''; render(); }, 4500); }
@@ -384,9 +385,10 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown]'); if (!t) return;
+            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc]'); if (!t) return;
             if (t.dataset.user) { S.uopen[t.dataset.user] = !S.uopen[t.dataset.user]; render(); return; }
             if (t.dataset.own) { assignOwner(t.dataset.own); return; }
+            if (t.dataset.acc) { var ac = t.dataset.acc.split('|'); if (window.NrAccess) window.NrAccess.open(ac[0], ac[1]); return; }
             if (t.dataset.unown) { var uo = t.dataset.unown.split('|'); unassignOwner(uo[0], uo[1]); return; }
             if (t.dataset.ft) { var q = t.dataset.ft.split('|'), lf = S.feat[q[0]], cur = Array.isArray(lf) && lf.filter(function (x) { return x.feature === q[1]; })[0]; if (cur) setFeat(q[0], q[1], cur.active ? 'off' : 'resume'); return; }
             if (t.dataset.featreload) { e.preventDefault(); S.feat[t.dataset.featreload] = null; loadFeat(t.dataset.featreload); render(); return; }

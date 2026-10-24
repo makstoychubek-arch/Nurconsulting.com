@@ -147,7 +147,7 @@
         const s = document.createElement('style');
         s.id = 'nr-viewer-css';
         s.textContent = `
-html[data-viewer="1"] [data-viewer-hide],
+html[data-viewer="1"] [data-viewer-hide]:not(#rail-settings-btn),
 html[data-viewer="1"] [data-staff-only],
 html[data-viewer="1"] .rnp-edit-mode-btn,
 html[data-viewer="1"] .rnp-settings-gear,
@@ -242,4 +242,122 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
     document.addEventListener('visibilitychange', recheck);
 
     window.NrViewer = V;
+})();
+
+// «Доступ для знакомых»: до 5 человек смотрят кабинет (роль viewer). Добавляет супер-админ, владелец кабинета или хозяин кабинета.
+(function () {
+    'use strict';
+    const MSG = { forbidden: 'Нет прав управлять доступом', bad_email: 'Проверьте почту', limit: 'Уже 5 человек — уберите кого-то', already_owner: 'Эта почта уже у владельца кабинета' };
+    const esc = (t) => String(t || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    let box = null, cabId = '', cabName = '', state = { items: [], can: true }, busy = false;
+
+    function css() {
+        if (document.getElementById('nr-acc-css')) return;
+        const s = document.createElement('style');
+        s.id = 'nr-acc-css';
+        s.textContent = `#nr-acc { position: fixed; inset: 0; z-index: 9000; background: rgba(15,15,25,.45); display: grid; place-items: center; padding: 16px; }
+#nr-acc .nr-acc-b { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--surface-solid, #fff); color: var(--text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+#nr-acc h3 { margin: 0; font-size: 16px; } #nr-acc p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-muted); }
+#nr-acc .nr-acc-r { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; font-size: 13px; }
+#nr-acc .nr-acc-r span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; } #nr-acc .nr-acc-r em { font-style: normal; font-size: 11px; color: var(--text-muted); }
+#nr-acc button { border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
+#nr-acc .nr-acc-add { display: flex; gap: 8px; margin-top: 10px; } #nr-acc input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 13px; background: var(--surface); color: var(--text-primary); }
+#nr-acc .nr-acc-ok { background: var(--accent); color: #fff; border-color: transparent; } #nr-acc .nr-acc-err { color: #dc2626; font-size: 12px; min-height: 16px; margin-top: 6px; }
+#nr-acc .nr-acc-h { display: flex; justify-content: space-between; align-items: start; gap: 10px; }`;
+        document.head.appendChild(s);
+    }
+
+    function paint(err) {
+        if (!box) return;
+        const n = state.items.length;
+        const rows = state.items.map((x) => '<div class="nr-acc-r"><span>' + esc(x.email) + '</span><em>' + (x.status === 'invited' ? 'ждёт входа' : 'смотрит') + '</em>' +
+            (state.can ? '<button type="button" data-rm="' + esc(x.email) + '">Убрать</button>' : '') + '</div>').join('');
+        box.querySelector('.nr-acc-b').innerHTML = '<div class="nr-acc-h"><div><h3>Доступ для знакомых</h3><p>' + esc(cabName) + ' · до 5 человек смотрят кабинет, менять данные они не могут. Занято: ' + n + ' из 5.</p></div><button type="button" data-x="1" aria-label="Закрыть">×</button></div>' +
+            (rows || '<p>Пока никого.</p>') +
+            (state.can ? '<div class="nr-acc-add"><input type="email" placeholder="Почта Google" autocomplete="off"' + (n >= 5 ? ' disabled' : '') + '><button type="button" class="nr-acc-ok" data-add="1"' + (n >= 5 ? ' disabled' : '') + '>Добавить</button></div>' : '<p>Управлять доступом может владелец кабинета.</p>') +
+            '<div class="nr-acc-err">' + esc(err || '') + '</div>';
+    }
+
+    async function load() {
+        try {
+            const r = await supabase.rpc('cabinet_watchers', { p_cabinet: cabId });
+            if (r.data) state = { items: r.data.items || [], can: r.data.can_manage !== false };
+        } catch (_) {}
+        paint();
+    }
+
+    // Список показывается сразу, правки применяются на экране до ответа сервера; при ошибке откатываем и пишем причину.
+    async function act(fn, optimistic) {
+        if (busy) return;
+        busy = true;
+        const was = state.items.slice();
+        optimistic && optimistic();
+        paint();
+        try {
+            const r = await fn();
+            if (r && r.error) throw r.error;
+            busy = false;
+            load();
+        } catch (e) {
+            busy = false;
+            state.items = was;
+            const m = String((e && e.message) || e);
+            paint(MSG[Object.keys(MSG).find((k) => m.includes(k))] || 'Не получилось, повторите');
+        }
+    }
+
+    function open(id, name) {
+        if (!id) return;
+        css();
+        cabId = id; cabName = name || '';
+        state = { items: [], can: true };
+        box && box.remove();
+        box = document.createElement('div');
+        box.id = 'nr-acc';
+        box.innerHTML = '<div class="nr-acc-b"></div>';
+        document.body.appendChild(box);
+        paint();
+        box.addEventListener('click', (e) => {
+            const t = e.target;
+            if (t === box || t.closest('[data-x]')) { box.remove(); box = null; return; }
+            const rm = t.closest('[data-rm]');
+            if (rm) { const m = rm.getAttribute('data-rm'); act(() => supabase.rpc('cabinet_watcher_remove', { p_cabinet: cabId, p_email: m }), () => { state.items = state.items.filter((x) => x.email !== m); }); return; }
+            if (t.closest('[data-add]')) add();
+        });
+        box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input')) add(); });
+        load();
+    }
+
+    function add() {
+        const inp = box && box.querySelector('input');
+        const m = inp ? inp.value.trim().toLowerCase() : '';
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) { paint(MSG.bad_email); return; }
+        act(() => supabase.rpc('cabinet_watcher_add', { p_cabinet: cabId, p_email: m }), () => { state.items.push({ email: m, status: 'invited' }); });
+    }
+
+    // Владельцу в режиме просмотра шестерёнка «Настройки» открывает это окно, остальным — обычные настройки.
+    document.addEventListener('click', (e) => {
+        const g = e.target.closest && e.target.closest('#rail-settings-btn');
+        if (!g || !window.NrViewer || !window.NrViewer.on) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        const row = (window.NrViewer.rows || [])[0] || {};
+        let id = ''; try { id = currentCabinetId || row.id; } catch (_) { id = row.id; }
+        open(id, ((window.NrViewer.rows || []).find((r) => r.id === id) || row).name);
+    }, true);
+
+    // У хозяина кабинета (обычные настройки) карточка с кнопкой в «Безопасности».
+    function card() {
+        const host = document.getElementById('settings-security');
+        if (!host || document.getElementById('nr-acc-card') || (window.NrViewer && window.NrViewer.on)) return;
+        let id = ''; try { id = typeof hasUserCabinets !== 'undefined' && hasUserCabinets ? currentCabinetId : ''; } catch (_) {}
+        if (!id) return;
+        const c = document.createElement('div');
+        c.id = 'nr-acc-card'; c.className = 'widget-card p-6';
+        c.innerHTML = '<h3 class="font-semibold mb-1" style="color:var(--text-primary)">Доступ для знакомых</h3><p class="text-xs mb-3" style="color:var(--text-muted)">До 5 человек смогут смотреть кабинет, менять данные они не смогут.</p><button type="button" class="ui-btn ui-btn-secondary">Управлять доступом</button>';
+        c.querySelector('button').onclick = () => { let n = ''; try { n = (nrCabinetList().find((x) => x.id === currentCabinetId) || {}).name || ''; } catch (_) {} open(currentCabinetId, n); };
+        host.prepend(c);
+    }
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#rail-settings-btn')) setTimeout(card, 150); });
+
+    window.NrAccess = { open };
 })();

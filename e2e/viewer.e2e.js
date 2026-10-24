@@ -36,6 +36,19 @@ const UID = '11111111-1111-1111-1111-111111111111';
         assert.notStrictEqual(own.rnp, 'none', 'РНП виден');
         assert.notStrictEqual(own.dashB, 'none', 'Дашборд виден');
         console.log('ok   владелец кабинета видит Дашборд, РНП, РК, Логистика, А/Б и Telegram, без плашки');
+        // «Доступ для знакомых»: шестерёнка владельца открывает окно, добавление видно сразу
+        let added = null;
+        await page.route(/rest\/v1\/rpc\/cabinet_watchers/, (r) => r.fulfill({ json: { can_manage: true, limit: 5, items: [{ email: 'friend@example.test', status: 'active', since: '2026-10-24' }] } }));
+        await page.route(/rest\/v1\/rpc\/cabinet_watcher_add/, (r) => { added = r.request().postDataJSON(); r.fulfill({ json: { status: 'invited' } }); });
+        await page.evaluate(() => document.getElementById('rail-settings-btn').click());
+        await page.waitForSelector('#nr-acc .nr-acc-r', { timeout: 4000 });
+        assert.ok((await page.textContent('#nr-acc')).includes('friend@example.test'), 'в окне виден знакомый');
+        await page.fill('#nr-acc input', 'new@example.test');
+        await page.click('#nr-acc [data-add]');
+        assert.ok((await page.textContent('#nr-acc')).includes('new@example.test'), 'добавленный виден сразу');
+        await page.waitForTimeout(300);
+        assert.strictEqual(added && added.p_email, 'new@example.test', 'на сервер ушла почта');
+        console.log('ok   доступ для знакомых: окно открывается из шестерёнки, добавление видно сразу');
         console.log('e2e выдачи кабинета: все проверки прошли');
     } catch (e) {
         console.error('FAIL', e.message);
