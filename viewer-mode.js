@@ -23,13 +23,12 @@
             if (!Array.isArray(rows) || !rows.length) return;
             V.on = true;
             V.rows = rows;
-            calcTabs();
+            setOwner();
             document.documentElement.setAttribute('data-viewer', '1');
             injectCss();
             guardWrites();
             markNav();
             banner();
-            ownerCheck();
             let guardT = null;
             new MutationObserver(() => {
                 markNav(); banner();
@@ -68,39 +67,24 @@
     };
 
     function calcTabs() {
-        if (V.owner) { V.tabs = new Set(['dashboard', 'rnp', 'advertising', 'goods-groups', 'ab-testing', 'tg-owner']); V.secLabel = ''; return; }
         const secs = new Set();
         V.rows.forEach(r => (r.sections || ['all']).forEach(s => secs.add(String(s))));
         const all = secs.has('all');
         V.tabs = new Set();
         Object.entries(TABS).forEach(([k, t]) => { if (all || secs.has(k)) t.forEach(x => V.tabs.add(x)); });
+        // Владелец и гость — одна роль: меню владельца, только просмотр, без плашки; Telegram только при полном доступе.
+        if (all) V.tabs.add('tg-owner');
+        ['logistics', 'reports'].forEach(k => TABS[k].forEach(x => V.tabs.delete(x)));
         V.secLabel = all ? 'все разделы' : [...secs].map(s => NAMES[s]).filter(Boolean).join(', ');
     }
 
-    // Владелец кабинета (роль owner): Дашборд, РНП, РК, Логистика, архив А/Б и Telegram, без плашки «Режим просмотра».
-    function setOwner(on) {
-        if (V.owner === on) return;
-        V.owner = on;
-        document.documentElement.toggleAttribute('data-owner', on);
+    function setOwner() {
+        V.owner = true;
+        document.documentElement.setAttribute('data-owner', '');
         calcTabs();
-        if (on) { tgTab(); document.querySelector('[data-ab-filter="finished"]')?.click(); }
+        if (V.tabs.has('tg-owner')) tgTab();
         document.getElementById('nr-viewer-banner')?.remove();
-        markNav();
-        V.ensureAllowed();
-    }
-    function ownerCheck() {
-        try { if (localStorage.getItem('nr-owner') === '1') setOwner(true); } catch (_) {}
-        try {
-            supabase.auth.getSession().then(s => {
-                const uid = s.data && s.data.session && s.data.session.user.id;
-                return uid ? supabase.from('cabinet_viewers').select('role').eq('user_id', uid) : null;
-            }).then(r => {
-                if (!r || !Array.isArray(r.data)) return;
-                const own = r.data.some(x => x.role === 'owner');
-                try { localStorage.setItem('nr-owner', own ? '1' : '0'); } catch (_) {}
-                setOwner(own);
-            });
-        } catch (_) {}
+        document.querySelector('[data-ab-filter="finished"]')?.click();
     }
 
     const TG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 4.3 2.9 11.5c-1.3.5-1.3 1.2-.2 1.5l4.7 1.5 1.8 5.6c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.3-2.3 4.8 3.6c.9.5 1.5.2 1.7-.8l3.1-14.9c.3-1.2-.5-1.8-1.3-1.4zM8.5 13.6l9.2-5.8c.4-.3.8-.1.5.2l-7.6 6.9-.3 3.2-1.8-4.5z"/></svg>';
