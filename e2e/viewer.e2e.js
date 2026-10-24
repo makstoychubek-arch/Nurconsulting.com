@@ -28,12 +28,12 @@ const UID = '11111111-1111-1111-1111-111111111111';
         tables.cabinet_viewers = [{ user_id: UID, cabinet_id: 'cccccccc-0000-0000-0000-0000000000aa', role: 'owner', sections: ['all'] }];
         await page.evaluate(() => { window.NrViewer.enable([{ id: 'cccccccc-0000-0000-0000-0000000000aa', name: 'Baza', sections: ['all'] }]); });
         await page.waitForFunction(() => document.documentElement.hasAttribute('data-owner'), null, { timeout: 6000 });
-        const own = await page.evaluate(() => ({ banner: !!document.getElementById('nr-viewer-banner'), tabs: [...window.NrViewer.tabs], tg: !!document.querySelector('.rail-btn[data-tab="tg-owner"]'), dash: getComputedStyle(document.querySelector('.rail-btn[data-tab="rnp"]')).display }));
+        const own = await page.evaluate(() => ({ banner: !!document.getElementById('nr-viewer-banner'), tabs: [...window.NrViewer.tabs], tg: !!document.querySelector('.rail-btn[data-tab="tg-owner"]'), dash: getComputedStyle(document.querySelector('.rail-btn[data-tab="advertising"]')).display }));
         assert.strictEqual(own.banner, false, 'у владельца нет плашки');
-        assert.deepStrictEqual(own.tabs.sort(), ['ab-testing', 'goods-groups', 'tg-owner']);
+        assert.deepStrictEqual(own.tabs.sort(), ['ab-testing', 'dashboard', 'goods-groups', 'rnp', 'tg-owner']);
         assert.ok(own.tg, 'кнопка Telegram есть');
-        assert.strictEqual(own.dash, 'none', 'РНП скрыт');
-        console.log('ok   владелец кабинета видит только Товары, А/Б и Telegram, без плашки');
+        assert.strictEqual(own.dash, 'none', 'РК скрыт');
+        console.log('ok   владелец кабинета видит Дашборд, РНП, Товары, А/Б и Telegram, без плашки');
         console.log('e2e выдачи кабинета: все проверки прошли');
     } catch (e) {
         console.error('FAIL', e.message);
