@@ -11966,6 +11966,15 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         ggDaily = { snapKey: '', monthKey: '', rows: [] };
     }
 
+    /* Сменили кабинет: остатки прошлого кабинета не показываем, пока не придут новые. */
+    function ggDropStaleCabinet() {
+        if (!goodsGroupsCabinetId || !currentCabinetId || goodsGroupsCabinetId === currentCabinetId) return;
+        goodsGroupsRows = []; ggDailyReset();
+        const sk = '<tr><td colspan="9"><div class="nr-skel-line"></div><div class="nr-skel-line"></div><div class="nr-skel-line"></div></td></tr>';
+        ['gg-table-body', 'gg-daily-body', 'gg-cost-body'].forEach((id) => { const e = document.getElementById(id); if (e) e.innerHTML = sk; });
+        ['gg-table-foot', 'gg-daily-foot'].forEach((id) => { const e = document.getElementById(id); if (e) e.innerHTML = ''; });
+    }
+
     function setGoodsView(view, opts) {
         ggView = ['daily', 'cost', 'give', 'fbs'].includes(view) ? view : 'now';
         const nowEl = document.getElementById('gg-view-now');
@@ -12573,6 +12582,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const tbody = document.getElementById('gg-table-body');
         if (!tbody) return;
         await ggFlushSaves();
+        ggDropStaleCabinet();
         const silent = !!(opts && opts.silent) && goodsGroupsRows.length;
         const hasPaintedRows = !!(tbody.querySelector('tr') && goodsGroupsRows.length);
         if (!silent && !hasPaintedRows) {
@@ -13622,6 +13632,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             bootRnpTab(true);
         }
 
+        ggDropStaleCabinet();
         showCabinetTransition(newCabinetName, async () => {
             if (adsReload) {
                 await adsReload;
