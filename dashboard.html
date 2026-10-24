@@ -8475,7 +8475,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-plan-fact.68223e16a0.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.763b152377.min.js"></script>
+<script src="/dist/ads-command-center.1dee516d76.min.js"></script>
 <script src="/dist/ads-pulse.4edda44853.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
@@ -15650,6 +15650,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
             return;
         }
+        const abKey = 'nr_ab_' + currentCabinetId;
+        if (!allABTests.length) { try { const c = JSON.parse(localStorage.getItem(abKey) || 'null'); if (c && c.length) { allABTests = c; renderABTests(); } } catch (e) {} }
         try {
             const { data: tests, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
             if (error) throw error;
@@ -15675,6 +15677,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 built.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
             }
             allABTests = built;
+            try { const raw = JSON.stringify(built); if (raw.length < 600000) localStorage.setItem(abKey, raw); } catch (e) {}
             renderABTests();
             startRotationTimers();
 

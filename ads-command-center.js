@@ -2390,15 +2390,27 @@
         if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
         state.cache = state.cache || new Map();
         state.cache.set(modelCacheKey(), { model: state.model, schedules: state.schedules });
+        persistModel(modelCacheKey(), state.model, state.schedules);
         if (state.cache.size > 8) state.cache.delete(state.cache.keys().next().value);
         paintModel();
         if (note) note.textContent = '';
         return state.model;
     }
 
+    // После жёсткого обновления прошлые цифры РК показываем сразу из памяти браузера, свежие подставятся следом.
+    function persistModel(key, model, schedules) {
+        try { const raw = JSON.stringify({ k: key, t: Date.now(), model, schedules }); if (raw.length < 900000) localStorage.setItem('nr_ads_hq_v1', raw); } catch (e) { /* без хранилища работаем как раньше */ }
+    }
+    function restoreModel(key) {
+        try {
+            const d = JSON.parse(localStorage.getItem('nr_ads_hq_v1') || 'null');
+            return d && d.k === key && d.model && Date.now() - d.t < 6 * 3600 * 1000 ? { model: d.model, schedules: d.schedules || [] } : null;
+        } catch (e) { return null; }
+    }
+
     async function load() {
         const gen = ++state.loadGen;
-        const cached = state.cache && state.cache.get(modelCacheKey());
+        const cached = (state.cache && state.cache.get(modelCacheKey())) || restoreModel(modelCacheKey());
         if (cached) {
             state.model = cached.model;
             state.schedules = cached.schedules;

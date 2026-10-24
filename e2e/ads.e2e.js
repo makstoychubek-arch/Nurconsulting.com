@@ -148,6 +148,19 @@ test('повторное открытие вкладки показывает п
     assert.ok(Date.now() - t0 < 200, 'список виден через ' + (Date.now() - t0) + ' мс');
 });
 
+test('после жёсткого обновления РК сразу показывает прошлые цифры из памяти браузера', async ({ page }) => {
+    await page.evaluate(() => showTab('advertising'));
+    await page.waitForFunction(() => document.querySelectorAll('.ads-sl').length > 0, null, { timeout: 8000 });
+    await page.waitForTimeout(400);
+    assert.ok(await page.evaluate(() => !!localStorage.getItem('nr_ads_hq_v1')), 'снимок РК сохранён');
+    await page.goto(new URL('/space', page.url()).href);
+    await page.waitForFunction(() => typeof showTab === 'function' && typeof cabinetsLoaded !== 'undefined' && cabinetsLoaded, null, { timeout: 15000 });
+    const t0 = Date.now();
+    await page.evaluate(() => showTab('advertising'));
+    await page.waitForFunction(() => document.querySelectorAll('.ads-sl').length > 0, null, { timeout: 400 });
+    assert.ok(Date.now() - t0 < 400, 'список виден через ' + (Date.now() - t0) + ' мс');
+});
+
 (async () => {
     const srv = await serve();
     const base = 'http://127.0.0.1:' + srv.address().port;
