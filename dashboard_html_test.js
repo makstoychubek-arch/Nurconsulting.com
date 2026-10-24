@@ -53,7 +53,7 @@ assert.ok(
 {
     const rail = html.slice(html.indexOf('class="rail-nav"'), html.indexOf('class="rail-bottom"'));
     assert.ok(
-        /class="rail-btn"[^>]*data-tab="goods-groups"/.test(rail) && /<span class="rail-btn-lbl">Товары<\/span>/.test(rail),
+        /class="rail-btn"[^>]*data-tab="goods-groups"/.test(rail) && /<span class="rail-btn-lbl">Логистика<\/span>/.test(rail),
         'Товары must sit on the main rail as a live tab'
     );
     assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-tab="ab-testing"') &&
@@ -274,9 +274,8 @@ assert.ok(html.includes('function pauseABTestCampaigns') && html.includes("callW
         'rotation writes WB photo number 1 (main/cover)');
 }
 assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
-assert.ok(/<span class="rail-btn-lbl">Товары<\/span>/.test(html), 'Товары sits on the main rail below РК');
+assert.ok(/<span class="rail-btn-lbl">Логистика<\/span>/.test(html), 'Логистика sits on the main rail below РК');
 assert.ok(!/<span class="rail-btn-lbl">Финансы<\/span>/.test(html), 'Финансы must not stay on the main rail');
-assert.ok(!/<span class="rail-btn-lbl">Логистика<\/span>/.test(html), 'Логистика must not stay on the main rail');
 assert.ok(!/<span class="rail-btn-lbl">Ещё<\/span>/.test(html), 'Ещё flyout must be removed from the rail');
 assert.ok(!html.includes('id="fly-goods"') && !html.includes('id="fly-finance"') && !html.includes('id="fly-manage"'),
     'goods/finance/manage flyouts must be folded into BETA');

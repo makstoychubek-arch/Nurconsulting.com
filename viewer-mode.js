@@ -13,7 +13,7 @@
         reports: ['summary'],
     };
     const ORDER = ['dashboard', 'rnp', 'goods-groups', 'advertising', 'ab-testing', 'logistics', 'summary'];
-    const NAMES = { dashboard: 'Дашборд', rnp: 'РНП', goods: 'Товары', ads: 'Реклама', ab: 'А/Б тесты', logistics: 'Логистика', reports: 'Отчёты' };
+    const NAMES = { dashboard: 'Дашборд', rnp: 'РНП', goods: 'Логистика', ads: 'Реклама', ab: 'А/Б тесты', logistics: 'Логистика', reports: 'Отчёты' };
 
     const V = {
         on: false,
@@ -77,7 +77,7 @@
         V.secLabel = all ? 'все разделы' : [...secs].map(s => NAMES[s]).filter(Boolean).join(', ');
     }
 
-    // Владелец кабинета (роль owner): Дашборд, РНП, РК, Товары, архив А/Б и Telegram, без плашки «Режим просмотра».
+    // Владелец кабинета (роль owner): Дашборд, РНП, РК, Логистика, архив А/Б и Telegram, без плашки «Режим просмотра».
     function setOwner(on) {
         if (V.owner === on) return;
         V.owner = on;
