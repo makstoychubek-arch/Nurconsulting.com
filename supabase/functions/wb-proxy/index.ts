@@ -172,6 +172,12 @@ async function changeExistingUserAccess(
     };
 }
 
+const VIEWER_READ_ACTIONS = new Set([
+    'orders', 'stocks', 'stocks_fbo', 'stocks_fbs', 'finance_report', 'sales', 'sales_funnel_history', 'product_photos',
+    'advert_list', 'advert_campaigns', 'advert_stats', 'advert_balance', 'advert_keyword_stats', 'advert_get_bids',
+    'advert_bids_min', 'adv_cluster_board', 'goods_stocks_groups',
+]);
+
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -238,7 +244,18 @@ serve(async (req) => {
             .select('wb_token, name, user_id')
             .eq('id', cabinet_id);
         if (!allCabinets) cabQuery = cabQuery.eq('user_id', user.id);
-        const { data: cab, error: cabErr } = await cabQuery.maybeSingle();
+        let { data: cab, error: cabErr } = await cabQuery.maybeSingle();
+
+        // Владелец и гость кабинета (cabinet_viewers) только читают: из действий пускаем лишь чтение.
+        let viewerRead = false;
+        if (!cab && !cabErr && !allCabinets && VIEWER_READ_ACTIONS.has(String(action))) {
+            const { data: grant } = await admin.from('cabinet_viewers').select('cabinet_id')
+                .eq('cabinet_id', cabinet_id).eq('user_id', user.id).maybeSingle();
+            if (grant) {
+                const r = await admin.from('cabinets').select('wb_token, name, user_id').eq('id', cabinet_id).maybeSingle();
+                cab = r.data; cabErr = r.error; viewerRead = true;
+            }
+        }
 
         if (cabErr || !cab) return json({ error: 'Кабинет не найден или нет доступа' }, 403);
 
@@ -249,6 +266,10 @@ serve(async (req) => {
         const advPath = (body as Record<string, unknown>).path
             ?? (body as Record<string, unknown>).relative_path
             ?? (params as Record<string, unknown>).path;
+        if (viewerRead && isAdvNamespaceRequest({
+            subpath: proxySubpath, action, path: advPath,
+            namespace: (body as Record<string, unknown>).namespace,
+        })) return json({ error: 'Режим просмотра: изменять данные нельзя' }, 403);
         if (isAdvNamespaceRequest({
             subpath: proxySubpath,
             action,

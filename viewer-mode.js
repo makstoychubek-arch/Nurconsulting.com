@@ -68,7 +68,7 @@
     };
 
     function calcTabs() {
-        if (V.owner) { V.tabs = new Set(['dashboard', 'rnp', 'goods-groups', 'ab-testing', 'tg-owner']); V.secLabel = ''; return; }
+        if (V.owner) { V.tabs = new Set(['dashboard', 'rnp', 'advertising', 'goods-groups', 'ab-testing', 'tg-owner']); V.secLabel = ''; return; }
         const secs = new Set();
         V.rows.forEach(r => (r.sections || ['all']).forEach(s => secs.add(String(s))));
         const all = secs.has('all');
@@ -77,7 +77,7 @@
         V.secLabel = all ? 'все разделы' : [...secs].map(s => NAMES[s]).filter(Boolean).join(', ');
     }
 
-    // Владелец кабинета (роль owner): Дашборд, РНП, Товары, архив А/Б и Telegram, без плашки «Режим просмотра».
+    // Владелец кабинета (роль owner): Дашборд, РНП, РК, Товары, архив А/Б и Telegram, без плашки «Режим просмотра».
     function setOwner(on) {
         if (V.owner === on) return;
         V.owner = on;
@@ -179,7 +179,25 @@ html[data-viewer="1"] [onclick*="openNoteEditor"],
 html[data-viewer="1"] [onclick*="syncNow"],
 html[data-viewer="1"] [onclick*="manualSync"],
 html[data-viewer="1"] [onclick*="openAddCabinet"],
-html[data-viewer="1"] #cabinet-add-btn { display: none !important; }
+html[data-viewer="1"] #cabinet-add-btn,
+html[data-viewer="1"] .adp2-pos, html[data-viewer="1"] .adp2-prs .adp2-addp, html[data-viewer="1"] .adp2-tg,
+html[data-viewer="1"] [data-pact="addp"],
+html[data-viewer="1"] [data-pact="drop"],
+html[data-viewer="1"] [data-pact="kbulk"],
+html[data-viewer="1"] [data-pact="kdrop"],
+html[data-viewer="1"] [data-pact="kmark"],
+html[data-viewer="1"] [data-pact="kminus"],
+html[data-viewer="1"] [data-pact="kstep"],
+html[data-viewer="1"] [data-pact="ksel"],
+html[data-viewer="1"] [data-pact="kwaste"],
+html[data-viewer="1"] [data-pact="new"],
+html[data-viewer="1"] [data-pact="pos"],
+html[data-viewer="1"] [data-pact="rm"],
+html[data-viewer="1"] [data-pact="step"],
+html[data-viewer="1"] [data-pact="toggle"],
+html[data-viewer="1"] [data-pact="topup"],
+html[data-viewer="1"] [data-pact="vdrop"],
+html[data-viewer="1"] [data-pact="vretry"] { display: none !important; }
 html[data-viewer="1"] .gs-in,
 html[data-viewer="1"] .rnp-plan-input,
 html[data-viewer="1"] .rnp-sheet-table input,
