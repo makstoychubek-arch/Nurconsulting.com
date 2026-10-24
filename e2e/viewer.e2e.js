@@ -24,7 +24,7 @@ const UID = '11111111-1111-1111-1111-111111111111';
         await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
         await page.waitForFunction(() => hasUserCabinets === true, null, { timeout: 6000 });
         console.log('ok   выданный кабинет появляется сам, без перезагрузки страницы');
-        // владелец кабинета: без плашки, только Товары/А-Б/Telegram
+        // владелец кабинета: без плашки, Логистика, А-Б, Telegram
         tables.cabinet_viewers = [{ user_id: UID, cabinet_id: 'cccccccc-0000-0000-0000-0000000000aa', role: 'owner', sections: ['all'] }];
         await page.evaluate(() => { window.NrViewer.enable([{ id: 'cccccccc-0000-0000-0000-0000000000aa', name: 'Baza', sections: ['all'] }]); });
         await page.waitForFunction(() => document.documentElement.hasAttribute('data-owner'), null, { timeout: 6000 });
@@ -35,7 +35,7 @@ const UID = '11111111-1111-1111-1111-111111111111';
         assert.notStrictEqual(own.dash, 'none', 'РК виден');
         assert.notStrictEqual(own.rnp, 'none', 'РНП виден');
         assert.notStrictEqual(own.dashB, 'none', 'Дашборд виден');
-        console.log('ok   владелец кабинета видит Дашборд, РНП, РК, Товары, А/Б и Telegram, без плашки');
+        console.log('ok   владелец кабинета видит Дашборд, РНП, РК, Логистика, А/Б и Telegram, без плашки');
         console.log('e2e выдачи кабинета: все проверки прошли');
     } catch (e) {
         console.error('FAIL', e.message);
