@@ -1500,6 +1500,7 @@ const RNP = (() => {
             if (error) throw error;
         } catch(e) {
             console.warn('[RNP] settings save:', e && e.message);
+            if (window.NrViewer && window.NrViewer.on) return;
             _failToast('Настройка сохранена только на этом устройстве: ' + String((e && e.message) || 'база не ответила').slice(0, 80));
         }
     }
