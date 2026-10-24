@@ -96,9 +96,9 @@
                 const d = document.createElement('div');
                 d.id = 'tab-tg-owner';
                 d.className = 'tab-content space-y-4';
-                d.innerHTML = '<div class="nr-tgo"><h3 class="nr-tgo-h" id="nr-set-tg">Telegram</h3>' + BOTS.map(b => '<div class="nr-tgo-card"><span class="nr-tgo-ico">' + TG + '</span><div><b>' + b[0] + '</b><small>' + b[1] + '</small></div><em>Скоро</em></div>').join('') +
-                    '<h3 class="nr-tgo-h">Доступ для знакомых</h3><div id="nr-set-acc" class="nr-tgo-card nr-tgo-col"></div>' +
-                    '<h3 class="nr-tgo-h">Профиль</h3><div class="nr-tgo-card"><div><b id="nr-set-mail">—</b><small>' + esc(V.rows.map(r => r.name).join(', ')) + '</small></div><button type="button" class="nr-tgo-out" onclick="handleLogout()">Выйти</button></div></div>';
+                d.innerHTML = '<div class="nr-tgo"><div data-sec="tg" class="nr-tgo-s"><h3 class="nr-tgo-h" id="nr-set-tg">Telegram</h3>' + BOTS.map(b => '<div class="nr-tgo-card"><span class="nr-tgo-ico">' + TG + '</span><div><b>' + b[0] + '</b><small>' + b[1] + '</small></div><em>Скоро</em></div>').join('') +
+                    '</div><div data-sec="set" class="nr-tgo-s"><h3 class="nr-tgo-h">Пользователи</h3><div id="nr-set-acc" class="nr-tgo-card nr-tgo-col"></div>' +
+                    '<h3 class="nr-tgo-h">Профиль</h3><div class="nr-tgo-card"><div><b id="nr-set-mail">—</b><small>' + esc(V.rows.map(r => r.name).join(', ')) + '</small></div><button type="button" class="nr-tgo-out" onclick="handleLogout()">Выйти</button></div></div></div>';
                 host.after(d);
             }
         }
@@ -107,7 +107,7 @@
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'rail-btn'; b.dataset.tab = 'tg-owner'; b.title = 'Telegram и настройки';
             b.innerHTML = '<span class="rail-btn-ico">' + TG + '</span><span class="rail-btn-lbl">Telegram</span>';
-            b.addEventListener('click', () => { window.showTab('tg-owner', b); window.NrAccess && window.NrAccess.mount(); });
+            b.addEventListener('click', () => { window.showTab('tg-owner', b); window.NrAccess && window.NrAccess.mode('tg'); });
             goods.after(b);
         }
     }
@@ -195,6 +195,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
 .nr-tgo { display: grid; gap: 10px; max-width: 560px; padding: 6px 2px 24px; }
 .nr-tgo-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .nr-tgo-h { margin: 14px 0 0; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; } .nr-tgo-h:first-child { margin-top: 0; }
+.nr-tgo-s { display: grid; gap: 10px; } #tab-tg-owner[data-mode="tg"] [data-sec="set"], #tab-tg-owner[data-mode="set"] [data-sec="tg"] { display: none; }
 .nr-tgo-col { display: block; } .nr-tgo-out { margin-left: auto; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--text-primary); }
 .nr-tgo-card b { display: block; font-size: 14px; } .nr-tgo-card small { color: var(--text-muted); font-size: 12px; }
 .nr-tgo-card em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--text-muted); }
@@ -248,7 +249,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
     window.NrViewer = V;
 })();
 
-// «Доступ для знакомых»: до 5 человек смотрят кабинет (роль viewer). Добавляет супер-админ, владелец кабинета или хозяин кабинета.
+// «Пользователи»: до 5 человек смотрят кабинет (роль viewer). Добавляет супер-админ, владелец кабинета или хозяин кабинета.
 (function () {
     'use strict';
     const MSG = { forbidden: 'Нет прав управлять доступом', bad_email: 'Проверьте почту', limit: 'Уже 5 человек — уберите кого-то', already_owner: 'Эта почта уже у владельца кабинета' };
@@ -279,9 +280,9 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         const rows = state.items.map((x) => '<div class="nr-acc-r"><span>' + esc(x.email) + '</span><em>' + (x.status === 'invited' ? 'ждёт входа' : 'смотрит') + '</em>' +
             (state.can ? '<button type="button" data-rm="' + esc(x.email) + '">Убрать</button>' : '') + '</div>').join('');
         const note = 'До 5 человек смотрят кабинет, менять данные они не могут. Занято: ' + n + ' из 5.';
-        tgt.innerHTML = (inl ? '<p>' + esc(note) + '</p>' : '<div class="nr-acc-h"><div><h3>Доступ для знакомых</h3><p>' + esc(cabName) + ' · ' + esc(note) + '</p></div><button type="button" data-x="1" aria-label="Закрыть">×</button></div>') +
+        tgt.innerHTML = (inl ? '<p>' + esc(note) + '</p>' : '<div class="nr-acc-h"><div><h3>Пользователи</h3><p>' + esc(cabName) + ' · ' + esc(note) + '</p></div><button type="button" data-x="1" aria-label="Закрыть">×</button></div>') +
             (rows || '<p>Пока никого.</p>') +
-            (state.can ? '<div class="nr-acc-add"><input type="email" placeholder="Почта Google" autocomplete="off"' + (n >= 5 ? ' disabled' : '') + '><button type="button" class="nr-acc-ok" data-add="1"' + (n >= 5 ? ' disabled' : '') + '>Добавить</button></div>' : '<p>Управлять доступом может владелец кабинета.</p>') +
+            (state.can ? '<div class="nr-acc-add"><input type="email" placeholder="Почта Google" autocomplete="off"' + (n >= 5 ? ' disabled' : '') + '><button type="button" class="nr-acc-ok" data-add="1"' + (n >= 5 ? ' disabled' : '') + '>Добавить</button></div>' : '<p>Управлять пользователями может владелец кабинета.</p>') +
             '<div class="nr-acc-err">' + esc(err || '') + '</div>';
     }
 
@@ -340,6 +341,14 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input')) add(); });
     }
 
+    // Один раздел, два вида: Telegram (кнопка в меню) и настройки (шестерёнка).
+    function mode(m) {
+        const t = document.getElementById('tab-tg-owner');
+        if (t) t.dataset.mode = m;
+        const h = document.getElementById('page-title');
+        if (h) h.textContent = m === 'tg' ? 'Telegram' : 'Настройки';
+    }
+
     // Страница настроек владельца: тот же список прямо в разделе, без окна.
     function mount() {
         const host = document.getElementById('nr-set-acc');
@@ -369,7 +378,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         if (!g || !window.NrViewer || !window.NrViewer.on) return;
         e.preventDefault(); e.stopImmediatePropagation();
         const btn = document.querySelector('.rail-btn[data-tab="tg-owner"]');
-        if (btn) { window.showTab('tg-owner', btn); mount(); return; }
+        if (btn) { window.showTab('tg-owner', document.getElementById('rail-settings-btn')); mode('set'); mount(); return; }
         let id = ''; try { id = currentCabinetId; } catch (_) {}
         const rr = (window.NrViewer.rows || []);
         open(id || (rr[0] || {}).id, ((rr.find((r) => r.id === id) || rr[0]) || {}).name);
@@ -383,11 +392,11 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         if (!id) return;
         const c = document.createElement('div');
         c.id = 'nr-acc-card'; c.className = 'widget-card p-6';
-        c.innerHTML = '<h3 class="font-semibold mb-1" style="color:var(--text-primary)">Доступ для знакомых</h3><p class="text-xs mb-3" style="color:var(--text-muted)">До 5 человек смогут смотреть кабинет, менять данные они не смогут.</p><button type="button" class="ui-btn ui-btn-secondary">Управлять доступом</button>';
+        c.innerHTML = '<h3 class="font-semibold mb-1" style="color:var(--text-primary)">Пользователи</h3><p class="text-xs mb-3" style="color:var(--text-muted)">До 5 человек смогут смотреть кабинет, менять данные они не смогут.</p><button type="button" class="ui-btn ui-btn-secondary">Управлять пользователями</button>';
         c.querySelector('button').onclick = () => { let n = ''; try { n = (nrCabinetList().find((x) => x.id === currentCabinetId) || {}).name || ''; } catch (_) {} open(currentCabinetId, n); };
         host.prepend(c);
     }
     document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#rail-settings-btn')) setTimeout(card, 150); });
 
-    window.NrAccess = { open, mount };
+    window.NrAccess = { open, mount, mode };
 })();

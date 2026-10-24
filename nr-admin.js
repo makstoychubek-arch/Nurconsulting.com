@@ -159,7 +159,7 @@
         h += '<div class="nra-own"><input type="email" id="nra-own-' + c.id + '" placeholder="Google-почта владельца" autocomplete="off"><button type="button" class="nra-btn p" data-own="' + c.id + '"' + (S.busy['o' + c.id] ? ' disabled' : '') + '>Назначить</button></div>' +
             '<p class="m" style="margin:6px 0 0">Когда человек зайдёт на сайт под этой почтой, он сам увидит этот кабинет (только просмотр).</p>';
         if (viewers.length) h += '<h5>Доступ на просмотр</h5>' + viewers.map(function (x) { return '<div class="nra-who"><i class="av" style="background:' + colorOf(x.email) + '">' + initials(x.email) + '</i><span>' + esc(x.email) + '</span><small>просмотр · ' + ago(x.created_at) + '</small></div>'; }).join('');
-        h += '<h5>Знакомые (до 5)</h5><button type="button" class="nra-btn" data-acc="' + c.id + '|' + esc(c.name) + '">Управлять доступом</button>';
+        h += '<h5>Пользователи (до 5)</h5><button type="button" class="nra-btn" data-acc="' + c.id + '|' + esc(c.name) + '">Управлять пользователями</button>';
         return h;
     }
     function toast(t) { S.toast = t; render(); setTimeout(function () { S.toast = ''; render(); }, 4500); }

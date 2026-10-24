@@ -44,6 +44,8 @@ const UID = '11111111-1111-1111-1111-111111111111';
         await page.waitForSelector('#nr-set-acc .nr-acc-r', { timeout: 4000 });
         assert.ok((await page.textContent('#nr-set-acc')).includes('friend@example.test'), 'в настройках виден знакомый');
         assert.strictEqual(await page.evaluate(() => document.querySelector('.tab-content.active').id), 'tab-tg-owner', 'шестерёнка открывает раздел, а не окно');
+        assert.strictEqual(await page.evaluate(() => document.getElementById('nr-set-tg').offsetParent === null), true, 'в настройках нет блока Telegram');
+        assert.strictEqual(await page.evaluate(() => document.getElementById('page-title').textContent), 'Настройки');
         await page.fill('#nr-set-acc input', 'new@example.test');
         await page.click('#nr-set-acc [data-add]');
         assert.ok((await page.textContent('#nr-set-acc')).includes('new@example.test'), 'добавленный виден сразу');
