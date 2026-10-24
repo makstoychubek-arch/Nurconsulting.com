@@ -140,16 +140,15 @@ assert.ok(html.includes('class="gg-art" title='),
 assert.ok(html.includes("setGoodsView('now')\">Остатки</button>") && !html.includes("setGoodsView('now')\">Сейчас</button>"),
     'the live stocks tab is called Остатки');
 assert.ok(
-    html.includes('id="gg-view-cost"') &&
-    html.includes("setGoodsView('cost')") &&
+    !html.includes('id="gg-view-cost-btn"') &&
     html.includes('function renderGoodsCostTable') &&
     html.includes('cost_price') &&
     html.includes("name === 'cost'"),
-    'Себестоимость is a Товары tab and writes rnp_articles.cost_price'
+    'Себестоимость живёт в строке артикула (без отдельной вкладки) и пишет rnp_articles.cost_price'
 );
 assert.ok(
     html.includes('id="gg-view-daily"') &&
-    html.includes("setGoodsView('daily')") &&
+    !html.includes('id="gg-view-daily-btn"') &&
     html.includes('id="gg-daily-table"') &&
     html.includes('snapshot_goods_daily_stocks') &&
     html.includes('goods_daily_stocks') &&
