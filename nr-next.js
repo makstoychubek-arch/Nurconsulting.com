@@ -7,6 +7,9 @@
     if (!doc) return;
     var S = { db: null, userId: '', cab: '', el: null, timer: 0, poll: 0, space: null, steps: null, open: true, started: false };
 
+    // Владелец или гость кабинета, выданного командой: ему не нужны ни пробный срок, ни «Продлить», ни шаги подключения.
+    function isViewer() { return !!(root.NrViewer && root.NrViewer.on); }
+
     function lsGet(k) { try { return root.localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { root.localStorage.setItem(k, v); } catch (e) {} }
 
@@ -67,6 +70,7 @@
     }
 
     function draw() {
+        if (isViewer()) { if (S.el) { S.el.remove(); S.el = null; } return; }
         var info = planInfo(), steps = S.steps || [];
         var doneN = steps.filter(function (s) { return s.done; }).length, all = doneN === steps.length;
         var showTrial = info && info.ms < 3 * 86400000;
@@ -129,7 +133,7 @@
     }
 
     function init(db, userId, cabinetId) {
-        if (!db || !userId || !cabinetId) return;
+        if (!db || !userId || !cabinetId || isViewer()) return;
         if (S.started && S.cab === cabinetId) return;
         S.db = db; S.userId = userId; S.cab = cabinetId; S.started = true;
         S.open = lsGet('nr_next_min') !== '1';
@@ -142,7 +146,7 @@
     // Одноразовое окно «Вам открыт фулл-доступ»: когда команда включила пробный доступ, клиент видит это сразу.
     var noticed = false;
     async function notice(db, userId) {
-        if (noticed || !db || !userId) return;
+        if (noticed || !db || !userId || isViewer()) return;
         noticed = true;
         var sp = null;
         try { var r = await db.from('spaces').select('status, plan_until').eq('user_id', userId).maybeSingle(); sp = r && r.data; } catch (e) {}
