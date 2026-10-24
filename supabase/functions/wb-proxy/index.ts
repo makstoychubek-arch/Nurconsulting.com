@@ -379,6 +379,50 @@ serve(async (req) => {
                 }
                 break;
             }
+            // Списание остатков FBS (короба уехали на FBO). Только команда. Без apply возвращает таблицу «было → станет»,
+            // с apply отправляет на WB. Вычитаем из текущего остатка одного склада; если остатка не хватает, размер пропускаем.
+            case 'fbs_stock_adjust': {
+                if (!allCabinets) return json({ error: 'Только для команды' }, 403);
+                const pp = params as { warehouse?: string; items?: { nm_id?: number; size?: string; qty?: number }[]; apply?: boolean };
+                const wanted = (pp.items || []).filter((x) => x && Number(x.nm_id) > 0 && String(x.size || '') && Number(x.qty) > 0).slice(0, 500);
+                if (!wanted.length) return json({ error: 'Нет позиций' }, 400);
+                const whName = String(pp.warehouse || '').trim();
+                if (!whName) return json({ error: 'Не указан склад' }, 400);
+                const whs = await wbGet('https://marketplace-api.wildberries.ru/api/v3/warehouses', WB_TOKEN) as { id?: number; name?: string }[];
+                const wh = (Array.isArray(whs) ? whs : []).find((w) => String(w.name || '').trim() === whName);
+                if (!wh?.id) return json({ error: `Склад «${whName}» не найден в WB` }, 404);
+                const { data: bc } = await admin.from('wb_stocks').select('nm_id, tech_size, barcode')
+                    .eq('cabinet_id', cabinet_id).eq('stock_scheme', 'fbs').eq('warehouse_name', whName)
+                    .in('nm_id', [...new Set(wanted.map((x) => Number(x.nm_id)))]);
+                const codeOf = new Map((bc || []).map((r: { nm_id: number; tech_size: string; barcode: string }) => [`${r.nm_id}|${r.tech_size}`, String(r.barcode)]));
+                const skus = wanted.map((x) => codeOf.get(`${x.nm_id}|${x.size}`)).filter(Boolean) as string[];
+                const live = skus.length
+                    ? await wbPost(`https://marketplace-api.wildberries.ru/api/v3/stocks/${wh.id}`, WB_TOKEN, { skus }) as { stocks?: { sku?: string; amount?: number }[] }
+                    : { stocks: [] };
+                const now = new Map((live.stocks || []).map((x) => [String(x.sku), Number(x.amount || 0)]));
+                const rows = wanted.map((x) => {
+                    const sku = codeOf.get(`${x.nm_id}|${x.size}`) || '';
+                    const was = sku ? (now.get(sku) ?? 0) : 0;
+                    const qty = Number(x.qty);
+                    const ok = !!sku && was >= qty;
+                    return { nm_id: Number(x.nm_id), size: String(x.size), qty, sku, was, will: ok ? was - qty : was, ok, why: !sku ? 'нет штрихкода на складе' : was < qty ? 'на складе меньше, чем нужно' : '' };
+                });
+                const toSend = rows.filter((r) => r.ok).map((r) => ({ sku: r.sku, amount: r.will }));
+                let sent = 0;
+                if (pp.apply && toSend.length) {
+                    for (let i = 0; i < toSend.length; i += 100) {
+                        const chunk = toSend.slice(i, i + 100);
+                        const resp = await fetch(`https://marketplace-api.wildberries.ru/api/v3/stocks/${wh.id}`, {
+                            method: 'PUT', headers: { Authorization: WB_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ stocks: chunk }),
+                        });
+                        if (!resp.ok) return json({ error: `WB отказал (${resp.status}): ${(await resp.text().catch(() => '')).slice(0, 300)}`, sent, rows }, 502);
+                        sent += chunk.length;
+                        await sleep(300);
+                    }
+                }
+                result = { applied: !!pp.apply, sent, warehouse: whName, rows };
+                break;
+            }
             case 'finance_report': {
                 const dateFrom = String(params.dateFrom || '').split('T')[0];
                 const dateTo   = String(params.dateTo   || '').split('T')[0];

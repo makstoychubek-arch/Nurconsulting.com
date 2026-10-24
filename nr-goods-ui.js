@@ -49,6 +49,7 @@
 
     function render() {
         if (S.busy) return;
+        adjustBtn();
         var tab = doc.getElementById('tab-goods-groups'), host = doc.getElementById('gg-view-now');
         if (!tab || !host || host.hidden || tab.offsetParent === null) { doc.body.classList.remove('ggx-on'); return; }
         S.busy = true;
@@ -173,6 +174,67 @@
 
     var timer = 0;
     function schedule() { clearTimeout(timer); timer = setTimeout(function () { loadSales(); render(); }, 150); }
+
+    // Списание FBS: короба уехали на FBO, остатки склада на WB уменьшаются. Только команда; сначала таблица «было → станет».
+    function staff() { try { return typeof isStaff !== 'undefined' && !!isStaff; } catch (e) { return false; } }
+    function parseBoxes(text, list) {
+        var items = [], notes = [], all = [];
+        (list.groups || []).forEach(function (g) { g.items.forEach(function (a) { all.push(a); }); });
+        String(text || '').split(/\n/).forEach(function (ln) {
+            var m = ln.match(/^\s*(\d{3,9})\s*[:.\-]?\s*(.*)$/);
+            if (!m) return;
+            var hit = all.filter(function (a) { return a.nm === m[1] || a.nm.slice(-m[1].length) === m[1]; });
+            if (hit.length !== 1) { notes.push('Артикул ' + m[1] + (hit.length ? ': найдено несколько' : ': не найден')); return; }
+            var re = /(\d{2})\s*[-–:= ]\s*(\d{1,4})/g, x;
+            while ((x = re.exec(m[2]))) items.push({ nm_id: Number(hit[0].nm), size: x[1], qty: Number(x[2]) });
+        });
+        var sum = {};
+        items.forEach(function (i) { var k = i.nm_id + '|' + i.size; sum[k] = sum[k] ? { nm_id: i.nm_id, size: i.size, qty: sum[k].qty + i.qty } : i; });
+        return { items: Object.keys(sum).map(function (k) { return sum[k]; }), notes: notes, all: all };
+    }
+    function adjustOpen() {
+        var c = cab(); if (!c) return;
+        var old = doc.getElementById('ggx-adj'); if (old) old.remove();
+        var box = doc.createElement('div'); box.id = 'ggx-adj';
+        box.innerHTML = '<div class="ggx-adj-b"><div class="ggx-adj-h"><b>Списать с FBS</b><button type="button" data-x="1">×</button></div>' +
+            '<p>Короба ушли на FBO: остаток на складе WB уменьшится. По строке на артикул: «последние цифры: размер-штук, …», например <i>0276: 44-7, 46-7</i>. Одинаковые размеры складываются.</p>' +
+            '<label>Склад <input id="ggx-adj-wh" value="АМАН ФФ"></label><textarea id="ggx-adj-t" rows="8" placeholder="1148: 44-8, 46-8, 48-8, 50-8"></textarea>' +
+            '<div class="ggx-adj-a"><button type="button" data-chk="1">Проверить</button><button type="button" data-go="1" disabled>Отправить на WB</button></div><div id="ggx-adj-r"></div></div>';
+        doc.body.appendChild(box);
+        var plan = null, res = box.querySelector('#ggx-adj-r'), go = box.querySelector('[data-go]');
+        function run(apply) {
+            var d = root.nrGoodsList ? root.nrGoodsList() : {};
+            var p = parseBoxes(box.querySelector('#ggx-adj-t').value, d);
+            if (!p.items.length) { res.innerHTML = '<p class="err">Не нашёл ни одной строки. ' + esc(p.notes.join('; ')) + '</p>'; return; }
+            var wh = box.querySelector('#ggx-adj-wh').value.trim();
+            res.innerHTML = '<p>' + (apply ? 'Отправляем на WB…' : 'Считаем по живым остаткам WB…') + '</p>';
+            go.disabled = true;
+            root.callWbProxy('fbs_stock_adjust', { warehouse: wh, items: p.items, apply: apply }, c).then(function (r) {
+                if (!r || !r.rows) { res.innerHTML = '<p class="err">Не получилось. Повторите.</p>'; return; }
+                var nameOf = {}; p.all.forEach(function (a) { nameOf[a.nm] = a.name; });
+                var ok = r.rows.filter(function (x) { return x.ok; }).length;
+                res.innerHTML = (p.notes.length ? '<p class="err">' + esc(p.notes.join('; ')) + '</p>' : '') +
+                    '<table><tr><th>Артикул</th><th>Размер</th><th>Было</th><th>Спишем</th><th>Станет</th></tr>' +
+                    r.rows.map(function (x) { return '<tr class="' + (x.ok ? '' : 'bad') + '"><td>' + esc(nameOf[String(x.nm_id)] || x.nm_id) + '</td><td>' + esc(x.size) + '</td><td>' + x.was + '</td><td>' + x.qty + '</td><td>' + (x.ok ? x.will : esc(x.why)) + '</td></tr>'; }).join('') + '</table>' +
+                    '<p>' + (r.applied ? 'Отправлено на WB: ' + r.sent + ' позиций. Остальные пропущены.' : 'Подходит позиций: ' + ok + ' из ' + r.rows.length + '. Красные пропустим, остаток там не меняется.') + '</p>';
+                go.disabled = r.applied || !ok; plan = r;
+            });
+        }
+        box.addEventListener('click', function (e) {
+            var t = e.target;
+            if (t === box || t.closest('[data-x]')) box.remove();
+            else if (t.closest('[data-chk]')) run(false);
+            else if (t.closest('[data-go]') && plan && !go.disabled) run(true);
+        });
+    }
+    function adjustBtn() {
+        if (!staff() || doc.getElementById('ggx-adj-btn')) return;
+        var tools = doc.getElementById('gg-now-tools'); if (!tools) return;
+        var b = doc.createElement('button'); b.type = 'button'; b.id = 'ggx-adj-btn'; b.className = 'rnp-tool-icon'; b.title = 'Списать с FBS'; b.setAttribute('aria-label', 'Списать с FBS');
+        b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
+        b.onclick = adjustOpen; tools.insertBefore(b, tools.firstChild);
+    }
+
     function boot() {
         schedule();
         // переключение вкладок внутри «Товаров» и разделов сайта
