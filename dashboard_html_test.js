@@ -77,8 +77,8 @@ assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-
     'non-live modules must open the BETA stub instead of broken UIs');
 assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод, Агенты и Сводный отчёт'),
     'BETA stub must list the live modules');
-assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
-    'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
+assert.ok(html.includes('goods-catalog'),
+    'Товары tab shows FBO/FBS/in-transit data and loads the Zevina catalog');
 assert.ok(!html.includes('gg-hero') && !html.includes('class="gg-title"') && !html.includes('id="gg-load-btn"'),
     'Товары has no duplicate heading, explanation or refresh button');
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel') && html.includes('id="gg-settings-overlay"'),
@@ -127,12 +127,7 @@ assert.ok(
     html.includes('id="gg-search-btn"') && html.includes('function toggleGoodsSearch') && html.includes('cx="11" cy="11" r="7"'),
     'Товары search is a loupe icon, not a wide empty field'
 );
-assert.ok(
-    html.includes('#gg-table') &&
-    html.includes('display: inline-table !important') &&
-    html.includes('width: max-content !important'),
-    'Товары table is inline-table so leftover viewport width cannot open a gap before WB'
-);
+assert.ok(!html.includes('id="gg-table"') && !html.includes('gg-table-body') && html.includes('window.nrGoodsList'), 'старой таблицы остатков в Товарах нет: карточки берут данные из nrGoodsList');
 assert.ok(/\.gg-art\s*\{[^}]*white-space:\s*nowrap/.test(html),
     'article names stay on one line next to the numbers');
 assert.ok(html.includes('class="gg-art" title='),
@@ -627,7 +622,7 @@ assert.ok(html.includes("skipSrc && (name === 'src' || name === 'srcset')") && h
     'domMorph must keep painted img src instead of copying placeholders');
 assert.ok(!html.includes('.main-content.page-transition'),
     'tab switch must not hide the page with an opacity flash');
-assert.ok(html.includes('hasPaintedRows'),
+assert.ok(html.includes('!silent && !goodsGroupsRows.length'),
     'Товары must keep painted rows on refresh instead of swapping in Загрузка');
 assert.ok(
     html.includes('__nrLive') && html.includes('window.__nrEarlyTab = __nrPane'),

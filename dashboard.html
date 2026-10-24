@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.b1f5ba04f6.css">
-<link rel="stylesheet" href="/dist/rnp-extra.1cc7e2894f.css">
+<link rel="stylesheet" href="/dist/rnp-extra.741c51cb3c.css">
 <link rel="stylesheet" href="/dist/ads-pulse.75db0d6b54.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -6715,15 +6715,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <span id="gg-freshness" class="gg-fresh"></span>
                 </div>
             </div>
-            <div class="gg-table-scroll" id="gg-view-now">
-                <table class="data-table" id="gg-table">
-                    <thead id="gg-table-head"></thead>
-                    <tbody id="gg-table-body">
-                        <tr><td colspan="7"><div class="nr-skel-line"></div><div class="nr-skel-line"></div><div class="nr-skel-line"></div></td></tr>
-                    </tbody>
-                    <tfoot id="gg-table-foot"></tfoot>
-                </table>
-            </div>
+            <div class="gg-table-scroll" id="gg-view-now"></div>
             <div class="gg-daily" id="gg-view-daily" hidden>
                 <div class="gg-table-scroll" id="gg-daily-scroll">
                     <table class="data-table" id="gg-daily-table">
@@ -8511,7 +8503,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.fed20b8a96.min.js"></script>
 <script src="/dist/nr-ui.758e49d7ac.min.js"></script>
-<script src="/dist/nr-goods-ui.87d8b6eb59.min.js"></script>
+<script src="/dist/nr-goods-ui.84c94eaf71.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -11967,9 +11959,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function ggDropStaleCabinet() {
         if (!goodsGroupsCabinetId || !currentCabinetId || goodsGroupsCabinetId === currentCabinetId) return;
         goodsGroupsRows = []; ggDailyReset();
-        const sk = '<tr><td colspan="9"><div class="nr-skel-line"></div><div class="nr-skel-line"></div><div class="nr-skel-line"></div></td></tr>';
-        ['gg-table-body', 'gg-daily-body', 'gg-cost-body'].forEach((id) => { const e = document.getElementById(id); if (e) e.innerHTML = sk; });
-        ['gg-table-foot', 'gg-daily-foot'].forEach((id) => { const e = document.getElementById(id); if (e) e.innerHTML = ''; });
+        ['gg-daily-body', 'gg-cost-body'].forEach((id) => { const e = document.getElementById(id); if (e) e.innerHTML = ''; });
+        ggMsg = { t: 'Загрузка…' };
+        renderGoodsGroupsTable();
     }
 
     function setGoodsView(view, opts) {
@@ -12196,85 +12188,21 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         return catalog.hideGroups(grouped, ggUi.hiddenSections);
     }
 
-    function ggCellHtml(r, s, colId) {
-        if (colId === 'art') {
-            const name = escapeHtml(r.sellerArticle || '—');
-            return `<td class="gg-art" title="${name}">${name}</td>`;
-        }
-        if (colId === 'nm') return `<td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId || ''))}</td>`;
-        if (colId === 'fbo') return ggQtyCell(s.fbo);
-        if (colId === 'fbs') return ggQtyCell(s.fbs);
-        if (colId === 'transit') return ggQtyInput(r, 'transit', s.transit);
-        if (colId === 'plan') return ggQtyInput(r, 'plan', s.plan);
-        if (colId === 'total') return `<td class="gg-num gg-total" style="font-weight:700">${fmt(s.total)}</td>`;
-        return '<td></td>';
-    }
-
-    function ggFootCell(colId, tot) {
-        if (colId === 'art') return `<td class="gg-art">Итого</td>`;
-        if (colId === 'nm') return `<td class="gg-col-nm"></td>`;
-        const val = tot[colId] ?? 0;
-        const cls = `gg-num${val ? '' : ' gg-zero'}`;
-        if (colId === 'fbo') return `<td class="${cls}" id="gg-fbo">${fmt(val)}</td>`;
-        if (colId === 'fbs') return `<td class="${cls}" id="gg-fbs">${fmt(val)}</td>`;
-        if (colId === 'transit') return `<td class="${cls}" id="gg-transit">${fmt(val)}</td>`;
-        if (colId === 'plan') return `<td class="${cls}" id="gg-plan">${fmt(val)}</td>`;
-        if (colId === 'total') return `<td class="${cls}" id="gg-stock-total">${fmt(val)}</td>`;
-        return `<td class="${cls}">${fmt(val)}</td>`;
-    }
-
-    function ggRefreshKpis() {
-        const catalog = window.GoodsCatalog;
-        const groups = ggVisibleGroups();
-        const items = catalog ? catalog.flattenGroups(groups) : groups.flatMap((g) => g.items || []);
-        const tot = catalog.sumItems(items);
-        ['gg-fbo', 'gg-fbs', 'gg-transit', 'gg-plan', 'gg-stock-total'].forEach((id) => {
-            const map = { 'gg-fbo': tot.fbo, 'gg-fbs': tot.fbs, 'gg-transit': tot.transit, 'gg-plan': tot.plan, 'gg-stock-total': tot.total };
-            const el = document.getElementById(id);
-            if (el) el.textContent = fmt(map[id]);
-        });
-        return { groups, items, tot };
-    }
-
-    function renderGoodsGroupsTable() {
-        const tbody = document.getElementById('gg-table-body');
-        const thead = document.getElementById('gg-table-head');
-        const tfoot = document.getElementById('gg-table-foot');
-        if (!tbody) return;
-        const scrollEl = tbody.closest('.gg-table-scroll');
-        const scrollTop = scrollEl?.scrollTop || 0;
-        const catalog = window.GoodsCatalog;
-        const cols = ggCols();
-        const { groups, items, tot } = ggRefreshKpis();
-
-        if (thead) {
-            thead.innerHTML = `<tr>${cols.map((c) => `<th class="${ggColClass(c.id)}">${escapeHtml(c.label)}</th>`).join('')}</tr>`;
-        }
-
-        if (!items.length) {
-            tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>`;
-            if (tfoot) tfoot.innerHTML = '';
-            return;
-        }
-
-        const html = [];
-        groups.forEach((g, gi) => {
-            const sub = catalog ? catalog.sumItems(g.items) : tot;
-            html.push(`<tr class="gg-sec-row" data-key="sec:${gi}:${escapeHtml(g.name)}"><td colspan="${ggColSpan()}">${escapeHtml(g.name)} · ${g.items.length} · ${fmt(sub.total)}</td></tr>`);
-            g.items.forEach((r) => {
-                const s = catalog ? catalog.stockOf(r) : {
-                    fbo: Number(r.fbo || 0), fbs: Number(r.fbs || 0),
-                    transit: Number(r.transit || 0), plan: Number(r.plan || 0),
-                    total: Number(r.fbo || 0) + Number(r.fbs || 0) + Number(r.transit || 0) + Number(r.plan || 0),
-                };
-                html.push(`<tr data-key="nm:${escapeHtml(String(r.nmId || ''))}">${cols.map((c) => ggCellHtml(r, s, c.id)).join('')}</tr>`);
-            });
-        });
-        if (window.domMorph && tbody.querySelector('tr[data-key]')) window.domMorph.morphList(tbody, html.join(''), 'data-key');
-        else tbody.innerHTML = html.join('');
-        if (tfoot) tfoot.innerHTML = `<tr class="gg-foot">${cols.map((c) => ggFootCell(c.id, tot)).join('')}</tr>`;
-        if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
-    }
+    // Карточки «Остатки» (nr-goods-ui.js) берут данные отсюда; старой таблицы больше нет.
+    let ggMsg = null;
+    window.nrGoodsList = () => {
+        const c = window.GoodsCatalog;
+        if (ggMsg || !c) return { msg: ggMsg || { t: 'Загрузка…' } };
+        const groups = ggVisibleGroups().map((g) => ({
+            name: g.name,
+            items: (g.items || []).map((r) => {
+                const st = c.stockOf(r);
+                return { nm: String(r.nmId || ''), name: r.sellerArticle || '', fbo: st.fbo, fbs: st.fbs, transit: st.transit, plan: st.plan, total: st.total, cab: String(r.cabinetId || goodsGroupsCabinetId || '') };
+            }),
+        })).filter((g) => g.items.length);
+        return { groups };
+    };
+    function renderGoodsGroupsTable() { window.NrGoodsUi?.refresh(); }
 
     function renderGoodsCostTable() {
         const tbody = document.getElementById('gg-cost-body');
@@ -12440,12 +12368,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     totEl.classList.toggle('gg-zero', !sum);
                 }
             }
-            const totalTd = el.closest('tr')?.querySelector('.gg-total');
-            if (totalTd) totalTd.textContent = fmt(catalog ? catalog.stockOf(row).total : val);
             el.classList.toggle('gg-zero', !val);
             el.classList.add('gg-edit-dirty');
         }
-        ggRefreshKpis();
         return val;
     }
 
@@ -12587,15 +12512,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     async function loadGoodsGroups(opts) {
         try { setGoodsView(sessionStorage.getItem('gg_view') || 'now', { skipLoad: true }); } catch (e) { setGoodsView('now', { skipLoad: true }); }
-        const tbody = document.getElementById('gg-table-body');
-        if (!tbody) return;
+        if (!document.getElementById('gg-view-now')) return;
         await ggFlushSaves();
         ggDropStaleCabinet();
         const silent = !!(opts && opts.silent) && goodsGroupsRows.length;
-        const hasPaintedRows = !!(tbody.querySelector('tr') && goodsGroupsRows.length);
-        if (!silent && !hasPaintedRows) {
-            tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Загрузка…</td></tr>`;
-        }
+        if (!silent && !goodsGroupsRows.length) { ggMsg = { t: 'Загрузка…' }; renderGoodsGroupsTable(); }
 
         try {
             let cabinets = cabinetListCache;
@@ -12604,12 +12525,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 cabinets = visibleCabinets(data || []);
             }
             if (!currentCabinetId) {
-                tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Выберите кабинет сверху</td></tr>`;
+                ggMsg = { t: 'Выберите кабинет сверху' }; renderGoodsGroupsTable();
                 return;
             }
             const cab = cabinets.find(c => c.id === currentCabinetId);
             if (!cab) {
-                tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Нет кабинета</td></tr>`;
+                ggMsg = { t: 'Нет кабинета' }; renderGoodsGroupsTable();
                 return;
             }
 
@@ -12631,13 +12552,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 );
             }
 
+            ggMsg = null;
             renderGoodsGroupsTable();
             if (ggView === 'daily') await ensureDailyStocks();
             const fresh = document.getElementById('gg-freshness');
             if (fresh && fresh.textContent === 'ошибка сохранения') fresh.textContent = '';
         } catch (e) {
             console.error('[goods-groups]', e);
-            tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message)}</td></tr>`;
+            ggMsg = { t: e.message, err: true }; renderGoodsGroupsTable();
         }
     }
 

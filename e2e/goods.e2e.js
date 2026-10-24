@@ -22,15 +22,15 @@ const stock = (cab, nm) => ({ cabinet_id: cab, nm_id: nm, quantity: 5, stock_sch
         const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 600, tables, rpcs: { is_super_admin: true }, functions: {} });
         const { page } = env;
         await page.evaluate(() => showTab('goods-groups'));
-        await page.waitForFunction(() => /кабинета А/.test(document.getElementById('gg-table-body').innerText), null, { timeout: 15000 });
+        await page.waitForFunction(() => /кабинета А/.test((document.getElementById('ggx-cards') || {}).innerText || ''), null, { timeout: 15000 });
         // меняем «базу» на данные другого кабинета и переключаемся
         tables.rnp_articles = [art(CAB_B, 222, 'Брюки из кабинета Б')];
         tables.wb_stocks = [stock(CAB_B, 222)];
         await page.evaluate((id) => window.nrSelectCabinet(id), CAB_B);
         await page.waitForTimeout(250);
-        const during = await page.evaluate(() => document.getElementById('gg-table-body').innerText);
+        const during = await page.evaluate(() => (document.getElementById('ggx-cards') || {}).innerText || '');
         assert.ok(!/кабинета А/.test(during), 'после смены кабинета старые остатки не видны: ' + during.slice(0, 80));
-        await page.waitForFunction(() => /кабинета Б/.test(document.getElementById('gg-table-body').innerText), null, { timeout: 15000 });
+        await page.waitForFunction(() => /кабинета Б/.test((document.getElementById('ggx-cards') || {}).innerText || ''), null, { timeout: 15000 });
         console.log('ok   Товары: после смены кабинета остатки прошлого кабинета не показываются');
         console.log('e2e товаров: все проверки прошли');
     } catch (e) {
