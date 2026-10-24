@@ -23,17 +23,13 @@
             if (!Array.isArray(rows) || !rows.length) return;
             V.on = true;
             V.rows = rows;
-            const secs = new Set();
-            rows.forEach(r => (r.sections || ['all']).forEach(s => secs.add(String(s))));
-            const all = secs.has('all');
-            V.tabs = new Set();
-            Object.entries(TABS).forEach(([k, t]) => { if (all || secs.has(k)) t.forEach(x => V.tabs.add(x)); });
-            V.secLabel = all ? 'все разделы' : [...secs].map(s => NAMES[s]).filter(Boolean).join(', ');
+            calcTabs();
             document.documentElement.setAttribute('data-viewer', '1');
             injectCss();
             guardWrites();
             markNav();
             banner();
+            ownerCheck();
             let guardT = null;
             new MutationObserver(() => {
                 markNav(); banner();
@@ -71,6 +67,65 @@
         firstTab() { return ORDER.find(t => V.tabs.has(t)) || 'dashboard'; },
     };
 
+    function calcTabs() {
+        if (V.owner) { V.tabs = new Set(['goods-groups', 'ab-testing', 'tg-owner']); V.secLabel = ''; return; }
+        const secs = new Set();
+        V.rows.forEach(r => (r.sections || ['all']).forEach(s => secs.add(String(s))));
+        const all = secs.has('all');
+        V.tabs = new Set();
+        Object.entries(TABS).forEach(([k, t]) => { if (all || secs.has(k)) t.forEach(x => V.tabs.add(x)); });
+        V.secLabel = all ? 'все разделы' : [...secs].map(s => NAMES[s]).filter(Boolean).join(', ');
+    }
+
+    // Владелец кабинета (роль owner): только Товары, архив А/Б и Telegram, без плашки «Режим просмотра».
+    function setOwner(on) {
+        if (V.owner === on) return;
+        V.owner = on;
+        document.documentElement.toggleAttribute('data-owner', on);
+        calcTabs();
+        if (on) { tgTab(); document.querySelector('[data-ab-filter="finished"]')?.click(); }
+        document.getElementById('nr-viewer-banner')?.remove();
+        markNav();
+        V.ensureAllowed();
+    }
+    function ownerCheck() {
+        try { if (localStorage.getItem('nr-owner') === '1') setOwner(true); } catch (_) {}
+        try {
+            supabase.auth.getSession().then(s => {
+                const uid = s.data && s.data.session && s.data.session.user.id;
+                return uid ? supabase.from('cabinet_viewers').select('role').eq('user_id', uid) : null;
+            }).then(r => {
+                if (!r || !Array.isArray(r.data)) return;
+                const own = r.data.some(x => x.role === 'owner');
+                try { localStorage.setItem('nr-owner', own ? '1' : '0'); } catch (_) {}
+                setOwner(own);
+            });
+        } catch (_) {}
+    }
+
+    const TG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 4.3 2.9 11.5c-1.3.5-1.3 1.2-.2 1.5l4.7 1.5 1.8 5.6c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.3-2.3 4.8 3.6c.9.5 1.5.2 1.7-.8l3.1-14.9c.3-1.2-.5-1.8-1.3-1.4zM8.5 13.6l9.2-5.8c.4-.3.8-.1.5.2l-7.6 6.9-.3 3.2-1.8-4.5z"/></svg>';
+    const BOTS = [['Амина', 'Продажи и заказы'], ['Манас', 'Реклама (РК)'], ['Акылай', 'Отзывы и вопросы'], ['Карина', 'А/Б тесты']];
+    function tgTab() {
+        if (!document.getElementById('tab-tg-owner')) {
+            const host = document.getElementById('tab-ab-testing');
+            if (host) {
+                const d = document.createElement('div');
+                d.id = 'tab-tg-owner';
+                d.className = 'tab-content space-y-4';
+                d.innerHTML = '<div class="nr-tgo">' + BOTS.map(b => '<div class="nr-tgo-card"><span class="nr-tgo-ico">' + TG + '</span><div><b>' + b[0] + '</b><small>' + b[1] + '</small></div><em>Скоро</em></div>').join('') + '</div>';
+                host.after(d);
+            }
+        }
+        const goods = document.querySelector('.rail-btn[data-tab="goods-groups"]');
+        if (goods && !document.querySelector('.rail-btn[data-tab="tg-owner"]')) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'rail-btn'; b.dataset.tab = 'tg-owner'; b.title = 'Telegram';
+            b.innerHTML = '<span class="rail-btn-ico">' + TG + '</span><span class="rail-btn-lbl">Telegram</span>';
+            b.addEventListener('click', () => window.showTab('tg-owner', b));
+            goods.after(b);
+        }
+    }
+
     function tabOf(el) {
         if (el.dataset && el.dataset.tab) return el.dataset.tab;
         const m = String(el.getAttribute('onclick') || '').match(/showTab\('([a-z-]+)'/);
@@ -91,7 +146,7 @@
     function banner() {
         if (bannerBusy) return;
         const host = document.querySelector('.main-content, main, #main-content');
-        if (!host || document.getElementById('nr-viewer-banner')) return;
+        if (V.owner || !host || document.getElementById('nr-viewer-banner')) return;
         bannerBusy = true;
         const b = document.createElement('div');
         b.id = 'nr-viewer-banner';
@@ -132,6 +187,12 @@ html[data-viewer="1"] .rnp-sheet-table textarea,
 html[data-viewer="1"] #tab-goods-groups input:not([type="search"]),
 html[data-viewer="1"] #tab-goods-groups select,
 html[data-viewer="1"] #tab-goods-groups textarea { pointer-events: none !important; background: transparent !important; }
+html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], html[data-owner] .abtest-card button, html[data-owner] [data-ab-filter="active"], html[data-owner] [data-ab-filter="all"] { display: none !important; }
+.nr-tgo { display: grid; gap: 10px; max-width: 560px; padding: 6px 2px; }
+.nr-tgo-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.nr-tgo-card b { display: block; font-size: 14px; } .nr-tgo-card small { color: var(--text-muted); font-size: 12px; }
+.nr-tgo-card em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--text-muted); }
+.nr-tgo-ico { width: 34px; height: 34px; border-radius: 50%; background: #229ed9; color: #fff; display: grid; place-items: center; } .nr-tgo-ico svg { width: 18px; height: 18px; }
 #nr-viewer-banner { display: flex; align-items: center; gap: 10px; background: #efeafe; color: #4c34c9; border-radius: 12px; padding: 8px 14px; margin: 0 0 10px; font-size: 12.5px; font-weight: 700; }
 #nr-viewer-banner em { margin-left: auto; font-style: normal; font-weight: 500; color: #6d4fe8; }
 :root[data-theme="dark"] #nr-viewer-banner { background: rgba(109,79,232,.18); color: #cfc6ff; }

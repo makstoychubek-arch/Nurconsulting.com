@@ -7,12 +7,13 @@ const { serve, openApp, chromium } = require('./harness.js');
 
 const UID = '11111111-1111-1111-1111-111111111111';
 (async () => {
+    const tables = { spaces: [{ id: 's1', user_id: UID, email: 'owner@example.test', status: 'active', tariff_plan: 'premium', is_super_admin: false }], cabinets: [] };
     const srv = await serve();
     const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     try {
         const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, {
             userId: UID, email: 'owner@example.test', latencyMs: 50,
-            tables: { spaces: [{ id: 's1', user_id: UID, email: 'owner@example.test', status: 'active', tariff_plan: 'premium', is_super_admin: false }], cabinets: [] },
+            tables,
             rpcs: { is_super_admin: false, is_staff: false, viewer_cabinets: [] }, functions: {},
         });
         const { page } = env;
@@ -23,6 +24,16 @@ const UID = '11111111-1111-1111-1111-111111111111';
         await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
         await page.waitForFunction(() => hasUserCabinets === true, null, { timeout: 6000 });
         console.log('ok   выданный кабинет появляется сам, без перезагрузки страницы');
+        // владелец кабинета: без плашки, только Товары/А-Б/Telegram
+        tables.cabinet_viewers = [{ user_id: UID, cabinet_id: 'cccccccc-0000-0000-0000-0000000000aa', role: 'owner', sections: ['all'] }];
+        await page.evaluate(() => { window.NrViewer.enable([{ id: 'cccccccc-0000-0000-0000-0000000000aa', name: 'Baza', sections: ['all'] }]); });
+        await page.waitForFunction(() => document.documentElement.hasAttribute('data-owner'), null, { timeout: 6000 });
+        const own = await page.evaluate(() => ({ banner: !!document.getElementById('nr-viewer-banner'), tabs: [...window.NrViewer.tabs], tg: !!document.querySelector('.rail-btn[data-tab="tg-owner"]'), dash: getComputedStyle(document.querySelector('.rail-btn[data-tab="rnp"]')).display }));
+        assert.strictEqual(own.banner, false, 'у владельца нет плашки');
+        assert.deepStrictEqual(own.tabs.sort(), ['ab-testing', 'goods-groups', 'tg-owner']);
+        assert.ok(own.tg, 'кнопка Telegram есть');
+        assert.strictEqual(own.dash, 'none', 'РНП скрыт');
+        console.log('ok   владелец кабинета видит только Товары, А/Б и Telegram, без плашки');
         console.log('e2e выдачи кабинета: все проверки прошли');
     } catch (e) {
         console.error('FAIL', e.message);
