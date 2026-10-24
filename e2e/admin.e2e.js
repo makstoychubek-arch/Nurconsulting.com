@@ -21,6 +21,8 @@ const BOTS = [
     { id: 'amina', title: 'Амина', status: 'offline', live_username: 'aminaakd_bot' },
 ];
 
+const FEATS = ['reviews', 'order_alerts', 'ads', 'ab_rotation', 'sync', 'rnp_morning'].map((feature) => ({ feature, enabled: true, active: true, paused_until: null, blockers: [] }));
+
 async function open(browser, base) {
     const env = await openApp(browser, base, {
         userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 200,
@@ -29,7 +31,7 @@ async function open(browser, base) {
             admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
             site_uptime: [{ id: 1, status: 'up', last_checked: new Date().toISOString() }], client_errors: [{ count: 3, last_seen: new Date().toISOString() }] },
         rpcs: { is_super_admin: true, admin_overview: OVERVIEW },
-        functions: { 'telegram-admin': async (b) => (b.action === 'list' ? { bots: BOTS } : { ok: true }) },
+        functions: { 'telegram-admin': async (b) => (b.action === 'list' ? { bots: BOTS } : { ok: true }), 'cabinet-features': async (b) => ({ ok: true, features: FEATS.map((f) => (b.feature === f.feature && b.action === 'set' ? { ...f, enabled: false, active: false } : f)) }) },
     });
     await env.page.waitForFunction(() => window.NrAdmin && document.querySelector('.rail-logo-name.nra-entry'), null, { timeout: 20000 });
     return env;
@@ -106,6 +108,23 @@ test('журнал показывает записи, а раздел «Сист
     await page.locator('.nra-side button[data-sec="sys"]').click();
     await page.locator('.nra-kv').first().waitFor({ state: 'visible' });
     assert.ok(/работает/.test(await page.locator('.nra-main').innerText()), 'сайт работает');
+});
+
+test('боты кабинета: тумблер выключает ответы на отзывы сразу, пауза на час уходит в функцию', async ({ page, calls }) => {
+    await page.locator('.nra-side button[data-sec="acc"]').click();
+    if (!(await page.locator('.nra-det').count())) await page.locator('.nra-t tr.r').first().click();
+    await page.locator('.nra-bot').first().waitFor({ state: 'visible', timeout: 5000 });
+    assert.strictEqual(await page.locator('.nra-bot').count(), 4, 'четыре бота у кабинета');
+    assert.ok(/Акылай/.test(await page.locator('.nra-bot').first().innerText()), 'первым Акылай (отзывы и вопросы)');
+    const t0 = Date.now();
+    await page.locator('.nra-bot').first().locator('button[data-ft]').click();
+    await page.waitForFunction(() => /выключен/.test(document.querySelector('.nra-bot').innerText), null, { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'тумблер ответил за ' + (Date.now() - t0) + ' мс');
+    await page.waitForTimeout(800);
+    assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'cabinet-features' && c.body.action === 'set' && c.body.feature === 'reviews' && c.body.enabled === false), 'выключение ушло в cabinet-features');
+    await page.locator('.nra-bot').nth(2).locator('select.nra-sel').selectOption('60');
+    await page.waitForTimeout(800);
+    assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'cabinet-features' && c.body.action === 'pause' && c.body.feature === 'ads' && c.body.minutes === 60), 'пауза на час ушла');
 });
 
 (async () => {

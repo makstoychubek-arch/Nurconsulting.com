@@ -10,7 +10,7 @@
     var OPEN_KEY = 'nr_admin_open', CACHE_KEY = 'nr_admin_cache_v1';
     var PLAN_DB = 8 * 1024 * 1024 * 1024; // 8 ГБ на тарифе Pro
     var el = null;
-    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null };
+    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {} };
 
     var NAV = [
         ['home', 'Требует внимания'], ['acc', 'Аккаунты и кабинеты'], ['staff', 'Сотрудники консалтинга'],
@@ -95,6 +95,52 @@
         return h;
     }
     function ownersOf(c) { return S.ov.viewers.filter(function (v) { return v.cabinet_id === c.id; }); }
+
+    var BOTFEAT = [
+        ['reviews', 'Акылай', 'отзывы и вопросы', '#4f46e5'], ['order_alerts', 'Амина', 'продажи и заказы', '#e11d74'],
+        ['ads', 'Манас', 'реклама', '#0e9f6e'], ['ab_rotation', 'Карина', 'А/Б тесты', '#d97706'],
+    ];
+    function featH(c) {
+        var st = S.feat[c.id], h = '<h5>Боты кабинета</h5>';
+        if (st === 'err') return h + '<p class="m">Не удалось получить состояние. <a href="#" data-featreload="' + c.id + '">Повторить</a></p>';
+        if (!st) return h + '<div class="nra-skel" style="height:60px;border-radius:10px"></div>';
+        var by = {}; st.forEach(function (f) { by[f.feature] = f; });
+        return h + '<div class="nra-bots">' + BOTFEAT.map(function (b) {
+            var f = by[b[0]] || { enabled: true, active: true };
+            var busy = S.busy['f' + c.id + b[0]];
+            var text = f.paused_until ? 'пауза до ' + new Date(f.paused_until).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : f.active ? 'работает' : 'выключен';
+            var warn = f.active && f.blockers && f.blockers.length ? '<small class="bad">' + esc(f.blockers[0].text) + '</small>' : '';
+            return '<div class="nra-bot"><i class="av" style="background:' + b[3] + '">' + b[1][0] + '</i><div class="t"><b>' + b[1] + '</b><small>' + b[2] + ' · ' + text + '</small>' + warn + '</div>' +
+                (f.active ? '<select class="nra-sel" data-fp="' + c.id + '|' + b[0] + '" aria-label="Пауза"><option value="">Пауза…</option><option value="60">на 1 час</option><option value="360">на 6 часов</option><option value="1440">на сутки</option></select>' : '') +
+                '<button type="button" class="nra-sw' + (f.active ? ' on' : '') + '" data-ft="' + c.id + '|' + b[0] + '" aria-pressed="' + (!!f.active) + '"' + (busy ? ' disabled' : '') + ' aria-label="Включить или выключить"></button></div>';
+        }).join('') + '</div>';
+    }
+    function loadFeat(id) {
+        sb.functions.invoke('cabinet-features', { body: { action: 'state', cabinet_id: id } }).then(function (r) {
+            S.feat[id] = r.error || !(r.data && r.data.ok) ? 'err' : r.data.features; render();
+        });
+    }
+    function setFeat(id, feature, action, minutes) {
+        var list = S.feat[id]; if (!Array.isArray(list)) return;
+        var f = list.filter(function (x) { return x.feature === feature; })[0]; if (!f) return;
+        var prev = JSON.parse(JSON.stringify(f));
+        if (action === 'pause') { f.paused_until = new Date(Date.now() + minutes * 60000).toISOString(); f.enabled = true; f.active = false; }
+        else if (action === 'resume') { f.paused_until = null; f.enabled = true; f.active = true; }
+        else { f.enabled = false; f.active = false; f.paused_until = null; }
+        S.busy['f' + id + feature] = true; render();
+        var body = { cabinet_id: id, feature: feature };
+        if (action === 'off') { body.action = 'set'; body.enabled = false; } else { body.action = action; if (minutes) body.minutes = minutes; }
+        sb.functions.invoke('cabinet-features', { body: body }).then(function (r) {
+            S.busy['f' + id + feature] = false;
+            if (r.error || !(r.data && r.data.ok)) { Object.assign(f, prev); S.toast = 'Не получилось изменить. Попробуй ещё раз.'; setTimeout(function () { S.toast = ''; render(); }, 4000); }
+            else {
+                S.feat[id] = r.data.features;
+                var cab = S.ov && S.ov.cabinets.filter(function (x) { return x.id === id; })[0];
+                sb.rpc('admin_log', { p_action: 'feature_' + action, p_target: cab ? cab.name : id, p_detail: feature + (minutes ? ' на ' + minutes + ' мин' : '') }).then(function () {});
+            }
+            render();
+        });
+    }
     function accH() {
         if (!S.ov) return '<div class="nra-card"><div class="nra-skel"></div></div>';
         var q = S.q.toLowerCase();
@@ -105,7 +151,7 @@
             h += '<tr class="r" data-cab="' + c.id + '"><td><b>' + esc(c.name) + '</b></td><td>' + esc(c.owner_email || '—') + '</td><td>' + mb(c.daily_bytes) + '</td><td>' + c.articles + '</td><td>' + ago(c.last_sync) + '</td><td><span class="dots">' + cabDots(c).map(function (d) { return '<i class="' + d[0] + '" title="' + esc(d[1]) + '"></i>'; }).join('') + '</span></td><td><span class="avs">' + (v.length ? v.slice(0, 4).map(function (x) { return '<i class="av" style="background:' + colorOf(x.email) + '" title="' + esc(x.email) + ' · просмотр">' + initials(x.email) + '</i>'; }).join('') : '<span class="m">только мы</span>') + '</span></td></tr>';
             if (S.open[c.id]) {
                 h += '<tr class="d"><td colspan="7"><div class="nra-det"><div><div class="nra-kv"><div><b>' + mb(c.daily_bytes) + '</b><small>дневные данные (' + (c.daily_rows || 0).toLocaleString('ru-RU') + ' строк)</small></div><div><b>' + c.articles + '</b><small>артикулов</small></div><div><b>' + ago(c.last_sync) + '</b><small>последняя синхронизация</small></div></div>' +
-                    '<h5>Функции кабинета</h5><div class="nra-feat">' + ((c.features || []).length ? c.features.map(function (f) { return '<span class="nra-chip ' + (f.enabled === false ? 'off' : f.status === 'error' ? 'bd' : 'ok') + '" title="' + esc(f.error || '') + '"><i></i>' + esc(FEATURE_LABEL[f.feature] || f.feature) + '</span>'; }).join('') : '<span class="m">Настроек нет, все функции включены по умолчанию.</span>') + '</div></div>' +
+                    featH(c) + '</div>' +
                     '<div><h5>Доступ</h5>' + (v.length ? v.map(function (x) { return '<div class="nra-who"><i class="av" style="background:' + colorOf(x.email) + '">' + initials(x.email) + '</i><span>' + esc(x.email) + '</span><small>просмотр · ' + ago(x.created_at) + '</small></div>'; }).join('') : '<p class="m">Только владелец аккаунта и команда.</p>') +
                     '<div class="nra-acts"><button class="nra-btn" type="button" data-openc="' + c.id + '">Открыть кабинет</button></div></div></div></td></tr>';
             }
@@ -254,12 +300,14 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr]'); if (!t) return;
+            var t = e.target.closest('[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload]'); if (!t) return;
+            if (t.dataset.ft) { var q = t.dataset.ft.split('|'), lf = S.feat[q[0]], cur = Array.isArray(lf) && lf.filter(function (x) { return x.feature === q[1]; })[0]; if (cur) setFeat(q[0], q[1], cur.active ? 'off' : 'resume'); return; }
+            if (t.dataset.featreload) { e.preventDefault(); S.feat[t.dataset.featreload] = null; loadFeat(t.dataset.featreload); render(); return; }
             if (t.dataset.close) return close();
             if (t.dataset.alr) { if (S.al) saveAlert(t.dataset.alr, { enabled: !(S.al[t.dataset.alr] && S.al[t.dataset.alr].enabled) }); return; }
             if (t.dataset.sec) { S.sec = t.dataset.sec; }
-            else if (t.dataset.go) { S.sec = t.dataset.go; if (t.dataset.open) S.open[t.dataset.open] = true; }
-            else if (t.dataset.cab) { S.open[t.dataset.cab] = !S.open[t.dataset.cab]; }
+            else if (t.dataset.go) { S.sec = t.dataset.go; if (t.dataset.open) { S.open[t.dataset.open] = true; if (!S.feat[t.dataset.open]) loadFeat(t.dataset.open); } }
+            else if (t.dataset.cab) { S.open[t.dataset.cab] = !S.open[t.dataset.cab]; if (S.open[t.dataset.cab] && !S.feat[t.dataset.cab]) loadFeat(t.dataset.cab); }
             else if (t.dataset.hook) { reconnect(t.dataset.hook); return; }
             else if (t.dataset.reload) { loadBots(); return; }
             else if (t.dataset.openc) { close(); try { if (root.nrSelectCabinet) root.nrSelectCabinet(t.dataset.openc); if (root.showTab) root.showTab('rnp'); } catch (err) { /* кабинет не открылся */ } return; }
@@ -267,6 +315,7 @@
         });
         el.addEventListener('change', function (e) {
             var d = e.target.dataset || {};
+            if (d.fp && e.target.value) { var z = d.fp.split('|'); setFeat(z[0], z[1], 'pause', Number(e.target.value)); return; }
             if (d.th && S.al) saveAlert(d.th, { threshold: e.target.value === '' ? null : Number(e.target.value) });
             else if (d.val && S.al) saveAlert(d.val, { value: e.target.value === '' ? null : Number(e.target.value) });
         });
