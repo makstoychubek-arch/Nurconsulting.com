@@ -61,3 +61,5 @@ html[data-theme="neon"] .nra{--c:#17181d;--bg:#1d1f26;--ln:#2a2d37;--ink:#eef0f5
 .nra-bot .av{margin:0;width:30px;height:30px}.nra-bot .t{flex:1;min-width:0}.nra-bot .t b{display:block;font-size:13.5px}.nra-bot .t small{display:block;color:var(--mut);font-size:12px}.nra-bot .t small.bad{color:var(--bd)}
 .nra-sel{height:30px;border:1px solid var(--ln);border-radius:8px;background:var(--c);color:var(--ink);font:inherit;font-size:12.5px;padding:0 8px}
 .nra-sw:disabled{opacity:.5;cursor:default}
+.nra-own{display:flex;gap:8px;margin-top:8px}.nra-own input{flex:1;height:34px;border:1px solid var(--ln);border-radius:9px;padding:0 10px;background:var(--c);color:var(--ink);font:inherit;font-size:13px}
+.nra-x{border:0;background:transparent;color:var(--mut);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}.nra-x:hover{color:var(--bd)}

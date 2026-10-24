@@ -141,6 +141,50 @@
             render();
         });
     }
+
+    /* Владелец кабинета: по Google-почте. Человек заходит на сайт, и доступ определяется сам. */
+    function ownerH(c, v) {
+        var owners = v.filter(function (x) { return x.role === 'owner'; }), viewers = v.filter(function (x) { return x.role !== 'owner'; });
+        var inv = ((S.ov && S.ov.invites) || []).filter(function (x) { return x.cabinet_id === c.id; });
+        function chip(email, note, pending) {
+            return '<div class="nra-who"><i class="av" style="background:' + colorOf(email) + '">' + initials(email) + '</i><span>' + esc(email) + '</span><small>' + note + '</small>' +
+                '<button type="button" class="nra-x" data-unown="' + c.id + '|' + esc(email) + '" title="' + (pending ? 'Отменить приглашение' : 'Снять владельца') + '" aria-label="Убрать">×</button></div>';
+        }
+        var h = '<h5>Владелец кабинета</h5>';
+        h += owners.map(function (x) { return chip(x.email, 'владелец · ' + ago(x.created_at), false); }).join('');
+        h += inv.map(function (x) { return chip(x.email, 'ждёт первого входа', true); }).join('');
+        if (!owners.length && !inv.length) h += '<p class="m" style="margin:0 0 8px">Не назначен.</p>';
+        h += '<div class="nra-own"><input type="email" id="nra-own-' + c.id + '" placeholder="Google-почта владельца" autocomplete="off"><button type="button" class="nra-btn p" data-own="' + c.id + '"' + (S.busy['o' + c.id] ? ' disabled' : '') + '>Назначить</button></div>' +
+            '<p class="m" style="margin:6px 0 0">Когда человек зайдёт на сайт под этой почтой, он сам увидит этот кабинет (только просмотр).</p>';
+        if (viewers.length) h += '<h5>Доступ на просмотр</h5>' + viewers.map(function (x) { return '<div class="nra-who"><i class="av" style="background:' + colorOf(x.email) + '">' + initials(x.email) + '</i><span>' + esc(x.email) + '</span><small>просмотр · ' + ago(x.created_at) + '</small></div>'; }).join('');
+        return h;
+    }
+    function toast(t) { S.toast = t; render(); setTimeout(function () { S.toast = ''; render(); }, 4500); }
+    function assignOwner(id) {
+        var inp = el.querySelector('#nra-own-' + id), mail = inp ? String(inp.value).trim().toLowerCase() : '';
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { toast('Введи почту целиком, например name@gmail.com'); return; }
+        if (S.busy['o' + id]) return;
+        S.busy['o' + id] = true;
+        var inv = S.ov.invites || (S.ov.invites = []);
+        var temp = { cabinet_id: id, email: mail, role: 'owner', created_at: new Date().toISOString(), _tmp: true };
+        inv.push(temp); render();
+        sb.rpc('admin_assign_owner', { p_cabinet: id, p_email: mail }).then(function (r) {
+            S.busy['o' + id] = false;
+            if (r.error) {
+                S.ov.invites = S.ov.invites.filter(function (x) { return x !== temp; });
+                toast(String(r.error.message || '').indexOf('forbidden') > -1 ? 'Нужны права владельца.' : 'Не получилось назначить. Проверь почту и попробуй ещё раз.'); return;
+            }
+            toast(r.data && r.data.status === 'assigned' ? 'Назначен: аккаунт уже есть, кабинет у него открыт.' : 'Приглашение сохранено: кабинет откроется при первом входе.');
+            load();
+        });
+    }
+    function unassignOwner(id, mail) {
+        if (S.ov) { S.ov.invites = (S.ov.invites || []).filter(function (x) { return !(x.cabinet_id === id && x.email === mail); }); S.ov.viewers = S.ov.viewers.filter(function (x) { return !(x.cabinet_id === id && String(x.email).toLowerCase() === mail && x.role === 'owner'); }); render(); }
+        sb.rpc('admin_unassign_owner', { p_cabinet: id, p_email: mail }).then(function (r) {
+            if (r.error) toast('Не получилось снять. Попробуй ещё раз.'); else toast('Владелец снят.');
+            load();
+        });
+    }
     function accH() {
         if (!S.ov) return '<div class="nra-card"><div class="nra-skel"></div></div>';
         var q = S.q.toLowerCase();
@@ -152,7 +196,7 @@
             if (S.open[c.id]) {
                 h += '<tr class="d"><td colspan="7"><div class="nra-det"><div><div class="nra-kv"><div><b>' + mb(c.daily_bytes) + '</b><small>дневные данные (' + (c.daily_rows || 0).toLocaleString('ru-RU') + ' строк)</small></div><div><b>' + c.articles + '</b><small>артикулов</small></div><div><b>' + ago(c.last_sync) + '</b><small>последняя синхронизация</small></div></div>' +
                     featH(c) + '</div>' +
-                    '<div><h5>Доступ</h5>' + (v.length ? v.map(function (x) { return '<div class="nra-who"><i class="av" style="background:' + colorOf(x.email) + '">' + initials(x.email) + '</i><span>' + esc(x.email) + '</span><small>просмотр · ' + ago(x.created_at) + '</small></div>'; }).join('') : '<p class="m">Только владелец аккаунта и команда.</p>') +
+                    '<div>' + ownerH(c, v) +
                     '<div class="nra-acts"><button class="nra-btn" type="button" data-openc="' + c.id + '">Открыть кабинет</button></div></div></div></td></tr>';
             }
         });
@@ -300,7 +344,9 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload]'); if (!t) return;
+            var t = e.target.closest('[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown]'); if (!t) return;
+            if (t.dataset.own) { assignOwner(t.dataset.own); return; }
+            if (t.dataset.unown) { var uo = t.dataset.unown.split('|'); unassignOwner(uo[0], uo[1]); return; }
             if (t.dataset.ft) { var q = t.dataset.ft.split('|'), lf = S.feat[q[0]], cur = Array.isArray(lf) && lf.filter(function (x) { return x.feature === q[1]; })[0]; if (cur) setFeat(q[0], q[1], cur.active ? 'off' : 'resume'); return; }
             if (t.dataset.featreload) { e.preventDefault(); S.feat[t.dataset.featreload] = null; loadFeat(t.dataset.featreload); render(); return; }
             if (t.dataset.close) return close();
