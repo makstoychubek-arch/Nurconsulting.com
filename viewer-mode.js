@@ -164,5 +164,16 @@ html[data-viewer="1"] #tab-goods-groups textarea { pointer-events: none !importa
         };
     }
 
+    // Кабинет выдали, пока человек сидел на экране «подключите магазин»: проверяем сами раз в полминуты и при возврате на вкладку.
+    // Перезагружать страницу не нужно.
+    function recheck() {
+        try {
+            if (document.hidden || typeof hasUserCabinets === 'undefined' || hasUserCabinets || !cabinetsLoaded || isStaff) return;
+            supabase.rpc('viewer_cabinets').then(r => { if (Array.isArray(r.data) && r.data.length && typeof loadCabinets === 'function') loadCabinets(); });
+        } catch (e) { /* без проверки всё работает как раньше */ }
+    }
+    setInterval(recheck, 30000);
+    document.addEventListener('visibilitychange', recheck);
+
     window.NrViewer = V;
 })();
