@@ -39,36 +39,12 @@
         schedule();
     }
 
-    // Разбор скрытой таблицы в группы и артикулы
-    function readTable() {
-        var heads = doc.querySelectorAll('#gg-table-head th'), ix = {};
-        Array.prototype.forEach.call(heads, function (th, i) {
-            var t = th.textContent.trim();
-            if (t === 'Артикул') ix.art = i; else if (t === 'ФБО') ix.fbo = i; else if (t === 'ФБС') ix.fbs = i;
-            else if (t === 'В пути') ix.transit = i; else if (t === 'В плане') ix.plan = i; else if (t === 'Итого') ix.total = i;
-        });
-        var groups = [], cur = null;
-        Array.prototype.forEach.call(doc.querySelectorAll('#gg-table-body tr'), function (tr) {
-            if (tr.classList.contains('gg-sec-row')) {
-                cur = { name: (tr.textContent.split(' · ')[0] || '').trim(), items: [] };
-                groups.push(cur);
-                return;
-            }
-            var key = tr.getAttribute('data-key') || '';
-            if (key.indexOf('nm:') !== 0 || !cur) return;
-            var td = tr.children, cell = function (k) { return ix[k] != null ? td[ix[k]] : null; };
-            var inp = function (k) { var c = cell(k), i = c && c.querySelector('input'); return i; };
-            var tIn = inp('transit'), pIn = inp('plan');
-            cur.items.push({
-                nm: key.slice(3),
-                name: ((cell('art') || {}).textContent || '').trim(),
-                fbo: num((cell('fbo') || {}).textContent), fbs: num((cell('fbs') || {}).textContent),
-                transit: tIn ? num(tIn.value) : 0, plan: pIn ? num(pIn.value) : 0,
-                cab: (tIn || pIn) ? (tIn || pIn).getAttribute('data-cab') || '' : '',
-                total: num((cell('total') || {}).textContent),
-            });
-        });
-        return groups.filter(function (g) { return g.items.length; });
+    // Данные карточек: готовый список групп и артикулов из dashboard.html (nrGoodsList)
+    function readData() {
+        var d = root.nrGoodsList ? root.nrGoodsList() : { msg: { t: 'Загрузка…' } };
+        if (d.msg) return d;
+        d.groups.forEach(function (g) { g.items.forEach(function (a) { a.cab = a.cab || cab(); }); });
+        return d;
     }
 
     function render() {
@@ -76,10 +52,14 @@
         var tab = doc.getElementById('tab-goods-groups'), host = doc.getElementById('gg-view-now');
         if (!tab || !host || host.hidden || tab.offsetParent === null) { doc.body.classList.remove('ggx-on'); return; }
         S.busy = true;
-        if (S.mo) S.mo.disconnect();
         try {
-            var groups = readTable(), ph = root.RNP && root.RNP.wbPhotoUrl, ex = root.nrGoodsExtra ? root.nrGoodsExtra() : null;
+            var data = readData(), groups = data.groups || [], ph = root.RNP && root.RNP.wbPhotoUrl, ex = root.nrGoodsExtra ? root.nrGoodsExtra() : null;
             if (S.dailyCab !== cab() && root.nrGoodsEnsureDaily && cab()) { S.dailyCab = cab(); root.nrGoodsEnsureDaily(); }
+            if (data.msg) {
+                var bx = doc.getElementById('ggx-cards') || (function () { var n = doc.createElement('div'); n.id = 'ggx-cards'; host.parentNode.insertBefore(n, host); n.addEventListener('click', onClick); n.addEventListener('change', onChange); return n; })();
+                bx.innerHTML = data.msg.err ? '<div class="ggx-msg err">' + esc(data.msg.t) + '</div>' : '<div class="ggx-sk"></div><div class="ggx-msg">' + esc(data.msg.t) + '</div>';
+                doc.body.classList.add('ggx-on'); S.busy = false; return;
+            }
             var all = [], t = { stock: 0, r: 0, o: 0, g: 0, b: 0, n: 0 };
             groups.forEach(function (g) {
                 g.items.forEach(function (a) {
@@ -135,7 +115,6 @@
             doc.body.classList.add('ggx-on');
         } catch (e) { doc.body.classList.remove('ggx-on'); }
         S.busy = false;
-        observe();
     }
 
     function photo(a, ph, size) {
@@ -194,16 +173,8 @@
 
     var timer = 0;
     function schedule() { clearTimeout(timer); timer = setTimeout(function () { loadSales(); render(); }, 150); }
-    function observe() {
-        var body = doc.getElementById('gg-table-body');
-        if (!body) return;
-        if (!S.mo) S.mo = new MutationObserver(schedule);
-        S.mo.observe(body, { childList: true, subtree: true, characterData: true });
-        var head = doc.getElementById('gg-table-head'); if (head) S.mo.observe(head, { childList: true, subtree: true });
-    }
     function boot() {
-        if (!doc.getElementById('gg-table-body')) { setTimeout(boot, 800); return; }
-        observe(); schedule();
+        schedule();
         // переключение вкладок внутри «Товаров» и разделов сайта
         doc.addEventListener('click', function () { setTimeout(schedule, 250); }, true);
     }
