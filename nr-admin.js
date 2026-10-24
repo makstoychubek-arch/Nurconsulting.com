@@ -10,10 +10,10 @@
     var OPEN_KEY = 'nr_admin_open', CACHE_KEY = 'nr_admin_cache_v1';
     var PLAN_DB = 8 * 1024 * 1024 * 1024; // 8 ГБ на тарифе Pro
     var el = null;
-    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {} };
+    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {} };
 
     var NAV = [
-        ['home', 'Требует внимания'], ['acc', 'Аккаунты и кабинеты'], ['staff', 'Сотрудники консалтинга'],
+        ['home', 'Требует внимания'], ['acc', 'Аккаунты и кабинеты'], ['users', 'Пользователи сайта'], ['staff', 'Сотрудники консалтинга'],
         ['tg', 'Telegram и боты'], ['sys', 'Система и задачи'], ['alr', 'Оповещения'], ['log', 'Журнал'], ['own', 'Спейс владельца'],
     ];
     var FEATURE_LABEL = { reviews: 'Ответы на отзывы', sync: 'Автосинхронизация', ads: 'РК и автоставки', ab_rotation: 'Ротация А/Б', rnp_morning: 'Утренний РНП', order_alerts: 'Уведомления о заказах' };
@@ -60,6 +60,8 @@
             });
             if (S.ov.db_bytes / PLAN_DB > 0.8) a.push({ d: 'bd', t: 'База заполнена больше чем на 80%', s: mb(S.ov.db_bytes) + ' из ' + mb(PLAN_DB) + '.', go: 'home' });
         }
+        var pend = (S.users || []).filter(function (u) { return u.status === 'pending'; }).length;
+        if (pend) a.push({ d: 'wn', t: 'Ждут одобрения: ' + pend, s: 'Новые пользователи, которых ещё не пустили на сайт.', go: 'users' });
         (S.bots || []).forEach(function (b) {
             if (b.status === 'offline' || b.status === 'no_token') a.push({ d: 'bd', t: 'Бот «' + (b.title || b.id) + '»: ' + (b.status === 'no_token' ? 'нет токена' : 'не на связи'), s: 'Сообщения через этого бота не отправляются.', go: 'tg', act: ['hook', b.id, 'Переподключить'] });
         });
@@ -202,6 +204,42 @@
         });
         return h + '</table>';
     }
+
+    function userCabs(u) {
+        var out = [];
+        if (!S.ov) return out;
+        S.ov.cabinets.forEach(function (c) { if (c.user_id === u.user_id) out.push({ c: c, rel: 'владелец аккаунта' }); });
+        S.ov.viewers.forEach(function (v) {
+            if (v.user_id !== u.user_id) return;
+            var c = S.ov.cabinets.filter(function (x) { return x.id === v.cabinet_id; })[0];
+            if (c && !out.some(function (o) { return o.c.id === c.id; })) out.push({ c: c, rel: v.role === 'owner' ? 'владелец кабинета' : 'просмотр' });
+        });
+        return out;
+    }
+    var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт одобрения'], blocked: ['bd', 'заблокирован'] };
+    function usersH() {
+        var h = '<div class="nra-h">Пользователи сайта</div>';
+        if (!S.users || !S.ov) return h + '<div class="nra-card"><div class="nra-skel"></div></div>';
+        var q = S.q.toLowerCase(), staff = {};
+        S.ov.staff.forEach(function (p) { staff[String(p.email).toLowerCase()] = 1; });
+        var rows = S.users.filter(function (u) { return !q || String(u.email || '').toLowerCase().indexOf(q) > -1 || String(u.full_name || '').toLowerCase().indexOf(q) > -1; });
+        h += '<p class="nra-sub">' + rows.length + ' из ' + S.users.length + ' человек. Нажми на человека, чтобы увидеть его кабинеты и нагрузку.</p><table class="nra-t"><tr><th>Пользователь</th><th>Статус</th><th>Тариф</th><th>Кабинеты</th><th>Последний вход</th><th>Регистрация</th></tr>';
+        rows.forEach(function (u) {
+            var cabs = userCabs(u), st = STATUS[u.status] || ['off', u.status], name = u.full_name && String(u.full_name).trim() ? u.full_name : String(u.email || '').replace(/@.*/, '');
+            h += '<tr class="r" data-user="' + esc(u.user_id) + '"><td><span class="who"><i class="av" style="background:' + colorOf(u.email) + '">' + initials(name) + '</i><span><b>' + esc(name) + '</b>' + (staff[String(u.email).toLowerCase()] ? ' <span class="nra-chip ok"><i></i>команда</span>' : '') + '<br><small class="m">' + esc(u.email) + '</small></span></span></td>' +
+                '<td><span class="nra-chip ' + st[0] + '"><i></i>' + st[1] + '</span></td><td>' + esc(u.tariff_plan || '—') + '</td>' +
+                '<td>' + (cabs.length ? cabs.slice(0, 3).map(function (x) { return '<span class="nra-chip off">' + esc(x.c.name) + '</span>'; }).join(' ') + (cabs.length > 3 ? ' +' + (cabs.length - 3) : '') : '<span class="m">нет</span>') + '</td>' +
+                '<td>' + ago(u.last_sign_in_at) + '</td><td>' + (u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '—') + '</td></tr>';
+            if (S.uopen[u.user_id]) {
+                h += '<tr class="d"><td colspan="6">' + (cabs.length ? '<div class="nra-ucabs">' + cabs.map(function (x) {
+                    var c = x.c;
+                    return '<div class="nra-ucab"><div class="t"><b>' + esc(c.name) + '</b><small>' + x.rel + '</small></div><div class="nra-kv"><div><b>' + mb(c.daily_bytes) + '</b><small>данные</small></div><div><b>' + c.articles + '</b><small>артикулов</small></div><div><b>' + ago(c.last_sync) + '</b><small>синхронизация</small></div></div>' +
+                        '<span class="dots">' + cabDots(c).map(function (d) { return '<i class="' + d[0] + '" title="' + esc(d[1]) + '"></i>'; }).join('') + '</span><button type="button" class="nra-btn" data-openc="' + c.id + '">Открыть</button></div>';
+                }).join('') + '</div>' : '<p class="m">У этого человека нет подключённых кабинетов.</p>') + '</td></tr>';
+            }
+        });
+        return h + '</table>';
+    }
     function staffH() {
         if (!S.ov) return '<div class="nra-card"><div class="nra-skel"></div></div>';
         return '<div class="nra-h">Сотрудники консалтинга</div><p class="nra-sub">' + S.ov.staff.length + ' человек в команде. Роли и права по ролям добавим следующим шагом.</p><table class="nra-t"><tr><th>Сотрудник</th><th>Заметка</th><th>Последний вход</th><th>В команде с</th></tr>' +
@@ -283,6 +321,7 @@
         var body = '';
         if (S.sec === 'home') body = homeH(att);
         else if (S.sec === 'acc') body = accH();
+        else if (S.sec === 'users') body = usersH();
         else if (S.sec === 'staff') body = staffH();
         else if (S.sec === 'tg') body = tgH();
         else if (S.sec === 'sys') body = sysH();
@@ -317,6 +356,7 @@
             sb.from('site_uptime').select('status,last_checked').eq('id', 1).maybeSingle(),
             sb.from('client_errors').select('count', { count: 'exact', head: false }).gte('last_seen', new Date(Date.now() - 86400000).toISOString()),
         ]).then(function (a) { S.site = { up: a[0].data || null, errors: a[1].error ? null : (a[1].data || []).reduce(function (n, x) { return n + (Number(x.count) || 1); }, 0) }; render(); });
+        sb.from('spaces').select('user_id,email,full_name,status,tariff_plan,plan_until,created_at,last_sign_in_at').order('created_at', { ascending: false }).limit(1000).then(function (r) { S.users = r.error ? [] : (r.data || []); render(); });
         loadBots();
     }
     function loadBots() {
@@ -344,7 +384,8 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown]'); if (!t) return;
+            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown]'); if (!t) return;
+            if (t.dataset.user) { S.uopen[t.dataset.user] = !S.uopen[t.dataset.user]; render(); return; }
             if (t.dataset.own) { assignOwner(t.dataset.own); return; }
             if (t.dataset.unown) { var uo = t.dataset.unown.split('|'); unassignOwner(uo[0], uo[1]); return; }
             if (t.dataset.ft) { var q = t.dataset.ft.split('|'), lf = S.feat[q[0]], cur = Array.isArray(lf) && lf.filter(function (x) { return x.feature === q[1]; })[0]; if (cur) setFeat(q[0], q[1], cur.active ? 'off' : 'resume'); return; }
@@ -367,7 +408,7 @@
         });
         el.addEventListener('input', function (e) {
             if (e.target.id !== 'nra-q') return;
-            S.q = e.target.value; if (S.sec !== 'acc') S.sec = 'acc';
+            S.q = e.target.value; if (S.sec !== 'acc' && S.sec !== 'users') S.sec = 'acc';
             var pos = e.target.selectionStart; render();
             var i = el.querySelector('#nra-q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); }
         });

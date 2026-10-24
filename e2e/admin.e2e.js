@@ -26,7 +26,7 @@ const FEATS = ['reviews', 'order_alerts', 'ads', 'ab_rotation', 'sync', 'rnp_mor
 async function open(browser, base) {
     const env = await openApp(browser, base, {
         userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 200,
-        tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }],
+        tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T', created_at: '2026-09-17T00:00:00Z', last_sign_in_at: new Date().toISOString() }, { id: 's1', user_id: 'u-aizada', email: 'aizada@example.test', status: 'pending', tariff_plan: 'start', is_super_admin: false, full_name: 'Айзада', created_at: '2026-10-23T00:00:00Z', last_sign_in_at: null }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }],
             admin_alert_settings: [{ key: 'ai_balance', enabled: true, threshold: 5, value: 12, value_at: new Date().toISOString() }, { key: 'tokens', enabled: true }, { key: 'bots', enabled: false }],
             admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
             site_uptime: [{ id: 1, status: 'up', last_checked: new Date().toISOString() }], client_errors: [{ count: 3, last_seen: new Date().toISOString() }] },
@@ -45,7 +45,7 @@ test('плашка «Space» открывает страницу сразу, «�
     await page.locator('.rail-logo-name').click();
     await page.locator('#nr-admin.open .nra-h').waitFor({ state: 'visible' });
     assert.ok(Date.now() - t0 < 1000, 'страница открылась за ' + (Date.now() - t0) + ' мс');
-    await page.waitForFunction(() => document.querySelectorAll('.nra-att').length >= 3, null, { timeout: 5000 });
+    await page.waitForFunction(() => /Амина/.test(document.querySelector('.nra-main').innerText) && /Штрафы за день/.test(document.querySelector('.nra-main').innerText), null, { timeout: 5000 });
     const text = await page.locator('.nra-card').first().innerText();
     assert.ok(/ИП Марс: токен рекламы не принят/.test(text), 'токен рекламы: ' + text);
     assert.ok(/Айлин Стиль: синхронизация с ошибкой/.test(text), 'ошибка синхронизации');
@@ -140,6 +140,20 @@ test('владелец кабинета: по почте, приглашение
     await page.locator('button[data-own]').first().click();
     await page.waitForFunction(() => /owner@example\.test/.test(document.querySelector('.nra-det').innerText) && /ждёт первого входа/.test(document.querySelector('.nra-det').innerText), null, { timeout: 300 });
     assert.ok(Date.now() - t0 < 300, 'приглашение появилось за ' + (Date.now() - t0) + ' мс');
+});
+
+test('пользователи сайта: отдельный раздел, по нажатию видны кабинеты, размер и синхронизация', async ({ page }) => {
+    await page.locator('.nra-side button[data-sec="users"]').click();
+    await page.locator('.nra-t tr.r').first().waitFor({ state: 'visible' });
+    assert.strictEqual(await page.locator('.nra-t tr.r').count(), 2, 'два пользователя');
+    const row = page.locator('.nra-t tr.r', { hasText: 'Айзада' });
+    assert.ok(/ждёт одобрения/.test(await row.innerText()), 'статус ожидания');
+    assert.ok(/Zevina 1/.test(await row.innerText()), 'кабинет в строке');
+    await row.click();
+    const det = await page.locator('.nra-ucab').first().innerText();
+    assert.ok(/Zevina 1/.test(det) && /просмотр/.test(det) && /184/.test(det) && /212/.test(det), 'детали кабинета: ' + det.slice(0, 160));
+    await page.locator('.nra-side button[data-sec="home"]').click();
+    assert.ok(/Ждут одобрения: 1/.test(await page.locator('.nra-main').innerText()), 'в «Требует внимания» есть ожидающие');
 });
 
 (async () => {
