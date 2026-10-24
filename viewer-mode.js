@@ -68,7 +68,7 @@
     };
 
     function calcTabs() {
-        if (V.owner) { V.tabs = new Set(['goods-groups', 'ab-testing', 'tg-owner']); V.secLabel = ''; return; }
+        if (V.owner) { V.tabs = new Set(['dashboard', 'rnp', 'goods-groups', 'ab-testing', 'tg-owner']); V.secLabel = ''; return; }
         const secs = new Set();
         V.rows.forEach(r => (r.sections || ['all']).forEach(s => secs.add(String(s))));
         const all = secs.has('all');
