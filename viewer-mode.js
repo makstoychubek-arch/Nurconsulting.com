@@ -96,16 +96,18 @@
                 const d = document.createElement('div');
                 d.id = 'tab-tg-owner';
                 d.className = 'tab-content space-y-4';
-                d.innerHTML = '<div class="nr-tgo">' + BOTS.map(b => '<div class="nr-tgo-card"><span class="nr-tgo-ico">' + TG + '</span><div><b>' + b[0] + '</b><small>' + b[1] + '</small></div><em>Скоро</em></div>').join('') + '</div>';
+                d.innerHTML = '<div class="nr-tgo"><h3 class="nr-tgo-h" id="nr-set-tg">Telegram</h3>' + BOTS.map(b => '<div class="nr-tgo-card"><span class="nr-tgo-ico">' + TG + '</span><div><b>' + b[0] + '</b><small>' + b[1] + '</small></div><em>Скоро</em></div>').join('') +
+                    '<h3 class="nr-tgo-h">Доступ для знакомых</h3><div id="nr-set-acc" class="nr-tgo-card nr-tgo-col"></div>' +
+                    '<h3 class="nr-tgo-h">Профиль</h3><div class="nr-tgo-card"><div><b id="nr-set-mail">—</b><small>' + esc(V.rows.map(r => r.name).join(', ')) + '</small></div><button type="button" class="nr-tgo-out" onclick="handleLogout()">Выйти</button></div></div>';
                 host.after(d);
             }
         }
         const goods = document.querySelector('.rail-btn[data-tab="goods-groups"]');
         if (goods && !document.querySelector('.rail-btn[data-tab="tg-owner"]')) {
             const b = document.createElement('button');
-            b.type = 'button'; b.className = 'rail-btn'; b.dataset.tab = 'tg-owner'; b.title = 'Telegram';
+            b.type = 'button'; b.className = 'rail-btn'; b.dataset.tab = 'tg-owner'; b.title = 'Telegram и настройки';
             b.innerHTML = '<span class="rail-btn-ico">' + TG + '</span><span class="rail-btn-lbl">Telegram</span>';
-            b.addEventListener('click', () => window.showTab('tg-owner', b));
+            b.addEventListener('click', () => { window.showTab('tg-owner', b); window.NrAccess && window.NrAccess.mount(); });
             goods.after(b);
         }
     }
@@ -190,8 +192,10 @@ html[data-viewer="1"] #tab-goods-groups input:not([type="search"]),
 html[data-viewer="1"] #tab-goods-groups select,
 html[data-viewer="1"] #tab-goods-groups textarea { pointer-events: none !important; background: transparent !important; }
 html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], html[data-owner] .abtest-card button, html[data-owner] [data-ab-filter="active"], html[data-owner] [data-ab-filter="all"] { display: none !important; }
-.nr-tgo { display: grid; gap: 10px; max-width: 560px; padding: 6px 2px; }
+.nr-tgo { display: grid; gap: 10px; max-width: 560px; padding: 6px 2px 24px; }
 .nr-tgo-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.nr-tgo-h { margin: 14px 0 0; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; } .nr-tgo-h:first-child { margin-top: 0; }
+.nr-tgo-col { display: block; } .nr-tgo-out { margin-left: auto; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--text-primary); }
 .nr-tgo-card b { display: block; font-size: 14px; } .nr-tgo-card small { color: var(--text-muted); font-size: 12px; }
 .nr-tgo-card em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--text-muted); }
 .nr-tgo-ico { width: 34px; height: 34px; border-radius: 50%; background: #229ed9; color: #fff; display: grid; place-items: center; } .nr-tgo-ico svg { width: 18px; height: 18px; }
@@ -256,23 +260,26 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         const s = document.createElement('style');
         s.id = 'nr-acc-css';
         s.textContent = `#nr-acc { position: fixed; inset: 0; z-index: 9000; background: rgba(15,15,25,.45); display: grid; place-items: center; padding: 16px; }
-#nr-acc .nr-acc-b { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--surface-solid, #fff); color: var(--text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
-#nr-acc h3 { margin: 0; font-size: 16px; } #nr-acc p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-muted); }
-#nr-acc .nr-acc-r { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; font-size: 13px; }
-#nr-acc .nr-acc-r span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; } #nr-acc .nr-acc-r em { font-style: normal; font-size: 11px; color: var(--text-muted); }
-#nr-acc button { border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
-#nr-acc .nr-acc-add { display: flex; gap: 8px; margin-top: 10px; } #nr-acc input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 13px; background: var(--surface); color: var(--text-primary); }
-#nr-acc .nr-acc-ok { background: var(--accent); color: #fff; border-color: transparent; } #nr-acc .nr-acc-err { color: #dc2626; font-size: 12px; min-height: 16px; margin-top: 6px; }
-#nr-acc .nr-acc-h { display: flex; justify-content: space-between; align-items: start; gap: 10px; }`;
+:is(#nr-acc, #nr-set-acc) .nr-acc-b { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--surface-solid, #fff); color: var(--text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+:is(#nr-acc, #nr-set-acc) h3 { margin: 0; font-size: 16px; } :is(#nr-acc, #nr-set-acc) p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-muted); }
+:is(#nr-acc, #nr-set-acc) .nr-acc-r { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; font-size: 13px; }
+:is(#nr-acc, #nr-set-acc) .nr-acc-r span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; } :is(#nr-acc, #nr-set-acc) .nr-acc-r em { font-style: normal; font-size: 11px; color: var(--text-muted); }
+:is(#nr-acc, #nr-set-acc) button { border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
+:is(#nr-acc, #nr-set-acc) .nr-acc-add { display: flex; gap: 8px; margin-top: 10px; } :is(#nr-acc, #nr-set-acc) input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 13px; background: var(--surface); color: var(--text-primary); }
+:is(#nr-acc, #nr-set-acc) .nr-acc-ok { background: var(--accent); color: #fff; border-color: transparent; } :is(#nr-acc, #nr-set-acc) .nr-acc-err { color: #dc2626; font-size: 12px; min-height: 16px; margin-top: 6px; }
+:is(#nr-acc, #nr-set-acc) .nr-acc-h { display: flex; justify-content: space-between; align-items: start; gap: 10px; }`;
         document.head.appendChild(s);
     }
 
+    let inl = null;
     function paint(err) {
-        if (!box) return;
+        const tgt = inl || (box && box.querySelector('.nr-acc-b'));
+        if (!tgt) return;
         const n = state.items.length;
         const rows = state.items.map((x) => '<div class="nr-acc-r"><span>' + esc(x.email) + '</span><em>' + (x.status === 'invited' ? 'ждёт входа' : 'смотрит') + '</em>' +
             (state.can ? '<button type="button" data-rm="' + esc(x.email) + '">Убрать</button>' : '') + '</div>').join('');
-        box.querySelector('.nr-acc-b').innerHTML = '<div class="nr-acc-h"><div><h3>Доступ для знакомых</h3><p>' + esc(cabName) + ' · до 5 человек смотрят кабинет, менять данные они не могут. Занято: ' + n + ' из 5.</p></div><button type="button" data-x="1" aria-label="Закрыть">×</button></div>' +
+        const note = 'До 5 человек смотрят кабинет, менять данные они не могут. Занято: ' + n + ' из 5.';
+        tgt.innerHTML = (inl ? '<p>' + esc(note) + '</p>' : '<div class="nr-acc-h"><div><h3>Доступ для знакомых</h3><p>' + esc(cabName) + ' · ' + esc(note) + '</p></div><button type="button" data-x="1" aria-label="Закрыть">×</button></div>') +
             (rows || '<p>Пока никого.</p>') +
             (state.can ? '<div class="nr-acc-add"><input type="email" placeholder="Почта Google" autocomplete="off"' + (n >= 5 ? ' disabled' : '') + '><button type="button" class="nr-acc-ok" data-add="1"' + (n >= 5 ? ' disabled' : '') + '>Добавить</button></div>' : '<p>Управлять доступом может владелец кабинета.</p>') +
             '<div class="nr-acc-err">' + esc(err || '') + '</div>';
@@ -309,6 +316,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
     function open(id, name) {
         if (!id) return;
         css();
+        inl = null;
         cabId = id; cabName = name || '';
         state = { items: [], can: true };
         box && box.remove();
@@ -317,19 +325,39 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         box.innerHTML = '<div class="nr-acc-b"></div>';
         document.body.appendChild(box);
         paint();
-        box.addEventListener('click', (e) => {
+        wire(box);
+        load();
+    }
+
+    function wire(el) {
+        el.addEventListener('click', (e) => {
             const t = e.target;
-            if (t === box || t.closest('[data-x]')) { box.remove(); box = null; return; }
+            if (t === box || t.closest('[data-x]')) { box && box.remove(); box = null; return; }
             const rm = t.closest('[data-rm]');
             if (rm) { const m = rm.getAttribute('data-rm'); act(() => supabase.rpc('cabinet_watcher_remove', { p_cabinet: cabId, p_email: m }), () => { state.items = state.items.filter((x) => x.email !== m); }); return; }
             if (t.closest('[data-add]')) add();
         });
-        box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input')) add(); });
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input')) add(); });
+    }
+
+    // Страница настроек владельца: тот же список прямо в разделе, без окна.
+    function mount() {
+        const host = document.getElementById('nr-set-acc');
+        if (!host) return;
+        css();
+        const rows = (window.NrViewer && window.NrViewer.rows) || [];
+        let id = ''; try { id = currentCabinetId; } catch (_) {}
+        const row = rows.find((r) => r.id === id) || rows[0] || {};
+        cabId = row.id || id; cabName = row.name || '';
+        if (!inl) { inl = host; wire(host); } else inl = host;
+        box && box.remove(); box = null;
+        paint();
         load();
+        supabase.auth.getSession().then((r) => { const m = document.getElementById('nr-set-mail'); const u = r.data && r.data.session && r.data.session.user; if (m && u) m.textContent = u.email; });
     }
 
     function add() {
-        const inp = box && box.querySelector('input');
+        const inp = (inl || box) && (inl || box).querySelector('input');
         const m = inp ? inp.value.trim().toLowerCase() : '';
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) { paint(MSG.bad_email); return; }
         act(() => supabase.rpc('cabinet_watcher_add', { p_cabinet: cabId, p_email: m }), () => { state.items.push({ email: m, status: 'invited' }); });
@@ -340,9 +368,11 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         const g = e.target.closest && e.target.closest('#rail-settings-btn');
         if (!g || !window.NrViewer || !window.NrViewer.on) return;
         e.preventDefault(); e.stopImmediatePropagation();
-        const row = (window.NrViewer.rows || [])[0] || {};
-        let id = ''; try { id = currentCabinetId || row.id; } catch (_) { id = row.id; }
-        open(id, ((window.NrViewer.rows || []).find((r) => r.id === id) || row).name);
+        const btn = document.querySelector('.rail-btn[data-tab="tg-owner"]');
+        if (btn) { window.showTab('tg-owner', btn); mount(); return; }
+        let id = ''; try { id = currentCabinetId; } catch (_) {}
+        const rr = (window.NrViewer.rows || []);
+        open(id || (rr[0] || {}).id, ((rr.find((r) => r.id === id) || rr[0]) || {}).name);
     }, true);
 
     // У хозяина кабинета (обычные настройки) карточка с кнопкой в «Безопасности».
@@ -359,5 +389,5 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
     }
     document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#rail-settings-btn')) setTimeout(card, 150); });
 
-    window.NrAccess = { open };
+    window.NrAccess = { open, mount };
 })();
