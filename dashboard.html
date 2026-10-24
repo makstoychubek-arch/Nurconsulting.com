@@ -6059,8 +6059,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
             // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
-            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary', 'tariffs'];
-            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, akylai: 1, summary: 1, tariffs: 1 };
+            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs'];
+            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -8491,7 +8491,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.5e12c6a9cc.min.js"></script>
-<script src="/dist/viewer-mode.9f67e5203c.min.js"></script>
+<script src="/dist/viewer-mode.1cdca6c233.min.js"></script>
 <script src="/dist/space-admin-ext.ac6467584f.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
@@ -8568,7 +8568,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
        внутренние страницы — видно только команде (team_staff / суперадмин).
        Выводить раздел в общий показ — только с разрешения владельца: список
        закреплён тестом public_modules_test.js, без правки теста он не пройдёт. */
-    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary', 'tariffs']);
+    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasPaid = (() => {
         try { return localStorage.getItem('nr_paid') === '1'; } catch (_) { return false; }
     })();
@@ -8604,7 +8604,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
         });
     }
-    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs']);
+    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
     // До загрузки кабинетов из БД не показываем экран «подключите кабинет» (иначе мигает у активных).
     let cabinetsLoaded = false;
