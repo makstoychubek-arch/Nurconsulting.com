@@ -7612,6 +7612,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-spaces" onclick="showSettingsSection('spaces', this)">Управление Спейсами</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">Кабинеты</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-features" onclick="showSettingsSection('features', this)">Агенты и функции</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-tariffs" onclick="showTab('tariffs')">Тарифы</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">NR Space</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
@@ -16548,6 +16549,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             tabs.security?.classList.remove('hidden-tab');
             tabs.api?.classList.remove('hidden-tab');
             if (isStaff) tabs.features?.classList.remove('hidden-tab');
+            const tr = document.querySelector('.rail-btn[data-tab="tariffs"]');
+            if (!isStaff) { document.getElementById('settings-tab-btn-tariffs')?.classList.remove('hidden-tab'); if (tr) tr.style.display = 'none'; }
             ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
                 document.getElementById('settings-' + s)?.classList.add('hidden');
             });
