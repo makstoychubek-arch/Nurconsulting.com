@@ -16,3 +16,7 @@ verify_jwt = false
 # Проверка раз в 15 минут вызывается планировщиком без ключа и пишет только владельцу в Telegram.
 [functions.admin-alerts]
 verify_jwt = false
+
+# MCP для личного ИИ клиента: вход по личному ключу в адресе, не по сессии сайта. Только чтение своих кабинетов.
+[functions.mcp]
+verify_jwt = false

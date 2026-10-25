@@ -52,6 +52,17 @@ const UID = '11111111-1111-1111-1111-111111111111';
         await page.waitForTimeout(300);
         assert.strictEqual(added && added.p_email, 'new@example.test', 'на сервер ушла почта');
         console.log('ok   доступ для знакомых: раздел настроек открывается из шестерёнки, добавление видно сразу');
+        // «Интеграции»: личный ключ для своего ИИ создаётся, адрес показывается один раз
+        const KEY = 'nrk_' + 'a1'.repeat(32);
+        tables.mcp_keys = [];
+        await page.route(/rest\/v1\/rpc\/mcp_key_create/, (r) => r.fulfill({ json: KEY }));
+        await page.waitForSelector('#nr-set-mcp [data-mnew]', { timeout: 4000 });
+        await page.fill('#nr-mcp-label', 'Мой Claude');
+        await page.click('#nr-set-mcp [data-mnew]');
+        await page.waitForSelector('#nr-set-mcp .nr-mcp-new input', { timeout: 4000 });
+        const url = await page.inputValue('#nr-set-mcp .nr-mcp-new input');
+        assert.ok(/\/functions\/v1\/mcp\/nrk_[0-9a-f]{64}$/.test(url), 'адрес с ключом: ' + url);
+        console.log('ok   интеграции: ключ для своего ИИ создаётся и показывается в виде адреса');
         console.log('e2e выдачи кабинета: все проверки прошли');
     } catch (e) {
         console.error('FAIL', e.message);

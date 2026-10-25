@@ -6268,7 +6268,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <span class="nav-item-label">Маркировка &amp; ШК</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="flyout-sec">Товары</div>
+                <div class="flyout-sec">Логистика</div>
                 <div class="nav-item" onclick="showTab('warehouse', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                     <span class="nav-item-label">Склады</span>
@@ -6577,7 +6577,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="beta-orb beta-orb-2"></div>
                 <div class="beta-pill" id="beta-stub-pill">BETA</div>
                 <h2 id="beta-stub-title">Модуль в BETA</h2>
-                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод, Агенты и Сводный отчёт. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
+                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Логистика, Контент-завод, Агенты и Сводный отчёт. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
                 <button type="button" class="space-empty-btn" id="beta-stub-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
@@ -7612,6 +7612,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-spaces" onclick="showSettingsSection('spaces', this)">Управление Спейсами</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">Кабинеты</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-features" onclick="showSettingsSection('features', this)">Агенты и функции</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-tariffs" onclick="showTab('tariffs')">Тарифы</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">NR Space</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
@@ -8003,7 +8004,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         <div class="pricing-cabinets">&nbsp;</div>
                         <ul class="pricing-features">
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Всё из тарифа «Бизнес»</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>РНП, Контроль РК, Товары, Сводный отчёт — все работающие разделы кабинета</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>РНП, Контроль РК, Логистика, Сводный отчёт — все работающие разделы кабинета</span></li>
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Все агенты на максимум: Амина, Сауле <em>(скоро)</em></span></li>
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Новые функции сайта по мере выхода</span></li>
                         </ul>
@@ -8480,7 +8481,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.5e12c6a9cc.min.js"></script>
-<script src="/dist/viewer-mode.5aa93e5157.min.js"></script>
+<script src="/dist/viewer-mode.8d6e66fae5.min.js"></script>
 <script src="/dist/space-admin-ext.ac6467584f.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
@@ -8498,8 +8499,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-next.3d25bd5956.min.js"></script>
 <script src="/dist/fbs-rates.80f8387fcf.min.js"></script>
 <script src="/dist/ff-terms.7f06f7d664.min.js"></script>
-<script src="/dist/nr-ff.e6be48baef.min.js"></script>
-<script src="/dist/nr-hints.3faa7d9f19.min.js"></script>
+<script src="/dist/nr-ff.e1889ed2c3.min.js"></script>
+<script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.fed20b8a96.min.js"></script>
 <script src="/dist/nr-ui.758e49d7ac.min.js"></script>
@@ -10011,7 +10012,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (stubBtn) { stubBtn.textContent = 'К дашборду'; stubBtn.setAttribute('onclick', "showTab('dashboard')"); }
         const textEl = document.getElementById('beta-stub-text');
         if (textEl) {
-            textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
+            textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Логистика и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
         }
         updateHeaderNav(name, true);
         document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact', 'goods-compact');
@@ -12301,7 +12302,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const catalog = window.GoodsCatalog;
         const groups = ggVisibleGroups();
         let csv = '';
-        let kind = 'Товары';
+        let kind = 'Логистика';
         if (ggView === 'cost') {
             kind = 'Себестоимость';
             const sep = ';';
@@ -16547,7 +16548,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } else {
             tabs.security?.classList.remove('hidden-tab');
             tabs.api?.classList.remove('hidden-tab');
-            tabs.features?.classList.remove('hidden-tab');
+            if (isStaff) tabs.features?.classList.remove('hidden-tab');
+            const tr = document.querySelector('.rail-btn[data-tab="tariffs"]');
+            if (!isStaff) { document.getElementById('settings-tab-btn-tariffs')?.classList.remove('hidden-tab'); if (tr) tr.style.display = 'none'; }
             ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
                 document.getElementById('settings-' + s)?.classList.add('hidden');
             });
