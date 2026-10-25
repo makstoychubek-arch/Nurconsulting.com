@@ -388,12 +388,8 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
 
     // Интеграции: личный ключ для подключения своего ИИ (Claude, ChatGPT) к данным своих кабинетов, только чтение.
     const mc = { keys: [], fresh: null, busy: false, err: '' };
-    function mcpUrl(k) {
-        let base = '';
-        try { base = String(supabase.supabaseUrl || '').replace(/\/$/, ''); } catch (_) {}
-        if (!base) { try { base = String(WB_PROXY_URL).replace(/\/functions\/v1\/.*$/, ''); } catch (_) {} }
-        return base + '/functions/v1/mcp/' + k;
-    }
+    // Адрес на нашем домене: переписывается на серверную функцию, имя проекта и Supabase в нём не видны.
+    function mcpUrl(k) { return location.origin + '/mcp/' + k; }
     function mcpPaint(host) {
         if (!host) return;
         const fresh = mc.fresh ? '<div class="nr-mcp-new"><p><b>Ключ создан. Скопируйте адрес сейчас: позже он не покажется.</b></p><div class="nr-acc-add"><input readonly value="' + esc(mcpUrl(mc.fresh)) + '" onfocus="this.select()"><button type="button" class="nr-acc-ok" data-mcopy="1">Скопировать</button></div>' +
