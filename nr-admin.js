@@ -13,7 +13,7 @@
     var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {}, supers: null };
 
     var NAV = [
-        ['home', 'Требует внимания'], ['acc', 'Аккаунты и кабинеты'], ['users', 'Пользователи сайта'], ['staff', 'Сотрудники консалтинга'],
+        ['home', 'Главная'], ['acc', 'Консалтинг'], ['users', 'Пользователи сайта'], ['staff', 'Сотрудники консалтинга'],
         ['tg', 'Telegram и боты'], ['sys', 'Система и задачи'], ['alr', 'Оповещения'], ['log', 'Журнал'], ['own', 'Спейс владельца'],
     ];
     var FEATURE_LABEL = { reviews: 'Ответы на отзывы', sync: 'Автосинхронизация', ads: 'РК и автоставки', ab_rotation: 'Ротация А/Б', rnp_morning: 'Утренний РНП', order_alerts: 'Уведомления о заказах' };
@@ -94,6 +94,7 @@
             }).join('') + '</div>';
         } else h += '<div class="nra-ok"><span class="sd"></span>Всё в порядке. Проблем не найдено.</div>';
         h += '<div class="nra-card nra-kv"><div><b>' + S.ov.cabinets.length + '</b><small>кабинетов</small></div><div><b>' + S.ov.staff.length + '</b><small>сотрудников</small></div><div><b>' + mb(S.ov.db_bytes) + '</b><small>данные в базе</small></div></div>';
+        if (S.audit && S.audit.length) h += '<div class="nra-h" style="font-size:15px;margin-top:6px">Последние действия</div><div class="nra-card">' + S.audit.slice(0, 5).map(function (a) { return '<div class="nra-att"><span class="sd off"></span><div class="t"><b>' + esc(ACTION[a.action] || a.action) + (a.target ? ': ' + esc(a.target) : '') + '</b><small>' + esc(a.actor_email || '') + ' · ' + ago(a.at) + '</small></div></div>'; }).join('') + '</div>';
         return h;
     }
     function ownersOf(c) { return S.ov.viewers.filter(function (v) { return v.cabinet_id === c.id; }); }
@@ -188,11 +189,17 @@
             load();
         });
     }
+    function teamEmails() {
+        var t = {}; t[ROOT] = 1;
+        ((S.ov && S.ov.staff) || []).forEach(function (p) { t[String(p.email).toLowerCase()] = 1; });
+        return t;
+    }
+    function isTeamCab(c) { var t = teamEmails(); return !!c.nr_managed || !!t[String(c.owner_email || '').toLowerCase()]; }
     function accH() {
         if (!S.ov) return '<div class="nra-card"><div class="nra-skel"></div></div>';
         var q = S.q.toLowerCase();
-        var rows = S.ov.cabinets.filter(function (c) { return !q || String(c.name).toLowerCase().indexOf(q) > -1 || String(c.owner_email || '').toLowerCase().indexOf(q) > -1; });
-        var h = '<div class="nra-h">Аккаунты и кабинеты</div><p class="nra-sub">' + rows.length + ' кабинетов. Нажми на кабинет, чтобы раскрыть подробности.</p><table class="nra-t"><tr><th>Кабинет</th><th>Владелец аккаунта</th><th>Данные</th><th>Артикулов</th><th>Синхронизация</th><th>Статус</th><th>Доступ</th></tr>';
+        var rows = S.ov.cabinets.filter(function (c) { return isTeamCab(c) && (!q || String(c.name).toLowerCase().indexOf(q) > -1 || String(c.owner_email || '').toLowerCase().indexOf(q) > -1); });
+        var h = '<div class="nra-h">Консалтинг</div><p class="nra-sub">' + rows.length + ' кабинетов, которые ведёт команда. Кабинеты клиентов смотри в «Пользователях сайта», там кнопка «В консалтинг». Нажми на кабинет, чтобы раскрыть подробности.</p><table class="nra-t"><tr><th>Кабинет</th><th>Владелец аккаунта</th><th>Данные</th><th>Артикулов</th><th>Синхронизация</th><th>Статус</th><th>Доступ</th></tr>';
         rows.forEach(function (c) {
             var v = ownersOf(c);
             h += '<tr class="r" data-cab="' + c.id + '"><td><b>' + esc(c.name) + '</b></td><td>' + esc(c.owner_email || '—') + '</td><td>' + mb(c.daily_bytes) + '</td><td>' + c.articles + '</td><td>' + ago(c.last_sync) + '</td><td><span class="dots">' + cabDots(c).map(function (d) { return '<i class="' + d[0] + '" title="' + esc(d[1]) + '"></i>'; }).join('') + '</span></td><td><span class="avs">' + (v.length ? v.slice(0, 4).map(function (x) { return '<i class="av" style="background:' + colorOf(x.email) + '" title="' + esc(x.email) + ' · просмотр">' + initials(x.email) + '</i>'; }).join('') : '<span class="m">только мы</span>') + '</span></td></tr>';
@@ -235,7 +242,7 @@
                 h += '<tr class="d"><td colspan="6">' + (cabs.length ? '<div class="nra-ucabs">' + cabs.map(function (x) {
                     var c = x.c;
                     return '<div class="nra-ucab"><div class="t"><b>' + esc(c.name) + '</b><small>' + x.rel + '</small></div><div class="nra-kv"><div><b>' + mb(c.daily_bytes) + '</b><small>данные</small></div><div><b>' + c.articles + '</b><small>артикулов</small></div><div><b>' + ago(c.last_sync) + '</b><small>синхронизация</small></div></div>' +
-                        '<span class="dots">' + cabDots(c).map(function (d) { return '<i class="' + d[0] + '" title="' + esc(d[1]) + '"></i>'; }).join('') + '</span><button type="button" class="nra-btn" data-openc="' + c.id + '">Открыть</button></div>';
+                        '<span class="dots">' + cabDots(c).map(function (d) { return '<i class="' + d[0] + '" title="' + esc(d[1]) + '"></i>'; }).join('') + '</span>' + (isTeamCab(c) ? '<span class="nra-chip ok"><i></i>в консалтинге</span>' : '<button type="button" class="nra-btn p" data-tocons="' + c.id + '">' + (S.confirm === c.id ? 'Подтвердить' : 'В консалтинг') + '</button>') + '<button type="button" class="nra-btn" data-openc="' + c.id + '">Открыть</button></div>';
                 }).join('') + '</div>' : '<p class="m">У этого человека нет подключённых кабинетов.</p>') + '</td></tr>';
             }
         });
@@ -252,6 +259,20 @@
         h += list.map(function (x) { return row(String(x.email), 'суперадмин', true); }).join('');
         h += '<div class="nra-own"><input type="email" id="nra-super" placeholder="Google-почта нового суперадмина" autocomplete="off"><button type="button" class="nra-btn p" data-super="1">Назначить</button></div></div>';
         return h;
+    }
+    function moveToCons(id) {
+        var c = S.ov && S.ov.cabinets.filter(function (x) { return x.id === id; })[0];
+        if (!c || S.busy['m' + id]) return;
+        if (S.confirm !== id) { S.confirm = id; toast('Нажми «Подтвердить»: кабинет перейдёт к команде, а клиент станет его владельцем в режиме просмотра.'); render(); return; }
+        S.confirm = null; S.busy['m' + id] = true;
+        var was = c.owner_email, wasId = c.user_id;
+        c.owner_email = ROOT; c.nr_managed = true; render();
+        sb.rpc('admin_move_to_consulting', { p_cabinet: id }).then(function (r) {
+            S.busy['m' + id] = false;
+            if (r.error) { c.owner_email = was; c.user_id = wasId; c.nr_managed = false; toast(String(r.error.message || '').indexOf('already') > -1 ? 'Кабинет уже у команды.' : 'Не получилось перенести. Повтори.'); render(); return; }
+            toast('Кабинет в консалтинге. Клиент стал владельцем и видит его в режиме просмотра.');
+            load();
+        });
     }
     function setSuper(mail, on) {
         if (S.busy.super) return;
@@ -319,7 +340,7 @@
         }).join('') + '</div>';
     }
     var ACTION = {
-        access_granted: 'Выдан доступ', super_admin_on: 'Назначен суперадмин', super_admin_off: 'Снят суперадмин', access_revoked: 'Доступ отозван', staff_added: 'Добавлен сотрудник', staff_removed: 'Сотрудник убран',
+        access_granted: 'Выдан доступ', super_admin_on: 'Назначен суперадмин', moved_to_consulting: 'Кабинет в консалтинге', super_admin_off: 'Снят суперадмин', access_revoked: 'Доступ отозван', staff_added: 'Добавлен сотрудник', staff_removed: 'Сотрудник убран',
         cabinet_added: 'Кабинет добавлен', cabinet_deleted: 'Кабинет удалён', wb_token_changed: 'Токен WB изменён', adv_token_changed: 'Токен рекламы изменён',
         feature_toggled: 'Функция кабинета', bot_reconnect: 'Бот переподключён',
     };
@@ -417,8 +438,9 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper]'); if (!t) return;
+            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper],[data-tocons]'); if (!t) return;
             if (t.dataset.user) { S.uopen[t.dataset.user] = !S.uopen[t.dataset.user]; render(); return; }
+            if (t.dataset.tocons) { moveToCons(t.dataset.tocons); return; }
             if (t.dataset.super) { var si = el.querySelector('#nra-super'), sm = si ? String(si.value).trim().toLowerCase() : ''; if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sm)) { toast('Введи почту целиком, например name@gmail.com'); return; } setSuper(sm, true); return; }
             if (t.dataset.unsuper) { setSuper(t.dataset.unsuper, false); return; }
             if (t.dataset.own) { assignOwner(t.dataset.own); return; }
