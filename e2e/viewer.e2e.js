@@ -61,7 +61,7 @@ const UID = '11111111-1111-1111-1111-111111111111';
         await page.click('#nr-set-mcp [data-mnew]');
         await page.waitForSelector('#nr-set-mcp .nr-mcp-new input', { timeout: 4000 });
         const url = await page.inputValue('#nr-set-mcp .nr-mcp-new input');
-        assert.ok(/\/functions\/v1\/mcp\/nrk_[0-9a-f]{64}$/.test(url), 'адрес с ключом: ' + url);
+        assert.ok(/\/mcp\/nrk_[0-9a-f]{64}$/.test(url) && !/supabase/.test(url), 'адрес с ключом: ' + url);
         console.log('ok   интеграции: ключ для своего ИИ создаётся и показывается в виде адреса');
         console.log('e2e выдачи кабинета: все проверки прошли');
     } catch (e) {

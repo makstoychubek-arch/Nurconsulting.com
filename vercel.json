@@ -47,6 +47,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/mcp/:key", "destination": "https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/mcp/:key" },
     { "source": "/login", "destination": "/login.html" },
     { "source": "/reset-password", "destination": "/reset-password.html" },
     { "source": "/space", "destination": "/dashboard.html" },
