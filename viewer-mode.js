@@ -98,7 +98,7 @@
                 d.className = 'tab-content space-y-4';
                 d.innerHTML = '<div class="nr-tgo"><div data-sec="tg" class="nr-tgo-s"><h3 class="nr-tgo-h" id="nr-set-tg">Telegram</h3>' + BOTS.map(b => '<div class="nr-tgo-card"><span class="nr-tgo-ico">' + TG + '</span><div><b>' + b[0] + '</b><small>' + b[1] + '</small></div><em>Скоро</em></div>').join('') +
                     '</div><div data-sec="set" class="nr-tgo-s"><h3 class="nr-tgo-h">Пользователи</h3><div id="nr-set-acc" class="nr-tgo-card nr-tgo-col"></div>' +
-                    '<h3 class="nr-tgo-h">Профиль</h3><div class="nr-tgo-card"><div><b id="nr-set-mail">—</b><small>' + esc(V.rows.map(r => r.name).join(', ')) + '</small></div><button type="button" class="nr-tgo-out" onclick="handleLogout()">Выйти</button></div></div></div>';
+                    '<h3 class="nr-tgo-h">Интеграции</h3><div id="nr-set-mcp" class="nr-tgo-card nr-tgo-col"></div><h3 class="nr-tgo-h">Профиль</h3><div class="nr-tgo-card"><div><b id="nr-set-mail">—</b><small>' + esc(V.rows.map(r => r.name).join(', ')) + '</small></div><button type="button" class="nr-tgo-out" onclick="handleLogout()">Выйти</button></div></div></div>';
                 host.after(d);
             }
         }
@@ -196,6 +196,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
 .nr-tgo-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .nr-tgo-h { margin: 14px 0 0; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; } .nr-tgo-h:first-child { margin-top: 0; }
 .nr-tgo-s { display: grid; gap: 10px; } #tab-tg-owner[data-mode="tg"] [data-sec="set"], #tab-tg-owner[data-mode="set"] [data-sec="tg"] { display: none; }
+.nr-mcp-new { border: 1px dashed var(--border); border-radius: 12px; padding: 10px; margin-bottom: 8px; } .nr-mcp-c, #nr-set-mcp { font-size: 13px; }
 .nr-tgo-col { display: block; } .nr-tgo-out { margin-left: auto; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--text-primary); }
 .nr-tgo-card b { display: block; font-size: 14px; } .nr-tgo-card small { color: var(--text-muted); font-size: 12px; }
 .nr-tgo-card em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--text-muted); }
@@ -261,14 +262,14 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         const s = document.createElement('style');
         s.id = 'nr-acc-css';
         s.textContent = `#nr-acc { position: fixed; inset: 0; z-index: 9000; background: rgba(15,15,25,.45); display: grid; place-items: center; padding: 16px; }
-:is(#nr-acc, #nr-set-acc) .nr-acc-b { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--surface-solid, #fff); color: var(--text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
-:is(#nr-acc, #nr-set-acc) h3 { margin: 0; font-size: 16px; } :is(#nr-acc, #nr-set-acc) p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-muted); }
-:is(#nr-acc, #nr-set-acc) .nr-acc-r { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; font-size: 13px; }
-:is(#nr-acc, #nr-set-acc) .nr-acc-r span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; } :is(#nr-acc, #nr-set-acc) .nr-acc-r em { font-style: normal; font-size: 11px; color: var(--text-muted); }
-:is(#nr-acc, #nr-set-acc) button { border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
-:is(#nr-acc, #nr-set-acc) .nr-acc-add { display: flex; gap: 8px; margin-top: 10px; } :is(#nr-acc, #nr-set-acc) input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 13px; background: var(--surface); color: var(--text-primary); }
-:is(#nr-acc, #nr-set-acc) .nr-acc-ok { background: var(--accent); color: #fff; border-color: transparent; } :is(#nr-acc, #nr-set-acc) .nr-acc-err { color: #dc2626; font-size: 12px; min-height: 16px; margin-top: 6px; }
-:is(#nr-acc, #nr-set-acc) .nr-acc-h { display: flex; justify-content: space-between; align-items: start; gap: 10px; }`;
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-b { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--surface-solid, #fff); color: var(--text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) h3 { margin: 0; font-size: 16px; } :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-muted); }
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-r { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; font-size: 13px; }
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-r span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; } :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-r em { font-style: normal; font-size: 11px; color: var(--text-muted); }
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) button { border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-add { display: flex; gap: 8px; margin-top: 10px; } :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 13px; background: var(--surface); color: var(--text-primary); }
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-ok { background: var(--accent); color: #fff; border-color: transparent; } :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-err { color: #dc2626; font-size: 12px; min-height: 16px; margin-top: 6px; }
+:is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-h { display: flex; justify-content: space-between; align-items: start; gap: 10px; }`;
         document.head.appendChild(s);
     }
 
@@ -362,6 +363,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         box && box.remove(); box = null;
         paint();
         load();
+        mcpLoad(document.getElementById('nr-set-mcp'));
         supabase.auth.getSession().then((r) => { const m = document.getElementById('nr-set-mail'); const u = r.data && r.data.session && r.data.session.user; if (m && u) m.textContent = u.email; });
     }
 
@@ -384,6 +386,48 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         open(id || (rr[0] || {}).id, ((rr.find((r) => r.id === id) || rr[0]) || {}).name);
     }, true);
 
+    // Интеграции: личный ключ для подключения своего ИИ (Claude, ChatGPT) к данным своих кабинетов, только чтение.
+    const mc = { keys: [], fresh: null, busy: false, err: '' };
+    function mcpUrl(k) {
+        let base = '';
+        try { base = String(supabase.supabaseUrl || '').replace(/\/$/, ''); } catch (_) {}
+        if (!base) { try { base = String(WB_PROXY_URL).replace(/\/functions\/v1\/.*$/, ''); } catch (_) {} }
+        return base + '/functions/v1/mcp/' + k;
+    }
+    function mcpPaint(host) {
+        if (!host) return;
+        const fresh = mc.fresh ? '<div class="nr-mcp-new"><p><b>Ключ создан. Скопируйте адрес сейчас: позже он не покажется.</b></p><div class="nr-acc-add"><input readonly value="' + esc(mcpUrl(mc.fresh)) + '" onfocus="this.select()"><button type="button" class="nr-acc-ok" data-mcopy="1">Скопировать</button></div>' +
+            '<p><b>Claude:</b> Настройки → Коннекторы → Добавить свой коннектор → вставить адрес.<br><b>ChatGPT:</b> Настройки → Приложения → режим разработчика → создать коннектор → вставить адрес, вход «без авторизации».</p></div>' : '';
+        const rows = mc.keys.map((k) => '<div class="nr-acc-r"><span>' + esc(k.label || 'Ключ') + '</span><em>' + (k.last_used_at ? 'использован ' + new Date(k.last_used_at).toLocaleDateString('ru-RU') : 'ещё не использован') + '</em><button type="button" data-mrev="' + esc(k.id) + '">Отозвать</button></div>').join('');
+        host.innerHTML = '<p>Подключите свой ИИ, чтобы он отвечал по данным ваших кабинетов: остатки, заказы, финансы. Только чтение, токены WB ИИ не видит.</p>' + fresh + rows +
+            '<div class="nr-acc-add"><input type="text" maxlength="40" placeholder="Название, например «Мой Claude»" id="nr-mcp-label"><button type="button" class="nr-acc-ok" data-mnew="1"' + (mc.busy ? ' disabled' : '') + '>' + (mc.busy ? 'Создаём…' : 'Создать ключ') + '</button></div><div class="nr-acc-err">' + esc(mc.err) + '</div>';
+    }
+    function mcpLoad(host) {
+        css(); mcpPaint(host);
+        supabase.from('mcp_keys').select('id,label,created_at,last_used_at').is('revoked_at', null).order('created_at').then((r) => { if (r && !r.error) { mc.keys = r.data || []; mcpPaint(host); } });
+        if (host.__mcp) return;
+        host.__mcp = true;
+        host.addEventListener('click', (e) => {
+            const t = e.target;
+            if (t.closest('[data-mcopy]')) {
+                const v = host.querySelector('.nr-mcp-new input');
+                try { navigator.clipboard.writeText(v.value).then(() => { t.textContent = 'Скопировано'; }, () => v.select()); } catch (_) { v.select(); }
+            } else if (t.closest('[data-mnew]') && !mc.busy) {
+                mc.busy = true; mc.err = ''; const lab = (host.querySelector('#nr-mcp-label') || {}).value || ''; mcpPaint(host);
+                supabase.rpc('mcp_key_create', { p_label: lab }).then((r) => {
+                    mc.busy = false;
+                    if (r.error) mc.err = String(r.error.message || '').includes('limit') ? 'Уже 5 ключей: отзовите ненужный.' : 'Не получилось создать ключ. Повторите.';
+                    else { mc.fresh = r.data; mcpLoad(host); return; }
+                    mcpPaint(host);
+                });
+            } else if (t.closest('[data-mrev]')) {
+                const id = t.closest('[data-mrev]').getAttribute('data-mrev');
+                mc.keys = mc.keys.filter((k) => k.id !== id); mcpPaint(host);
+                supabase.rpc('mcp_key_revoke', { p_id: id });
+            }
+        });
+    }
+
     // У хозяина кабинета (обычные настройки) карточка с кнопкой в «Безопасности».
     function card() {
         const host = document.getElementById('settings-security');
@@ -395,6 +439,13 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         c.innerHTML = '<h3 class="font-semibold mb-1" style="color:var(--text-primary)">Пользователи</h3><p class="text-xs mb-3" style="color:var(--text-muted)">До 5 человек смогут смотреть кабинет, менять данные они не смогут.</p><button type="button" class="ui-btn ui-btn-secondary">Управлять пользователями</button>';
         c.querySelector('button').onclick = () => { let n = ''; try { n = (nrCabinetList().find((x) => x.id === currentCabinetId) || {}).name || ''; } catch (_) {} open(currentCabinetId, n); };
         host.prepend(c);
+        if (!document.getElementById('nr-mcp-card')) {
+            const m = document.createElement('div');
+            m.id = 'nr-mcp-card'; m.className = 'widget-card p-6';
+            m.innerHTML = '<h3 class="font-semibold mb-1" style="color:var(--text-primary)">Интеграции</h3><div id="nr-set-mcp-c" class="nr-mcp-c"></div>';
+            c.after(m);
+            mcpLoad(m.querySelector('#nr-set-mcp-c'));
+        }
     }
     document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#rail-settings-btn')) setTimeout(card, 150); });
 
