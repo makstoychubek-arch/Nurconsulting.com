@@ -10,7 +10,7 @@
     var OPEN_KEY = 'nr_admin_open', CACHE_KEY = 'nr_admin_cache_v1';
     var PLAN_DB = 8 * 1024 * 1024 * 1024; // 8 ГБ на тарифе Pro
     var el = null;
-    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {} };
+    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {}, supers: null };
 
     var NAV = [
         ['home', 'Требует внимания'], ['acc', 'Аккаунты и кабинеты'], ['users', 'Пользователи сайта'], ['staff', 'Сотрудники консалтинга'],
@@ -241,9 +241,40 @@
         });
         return h + '</table>';
     }
+    var ROOT = 'global.pro.1004@gmail.com';
+    function superH() {
+        var list = (S.supers || []).filter(function (x) { return String(x.email).toLowerCase() !== ROOT; });
+        var h = '<div class="nra-h">Суперадмины</div><p class="nra-sub">Те, кто видит эту админку и все кабинеты. Назначить можно только того, кто уже заходил на сайт.</p><div class="nra-card">';
+        function row(mail, note, canX) {
+            return '<div class="nra-who"><i class="av" style="background:' + colorOf(mail) + '">' + initials(mail) + '</i><span>' + esc(mail) + '</span><small>' + note + '</small>' + (canX ? '<button type="button" class="nra-x" data-unsuper="' + esc(mail) + '" title="Снять суперадмина">×</button>' : '') + '</div>';
+        }
+        h += row(ROOT, 'владелец, снять нельзя', false);
+        h += list.map(function (x) { return row(String(x.email), 'суперадмин', true); }).join('');
+        h += '<div class="nra-own"><input type="email" id="nra-super" placeholder="Google-почта нового суперадмина" autocomplete="off"><button type="button" class="nra-btn p" data-super="1">Назначить</button></div></div>';
+        return h;
+    }
+    function setSuper(mail, on) {
+        if (S.busy.super) return;
+        S.busy.super = true;
+        var prev = S.supers;
+        S.supers = (S.supers || []).filter(function (x) { return String(x.email).toLowerCase() !== mail; });
+        if (on) S.supers.push({ email: mail });
+        render();
+        sb.rpc('admin_set_super_admin', { p_email: mail, p_on: on }).then(function (r) {
+            S.busy.super = false;
+            if (r.error) {
+                S.supers = prev;
+                var m = String(r.error.message || '');
+                toast(m.indexOf('no_user') > -1 ? 'Этот человек ещё не заходил на сайт. Пусть сначала войдёт под этой почтой.' : m.indexOf('self') > -1 ? 'Себя снять нельзя.' : m.indexOf('root') > -1 ? 'Владельца снять нельзя.' : m.indexOf('bad_email') > -1 ? 'Проверь почту.' : 'Не получилось. Повтори.');
+                return;
+            }
+            toast(on ? 'Суперадмин назначен.' : 'Суперадмин снят.');
+            load();
+        });
+    }
     function staffH() {
         if (!S.ov) return '<div class="nra-card"><div class="nra-skel"></div></div>';
-        return '<div class="nra-h">Сотрудники консалтинга</div><p class="nra-sub">' + S.ov.staff.length + ' человек в команде. Роли и права по ролям добавим следующим шагом.</p><table class="nra-t"><tr><th>Сотрудник</th><th>Заметка</th><th>Последний вход</th><th>В команде с</th></tr>' +
+        return superH() + '<div class="nra-h">Сотрудники консалтинга</div><p class="nra-sub">' + S.ov.staff.length + ' человек в команде. Роли и права по ролям добавим следующим шагом.</p><table class="nra-t"><tr><th>Сотрудник</th><th>Заметка</th><th>Последний вход</th><th>В команде с</th></tr>' +
             S.ov.staff.map(function (p) { return '<tr><td><span class="who"><i class="av" style="background:' + colorOf(p.email) + '">' + initials(p.email) + '</i><b>' + esc(p.email) + '</b></span></td><td>' + esc(p.note || '—') + '</td><td>' + ago(p.last_sign_in) + '</td><td>' + new Date(p.created_at).toLocaleDateString('ru-RU') + '</td></tr>'; }).join('') + '</table>';
     }
     function tgH() {
@@ -288,7 +319,7 @@
         }).join('') + '</div>';
     }
     var ACTION = {
-        access_granted: 'Выдан доступ', access_revoked: 'Доступ отозван', staff_added: 'Добавлен сотрудник', staff_removed: 'Сотрудник убран',
+        access_granted: 'Выдан доступ', super_admin_on: 'Назначен суперадмин', super_admin_off: 'Снят суперадмин', access_revoked: 'Доступ отозван', staff_added: 'Добавлен сотрудник', staff_removed: 'Сотрудник убран',
         cabinet_added: 'Кабинет добавлен', cabinet_deleted: 'Кабинет удалён', wb_token_changed: 'Токен WB изменён', adv_token_changed: 'Токен рекламы изменён',
         feature_toggled: 'Функция кабинета', bot_reconnect: 'Бот переподключён',
     };
@@ -358,6 +389,7 @@
             sb.from('client_errors').select('count', { count: 'exact', head: false }).gte('last_seen', new Date(Date.now() - 86400000).toISOString()),
         ]).then(function (a) { S.site = { up: a[0].data || null, errors: a[1].error ? null : (a[1].data || []).reduce(function (n, x) { return n + (Number(x.count) || 1); }, 0) }; render(); });
         sb.from('spaces').select('user_id,email,full_name,status,tariff_plan,plan_until,created_at,last_sign_in_at').order('created_at', { ascending: false }).limit(1000).then(function (r) { S.users = r.error ? [] : (r.data || []); render(); });
+        sb.from('spaces').select('email,user_id').eq('is_super_admin', true).then(function (r) { S.supers = r.error ? [] : (r.data || []); render(); });
         loadBots();
     }
     function loadBots() {
@@ -385,8 +417,10 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc]'); if (!t) return;
+            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper]'); if (!t) return;
             if (t.dataset.user) { S.uopen[t.dataset.user] = !S.uopen[t.dataset.user]; render(); return; }
+            if (t.dataset.super) { var si = el.querySelector('#nra-super'), sm = si ? String(si.value).trim().toLowerCase() : ''; if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sm)) { toast('Введи почту целиком, например name@gmail.com'); return; } setSuper(sm, true); return; }
+            if (t.dataset.unsuper) { setSuper(t.dataset.unsuper, false); return; }
             if (t.dataset.own) { assignOwner(t.dataset.own); return; }
             if (t.dataset.acc) { var ac = t.dataset.acc.split('|'); if (window.NrAccess) window.NrAccess.open(ac[0], ac[1]); return; }
             if (t.dataset.unown) { var uo = t.dataset.unown.split('|'); unassignOwner(uo[0], uo[1]); return; }

@@ -30,7 +30,7 @@ async function open(browser, base) {
             admin_alert_settings: [{ key: 'ai_balance', enabled: true, threshold: 5, value: 12, value_at: new Date().toISOString() }, { key: 'tokens', enabled: true }, { key: 'bots', enabled: false }],
             admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
             site_uptime: [{ id: 1, status: 'up', last_checked: new Date().toISOString() }], client_errors: [{ count: 3, last_seen: new Date().toISOString() }] },
-        rpcs: { is_super_admin: true, admin_overview: OVERVIEW, admin_assign_owner: { status: 'invited' }, admin_unassign_owner: null },
+        rpcs: { is_super_admin: true, admin_overview: OVERVIEW, admin_assign_owner: { status: 'invited' }, admin_unassign_owner: null, admin_set_super_admin: { status: 'granted' } },
         functions: { 'telegram-admin': async (b) => (b.action === 'list' ? { bots: BOTS } : { ok: true }), 'cabinet-features': async (b) => ({ ok: true, features: FEATS.map((f) => (b.feature === f.feature && b.action === 'set' ? { ...f, enabled: false, active: false } : f)) }) },
     });
     await env.page.waitForFunction(() => window.NrAdmin && document.querySelector('.rail-logo-name.nra-entry'), null, { timeout: 20000 });
@@ -140,6 +140,21 @@ test('владелец кабинета: по почте, приглашение
     await page.locator('button[data-own]').first().click();
     await page.waitForFunction(() => /owner@example\.test/.test(document.querySelector('.nra-det').innerText) && /ждёт первого входа/.test(document.querySelector('.nra-det').innerText), null, { timeout: 300 });
     assert.ok(Date.now() - t0 < 300, 'приглашение появилось за ' + (Date.now() - t0) + ' мс');
+});
+
+test('суперадмин назначает другого суперадмина: видно сразу, плохая почта не принимается, владельца снять нельзя', async ({ page }) => {
+    await page.locator('.nra-side button[data-sec="staff"]').click();
+    await page.locator('#nra-super').waitFor({ state: 'visible' });
+    assert.ok(/global\.pro\.1004@gmail\.com/.test(await page.locator('.nra-main').innerText()), 'владелец в списке');
+    assert.strictEqual(await page.locator('[data-unsuper="global.pro.1004@gmail.com"]').count(), 0, 'у владельца нет кнопки «снять»');
+    await page.locator('#nra-super').fill('нет-собаки');
+    await page.locator('button[data-super]').click();
+    assert.ok(/Введи почту целиком/.test(await page.locator('.nra-toast').innerText()), 'плохая почта не принята');
+    await page.locator('#nra-super').fill('Second@Example.test');
+    const t0 = Date.now();
+    await page.locator('button[data-super]').click();
+    assert.ok(/second@example\.test/.test(await page.locator('.nra-main').innerText()), 'суперадмин не появился сразу');
+    assert.ok(Date.now() - t0 < 300, 'суперадмин появился за ' + (Date.now() - t0) + ' мс');
 });
 
 test('пользователи сайта: отдельный раздел, по нажатию видны кабинеты, размер и синхронизация', async ({ page }) => {
