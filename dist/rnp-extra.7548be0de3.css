@@ -1498,7 +1498,7 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 }
 
 /* Товары: себестоимость и остаток по дням внутри строки артикула; лишние вкладки пока скрыты */
-#gg-view-ship-btn, #gg-view-prod-btn { display: none !important; }
+#gg-view-prod-btn { display: none !important; }
 .ggx-row > .ggx-sub { grid-area: auto; grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 6px; margin-top: 2px; border-top: 1px dashed var(--border); }
 .ggx-sub .ggx-cost { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
 .ggx-sub .ggx-cost::before { content: attr(data-l); }
