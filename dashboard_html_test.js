@@ -75,7 +75,7 @@ assert.ok(html.includes("const LIVE_TABS = new Set(['cabinets-hub', 'dashboard',
     'Кабинеты, dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
-assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод, Агенты и Сводный отчёт'),
+assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Логистика, Контент-завод, Агенты и Сводный отчёт'),
     'BETA stub must list the live modules');
 assert.ok(html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit data and loads the Zevina catalog');
