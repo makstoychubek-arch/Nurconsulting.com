@@ -80,7 +80,11 @@
         var db = S.ov ? S.ov.db_bytes : 0, pct = Math.round(db / PLAN_DB * 100);
         var h = '<div class="nra-res">';
         h += '<div class="nra-r">' + ring(pct, pct > 80 ? 'bd' : pct > 60 ? 'wn' : '', S.ov ? pct + '%' : '…') + '<span>Supabase база</span><b>' + (S.ov ? mb(db) : '…') + '</b></div>';
-        ['Vercel', 'ИИ-токены', 'GitHub'].forEach(function (n) { h += '<div class="nra-r off" title="Подключим позже">' + ring(0, '', '—') + '<span>' + n + '</span><b>скоро</b></div>'; });
+        var up = S.site && S.site.up, upOk = up && up.status === 'up';
+        h += '<div class="nra-r" title="Сайт стоит на Vercel. Лимиты Vercel появятся, когда добавим его ключ.">' + ring(up ? (upOk ? 100 : 20) : 0, up && !upOk ? 'bd' : '', up ? (upOk ? 'ок' : '!') : '…') + '<span>Vercel</span><b>' + (up ? (upOk ? 'сайт работает' : 'сбой сайта') : '…') + '</b></div>';
+        var ai = S.al && S.al.ai_balance, aiv = ai && ai.value != null ? Number(ai.value) : null, ait = ai && ai.threshold != null ? Number(ai.threshold) : null, aiLow = aiv != null && ait != null && aiv < ait;
+        h += '<div class="nra-r' + (aiv == null ? ' off' : '') + '" data-sec="alr" title="Остаток вводится вручную в «Оповещениях»">' + ring(aiv == null ? 0 : Math.min(100, ait ? aiv / (ait * 4) * 100 : 60), aiLow ? 'bd' : '', aiv == null ? '—' : '$') + '<span>ИИ-токены</span><b>' + (aiv == null ? 'ввести' : '$' + aiv) + '</b></div>';
+        h += '<div class="nra-r off" title="Нужен ключ GitHub, чтобы показывать выкладки и проверки">' + ring(0, '', '—') + '<span>GitHub</span><b>нужен ключ</b></div>';
         return h + '</div>';
     }
     function homeH(att) {
@@ -161,6 +165,7 @@
             '<p class="m" style="margin:6px 0 0">Когда человек зайдёт на сайт под этой почтой, он сам увидит этот кабинет (только просмотр).</p>';
         if (viewers.length) h += '<h5>Доступ на просмотр</h5>' + viewers.map(function (x) { return '<div class="nra-who"><i class="av" style="background:' + colorOf(x.email) + '">' + initials(x.email) + '</i><span>' + esc(x.email) + '</span><small>просмотр · ' + ago(x.created_at) + '</small></div>'; }).join('');
         h += '<h5>Пользователи (до 5)</h5><button type="button" class="nra-btn" data-acc="' + c.id + '|' + esc(c.name) + '">Управлять пользователями</button>';
+        if (owners.length === 1) h += '<h5>Консалтинг</h5><button type="button" class="nra-btn" data-retc="' + c.id + '">' + (S.confirm === 'r' + c.id ? 'Подтвердить возврат' : 'Вернуть клиенту') + '</button><p class="m" style="margin:6px 0 0">Кабинет вернётся к ' + esc(owners[0].email) + ', и вы больше не будете его вести.</p>';
         return h;
     }
     function toast(t) { S.toast = t; render(); setTimeout(function () { S.toast = ''; render(); }, 4500); }
@@ -260,6 +265,20 @@
         h += '<div class="nra-own"><input type="email" id="nra-super" placeholder="Google-почта нового суперадмина" autocomplete="off"><button type="button" class="nra-btn p" data-super="1">Назначить</button></div></div>';
         return h;
     }
+    function returnCab(id) {
+        var c = S.ov && S.ov.cabinets.filter(function (x) { return x.id === id; })[0];
+        if (!c || S.busy['r' + id]) return;
+        if (S.confirm !== 'r' + id) { S.confirm = 'r' + id; toast('Нажми «Подтвердить возврат»: кабинет перейдёт обратно клиенту.'); render(); return; }
+        S.confirm = null; S.busy['r' + id] = true;
+        var snap = JSON.stringify(S.ov.cabinets.filter(function (x) { return x.id === id; })[0]);
+        S.ov.cabinets = S.ov.cabinets.filter(function (x) { return x.id !== id; }); render();
+        sb.rpc('admin_return_cabinet', { p_cabinet: id }).then(function (r) {
+            S.busy['r' + id] = false;
+            if (r.error) { S.ov.cabinets.push(JSON.parse(snap)); toast('Не получилось вернуть. Повтори.'); render(); return; }
+            toast('Кабинет возвращён клиенту.');
+            load();
+        });
+    }
     function moveToCons(id) {
         var c = S.ov && S.ov.cabinets.filter(function (x) { return x.id === id; })[0];
         if (!c || S.busy['m' + id]) return;
@@ -340,7 +359,7 @@
         }).join('') + '</div>';
     }
     var ACTION = {
-        access_granted: 'Выдан доступ', super_admin_on: 'Назначен суперадмин', moved_to_consulting: 'Кабинет в консалтинге', super_admin_off: 'Снят суперадмин', access_revoked: 'Доступ отозван', staff_added: 'Добавлен сотрудник', staff_removed: 'Сотрудник убран',
+        access_granted: 'Выдан доступ', super_admin_on: 'Назначен суперадмин', moved_to_consulting: 'Кабинет в консалтинге', returned_to_client: 'Кабинет возвращён клиенту', super_admin_off: 'Снят суперадмин', access_revoked: 'Доступ отозван', staff_added: 'Добавлен сотрудник', staff_removed: 'Сотрудник убран',
         cabinet_added: 'Кабинет добавлен', cabinet_deleted: 'Кабинет удалён', wb_token_changed: 'Токен WB изменён', adv_token_changed: 'Токен рекламы изменён',
         feature_toggled: 'Функция кабинета', bot_reconnect: 'Бот переподключён',
     };
@@ -438,8 +457,9 @@
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper],[data-tocons]'); if (!t) return;
+            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper],[data-tocons],[data-retc]'); if (!t) return;
             if (t.dataset.user) { S.uopen[t.dataset.user] = !S.uopen[t.dataset.user]; render(); return; }
+            if (t.dataset.retc) { returnCab(t.dataset.retc); return; }
             if (t.dataset.tocons) { moveToCons(t.dataset.tocons); return; }
             if (t.dataset.super) { var si = el.querySelector('#nra-super'), sm = si ? String(si.value).trim().toLowerCase() : ''; if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sm)) { toast('Введи почту целиком, например name@gmail.com'); return; } setSuper(sm, true); return; }
             if (t.dataset.unsuper) { setSuper(t.dataset.unsuper, false); return; }
