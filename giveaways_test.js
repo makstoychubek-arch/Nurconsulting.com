@@ -59,7 +59,7 @@ assert.deepStrictEqual(right.map((p) => p.c + ':' + p.text), ['4:1300', '5:1300'
 
 // Раздел только для команды и только в «Товарах»
 const html = fs.readFileSync(__dirname + '/dashboard.html', 'utf8');
-assert.ok(html.includes('id="gg-view-give-btn" data-staff-only="1"') && html.includes('id="gg-view-give"'), 'Раздачи — вкладка Товаров, только для команды');
+assert.ok(!html.includes('id="gg-view-give-btn"') && fs.readFileSync(__dirname + '/nr-goods-ui.js', 'utf8').includes('nr-ads-give'), 'Раздачи живут в «Продвижении» (только команда), только для команды');
 const mig = fs.readFileSync(__dirname + '/supabase/migrations/20261005220000_giveaways.sql', 'utf8');
 assert.ok(mig.includes('enable row level security') && mig.includes('public.is_staff()') && mig.includes('revoke all on public.giveaways from anon, authenticated;'), 'таблица раздач только для команды');
 const grid = fs.readFileSync(__dirname + '/supabase/migrations/20261005230000_giveaways_grid.sql', 'utf8');

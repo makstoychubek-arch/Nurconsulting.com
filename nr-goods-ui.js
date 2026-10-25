@@ -49,7 +49,7 @@
 
     function render() {
         if (S.busy) return;
-        adjustBtn();
+        adjustBtn(); adsTabs();
         var tab = doc.getElementById('tab-goods-groups'), host = doc.getElementById('gg-view-now');
         if (!tab || !host || host.hidden || tab.offsetParent === null) { doc.body.classList.remove('ggx-on'); return; }
         S.busy = true;
@@ -233,6 +233,25 @@
         var b = doc.createElement('button'); b.type = 'button'; b.id = 'ggx-adj-btn'; b.className = 'rnp-tool-icon'; b.title = 'Списать с FBS'; b.setAttribute('aria-label', 'Списать с FBS');
         b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
         b.onclick = adjustOpen; tools.insertBefore(b, tools.firstChild);
+    }
+
+    // «Раздачи» живут в «Продвижении» (только команда): полоска «Реклама | Раздачи» над списком кампаний.
+    function adsTabs() {
+        if (!staff() || doc.getElementById('nr-ads-tabs')) return;
+        var tab = doc.getElementById('tab-advertising'), view = doc.getElementById('adv-view-ads');
+        if (!tab || !view) return;
+        var bar = doc.createElement('div'); bar.id = 'nr-ads-tabs';
+        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" data-av="ads">Реклама</button><button type="button" class="gg-view-btn" data-av="give">Раздачи</button>';
+        var host = doc.createElement('div'); host.id = 'nr-ads-give'; host.className = 'gg-give'; host.hidden = true;
+        tab.insertBefore(bar, tab.firstChild); tab.appendChild(host);
+        bar.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-av]'); if (!b) return;
+            var give = b.getAttribute('data-av') === 'give';
+            Array.prototype.forEach.call(bar.children, function (x) { x.classList.toggle('is-on', x === b); });
+            host.hidden = !give; view.style.display = give ? 'none' : '';
+            if (give && root.NrGiveaways && cab()) root.NrGiveaways.show({ host: host, supabase: db(), cabinetId: cab() });
+            else if (root.NrGiveaways) root.NrGiveaways.hide();
+        });
     }
 
     function boot() {

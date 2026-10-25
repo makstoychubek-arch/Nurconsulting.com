@@ -13,7 +13,7 @@
         reports: ['summary'],
     };
     const ORDER = ['dashboard', 'rnp', 'goods-groups', 'advertising', 'ab-testing', 'logistics', 'summary'];
-    const NAMES = { dashboard: 'Дашборд', rnp: 'РНП', goods: 'Логистика', ads: 'Реклама', ab: 'А/Б тесты', logistics: 'Логистика', reports: 'Отчёты' };
+    const NAMES = { dashboard: 'Дашборд', rnp: 'РНП', goods: 'Логистика', ads: 'Продвижение', ab: 'А/Б тесты', logistics: 'Логистика', reports: 'Отчёты' };
 
     const V = {
         on: false,
