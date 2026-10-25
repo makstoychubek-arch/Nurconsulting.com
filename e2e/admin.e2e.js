@@ -12,6 +12,7 @@ const OVERVIEW = {
         { id: CAB, name: 'Zevina 1', user_id: ADMIN_ID, owner_email: 'makstoychubek@gmail.com', nr_managed: true, has_wb: true, adv_ok: true, articles: 212, daily_rows: 9000, daily_bytes: 184 * 1024 * 1024, last_sync: new Date().toISOString(), sync_error: null, features: [] },
         { id: 'cab-2', name: 'ИП Марс', user_id: ADMIN_ID, owner_email: 'makstoychubek@gmail.com', nr_managed: true, has_wb: true, adv_ok: false, articles: 340, daily_rows: 12000, daily_bytes: 132 * 1024 * 1024, last_sync: new Date().toISOString(), sync_error: null, features: [] },
         { id: 'cab-3', name: 'Айлин Стиль', user_id: ADMIN_ID, owner_email: 'makstoychubek@gmail.com', nr_managed: true, has_wb: true, adv_ok: true, articles: 92, daily_rows: 3000, daily_bytes: 74 * 1024 * 1024, last_sync: null, sync_error: 'WB 429: слишком много запросов', features: [] },
+        { id: 'cab-4', name: 'Style KG', user_id: 'u-timur', owner_email: 'timur@example.test', nr_managed: false, has_wb: true, adv_ok: false, articles: 34, daily_rows: 800, daily_bytes: 12 * 1024 * 1024, last_sync: new Date().toISOString(), sync_error: null, features: [] },
     ],
     viewers: [{ cabinet_id: CAB, user_id: 'u-aizada', email: 'aizada@example.test', sections: ['all'], created_at: new Date().toISOString() }],
     staff: [{ email: 'makstoychubek@gmail.com', note: 'владелец', created_at: '2026-01-01T00:00:00Z', last_sign_in: new Date().toISOString() }],
@@ -26,11 +27,11 @@ const FEATS = ['reviews', 'order_alerts', 'ads', 'ab_rotation', 'sync', 'rnp_mor
 async function open(browser, base) {
     const env = await openApp(browser, base, {
         userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 200,
-        tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T', created_at: '2026-09-17T00:00:00Z', last_sign_in_at: new Date().toISOString() }, { id: 's1', user_id: 'u-aizada', email: 'aizada@example.test', status: 'pending', tariff_plan: 'start', is_super_admin: false, full_name: 'Айзада', created_at: '2026-10-23T00:00:00Z', last_sign_in_at: null }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }],
+        tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T', created_at: '2026-09-17T00:00:00Z', last_sign_in_at: new Date().toISOString() }, { id: 's1', user_id: 'u-aizada', email: 'aizada@example.test', status: 'pending', tariff_plan: 'start', is_super_admin: false, full_name: 'Айзада', created_at: '2026-10-23T00:00:00Z', last_sign_in_at: null }, { id: 's2', user_id: 'u-timur', email: 'timur@example.test', status: 'active', tariff_plan: 'start', is_super_admin: false, full_name: 'Темир', created_at: '2026-10-22T00:00:00Z', last_sign_in_at: new Date().toISOString() }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }],
             admin_alert_settings: [{ key: 'ai_balance', enabled: true, threshold: 5, value: 12, value_at: new Date().toISOString() }, { key: 'tokens', enabled: true }, { key: 'bots', enabled: false }],
             admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
             site_uptime: [{ id: 1, status: 'up', last_checked: new Date().toISOString() }], client_errors: [{ count: 3, last_seen: new Date().toISOString() }] },
-        rpcs: { is_super_admin: true, admin_overview: OVERVIEW, admin_assign_owner: { status: 'invited' }, admin_unassign_owner: null, admin_set_super_admin: { status: 'granted' } },
+        rpcs: { is_super_admin: true, admin_overview: OVERVIEW, admin_assign_owner: { status: 'invited' }, admin_unassign_owner: null, admin_set_super_admin: { status: 'granted' }, admin_move_to_consulting: { status: 'moved' } },
         functions: { 'telegram-admin': async (b) => (b.action === 'list' ? { bots: BOTS } : { ok: true }), 'cabinet-features': async (b) => ({ ok: true, features: FEATS.map((f) => (b.feature === f.feature && b.action === 'set' ? { ...f, enabled: false, active: false } : f)) }) },
     });
     await env.page.waitForFunction(() => window.NrAdmin && document.querySelector('.rail-logo-name.nra-entry'), null, { timeout: 20000 });
@@ -57,7 +58,7 @@ test('кабинеты: раскрытие по нажатию показыва�
     await page.locator('.nra-side button[data-sec="acc"]').click();
     await page.locator('.nra-t tr.r').first().waitFor({ state: 'visible' });
     const rows = await page.locator('.nra-t tr.r').count();
-    assert.strictEqual(rows, 3, 'три кабинета: ' + rows);
+    assert.strictEqual(rows, 3, 'три кабинета команды (клиентский не входит): ' + rows);
     await page.locator('.nra-t tr.r').first().click();
     const det = await page.locator('.nra-det').first().innerText();
     assert.ok(/aizada@example\.test/.test(det) && /212/.test(det), 'доступ и артикулы: ' + det.slice(0, 120));
@@ -157,10 +158,25 @@ test('суперадмин назначает другого суперадми�
     assert.ok(Date.now() - t0 < 300, 'суперадмин появился за ' + (Date.now() - t0) + ' мс');
 });
 
+test('«В консалтинг»: кабинет клиента переходит к команде сразу, после подтверждения', async ({ page }) => {
+    await page.locator('.nra-side button[data-sec="acc"]').click();
+    assert.ok(!/Style KG/.test(await page.locator('.nra-main').innerText()), 'клиентского кабинета нет в консалтинге');
+    await page.locator('.nra-side button[data-sec="users"]').click();
+    await page.locator('.nra-t tr.r', { hasText: 'Темир' }).click();
+    await page.locator('button[data-tocons]').click();
+    assert.ok(/Подтвердить/.test(await page.locator('button[data-tocons]').innerText()), 'нужно подтверждение');
+    const t0 = Date.now();
+    await page.locator('button[data-tocons]').click();
+    await page.waitForFunction(() => /в консалтинге/.test(document.querySelector('.nra-main').innerText), null, { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'кабинет перешёл за ' + (Date.now() - t0) + ' мс');
+    await page.locator('.nra-side button[data-sec="acc"]').click();
+    assert.ok(/Style KG/.test(await page.locator('.nra-main').innerText()), 'кабинет теперь в консалтинге');
+});
+
 test('пользователи сайта: отдельный раздел, по нажатию видны кабинеты, размер и синхронизация', async ({ page }) => {
     await page.locator('.nra-side button[data-sec="users"]').click();
     await page.locator('.nra-t tr.r').first().waitFor({ state: 'visible' });
-    assert.strictEqual(await page.locator('.nra-t tr.r').count(), 2, 'два пользователя');
+    assert.strictEqual(await page.locator('.nra-t tr.r').count(), 3, 'три пользователя');
     const row = page.locator('.nra-t tr.r', { hasText: 'Айзада' });
     assert.ok(/ждёт одобрения/.test(await row.innerText()), 'статус ожидания');
     assert.ok(/Zevina 1/.test(await row.innerText()), 'кабинет в строке');
