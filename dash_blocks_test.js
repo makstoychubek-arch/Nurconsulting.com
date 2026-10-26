@@ -23,6 +23,17 @@ assert.strictEqual(t.total, 704, 'в пути считаются только о
 assert.strictEqual(t.routes.bishkek.length, 2);
 assert.strictEqual(t.routes.china.length, 1);
 
+const w = J(B.wbSupplies([
+    { id: 1, done: false, warehouse: 'СЦ Казань', statusName: 'Отгрузка разрешена', itemsCount: 1500 },
+    { id: 2, done: false, warehouse: 'СЦ Казань', statusName: 'Запланировано', itemsCount: 300 },
+    { id: 3, done: true, warehouse: 'Коледино', statusName: 'Принято', itemsCount: 999 },
+    { id: 4, done: false, warehouse: '', statusName: 'Запланировано', itemsCount: null },
+]));
+assert.strictEqual(w.total, 1800, 'принятые поставки в пути не считаются');
+assert.strictEqual(w.n, 3);
+assert.deepStrictEqual(w.byWh['СЦ Казань'], { qty: 1800, n: 2 }, 'по складам назначения');
+assert.ok(w.byWh['склад не указан'], 'без склада подписывается');
+
 const p = B.production([{ status: 'plan', qty: 100, grp: 'g1', due_date: '2026-10-08' }, { status: 'sewing', qty: 50, grp: 'g2', due_date: '2026-10-05' }, { status: 'done', qty: 9, grp: 'g3' }]);
 assert.deepStrictEqual(J([p.qty, p.models, p.due, p.state]), [150, 2, '2026-10-05', 'в цеху']);
 
