@@ -56,3 +56,8 @@ assert.ok(/<script src="\/(?:dist\/nr-dash-blocks\.[0-9a-f]+\.min|nr-dash-blocks
 const rnp = require('fs').readFileSync(__dirname + '/rnp-module.js', 'utf8');
 assert.ok(!rnp.includes('${hero}${balance}'), 'баланс убран из РНП');
 console.log('dash_blocks_test: ok');
+{
+    const st = B.stock([{ stock_scheme: 'fbs', quantity: 100 }, { stock_scheme: 'fbo', quantity: 50 }],
+        [{ status: 'в пути', origin: 'АМАН ФФ (FBS)', qty: 30 }, { status: 'в пути', origin: 'Бишкек', qty: 999 }, { status: 'принято', origin: 'АМАН ФФ (FBS)', qty: 5 }]);
+    assert.deepStrictEqual([st.fbs, st.fbo, st.moved, st.total], [70, 50, 30, 120], 'партия FBS→FBO вычитается из ФБС');
+}
