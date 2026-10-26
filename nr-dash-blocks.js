@@ -57,9 +57,14 @@
         o.models = Object.keys(grp).length;
         return o;
     }
-    function stock(rows) {
-        var o = { fbo: 0, fbs: 0 };
+    // Партии «С FBS на FBO» в пути уже уехали со своего склада: вычитаем их из FBS, пока WB не принял и остатки не обновились.
+    function stock(rows, ship) {
+        var o = { fbo: 0, fbs: 0, moved: 0 };
         (rows || []).forEach(function (r) { if (r.stock_scheme === 'fbs') o.fbs += Number(r.quantity) || 0; else o.fbo += Number(r.quantity) || 0; });
+        (ship || []).forEach(function (r) {
+            if (String(r.status || '').toLowerCase() === 'в пути' && /fbs/i.test(String(r.origin || ''))) o.moved += Number(r.qty) || 0;
+        });
+        o.moved = Math.min(o.moved, o.fbs); o.fbs -= o.moved;
         o.total = o.fbo + o.fbs;
         return o;
     }
@@ -121,7 +126,7 @@
             var today = todayBishkek();
             var data = {
                 bal: r[0] && r[0][0] || null, next: nextPayout(r[1], today), ly: lastYear(r[2], today),
-                transit: transit(r[3]), prod: production(r[4]), stock: stock(r[5]), ledger: r[6] || [], at: Date.now()
+                transit: transit(r[3]), prod: production(r[4]), stock: stock(r[5], r[3]), ledger: r[6] || [], at: Date.now()
             };
             data.wb = S.data && S.data.wb || null;
             S.cab = c; S.data = data; S.ledger = data.ledger;
@@ -183,7 +188,7 @@
             (P.state ? '<div class="r"><span>Сейчас</span><b>' + P.state + '</b></div>' : '') + (P.due ? '<div class="r"><span>Срок</span><b>' + dm(P.due) + (P.due < today ? ' (просрочен)' : '') + '</b></div>' : '<div class="r"><span>Срок</span><b>не указан</b></div>'));
         var St = D.stock, fbo = St.total ? Math.round(St.fbo / St.total * 100) : 0;
         set('stock', '<div class="l"><span>Остатки всего</span><em class="chip">ФБО + ФБС</em></div><div class="v">' + fmt(St.total) + ' <small>шт</small></div>' +
-            '<div class="r"><span>ФБО · склад WB</span><b>' + fmt(St.fbo) + ' шт</b></div><div class="r"><span>ФБС · свой склад</span><b>' + fmt(St.fbs) + ' шт</b></div><div class="split"><i style="width:' + fbo + '%"></i></div>');
+            '<div class="r"><span>ФБО · склад WB</span><b>' + fmt(St.fbo) + ' шт</b></div><div class="r"><span>ФБС · свой склад</span><b>' + fmt(St.fbs) + ' шт</b></div>' + (St.moved ? '<div class="r"><span>Уехало с ФБС на ФБО</span><b>−' + fmt(St.moved) + ' шт</b></div>' : '') + '<div class="split"><i style="width:' + fbo + '%"></i></div>');
         ffExtra();
     }
     // В карточку «Фулфилмент» добавляем итог записей и кнопку окна; сам расчёт nr-ff.js не трогаем.
