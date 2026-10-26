@@ -356,7 +356,7 @@ assert.match(AdsHQ.defaultScheduleLocal(new Date(2026, 8, 17, 14, 20, 0)), /2026
         v2Stats: [],
         articles: [],
     });
-    assert.equal(nameless.rows[0].campaigns[0].name, 'Продвижение 35179140');
+    assert.equal(nameless.rows[0].campaigns[0].name, 'РК 35179140');
     assert.equal(nameless.rows[0].campaigns[0].nmId, 0, 'WB campaign id must not become nmId');
     assert.equal(nameless.rows[0].campaigns[0].photoUrl, '');
 }
