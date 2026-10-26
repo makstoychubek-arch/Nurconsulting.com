@@ -748,7 +748,7 @@
                     return 0;
                 };
                 const pickLast = () => lastSpend.get(spendKeyWb) || (spendKeyUuid ? lastSpend.get(spendKeyUuid) : '') || '';
-                const name = raw.campaign_name || (v2 && v2.name) || ('РК ' + wbId);
+                const name = raw.campaign_name || (v2 && v2.name) || ('Продвижение ' + wbId);
                 const nmId = resolveCampNmId(
                     name,
                     wbId,
@@ -1659,7 +1659,7 @@
         }
         el.innerHTML = '<div class="ads-hq-schedule-title">Запуск по времени</div>' + rows.map((s) =>
             '<div class="ads-hq-schedule-row">' +
-            '<span>' + esc(s.campaign_name || ('РК ' + s.campaign_id)) +
+            '<span>' + esc(s.campaign_name || ('Продвижение ' + s.campaign_id)) +
             ' · ' + esc(formatScheduleWhen(s.start_at)) + '</span>' +
             '<button type="button" class="ui-btn ui-btn-secondary" data-cancel-schedule="' + esc(s.id) + '">Отмена</button>' +
             '</div>'
