@@ -58,7 +58,18 @@
         }
         var h = build();
         if (f.__h !== h) { f.innerHTML = h; f.__h = h; }
+        push(host, f);
     }
-    function init() { mount(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); }
+    // Низ показывается только в самом конце прокрутки: если страница короче экрана, отодвигаем его под нижний край.
+    function push(host, f) {
+        if (!f.offsetParent && f.style.display !== 'none') return;
+        var cur = parseFloat(f.style.marginTop) || 0;
+        var top = f.getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop;
+        var end = top - cur;
+        var need = Math.max(32, Math.ceil(host.clientHeight - end + 24));
+        if (Math.abs(need - cur) > 2) f.style.marginTop = need + 'px';
+    }
+    function fit() { var host = doc.querySelector('.main-content'), f = doc.getElementById('nr-foot'); if (host && f) push(host, f); }
+    function init() { mount(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(fit, 700); root.addEventListener('resize', fit); }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
 })(typeof window !== 'undefined' ? window : this);
