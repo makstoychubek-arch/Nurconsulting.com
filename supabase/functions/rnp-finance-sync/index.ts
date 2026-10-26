@@ -166,7 +166,9 @@ Deno.serve(async (req) => {
             }
             const storagePending = (res.storage as Json).pending === true;
             res.storage_pending = storagePending;
-            const { data: rc, error: rcErr } = await admin.rpc('rnp_recompute_finance', { p_cabinet: cab.id, p_from: from, p_to: to });
+            // Пересчёт берём шире окна синхронизации (14 дней): если прошлая ночь не дошла до пересчёта, РНП сам догонит нули.
+            const recFrom = daysBetween(from, to) < 13 ? isoDate(addDays(new Date(to), -13)) : from;
+            const { data: rc, error: rcErr } = await admin.rpc('rnp_recompute_finance', { p_cabinet: cab.id, p_from: recFrom, p_to: to });
             if (rcErr) res.recompute_error = rcErr.message; else res.recompute = rc;
             res.status = storagePending ? 'storage_pending' : 'done';
         } catch (e) {
