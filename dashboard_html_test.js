@@ -2614,5 +2614,13 @@ assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' &
     const iCss = html.indexOf('<link rel="stylesheet"');
     assert.ok(iSplash > 0 && iCss > 0 && iSplash < iCss, 'заставка идёт до первой таблицы стилей');
 }
+{
+    // РНП: шапка «Общего» (баланс, состояние, выплаты) не переходит между кабинетами и запоминается по кабинету.
+    const rnp = require('fs').readFileSync(__dirname + '/rnp-module.js', 'utf8');
+    const clear = rnp.slice(rnp.indexOf('function _clearCabinetState()'), rnp.indexOf('function _cabArticles()'));
+    assert.ok(/_ghHealth = null; _ghLogi = null; _ghPayouts = null; _ghBalance = null; _ghKey = ''/.test(clear), 'при смене кабинета шапка прошлого кабинета сбрасывается');
+    assert.ok(rnp.includes("'nr_rnp_gh_v1_' + cab") && rnp.includes('function _ghHydrate()') && rnp.includes('_ghCacheSave();'), 'итоги «Общего» запоминаются по кабинету');
+    assert.ok(!/async function _loadCabinetTotals[\s\S]{0,200}_cabTotals = \{\};/.test(rnp), 'итоги не стираются, пока грузятся новые');
+}
 console.log('dashboard_html_test: ok');
 
