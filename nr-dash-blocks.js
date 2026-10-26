@@ -32,6 +32,19 @@
         });
         return out;
     }
+    // Поставки WB на склады (FBW), которые ещё не приняты: едут или ждут приёмки. По складам назначения.
+    function wbSupplies(items) {
+        var out = { total: 0, n: 0, byWh: {}, list: [] };
+        (items || []).forEach(function (x) {
+            if (!x || x.done) return;
+            var q = Number(x.itemsCount) || 0, wh = String(x.warehouse || 'склад не указан');
+            out.total += q; out.n++;
+            (out.byWh[wh] = out.byWh[wh] || { qty: 0, n: 0 });
+            out.byWh[wh].qty += q; out.byWh[wh].n++;
+            out.list.push({ id: x.id, warehouse: wh, status: x.statusName || '', qty: q, created: x.createdAt || '' });
+        });
+        return out;
+    }
     function production(rows) {
         var o = { qty: 0, models: 0, due: '', state: '' }, grp = {};
         (rows || []).forEach(function (r) {
@@ -72,6 +85,23 @@
 
     // ===== Данные =====
     var KEY = function (c) { return 'nr_dashblocks_v1_' + c; };
+    // Активные поставки WB: сразу из списка раздела «Логистика» (если он уже загружался), свежие запрашиваем у WB не чаще раза в 10 минут.
+    function loadSupplies(c) {
+        var items = null;
+        try { var snap = JSON.parse(localStorage.getItem('nr_supplies_list_' + c) || 'null'); if (snap && snap.items) items = snap.items; } catch (e) { /* нет кэша */ }
+        if (items && S.data && c === cab()) { S.data.wb = wbSupplies(items); paint(); }
+        var last = Number(S.supAt && S.supAt[c] || 0);
+        if (Date.now() - last < 10 * 60 * 1000) return;
+        (S.supAt = S.supAt || {})[c] = Date.now();
+        var call = typeof root.callWbProxy === 'function' ? root.callWbProxy : null;
+        if (!call) return;
+        Promise.resolve(call('fbw_supplies', { limit: 300, offset: 0 })).then(function (r) {
+            if (!r || r.error || c !== cab() || !S.data || typeof root.mapFbwSupply !== 'function') return;
+            var batch = Array.isArray(r) ? r : (r.supplies || r.data || []);
+            S.data.wb = wbSupplies(batch.map(root.mapFbwSupply));
+            persist(); paint();
+        }).catch(function () { /* WB не ответил: остаётся то, что было */ });
+    }
     function load(c) {
         var d = db();
         if (!d || !c || S.busy) return;
@@ -93,9 +123,11 @@
                 bal: r[0] && r[0][0] || null, next: nextPayout(r[1], today), ly: lastYear(r[2], today),
                 transit: transit(r[3]), prod: production(r[4]), stock: stock(r[5]), ledger: r[6] || [], at: Date.now()
             };
+            data.wb = S.data && S.data.wb || null;
             S.cab = c; S.data = data; S.ledger = data.ledger;
             try { localStorage.setItem(KEY(c), JSON.stringify(data)); } catch (e) { /* без кэша */ }
             paint();
+            loadSupplies(c);
         });
     }
 
@@ -141,9 +173,11 @@
         var set = function (k, html) { var el = doc.getElementById('nrdb-' + k); if (el && el.__h !== html) { el.innerHTML = html; el.__h = html; } };
         set('bal', '<div class="l"><span>Баланс WB</span>' + (D.bal ? '<em class="chip">' + dm(D.bal.date) + '</em>' : '') + '</div><div class="v">' + (D.bal ? fmt(D.bal.current) : '—') + ' <small>₽</small></div>' +
             (D.next ? '<div class="r hi"><span>К выводу ' + dm(D.next.date) + '</span><b>' + fmt(D.next.amount) + ' ₽</b></div>' : '<div class="r"><span>К выводу</span><b>—</b></div>') + ly);
-        var T = D.transit;
-        set('transit', '<div class="l"><span>Товары в пути</span><em class="chip">' + fmt(T.total) + ' шт</em></div>' +
-            ROUTES.map(function (r) { var n = T.routes[r[0]].reduce(function (a, x) { return a + x.qty; }, 0); return '<div class="r"><span>' + r[1] + '</span><b>' + fmt(n) + (n ? ' шт' : '') + '</b></div>'; }).join('') + '<button type="button" class="more" data-nrdb="transit">Что в каждой →</button>');
+        var T = D.transit, W = D.wb || { total: 0, n: 0, byWh: {}, list: [] };
+        var whRows = Object.keys(W.byWh).sort(function (a, b) { return W.byWh[b].qty - W.byWh[a].qty; }).slice(0, 3).map(function (k) { return '<div class="r"><span>→ ' + esc(k) + '</span><b>' + (W.byWh[k].qty ? fmt(W.byWh[k].qty) + ' шт' : W.byWh[k].n + ' пост.') + '</b></div>'; }).join('');
+        var manual = ROUTES.map(function (r) { var n = T.routes[r[0]].reduce(function (a, x) { return a + x.qty; }, 0); return n ? '<div class="r"><span>' + r[1] + '</span><b>' + fmt(n) + ' шт</b></div>' : ''; }).join('');
+        var totalTransit = T.total + W.total;
+        set('transit', '<div class="l"><span>Товары в пути</span><em class="chip">' + fmt(totalTransit) + ' шт</em></div>' + (whRows || manual ? whRows + manual : '<div class="hint">Сейчас ничего не едет</div>') + '<button type="button" class="more" data-nrdb="transit">Что в каждой →</button>');
         var P = D.prod;
         set('prod', '<div class="l"><span>Заказ на производство</span><em class="chip">' + P.models + ' мод.</em></div><div class="v">' + fmt(P.qty) + ' <small>шт</small></div>' +
             (P.state ? '<div class="r"><span>Сейчас</span><b>' + P.state + '</b></div>' : '') + (P.due ? '<div class="r"><span>Срок</span><b>' + dm(P.due) + (P.due < today ? ' (просрочен)' : '') + '</b></div>' : '<div class="r"><span>Срок</span><b>не указан</b></div>'));
@@ -195,17 +229,19 @@
     function say(t) { try { if (root.NrUi) root.NrUi.alert(t); else root.alert(t); } catch (e) { /* ничего */ } }
     function persist() { try { localStorage.setItem(KEY(cab()), JSON.stringify(S.data)); } catch (e) { /* нет места */ } }
     function transitModal() {
-        var T = S.data.transit;
+        var T = S.data.transit, W = S.data.wb || { total: 0, n: 0, byWh: {}, list: [] };
         function draw() {
-            var items = T.routes[S.route] || [], by = {};
+            var wbTab = S.route === 'wb';
+            var items = wbTab ? [] : (T.routes[S.route] || []), by = {};
             items.forEach(function (x) { var k = (x.sent || '') + '|' + (x.cargo || ''); (by[k] = by[k] || { sent: x.sent, cargo: x.cargo, eta: x.eta, list: [] }).list.push(x); });
             var groups = Object.keys(by).map(function (k) { return by[k]; });
-            var body = '<div class="tabs">' + ROUTES.map(function (r) { var n = T.routes[r[0]].reduce(function (a, x) { return a + x.qty; }, 0); return '<button type="button" class="tab' + (S.route === r[0] ? ' on' : '') + '" data-route="' + r[0] + '">' + r[1] + ' · ' + fmt(n) + '</button>'; }).join('') + '</div>' +
+            var body = '<div class="tabs"><button type="button" class="tab' + (wbTab ? ' on' : '') + '" data-route="wb">Поставки WB · ' + fmt(W.total) + '</button>' + ROUTES.map(function (r) { var n = T.routes[r[0]].reduce(function (a, x) { return a + x.qty; }, 0); return '<button type="button" class="tab' + (S.route === r[0] ? ' on' : '') + '" data-route="' + r[0] + '">' + r[1] + ' · ' + fmt(n) + '</button>'; }).join('') + '</div>' +
+                (wbTab ? (W.list.length ? '<div class="list">' + W.list.map(function (x) { return '<div class="li"><time>' + dm(x.created) + '</time><span>' + esc(x.warehouse) + ' · ' + esc(x.status) + ' · № ' + esc(x.id) + '</span><b>' + (x.qty ? fmt(x.qty) + ' шт' : '—') + '</b><span></span></div>'; }).join('') + '</div>' : '<div class="empty">Поставок WB в пути нет</div>') : '') +
                 (groups.length ? groups.map(function (g) {
                     var sum = g.list.reduce(function (a, x) { return a + x.qty; }, 0);
                     return '<div class="sum"><div><small>Отправлено</small><b>' + (g.sent ? dm(g.sent) : '—') + '</b></div><div><small>Карго</small><b>' + esc(g.cargo || '—') + '</b></div><div><small>Ожидаем</small><b>' + (g.eta ? dm(g.eta) : 'дата не указана') + '</b></div></div><div class="list">' +
                         g.list.sort(function (a, b) { return b.qty - a.qty; }).map(function (x) { return '<div class="li"><span></span><span>' + esc(x.article) + '</span><b>' + fmt(x.qty) + ' шт</b><span></span></div>'; }).join('') + '<div class="li"><span></span><b>Итого</b><b>' + fmt(sum) + ' шт</b><span></span></div></div>';
-                }).join('') : '<div class="empty">По этому маршруту ничего нет в пути</div>') +
+                }).join('') : (wbTab ? '' : '<div class="empty">По этому маршруту ничего нет в пути</div>')) +
                 '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="hint">Партии, даты и «получено на ФФ» ведутся в Логистике. Эти же артикулы в РНП помечены «в пути».</span>' + (viewer() ? '' : '<button type="button" class="btn" data-open-log>Открыть Логистику</button>') + '</div>';
             var m = modal('Товары в пути', body);
             m.addEventListener('click', function (e) {
@@ -213,6 +249,7 @@
                 if (e.target.closest('[data-open-log]')) { close(); try { root.showTab('goods-groups'); } catch (x) { /* вкладка недоступна */ } }
             });
         }
+        S.route = W.list.length ? 'wb' : 'bishkek';
         draw();
     }
 
@@ -240,5 +277,5 @@
         setInterval(function () { if (S.data && !doc.hidden) { ensure(); ffExtra(); } }, 2000);
         setInterval(function () { if (cab() && !doc.hidden) load(cab()); }, 10 * 60 * 1000);
     }
-    root.NrDashBlocks = { routeOf: routeOf, transit: transit, production: production, stock: stock, nextPayout: nextPayout, lastYear: lastYear, ledgerTotals: ledgerTotals };
+    root.NrDashBlocks = { wbSupplies: wbSupplies, routeOf: routeOf, transit: transit, production: production, stock: stock, nextPayout: nextPayout, lastYear: lastYear, ledgerTotals: ledgerTotals };
 })(typeof window !== 'undefined' ? window : this);
