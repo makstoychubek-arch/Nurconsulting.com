@@ -50,7 +50,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     <script defer src="/nr-monitor.js"></script>
     <script defer src="/nr-perf.js"></script>
     <script defer src="/nr-fox.js"></script>
-    <link rel="stylesheet" href="/dist/tailwind.481371f943.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.04f542f59e.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -7946,74 +7946,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
         </div>
 
-        <div id="tab-tariffs" class="tab-content">
-            <div class="glass rounded-3xl p-8 pricing-wrap">
-                <!-- До 1 ноября 2026 — один тариф: Акылай бесплатно. Платные тарифы ниже
-                     скрыты до запуска оплаты (кнопки «Выбрать …» ещё ни к чему не подключены). -->
-                <div class="pricing-head">
-                    <h2>Тариф</h2>
-                    <p>До 1 ноября NR Space работает в режиме запуска: подключите агента Акылай бесплатно.</p>
-                </div>
-                <article class="pricing-card akylai-free-plan" style="max-width:520px">
-                    <div style="display:flex;align-items:center;gap:14px">
-                        <img src="/img/agents/akylai-smile.svg" alt="" width="64" height="64" style="border-radius:50%;flex-shrink:0">
-                        <div>
-                            <h3 class="pricing-name">Акылай</h3>
-                            <div class="pricing-price">0 <span>сом · бесплатно до 1 ноября</span></div>
-                        </div>
-                    </div>
-                    <ul class="pricing-features">
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Ответы на отзывы покупателей Wildberries</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Ответы приходят вам в Telegram на проверку: «Опубликовать» или «Изменить»</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Проверка новых отзывов каждые 30 минут</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>1 WB-кабинет</span></li>
-                    </ul>
-                    <button type="button" class="ui-btn ui-btn-primary w-full" onclick="showTab('dashboard')">Подключить магазин</button>
-                </article>
-                <div class="pricing-head" style="margin-top:34px">
-                    <h2>Тарифы с 1 ноября</h2>
-                    <p>До 1 ноября Акылай бесплатно (карточка выше). Дальше — три тарифа, цены указаны со скидкой. Оплату подключаем: пока «Хочу этот тариф» открывает WhatsApp NR с названием тарифа.</p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="paid-plans">
-                    <article class="pricing-card" data-plan="basic">
-                        <span class="pricing-off">−57%</span>
-                        <h3 class="pricing-name">Базовый</h3>
-                        <div class="pricing-price"><span class="pricing-old">5 999</span> 2 599 <span>сом / мес</span></div>
-                        <div class="pricing-cabinets">1 WB-кабинет</div>
-                        <ul class="pricing-features">
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Акылай</strong>: ответы на отзывы Wildberries с проверкой в Telegram</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>А/Б тесты фото и цен</span></li>
-                        </ul>
-                        <a class="pricing-btn pricing-btn--secondary" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%91%D0%B0%D0%B7%D0%BE%D0%B2%D1%8B%D0%B9%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
-                    </article>
-                    <article class="pricing-card pricing-card--featured" data-plan="business">
-                        <span class="pricing-off">−30%</span>
-                        <h3 class="pricing-name">Бизнес</h3>
-                        <div class="pricing-price"><span class="pricing-old">7 999</span> 5 599 <span>сом / мес</span></div>
-                        <div class="pricing-cabinets">&nbsp;</div>
-                        <ul class="pricing-features">
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Всё из тарифа «Базовый»</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Дашборд: продажи, заказы, остатки, прибыль</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Антон — заказы и склады: ежедневный отчёт по заказам, FBO и FBS отдельно <em>(скоро)</em></span></li>
-                        </ul>
-                        <a class="pricing-btn pricing-btn--accent" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%91%D0%B8%D0%B7%D0%BD%D0%B5%D1%81%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
-                    </article>
-                    <article class="pricing-card" data-plan="full">
-                        
-                        <h3 class="pricing-name">Фулл</h3>
-                        <div class="pricing-price">8 999 <span>сом / мес</span></div>
-                        <div class="pricing-cabinets">&nbsp;</div>
-                        <ul class="pricing-features">
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Всё из тарифа «Бизнес»</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>РНП, Продвижение, Логистика, Сводный отчёт — все работающие разделы кабинета</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Все агенты на максимум: Амина, Сауле <em>(скоро)</em></span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Новые функции сайта по мере выхода</span></li>
-                        </ul>
-                        <a class="pricing-btn pricing-btn--secondary" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%A4%D1%83%D0%BB%D0%BB%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
-                    </article>
-                </div>
-            </div>
-        </div>
+        <div id="tab-tariffs" class="tab-content"><div id="nr-tr"></div></div>
         </div>
     </main>
     </div>
@@ -8506,6 +8439,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-motion.fed20b8a96.min.js"></script>
 <script src="/dist/nr-ui.758e49d7ac.min.js"></script>
 <script src="/dist/nr-goods-ui.b039c04233.min.js"></script>
+<script src="/dist/nr-tariffs.e6b3867cfd.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
