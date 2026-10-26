@@ -18,7 +18,7 @@
         '.nrf-soc svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}' +
         '.nrf-lang{display:inline-flex;border:1px solid var(--border);border-radius:99px;padding:2px;font-size:11px;font-weight:800;letter-spacing:.04em}' +
         '.nrf-lang span{padding:2px 9px;border-radius:99px;color:var(--text-muted);cursor:default}.nrf-lang span.on{background:var(--sel);color:var(--text-primary)}' +
-        '@media(max-width:820px){#nr-foot{padding:14px 16px;margin-bottom:84px}.nrf-end{margin-left:0}}';
+        '.main-content.rnp-compact>#nr-foot{display:none}@media(max-width:820px){#nr-foot{padding:14px 16px;margin-bottom:84px}.nrf-end{margin-left:0}}';
     var ICON = {
         tg: '<path d="M21 4L3 11l6 2.2L18 7l-7.5 7.5V19l3-3 4 3z"/>',
         ig: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".7" fill="currentColor"/>',
