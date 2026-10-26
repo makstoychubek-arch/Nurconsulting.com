@@ -16,7 +16,7 @@
         ['home', 'Главная'], ['acc', 'Консалтинг'], ['users', 'Пользователи сайта'], ['staff', 'Сотрудники консалтинга'],
         ['tg', 'Telegram и боты'], ['sys', 'Система и задачи'], ['alr', 'Оповещения'], ['log', 'Журнал'], ['own', 'Спейс владельца'],
     ];
-    var FEATURE_LABEL = { reviews: 'Ответы на отзывы', sync: 'Автосинхронизация', ads: 'РК и автоставки', ab_rotation: 'Ротация А/Б', rnp_morning: 'Утренний РНП', order_alerts: 'Уведомления о заказах' };
+    var FEATURE_LABEL = { reviews: 'Ответы на отзывы', sync: 'Автосинхронизация', ads: 'Продвижение и автоставки', ab_rotation: 'Ротация А/Б', rnp_morning: 'Утренний РНП', order_alerts: 'Уведомления о заказах' };
 
     function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     function mb(bytes) {
