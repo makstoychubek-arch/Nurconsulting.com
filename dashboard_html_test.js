@@ -2598,21 +2598,15 @@ assert.ok(html.includes('document.startViewTransition(() => applyTheme(next));')
     'theme switch is animated (view transition, CSS fallback)');
 assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' && tab !== 'tariffs')"),
     'a client awaiting approval can still see Тарифы');
-assert.ok(html.includes('class="pricing-card akylai-free-plan"') && html.includes('бесплатно до 1 ноября') &&
-    html.includes("onclick=\"showTab('dashboard')\">Подключить магазин"),
-    'Akylai stays free until 1 November');
 {
-    const grid = html.slice(html.indexOf('id="paid-plans"'), html.indexOf('id="tab-tariffs"') + 9000);
-    assert.ok(grid.includes('data-plan="basic"') && grid.includes('data-plan="business"') && grid.includes('data-plan="full"'),
-        'three tariffs: Базовый, Бизнес, Фулл');
-    assert.ok(/<span class="pricing-old">5 999<\/span> 2 599 <span>сом/.test(grid) &&
-        /<span class="pricing-old">7 999<\/span> 5 599 <span>сом/.test(grid) &&
-        /<div class="pricing-price">8 999 <span>сом/.test(grid),
-        'prices: 2 599 (was 5 999), 5 599 (was 7 999), 8 999');
-    assert.ok(grid.includes('−57%') && grid.includes('−30%'), 'discounts match the price drops');
-    assert.ok(!/Хочу этот тариф<\/a>[\s\S]*Премиум/.test(grid) && !grid.includes('Выбрать Старт'), 'old plans are gone');
-    assert.ok((grid.match(/wa\.me\/996502446688\?text=/g) || []).length === 3, 'each plan requests via WhatsApp NR until payment is live');
-    assert.ok(grid.includes('<em>(скоро)</em>'), 'agents that are not ready yet are marked «скоро»');
+    // Тарифы рисует nr-tariffs.js (Старт / Рост / Лидер), на странице остаётся только место под них.
+    const tr = require('fs').readFileSync(__dirname + '/nr-tariffs.js', 'utf8');
+    assert.ok(html.includes('id="tab-tariffs"') && html.includes('<div id="nr-tr"></div>') && /<script src="\/(?:dist\/nr-tariffs\.[0-9a-f]+\.min|nr-tariffs)\.js"><\/script>/.test(html), 'tariffs page mounts nr-tariffs.js');
+    assert.ok(tr.includes('Акылай бесплатно до 1 ноября') && tr.includes("showTab(\\'dashboard\\')") && tr.includes('Подключить магазин'), 'Akylai stays free until 1 November');
+    assert.ok(tr.includes("name: 'Старт', base: 2599, old: 5999") && tr.includes("name: 'Рост', base: 5599, old: 7999") && tr.includes("name: 'Лидер', base: 8999"), 'prices: 2 599 (was 5 999), 5 599 (was 7 999), 8 999');
+    assert.ok(tr.includes('off: 0.1') && tr.includes('off: 0.15') && tr.includes('off: 0.2'), 'period discounts 3/6/12 months');
+    assert.ok(tr.includes("wa.me/996502446688") && tr.includes('encodeURIComponent'), 'each plan requests via WhatsApp NR until payment is live');
+    assert.ok(!/Базовый|Бизнес|Фулл/.test(tr), 'old plan names are gone');
 }
 {
     // Заставка с логотипом подключается самой первой: раньше таблиц стилей и шрифтов, иначе часть сайта успевает показаться до неё.
