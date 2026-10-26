@@ -2745,13 +2745,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .pnl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
         .pnl-note { margin-top: 10px; font-size: 10px; color: var(--text-muted); }
         .pnl-mini-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-        .pnl-mini { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 14px 16px 10px; box-shadow: var(--card-shadow); min-width: 0; }
-        .pnl-mini .pnl-title { margin-bottom: 2px; font-size: 15px; color: var(--text-primary); }
-        .pnl-mini-date { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
-        .pnl-mini-val { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+        .pnl-mini { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 10px 14px 8px; box-shadow: var(--card-shadow); min-width: 0; text-align: center; }
+        .pnl-mini .pnl-title { margin-bottom: 0; font-size: 13px; color: var(--text-primary); }
+        .pnl-mini-date { font-size: 10.5px; color: var(--text-muted); margin-bottom: 2px; }
+        .pnl-mini-val { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
         .pnl-mini-dyn { font-size: 11px; margin-top: 2px; }
         .pnl-mini-dyn.up { color: #16a34a; } .pnl-mini-dyn.down { color: #ef4444; }
-        .pnl-mini svg { display: block; width: 100%; height: 44px; margin-top: 8px; }
+        .pnl-mini svg { display: block; width: 100%; height: 26px; margin-top: 4px; }
         .pnl-chart-card { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 16px 18px; box-shadow: var(--card-shadow); }
         .pnl-chart-card[hidden] { display: none; }
         /* Блоки дашборда стоят на месте с первого кадра: подгружаются только значения */
@@ -2761,7 +2761,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .pnl-big { min-height: 32px; }
         #pnl-serv-rows, #pnl-tax-rows { min-height: 92px; }
         .pnl-mini-spark { height: 52px; margin-top: 8px; }
-        .pnl-mini-grid > .pnl-mini { min-height: 152px; }
+        .pnl-mini-grid > .pnl-mini { min-height: 104px; }
         /* Заготовки графиков и строк: до прихода цифр показываем контуры, потом они просто перерисовываются */
         .pnl-ghost-line { display: inline-block; height: 10px; border-radius: 5px; background: var(--sel); animation: nrPulse 1.6s ease-in-out infinite; vertical-align: middle; }
         .pnl-ghost-end { margin-left: auto; }
