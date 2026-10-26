@@ -1520,3 +1520,15 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 #ggx-adj button { border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); border-radius: 10px; padding: 7px 14px; font-size: 12.5px; cursor: pointer; } #ggx-adj [data-go] { background: var(--accent); color: #fff; border-color: transparent; } #ggx-adj button:disabled { opacity: .5; cursor: default; }
 #ggx-adj .ggx-adj-a { display: flex; gap: 8px; } #ggx-adj table { width: 100%; border-collapse: collapse; font-size: 12.5px; } #ggx-adj th, #ggx-adj td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); } #ggx-adj tr.bad td { color: #dc2626; }
 #nr-ads-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+
+/* Логистика: блоки по складам (кластеры) */
+.gs-ship tr.gs-grp td.gs-clhd, .gs-ship th.gs-clh { position: static; }
+.gs-ship td.gs-clg { background: #9a9a9a; padding: 5px 6px; white-space: nowrap; }
+.gs-ship td.gs-clc { text-align: right; font-weight: 700; padding: 3px 8px; background: rgba(103, 78, 167, .12); min-width: 56px; }
+.gs-ship td.gs-clt { text-align: right; font-weight: 800; padding: 3px 8px; background: rgba(103, 78, 167, .22); }
+.gs-ship th.gs-clh { background: #674ea7; color: #fff; font-size: 11px; padding: 3px 8px; }
+.gs-ship .gs-clctl { display: inline-flex; gap: 4px; align-items: center; }
+.gs-ship .gs-clw { font-size: 11px; max-width: 96px; }
+.gs-ship .gs-clp { font-size: 11px; width: 44px; }
+.gs-ship .gs-xls { cursor: pointer; border: 0; background: #1d6f42; color: #fff; border-radius: 4px; font-size: 10px; font-weight: 800; padding: 2px 5px; }
+.gs-ship .gs-warn { color: #b45309; font-weight: 700; }

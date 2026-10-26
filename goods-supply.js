@@ -61,6 +61,7 @@
         var s = await sb().from('goods_shipments').select('*').eq('cabinet_id', cab).order('sort_idx', { ascending: true }).order('created_at', { ascending: true }).range(0, 1999);
         var p = await sb().from('production_orders').select('*').eq('cabinet_id', cab).order('created_at', { ascending: false }).range(0, 1999);
         st.rows.ship = s.data || [];
+        st.canClusters = st.rows.ship.length ? ('clusters' in st.rows.ship[0]) : false;
         st.rows.prod = p.data || [];
         st.loadedCab = cab;
     }
@@ -96,6 +97,32 @@
     function dlist(id, list) { return '<datalist id="' + id + '">' + list.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>'; }
     function shipTotal(r) { var t = 0, s = r.sizes || {}; Object.keys(s).forEach(function (k) { t += Number(s[k]) || 0; }); return t; }
 
+    // ─── Склады партии (кластеры WB): название и процент, количество по размерам делится по процентам ───
+    var CL_MAX = 8;
+    var CL_WH = ['Казань', 'Тула', 'Пермь', 'Москва', 'Краснодар', 'Коледино', 'Рязань', 'Новосемейкино', 'Шушары', 'Волгоград', 'Невинномыск', 'СПб', 'Самара', 'Воронеж', 'Ростов', 'Екатеринбург', 'Красный Бор', 'Нижний Новгород', 'Электросталь', 'Подольск'];
+    function clustersOf(rows) {
+        for (var i = 0; i < rows.length; i++) if (Array.isArray(rows[i].clusters) && rows[i].clusters.length) return rows[i].clusters;
+        return [];
+    }
+    // Деление целого по процентам методом наибольших остатков: сумма частей всегда равна исходному числу.
+    function splitInt(total, pcts) {
+        var sp = pcts.reduce(function (a, b) { return a + b; }, 0), n = pcts.length, res = [];
+        if (!sp || !total) { for (var z = 0; z < n; z++) res.push(0); return res; }
+        var raw = pcts.map(function (p) { return total * p / sp; }), fl = raw.map(Math.floor);
+        var left = total - fl.reduce(function (a, b) { return a + b; }, 0);
+        raw.map(function (v, i) { return [v - Math.floor(v), i]; }).sort(function (a, b) { return b[0] - a[0]; }).slice(0, left).forEach(function (x) { fl[x[1]]++; });
+        return fl;
+    }
+    function clShares(sizes, cl) {
+        var pcts = cl.map(function (c) { return Number(c.p) || 0; }), out = {};
+        SHIP_SIZES.forEach(function (z) { var v = Number(sizes && sizes[z]) || 0; out[z] = v ? splitInt(v, pcts) : null; });
+        return out;
+    }
+    function batchCost(rows) {
+        var price = null, boxes = null;
+        rows.forEach(function (r) { if (price == null && r.price != null && r.price !== '') price = Number(r.price); if (boxes == null && r.boxes) boxes = Number(r.boxes); });
+        return price && boxes ? price * boxes : 0;
+    }
     function groupsOf() {
         var order = [], map = {};
         st.rows.ship.forEach(function (r) {
@@ -119,6 +146,11 @@
         var g = groupsOf();
         var showAll = st.showDone.ship;
         var colspan = 9 + SHIP_SIZES.length + 2;
+        var baseSpan = 9 + SHIP_SIZES.length + 1, K = 0;
+        if (st.canClusters) g.order.forEach(function (bb) { K = Math.max(K, clustersOf(g.map[bb]).length); });
+        var clTh = '';
+        for (var kh = 0; kh < K; kh++) clTh += SHIP_SIZES.map(function (z, i) { return '<th class="gs-szh gs-clh' + (i === 0 ? ' gs-clg' : '') + '">' + esc(z.split('/')[0]) + '</th>'; }).join('') + '<th class="gs-clh">Σ</th>';
+        colspan += K * (SHIP_SIZES.length + 1);
         var dls = '<datalist id="gs-arts-ship">' + st.arts.map(function (a) { return '<option value="' + esc(artLabel(a)) + '">' + a.nm_id + '</option>'; }).join('') + '</datalist>' +
             dlist('gs-origin', SHIP_LISTS.origin) + dlist('gs-cargo', SHIP_LISTS.cargo);
         var sizeTh = SHIP_SIZES.map(function (z) { return '<th class="gs-szh">' + esc(z.replace('/', ' / ')) + '</th>'; }).join('');
@@ -131,19 +163,34 @@
             var onAll = all.length > 0 && all.every(function (r) { return r.in_rnp; });
             var onSome = !onAll && all.some(function (r) { return r.in_rnp; });
             var noNm = all.filter(function (r) { return !r.nm_id; }).length;
-            body += '<tr class="gs-grp" data-batch="' + esc(b) + '"><td colspan="' + colspan + '"><input class="gs-batch gs-in" value="' + esc(b) + '" placeholder="Название партии (например «№7 ИП Уркунбаев 100%»)">' +
+            var cl = st.canClusters ? clustersOf(all) : [], clSum = cl.reduce(function (a, c) { return a + (Number(c.p) || 0); }, 0), cost = batchCost(all);
+            var clCells = '';
+            for (var kc = 0; kc < K; kc++) {
+                if (cl[kc]) clCells += '<td colspan="' + (SHIP_SIZES.length + 1) + '" class="gs-clhd gs-clg"><span class="gs-clctl"><select class="gs-in gs-clw gs-edit" data-cl="' + kc + '" data-clf="w"><option value=""></option>' + (CL_WH.indexOf(cl[kc].w) < 0 && cl[kc].w ? '<option selected>' + esc(cl[kc].w) + '</option>' : '') + CL_WH.map(function (x) { return '<option' + (x === cl[kc].w ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select><input class="gs-in gs-clp gs-edit" data-cl="' + kc + '" data-clf="p" type="number" min="0" max="100" value="' + (cl[kc].p || '') + '"><span class="gs-pc">%</span><button type="button" class="gs-xls" data-act="xls" data-cl="' + kc + '" title="Файл Excel для WB: Баркод и Количество, только этот склад">XLS</button><button type="button" class="gs-delcl gs-edit" data-act="delcl" data-cl="' + kc + '" title="Убрать склад">×</button></span></td>';
+                else clCells += '<td colspan="' + (SHIP_SIZES.length + 1) + '" class="gs-clhd gs-clg"></td>';
+            }
+            body += '<tr class="gs-grp" data-batch="' + esc(b) + '"><td colspan="' + baseSpan + '"><input class="gs-batch gs-in" value="' + esc(b) + '" placeholder="Название партии (например «№7 ИП Уркунбаев 100%»)">' +
                 '<span class="gs-gtot">' + (tot ? 'всего ' + tot.toLocaleString('ru') + ' шт' : '') + '</span>' +
+                (cost ? '<span class="gs-gtot" title="Коробов × цена за короб (цена в первой строке с ценой)">отправка ' + Math.round(cost).toLocaleString('ru') + ' ₽</span>' : '') +
+                (cl.length ? '<span class="gs-gtot' + (clSum === 100 ? '' : ' gs-warn') + '">склады ' + clSum + '%</span>' : '') +
                 '<span class="gs-ffbox"><select class="gs-in gs-ffsel gs-edit" data-bf="ff_name" title="Кто отправлял (ФФ)"><option value="">ФФ: не выбран</option>' + ffOptions(all[0] && all[0].ff_name) + '</select>' +
                 '<input class="gs-in gs-boxes gs-edit" data-bf="boxes" type="number" min="0" placeholder="коробов" title="Сколько коробов в поставке (оплата ФФ — за короб)" value="' + (all[0] && all[0].boxes ? all[0].boxes : '') + '"></span>' +
                 '<button type="button" class="gs-rnp-sw gs-edit' + (onAll ? ' is-on' : (onSome ? ' is-part' : '')) + '" data-act="rnpbatch" title="' + esc((onAll ? 'Поставка показывается в РНП (строка «В пути»). Нажмите, чтобы убрать.' : 'Показать эту поставку в РНП (строка «В пути»).') + (noNm ? ' Строк без артикула WB: ' + noNm + ': они в РНП не попадут.' : '')) + '">' + (onAll ? '✓ В РНП' : (onSome ? '◐ В РНП' : 'В РНП')) + '</button>' +
                 '<button type="button" class="gs-addrow gs-edit" data-act="addrow">+ строка</button>' +
-                '<button type="button" class="gs-delbatch gs-edit" data-act="delbatch" title="Удалить партию целиком">Удалить партию</button></td></tr>';
+                (st.canClusters && cl.length < CL_MAX ? '<button type="button" class="gs-addrow gs-edit" data-act="addcl" title="Добавить склад: название и процент, остальное посчитается само">+ склад</button>' : '') +
+                '<button type="button" class="gs-delbatch gs-edit" data-act="delbatch" title="Удалить партию целиком">Удалить партию</button></td>' + clCells + '<td></td></tr>';
             rows.forEach(function (r) {
                 var a = artByNm(r.nm_id), sizes = r.sizes || {};
                 var cells = SHIP_SIZES.map(function (z) {
                     var v = sizes[z];
                     return '<td class="gs-szc"><input class="gs-in gs-sz" data-f="sz" data-z="' + esc(z) + '" type="number" min="0" value="' + (v ? v : '') + '"></td>';
                 }).join('');
+                var parts = cl.length ? clShares(sizes, cl) : null, clRow = '';
+                for (var kr = 0; kr < K; kr++) {
+                    var kt = 0;
+                    SHIP_SIZES.forEach(function (z, zi) { var v = parts && cl[kr] && parts[z] ? parts[z][kr] : 0; kt += v; clRow += '<td class="gs-clc' + (zi === 0 ? ' gs-clg' : '') + '">' + (v || '') + '</td>'; });
+                    clRow += '<td class="gs-clt">' + (kt || '') + '</td>';
+                }
                 body += '<tr class="gs-row" data-id="' + esc(r.id || '') + '" data-tmp="' + esc(r._tmp || '') + '">' +
                     '<td>' + sel(SHIP_LISTS.method, r.method, 'method', 'gs-m') + '</td>' +
                     '<td><input class="gs-in gs-prod" data-f="product" value="' + esc(r.product) + '" placeholder="Товар"></td>' +
@@ -154,7 +201,7 @@
                     '<td><input class="gs-in gs-cg" data-f="cargo" list="gs-cargo" value="' + esc(r.cargo) + '"></td>' +
                     '<td><input class="gs-in gs-pr" data-f="price" type="number" step="any" value="' + (r.price == null ? '' : r.price) + '"></td>' +
                     '<td>' + sel(SHIP_LISTS.delivery, r.delivery, 'delivery', 'gs-dl') + '</td>' +
-                    cells + '<td class="gs-tot">' + (shipTotal(r) || '') + '</td>' +
+                    cells + '<td class="gs-tot">' + (shipTotal(r) || '') + '</td>' + clRow +
                     '<td class="gs-edit"><button type="button" class="gs-del" data-act="del" title="Удалить строку">×</button></td></tr>';
             });
         });
@@ -162,7 +209,7 @@
             '<div class="gs-head"><div><div class="gs-title">Логистика</div><div class="gs-hint">Как таблица «В пути»: партии блоками, размеры колонками. В РНП суммы по размерам идут в строку «В пути» (статусы: в пути, на карго, Принято ФФ, ЕДЕТ В МСК, Маркировка).</div></div>' +
             '<div class="gs-tools"><span class="gs-gt">В пути всего: <b>' + grand.toLocaleString('ru') + ' шт</b></span><label class="gs-chk"><input type="checkbox" data-act="done"' + (showAll ? ' checked' : '') + '> показывать «в продажах» и «в цеху»</label>' +
             '<button type="button" class="gs-add gs-edit" data-act="addbatch">+ Партия</button></div></div>' +
-            '<div class="gs-sheet"><table class="gs-table gs-ship"><thead><tr><th>Метод</th><th>Товар</th><th>Артикул</th><th>Дата отправки</th><th>Статус</th><th>Откуда</th><th>Карго</th><th>Цена</th><th>Доставка</th>' + sizeTh + '<th>Общее</th><th class="gs-edit"></th></tr></thead><tbody>' +
+            '<div class="gs-sheet"><table class="gs-table gs-ship"><thead><tr><th>Метод</th><th>Товар</th><th>Артикул</th><th>Дата отправки</th><th>Статус</th><th>Откуда</th><th>Карго</th><th>Цена</th><th>Доставка</th>' + sizeTh + '<th>Общее</th>' + clTh + '<th class="gs-edit"></th></tr></thead><tbody>' +
             (body || '<tr><td colspan="' + colspan + '" class="gs-empty">Пока пусто. Нажмите «+ Партия».</td></tr>') + '</tbody></table></div>';
         bindShip(host);
     }
@@ -193,12 +240,20 @@
                 delBatch(b.closest('tr').getAttribute('data-batch') || '');
             } else if (act === 'del') {
                 delShip(b.closest('tr'));
+            } else if (act === 'addcl') {
+                clAdd(b.closest('tr').getAttribute('data-batch') || '');
+            } else if (act === 'delcl') {
+                clDel(b.closest('tr').getAttribute('data-batch') || '', Number(b.getAttribute('data-cl')));
+            } else if (act === 'xls') {
+                clExport(b.closest('tr').getAttribute('data-batch') || '', Number(b.getAttribute('data-cl')), b);
             }
         });
         host.addEventListener('change', function (e) {
             var el = e.target;
             if (el.getAttribute('data-act') === 'done') { st.showDone.ship = el.checked; renderShip(); return; }
             var tr = el.closest('tr');
+            var clf = el.getAttribute('data-clf');
+            if (clf && tr) { clSet(tr.getAttribute('data-batch') || '', Number(el.getAttribute('data-cl')), clf, el.value); return; }
             var bf = el.getAttribute('data-bf');
             if (bf && tr) { batchField(tr.getAttribute('data-batch') || '', bf, el.value); return; }
             if (el.classList.contains('gs-batch')) { renameBatch(tr.getAttribute('data-batch') || '', String(el.value || '').trim()); return; }
@@ -296,6 +351,79 @@
         window.addEventListener('resize', place);
     }
 
+    function batchRows(batch) { return st.rows.ship.filter(function (r) { return (r.batch || '') === batch; }); }
+    async function clWrite(batch, arr) {
+        var rows = batchRows(batch), ids = [];
+        rows.forEach(function (r) { r.clusters = arr.map(function (c) { return { w: c.w, p: c.p }; }); if (r.id) ids.push(r.id); });
+        renderShip();
+        if (!ids.length) return;
+        try {
+            var res = await sb().from('goods_shipments').update({ clusters: arr }).in('id', ids);
+            if (res.error) throw res.error;
+            changed();
+        } catch (e) { say('Не удалось сохранить склады: ' + String((e && e.message) || e)); }
+    }
+    function clAdd(batch) {
+        var cl = clustersOf(batchRows(batch)).slice();
+        if (cl.length >= CL_MAX) return;
+        cl.push({ w: '', p: cl.length ? 0 : 100 });
+        clWrite(batch, cl);
+    }
+    function clDel(batch, k) { var cl = clustersOf(batchRows(batch)).slice(); cl.splice(k, 1); clWrite(batch, cl); }
+    function clSet(batch, k, f, v) {
+        var cl = clustersOf(batchRows(batch)).map(function (c) { return { w: c.w, p: c.p }; });
+        if (!cl[k]) return;
+        if (f === 'p') cl[k].p = Math.max(0, Math.min(100, Math.round(Number(v) || 0))); else cl[k].w = v;
+        clWrite(batch, cl);
+    }
+    // Файл для WB по одному складу: те же два столбца, что в шаблоне WB («Баркод», «Количество»).
+    var bcCache = {};
+    async function barcodesFor(nmIds) {
+        var need = nmIds.filter(function (n) { return !bcCache[st.cab + ':' + n]; });
+        if (need.length) {
+            var res = await sb().from('wb_stocks').select('nm_id,tech_size,barcode').eq('cabinet_id', st.cab).in('nm_id', need).range(0, 4999);
+            if (res.error) throw res.error;
+            need.forEach(function (n) { bcCache[st.cab + ':' + n] = {}; });
+            (res.data || []).forEach(function (x) { if (x.barcode) bcCache[st.cab + ':' + x.nm_id][String(x.tech_size).trim()] = String(x.barcode); });
+        }
+        return function (nm, label) {
+            var m = bcCache[st.cab + ':' + nm] || {}, parts = String(label).split('/');
+            for (var i = parts.length - 1; i >= 0; i--) if (m[parts[i]]) return m[parts[i]];
+            var num = parts[parts.length - 1], keys = Object.keys(m);
+            for (var j = 0; j < keys.length; j++) if (new RegExp('(^|\\D)' + num + '(\\D|$)').test(keys[j])) return m[keys[j]];
+            return null;
+        };
+    }
+    async function clExport(batch, k, btn) {
+        var rows = batchRows(batch), cl = clustersOf(rows);
+        if (!cl[k]) return;
+        if (!root.NrXlsx) { say('Модуль Excel не загрузился. Обновите страницу.'); return; }
+        var pcts = cl.map(function (c) { return Number(c.p) || 0; });
+        if (btn) btn.disabled = true;
+        try {
+            var find = await barcodesFor(rows.filter(function (r) { return r.nm_id; }).map(function (r) { return r.nm_id; }).filter(function (v, i, a) { return a.indexOf(v) === i; }));
+            var sum = {}, missing = [];
+            rows.forEach(function (r) {
+                SHIP_SIZES.forEach(function (z) {
+                    var q = Number((r.sizes || {})[z]) || 0;
+                    if (!q) return;
+                    var part = splitInt(q, pcts)[k];
+                    if (!part) return;
+                    var code = r.nm_id ? find(r.nm_id, z) : null;
+                    if (!code) { missing.push((r.article || r.nm_id || '?') + ' ' + z.split('/').pop() + ' (' + part + ' шт)'); return; }
+                    sum[code] = (sum[code] || 0) + part;
+                });
+            });
+            var out = [['Баркод', 'Количество']];
+            Object.keys(sum).forEach(function (c) { out.push([c, sum[c]]); });
+            if (out.length < 2) { say('Нечего выгружать: у склада нет количества или нет баркодов.' + (missing.length ? ' Нет баркодов: ' + missing.slice(0, 6).join(', ') : '')); return; }
+            var name = String(batch || 'Поставка').replace(/[\\/:*?"<>|]/g, '').slice(0, 40).trim() + '_' + String(cl[k].w || ('склад' + (k + 1)));
+            root.NrXlsx.download(out, name + '.xlsx');
+            if (missing.length) say('Файл скачан, но у этих позиций нет баркода (их в файле нет): ' + missing.slice(0, 8).join(', ') + (missing.length > 8 ? ' и ещё ' + (missing.length - 8) : ''));
+        } catch (e) { say('Не получилось собрать файл: ' + String((e && e.message) || e)); }
+        finally { if (btn) btn.disabled = false; }
+    }
+
     // Удаление партии целиком (вместе со строками, которые сейчас скрыты фильтром статусов).
     async function delBatch(batch) {
         var rows = st.rows.ship.filter(function (r) { return (r.batch || '') === batch; });
@@ -325,7 +453,7 @@
 
     function addShipRow(batch) {
         var sib = st.rows.ship.filter(function (x) { return (x.batch || '') === batch; })[0] || {};
-        var r = { ff_name: sib.ff_name || null, boxes: sib.boxes || null, _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, article: '', in_rnp: true, batch: batch, method: '', product: '', origin: 'Бишкек', cargo: '', delivery: 'АВТО', price: null, sizes: {}, status: 'в пути', note: '', sent_date: new Date().toISOString().slice(0, 10) };
+        var r = { clusters: sib.clusters || null, ff_name: sib.ff_name || null, boxes: sib.boxes || null, _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, article: '', in_rnp: true, batch: batch, method: '', product: '', origin: 'Бишкек', cargo: '', delivery: 'АВТО', price: null, sizes: {}, status: 'в пути', note: '', sent_date: new Date().toISOString().slice(0, 10) };
         var idx = -1;
         st.rows.ship.forEach(function (x, i) { if ((x.batch || '') === batch) idx = i; });
         if (idx >= 0) st.rows.ship.splice(idx + 1, 0, r); else st.rows.ship.push(r);
@@ -338,6 +466,7 @@
         if (!r.nm_id && !r.article) { tr.classList.add('gs-incomplete'); return; }
         tr.classList.remove('gs-incomplete');
         var payload = { cabinet_id: st.cab, nm_id: r.nm_id || null, article: r.article || '', in_rnp: r.in_rnp === true, size: '', qty: shipTotal(r), sizes: r.sizes || {}, status: r.status || '', note: r.note || '', batch: r.batch || '', method: r.method || '', product: r.product || '', origin: r.origin || '', cargo: r.cargo || '', delivery: r.delivery || '', price: r.price == null ? null : r.price, sent_date: r.sent_date || null, ff_name: r.ff_name || null, boxes: r.boxes == null ? null : r.boxes, updated_at: new Date().toISOString() };
+        if (st.canClusters && r.clusters) payload.clusters = r.clusters;
         try {
             var res;
             if (r.id) res = await sb().from('goods_shipments').update(payload).eq('id', r.id);
@@ -695,5 +824,6 @@
     function cabinetChanged() { st.loadedCab = null; if (cur) show(cur); }
     root.addEventListener('nr-cabinet-changed', cabinetChanged);
     document.addEventListener('cabinet-changed', cabinetChanged);
+    root.NrGoodsSupplyCl = { splitInt: splitInt, clustersOf: clustersOf, clShares: clShares, batchCost: batchCost };
     root.NrGoodsSupply = { show: show, reload: function () { st.loadedCab = null; } };
 })(typeof window !== 'undefined' ? window : globalThis);
