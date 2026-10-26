@@ -301,6 +301,8 @@
     </div>
 
     <script>
+        /* после входа заставка снова с приветствием, при обновлении страницы только логотип */
+        try { sessionStorage.removeItem('nr_splash_seen'); } catch (_) {}
         function switchTab(tab) {
             document.getElementById('form-login').classList.add('hidden');
             document.getElementById('form-register').classList.add('hidden');
