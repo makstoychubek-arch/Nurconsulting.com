@@ -80,33 +80,20 @@
         }
         html.oauth-pending #screen-auth { display: none !important; }
         html.oauth-pending #screen-oauth-loading { display: flex !important; }
-        .oauth-logo {
-            width: 56px; height: 56px;
-            margin-bottom: 16px;
-        }
-        .oauth-space {
-            color: var(--ink);
-            font-size: 22px;
-            font-weight: 800;
-            letter-spacing: -0.04em;
-            margin-bottom: 20px;
-        }
+        .oauth-hello { color: var(--ink-dim); font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+        .oauth-rule { width: 46px; height: 3px; border-radius: 3px; background: #f97316; margin: 22px 0; }
+        .oauth-brand { display: flex; align-items: center; gap: 12px; }
+        .oauth-logo { width: 64px; height: 64px; border-radius: 18px; }
+        .oauth-space { border: 2px solid #f97316; color: #f97316; border-radius: 99px; padding: 4px 18px; font-size: 27px; font-weight: 800; line-height: 1.1; }
         .nr-brand-mark { display: none; }
-        .oauth-loading-text {
-            color: var(--ink-dim);
-            font-size: 14px;
-            line-height: 1.6;
-            text-align: center;
-            max-width: 320px;
-        }
-        .oauth-dots { display: flex; gap: 10px; margin-top: 28px; }
-        .oauth-dots span {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: var(--ink);
-            opacity: 0.45;
-        }
-        .oauth-dots span:nth-child(2) { opacity: 0.7; }
-        .oauth-dots span:nth-child(3) { opacity: 1; }
+        .oauth-loading-text { color: var(--ink-dim); font-size: 14px; line-height: 1.6; text-align: center; max-width: 320px; margin-top: 22px; }
+        .oauth-dots { display: flex; gap: 10px; margin-top: 22px; }
+        .oauth-dots span { width: 9px; height: 9px; border-radius: 50%; background: var(--ink); opacity: .45; animation: oauthBounce 1.2s infinite; }
+        .oauth-dots span:nth-child(2) { opacity: .7; animation-delay: .2s; }
+        .oauth-dots span:nth-child(3) { opacity: 1; animation-delay: .4s; }
+        @keyframes oauthBounce { 50% { transform: translateY(-4px); } }
+        @media (prefers-reduced-motion: reduce) { .oauth-dots span { animation: none; } }
+        @media (max-width: 480px) { .oauth-logo { width: 50px; height: 50px; border-radius: 14px; } .oauth-space { font-size: 20px; padding: 3px 13px; } }
 
         .login-page {
             background: transparent;
@@ -128,10 +115,13 @@
 
     <!-- ЭКРАН: OAuth / проверка сессии -->
     <div id="screen-oauth-loading">
-        <span class="nr-fox-slot" data-size="140" style="margin-bottom:6px"></span>
-        <img class="oauth-logo logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
-        <div class="oauth-space">Space</div>
-        <p id="oauth-loading-text" class="oauth-loading-text">Вход в NR Space...</p>
+        <div class="oauth-hello">Добро пожаловать</div>
+        <div class="oauth-rule"></div>
+        <div class="oauth-brand">
+            <img class="oauth-logo logo-nr" src="/icons/logo-nr.svg" alt="NR" width="64" height="64">
+            <div class="oauth-space">Space</div>
+        </div>
+        <p id="oauth-loading-text" class="oauth-loading-text">Входим в ваш кабинет…</p>
         <div class="oauth-dots"><span></span><span></span><span></span></div>
     </div>
 
@@ -308,15 +298,6 @@
         <p class="login-footer-text text-center text-xs mt-6" style="color:var(--ink-faint)">© Nur Consulting &amp; NR Space</p>
     </div>
 
-    <!-- ЭКРАН 2: ПРИВЕТСТВИЕ (legacy, не показывается при OAuth) -->
-    <div id="screen-cabinets" class="w-full max-w-md fade-in hidden text-center">
-            <div style="padding:40px 20px">
-            <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="90" height="90" style="width:90px;height:90px;border-radius:22px;margin:0 auto 20px">
-            <div style="color:var(--ink-faint);font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
-            <h2 style="color:var(--ink);font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name">—</span></h2>
-            <p style="color:var(--ink-dim);font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -400,7 +381,7 @@
         SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
         supabase = window.NrAuth.createClient(window.supabase, SUPABASE_URL, SUPABASE_KEY);
 
-        const OAUTH_LOADING_TEXT = 'Вход в NR Space...';
+        const OAUTH_LOADING_TEXT = 'Входим в ваш кабинет…';
 
         async function signInWithGoogle() {
             try { sessionStorage.removeItem('nr_logged_out'); } catch (_) {}
