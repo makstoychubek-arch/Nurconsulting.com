@@ -13442,17 +13442,20 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         renderCabinetDropdown(cabinetListCache);
         document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
 
-        [
-            'm-profit','m-margin','m-profit2','m-sales-sum','m-sales-count',
-            'm-realization','m-commission','m-orders-sum','m-orders-count',
-            'm-conversion','m-logistics','m-ads','m-storage','m-roi',
-            'm-opex','m-returns','m-stock','m-stock-fbo','m-stock-fbs',
-            'rnp-profit','rnp-margin',
-            'rnp-roi','rnp-buyout','rnp-orders','rnp-sales','rnp-returns',
-            'rnp-logistics','wh-total','wh-fbo','wh-fbs'
-        ].forEach(id => setText(id, '—'));
+        // Если для этого кабинета и периода уже есть кэш, старые цифры не гасим прочерками: следом сразу придут кэшированные.
+        if (!DASH_CACHE.hasSync(dashCacheKey(newCabinetId, getActiveDateRange()))) {
+            [
+                'm-profit','m-margin','m-profit2','m-sales-sum','m-sales-count',
+                'm-realization','m-commission','m-orders-sum','m-orders-count',
+                'm-conversion','m-logistics','m-ads','m-storage','m-roi',
+                'm-opex','m-returns','m-stock','m-stock-fbo','m-stock-fbs',
+                'rnp-profit','rnp-margin',
+                'rnp-roi','rnp-buyout','rnp-orders','rnp-sales','rnp-returns',
+                'rnp-logistics','wh-total','wh-fbo','wh-fbs'
+            ].forEach(id => setText(id, '—'));
 
-        clearAllMetricTrends();
+            clearAllMetricTrends();
+        }
 
         allSuppliesRaw = [];
         allSupplies = [];
@@ -13737,8 +13740,64 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
     }
 
+    // Кэш дашборда: итоги, финотчёт и расходы РК по кабинету и периоду лежат на устройстве (IndexedDB) и в памяти.
+    // Экран рисуется из кэша сразу, свежие данные подтягиваются следом и подставляются без пустых прочерков.
+    const DASH_CACHE = (function () {
+        const mem = new Map();
+        let dbp = null;
+        const open = () => dbp || (dbp = new Promise((res) => {
+            try {
+                const r = indexedDB.open('nr-dash', 1);
+                r.onupgradeneeded = () => r.result.createObjectStore('p');
+                r.onsuccess = () => res(r.result);
+                r.onerror = () => res(null);
+            } catch (e) { res(null); }
+        }));
+        const req = (mode, fn) => open().then((db) => new Promise((res) => {
+            if (!db) return res(null);
+            try { const q = fn(db.transaction('p', mode).objectStore('p')); q.onsuccess = () => res(q.result); q.onerror = () => res(null); } catch (e) { res(null); }
+        }));
+        return {
+            hasSync: (key) => mem.has(key),
+            get: async (key) => {
+                if (mem.has(key)) return mem.get(key);
+                const v = await Promise.race([req('readonly', (st) => st.get(key)), new Promise((r) => setTimeout(() => r(null), 600))]);
+                if (v && v.at && Date.now() - v.at < 3 * 86400000) { mem.set(key, v); return v; }
+                return null;
+            },
+            put: (key, bag) => {
+                const v = Object.assign({ at: Date.now() }, bag);
+                mem.set(key, v);
+                if (mem.size > 8) mem.delete(mem.keys().next().value);
+                req('readwrite', (st) => st.put(v, key));
+            },
+        };
+    })();
+    let _dashPass = null;
+    const dashCacheKey = (cab, range) => cab + '|' + range.from + '|' + range.to;
+
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
+        const cab = currentCabinetId;
+        const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
+        const key = dashCacheKey(cab, range);
+        const hit = await DASH_CACHE.get(key);
+        if (hit && hit.summary && cab === currentCabinetId) {
+            const p = { mode: 'cache', hit, key };
+            _dashPass = p;
+            await loadFromDBPass(dateFrom, dateTo);
+            if (p.tail) { try { await p.tail; } catch (e) { /* свежие данные всё равно загрузятся ниже */ } }
+            if (cab !== currentCabinetId) return;
+        }
+        _dashPass = { mode: 'live', key, bag: {} };
+        return loadFromDBPass(dateFrom, dateTo);
+    }
+
+    async function loadFromDBPass(dateFrom, dateTo) {
+        if (!currentCabinetId) return;
+        const pass = _dashPass;
+        _dashPass = null;
+        const fromCache = !!(pass && pass.mode === 'cache');
 
         const requestId = ++_loadRequestId;
         const snapshotCabinet = currentCabinetId;
@@ -13754,9 +13813,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         // Теперь вся агрегация (суммы/количества/разбивка по складам) считается
         // одним SQL-запросом на стороне базы через RPC dashboard_summary —
         // клиенту приходит один компактный jsonb вместо тысяч сырых строк.
-        const adsCurP = loadAdsSpendForDash(snapshotCabinet, from, to);
-        const adsPrevP = loadAdsSpendForDash(snapshotCabinet, prev.from, prev.to);
-        const { data: summary, error: summaryErr } = await supabase.rpc('dashboard_summary', {
+        const adsCurP = fromCache ? Promise.resolve(pass.hit.adsCur) : loadAdsSpendForDash(snapshotCabinet, from, to);
+        const adsPrevP = fromCache ? Promise.resolve(pass.hit.adsPrev) : loadAdsSpendForDash(snapshotCabinet, prev.from, prev.to);
+        const { data: summary, error: summaryErr } = fromCache ? { data: pass.hit.summary, error: null } : await supabase.rpc('dashboard_summary', {
             p_cabinet_id: snapshotCabinet,
             p_from: from,
             p_to: to,
@@ -13764,6 +13823,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             p_prev_to: prev.to,
         });
         const [adsCur, adsPrev] = await Promise.all([adsCurP, adsPrevP]);
+        if (pass && !fromCache && !summaryErr && summary) { pass.bag.summary = summary; pass.bag.adsCur = adsCur; pass.bag.adsPrev = adsPrev; }
         if (summary && summary.cur) summary.cur.ads_sum = adsCur.spend;
         if (summary && summary.prev) summary.prev.ads_sum = adsPrev.spend;
         loadDashCabinetPlans();
@@ -13812,11 +13872,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     costOfGoods: {},
                 };
 
-                loadFinanceRows(snapshotCabinet, from, to).then(async (fin) => {
+                const finP = fromCache ? Promise.resolve(pass.hit.fin) : loadFinanceRows(snapshotCabinet, from, to);
+                const finTail = finP.then(async (fin) => {
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
                     const rows = fin.rows;
                     // Себестоимость из карточек товаров (РНП → Товары): без неё «прибыль» — это прибыль до закупки.
-                    settings.costOfGoods = await loadCostOfGoodsMap(snapshotCabinet);
+                    settings.costOfGoods = fromCache ? (pass.hit.cost || {}) : await loadCostOfGoodsMap(snapshotCabinet);
+                    if (pass && !fromCache) { pass.bag.fin = fin; pass.bag.cost = settings.costOfGoods; }
                     const ffTot = await ffPromise;
                     if (ffTot) settings.ffPeriod = ffTot.payable;
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
@@ -13825,7 +13887,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     // продаж. На карточке «Реклама» при этом остаётся факт за
                     // весь выбранный период.
                     if (rows && rows.length && (fin.from !== from || fin.to !== to)) {
-                        const adsWindow = await loadAdsSpendForDash(snapshotCabinet, fin.from, fin.to);
+                        const adsWindow = fromCache && pass.hit.adsWindow ? pass.hit.adsWindow : await loadAdsSpendForDash(snapshotCabinet, fin.from, fin.to);
+                        if (pass && !fromCache) pass.bag.adsWindow = adsWindow;
                         if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
                         settings.adsSum = Math.round(Number(adsWindow.spend || 0));
                     }
@@ -13856,9 +13919,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
                     // Тренды по отчёту — отдельным проходом: числа на карточках
                     // не должны ждать ещё один запрос в базу.
-                    const base = await loadFinanceTrendBase(snapshotCabinet, fin, settings);
+                    const base = fromCache ? (pass.hit.base || null) : await loadFinanceTrendBase(snapshotCabinet, fin, settings);
                     if (base && finId === _loadRequestId && finCabinet === currentCabinetId) {
                         applyMetricTrends(metrics, base);
+                    }
+                    if (pass && !fromCache && finId === _loadRequestId && finCabinet === currentCabinetId && rows && rows.length && pass.bag.summary) {
+                        pass.bag.base = base || null;
+                        DASH_CACHE.put(pass.key, pass.bag);
                     }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
@@ -13873,6 +13940,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         legendEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные</div>`;
                     }
                 });
+                if (pass) pass.tail = finTail;
             }
         }
     }
