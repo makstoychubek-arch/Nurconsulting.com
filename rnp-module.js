@@ -3632,7 +3632,7 @@ const RNP = (() => {
             return x + (raw ? (Number(_derive(raw, a)?.profit) || 0) : 0);
         }, 0));
         const payouts = (_ghPayouts || []).map(p => ({ ...p, amount: Number(p.to_withdraw) || 0 }));
-        const next = payouts.filter(p => p.closed && String(p.pay_date) >= today).sort((a, b) => String(a.pay_date).localeCompare(String(b.pay_date)))[0] || null;
+        const next = payouts.filter(p => p.closed && String(p.pay_date) > today).sort((a, b) => String(a.pay_date).localeCompare(String(b.pay_date)))[0] || null;
         const open = payouts.find(p => !p.closed) || null;
         return { per, st, sum, daily, next, open, payouts, health: _ghHealthModel(_ghHealth, per.days) };
     }
@@ -3770,7 +3770,7 @@ const RNP = (() => {
         if (kind === 'balance') {
             const today = cal?.todayStr || _wbTodayStr();
             const rows = M.payouts.map(p => ({ cells: [`${_ghDate(p.week_start)} – ${_ghDate(p.week_end)}`, `<b>${_ghNum(p.amount)}</b>`, _ghDate(p.pay_date),
-                !p.closed ? '<span class="muted">набегает</span>' : (String(p.pay_date) >= today ? '<span class="blue">ожидается</span>' : '<span class="pos">выплачено</span>')] }));
+                !p.closed ? '<span class="muted">набегает</span>' : (String(p.pay_date) > today ? '<span class="blue">ожидается</span>' : '<span class="pos">выплачено</span>')] }));
             const closed = M.payouts.filter(p => p.closed).slice(0, 4);
             const avg = closed.length ? closed.reduce((x, p) => x + p.amount, 0) / closed.length : 0;
             _rnpModal('Баланс и выплаты', 'Весь кабинет · выплата в понедельник за неделю, закрытую неделей раньше',
