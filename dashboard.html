@@ -7415,7 +7415,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <div class="cl-head-text">
                         <div class="cl-title-row">
                             <h3 id="cl-title">Ключевые кластеры</h3>
-                            <button type="button" class="cl-copy" id="cl-copy-name" title="Скопировать название продвижения" aria-label="Скопировать название продвижения">
+                            <button type="button" class="cl-copy" id="cl-copy-name" title="Скопировать название РК" aria-label="Скопировать название РК">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5h10"></path></svg>
                             </button>
                         </div>
@@ -7496,7 +7496,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         </div>
 
                         <div class="ab-wizard-card">
-                            <h4>Продвижение, в котором идут показы</h4>
+                            <h4>РК, в которой идут показы</h4>
                             <input type="text" id="ab-campaign-search" class="ab-product-search" placeholder="Поиск по названию или id" oninput="filterABCampaigns()" autocomplete="off" style="margin-bottom:6px">
                             <div id="ab-campaign-list" class="ab-campaign-list">
                                 <div class="text-center py-4 text-sm" style="color:var(--text-muted)">Загрузка кампаний...</div>
@@ -7535,7 +7535,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             </div>
                             <label class="ab-check">
                                 <input type="checkbox" id="ab-off-finish" checked>
-                                Завершить тест, когда продвижение отключено
+                                Завершить тест, когда РК отключена
                             </label>
                             <label class="ab-check">
                                 <input type="checkbox" id="ab-stop-on-winner">
@@ -8476,19 +8476,19 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-plan-fact.68223e16a0.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.2bff34d4e2.min.js"></script>
-<script src="/dist/ads-pulse.8859ba93a6.min.js"></script>
+<script src="/dist/ads-command-center.1dee516d76.min.js"></script>
+<script src="/dist/ads-pulse.4edda44853.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.5e12c6a9cc.min.js"></script>
-<script src="/dist/viewer-mode.aa66888f59.min.js"></script>
+<script src="/dist/viewer-mode.0c2fb1cd9c.min.js"></script>
 <script src="/dist/space-admin-ext.ac6467584f.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.322119fa3c.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
-<script src="/dist/nr-admin.785d87c2b5.min.js"></script>
+<script src="/dist/nr-admin.e43aa8bd34.min.js"></script>
 <script src="/dist/ad-autopilot-ui.2ec2082149.min.js"></script>
 <script src="/dist/ads-campaign-detail.40f4e1bf6d.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
@@ -10986,7 +10986,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             setTimeout(() => {
                 if (!el.isConnected) return;
                 el.classList.remove('is-ok');
-                el.title = 'Скопировать название продвижения';
+                el.title = 'Скопировать название РК';
             }, 1600);
         }
     }
@@ -11410,7 +11410,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         ]);
         window._autobidderByCampaign = new Map((rules || []).map((r) => [String(r.campaign_id), r]));
         if (!rules.length) {
-            listEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Правил ещё нет. Откройте «Кампании» и нажмите «Авто» у нужного продвижения — задайте цель и коридор ставки.</div>`;
+            listEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Правил ещё нет. Откройте «Кампании» и нажмите «Авто» у нужной РК — задайте цель и коридор ставки.</div>`;
         } else {
             listEl.innerHTML = rules.map((r) => {
                 const name = names.get(String(r.campaign_id)) || `Кампания ${r.campaign_id}`;
@@ -11591,7 +11591,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (!data) return;
         const balance = Number(data.balance || 0);
         const bonus = Number(data.bonus || 0);
-        el.textContent = `Баланс продвижения: ${fmt(Math.round(balance))} ₽${bonus > 0 ? ` (+${fmt(Math.round(bonus))} бонус)` : ''}`;
+        el.textContent = `Баланс РК: ${fmt(Math.round(balance))} ₽${bonus > 0 ? ` (+${fmt(Math.round(bonus))} бонус)` : ''}`;
         el.classList.toggle('hidden', false);
         el.style.color = balance < 500 ? '#ef4444' : 'var(--text-muted)';
         el.title = balance < 500 ? 'Низкий баланс — активные кампании могут скоро остановиться. Пополните в личном кабинете WB.' : '';
@@ -11670,9 +11670,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         { key: 'planned_orders',      label: 'План заказов' },
         { key: 'planned_sales',       label: 'План продаж' },
         { key: 'planned_impressions', label: 'План показов' },
-        { key: 'planned_clicks',      label: 'План кликов продвижения' },
+        { key: 'planned_clicks',      label: 'План кликов РК' },
         { key: 'planned_drr',         label: 'ДРР % план' },
-        { key: 'planned_ad_spend',    label: 'Расход продвижения, план' },
+        { key: 'planned_ad_spend',    label: 'Расход РК план' },
     ];
     let _planActiveMetric = 'planned_orders';
     let _planArticles = [];           // [{ nm_id, name }]
@@ -15286,7 +15286,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function paintABCampaignRows(el, campaigns, activeCampaignIds, q) {
         if (!campaigns.length) {
             el.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">${
-                q ? 'Нет продвижения по этому названию или id.' : 'Кампании не найдены. Тест можно создать без привязки к продвижению, но тогда автостоп рекламы не сработает.'
+                q ? 'Нет РК по этому названию или id.' : 'Кампании не найдены. Тест можно создать без привязки к РК, но тогда автостоп рекламы не сработает.'
             }</div>`;
             return;
         }
@@ -15527,12 +15527,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const nmId = String(abSelectedCard.nmID);
         const name = abSelectedCard.title;
         if (abWizardSources.ads && abSelectedCampaigns.size === 0) {
-            showPremiumModal('warning', 'Выберите продвижение', 'Чтобы тест крутился на рекламе и продвижение остановилось на 2000 показов — отметьте кампанию. Ищите по названию, например «тест стр».');
+            showPremiumModal('warning', 'Выберите РК', 'Чтобы тест крутился на рекламе и РК остановилась на 2000 показов — отметьте кампанию. Ищите по названию, например «тест стр».');
             return;
         }
         const interval = Math.max(15, parseInt(document.getElementById('abt-interval').value, 10) || 30);
         const maxRot = parseInt(document.getElementById('abt-maxrot').value, 10) || 0;
-        if (document.getElementById('ab-rot-mode').value != 'time' && !abSelectedCampaigns.size) { showPremiumModal('warning', 'Выберите продвижение', 'Для смены по показам нужно продвижение.'); return; }
+        if (document.getElementById('ab-rot-mode').value != 'time' && !abSelectedCampaigns.size) { showPremiumModal('warning', 'Выберите РК', 'Для смены по показам нужна РК.'); return; }
         const abFiles = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).map(i => abVariantFiles[i]).filter(Boolean);
         if (abFiles.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
 
@@ -15566,7 +15566,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             campaignNames: Object.fromEntries(
                 [...abSelectedCampaigns].map(id => {
                     const c = (abCampaignCatalog || []).find(x => Number(x.id) === Number(id));
-                    return [String(id), c?.name || `Продвижение ${id}`];
+                    return [String(id), c?.name || `РК ${id}`];
                 })
             ),
             autoStop: !!document.getElementById('ab-auto-stop')?.checked,
@@ -15820,11 +15820,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const minImpCap = Number(test.settings?.minImpressions) || 2000;
         const minCtrGoal = Number(test.settings?.minCtr) > 0 ? Number(test.settings.minCtr) : 5;
         const finishReasonLabel = test.finish_reason === 'campaign_stopped'
-            ? ' · продвижение остановлено'
+            ? ' · РК остановлена'
             : test.finish_reason === 'winner_determined'
             ? ` · победитель, CTR от ${minCtrGoal}%`
             : test.finish_reason === 'impressions_cap'
-            ? ` · по ${minImpCap} показов, продвижение на паузе`
+            ? ` · по ${minImpCap} показов, РК на паузе`
             : test.finish_reason === 'manual'
             ? ''
             : '';
@@ -15996,7 +15996,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (!test) return;
         const finishReason = reason || 'manual';
         if (finishReason === 'manual') {
-            const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Выбранные продвижения встанут на паузу, чтобы не жечь бюджет.');
+            const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Выбранные РК встанут на паузу, чтобы не жечь бюджет.');
             if (!ok) return;
         }
         const prevStatus = test.status;
@@ -16064,7 +16064,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (card) window.NrWow.pulse(card);
         }
         showPremiumModal('success', 'Тест завершён', paused.length
-            ? `Ротация остановлена, на паузе продвижений: ${paused.length}.`
+            ? `Ротация остановлена, на паузе ${paused.length} РК.`
             : 'А/Б тест остановлен.');
         await loadABTests();
     }
@@ -16161,7 +16161,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 return;
             }
         }
-        showPremiumModal('success', 'Автостоп включён', `Тест сам остановится, когда победитель наберёт CTR от ${minCtr}% и выше. Лучшее фото останется на WB, продвижение встанет на паузу.`);
+        showPremiumModal('success', 'Автостоп включён', `Тест сам остановится, когда победитель наберёт CTR от ${minCtr}% и выше. Лучшее фото останется на WB, РК встанет на паузу.`);
         await loadABTests();
     }
     window.armABWinnerStop = armABWinnerStop;
@@ -16233,7 +16233,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             `Тест запущен: ${fmtReportDate(test.started_at)}` +
             (test.finished_at ? `\nТест завершён: ${fmtReportDate(test.finished_at)}` : '') +
             (source === 'funnel' ? '\nВоронка: WB отдаёт историю максимум за последние 7 дней' : '') +
-            (source === 'ads' && statsUpdatedAt ? `\nПоказы и клики продвижения: замер ${new Date(statsUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}, обновляются каждые 10 минут` : '');
+            (source === 'ads' && statsUpdatedAt ? `\nПоказы и клики РК: замер ${new Date(statsUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}, обновляются каждые 10 минут` : '');
 
         const totalImpressions = variants.reduce((s, v) => s + (metricsByVariant.get(v.id)?.impressions || 0), 0);
         let stars = '★☆☆', verdictText = 'Пока недостаточно данных для вывода';
@@ -17103,7 +17103,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     const TG_CHANNEL_PURPOSE = {
         sales: 'Ежедневные отчёты по продажам',
         penalties: 'Штрафы и удержания WB',
-        ads: 'Продвижение: пауза, старт и баланс',
+        ads: 'Реклама: пауза, старт и баланс РК',
         ab_tests: 'Завершение А/Б тестов карточек',
         news: 'Новости кабинета продавца WB',
         reviews: 'Отзывы и автоответы',

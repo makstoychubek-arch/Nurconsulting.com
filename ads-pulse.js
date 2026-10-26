@@ -844,7 +844,7 @@
     function topupFlow(key) {
         var f = findCamp(key); if (!f) return;
         var cur = balOf(key, f.camp), presets = [500, 1000, 2000, 5000], sel = 1000, busy = false;
-        var m = modal('<div class="adp2-mh"><b>Пополнить продвижение</b><button type="button" data-close="1" class="adp2-x" aria-label="Закрыть">✕</button></div>' +
+        var m = modal('<div class="adp2-mh"><b>Пополнить РК</b><button type="button" data-close="1" class="adp2-x" aria-label="Закрыть">✕</button></div>' +
             '<p class="adp2-mut" style="font-size:13px;margin:0 0 10px"><b>' + esc(f.camp.name) + '</b> · № ' + esc(f.camp.wbId) + '<br>Сейчас на балансе: <b>' + (cur == null ? '—' : fmtInt(cur) + ' ₽') + '</b></p>' +
             '<div class="adp2-pre" id="adp2-pre">' + presets.map(function (v) { return '<button type="button" data-sum="' + v + '" class="' + (v === sel ? 'on' : '') + '">' + fmtInt(v) + ' ₽</button>'; }).join('') + '</div>' +
             '<label class="adp2-mut" style="font-size:12px;display:block;margin:10px 0 4px">Или другая сумма, от 500 ₽</label>' +
@@ -970,7 +970,7 @@
         if ($('adp2-switch')) return;
         var bar = doc.querySelector('#adv-view-ads .ads-hq-filters'); if (!bar) return;
         var sw = doc.createElement('div'); sw.id = 'adp2-switch'; sw.className = 'adp2-switch';
-        sw.innerHTML = '<button type="button" class="adp2-newbtn" data-pact="new" id="adp2-new">＋ Новое продвижение</button>';
+        sw.innerHTML = '<button type="button" class="adp2-newbtn" data-pact="new" id="adp2-new">＋ Новая РК</button>';
         bar.appendChild(sw);
         sw.addEventListener('click', function (e) {
             var b = e.target.closest('[data-pulse-view]'); if (b) { setView(b.dataset.pulseView); return; }
