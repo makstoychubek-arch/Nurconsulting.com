@@ -8,6 +8,7 @@ export interface McpData {
     stocks(cabId: string, article?: string): Promise<any[]>;
     orders(cabId: string, days: number): Promise<any[]>;
     finance(cabId: string, days: number): Promise<any[]>;
+    penalties(cabId: string, days: number): Promise<any[]>;
 }
 
 export const TOOLS = [
@@ -23,6 +24,10 @@ export const TOOLS = [
     {
         name: 'get_finance', description: 'Финансы по дням: продажи, к перечислению, логистика, хранение, штрафы, итого к оплате.',
         inputSchema: { type: 'object', properties: { cabinet: { type: 'string' }, days: { type: 'number', description: 'От 1 до 31, по умолчанию 7' } }, required: ['cabinet'] },
+    },
+    {
+        name: 'get_penalties', description: 'Штрафы и удержания с причиной: дата, сумма, основание (например, недовоз по поставке или невыполненный заказ), артикул и номер поставки.',
+        inputSchema: { type: 'object', properties: { cabinet: { type: 'string' }, days: { type: 'number', description: 'От 1 до 31, по умолчанию 30' } }, required: ['cabinet'] },
     },
 ];
 
@@ -42,11 +47,12 @@ const clampDays = (v: unknown) => Math.min(31, Math.max(1, Math.round(Number(v) 
 export async function callTool(name: string, args: any, data: McpData) {
     const cabs = await data.cabinets();
     if (name === 'list_cabinets') return text(cabs.map((c) => c.name));
-    if (!['get_stocks', 'get_orders', 'get_finance'].includes(name)) return text('Неизвестный инструмент: ' + name, true);
+    if (!['get_stocks', 'get_orders', 'get_finance', 'get_penalties'].includes(name)) return text('Неизвестный инструмент: ' + name, true);
     const r = pick(cabs, args?.cabinet);
     if (!r.cab) return text(r.error!, true);
     if (name === 'get_stocks') return text(await data.stocks(r.cab.id, args?.article ? String(args.article) : undefined));
     if (name === 'get_orders') return text(await data.orders(r.cab.id, clampDays(args?.days)));
+    if (name === 'get_penalties') return text(await data.penalties(r.cab.id, Math.min(31, Math.max(1, Math.round(Number(args?.days) || 30)))));
     return text(await data.finance(r.cab.id, clampDays(args?.days)));
 }
 

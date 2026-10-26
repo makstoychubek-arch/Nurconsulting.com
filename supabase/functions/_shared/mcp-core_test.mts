@@ -8,6 +8,7 @@ const data: McpData = {
     stocks: async (c, a) => { calls.push(`stocks:${c}:${a ?? ''}`); return [{ name: 'Свитер', fbo: 3, fbs: 5 }]; },
     orders: async (c, d) => { calls.push(`orders:${c}:${d}`); return []; },
     finance: async (c, d) => { calls.push(`finance:${c}:${d}`); return []; },
+    penalties: async (c, d) => { calls.push(`penalties:${c}:${d}`); return []; },
 };
 
 const init = await handleRpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } }, data);
@@ -29,6 +30,9 @@ await call('get_orders', { cabinet: 'Baza', days: 99 });
 assert.equal(calls.at(-1), 'orders:c2:31', 'не больше 31 дня');
 await call('get_finance', { cabinet: 'Baza' });
 assert.equal(calls.at(-1), 'finance:c2:7', 'по умолчанию 7 дней');
+
+await call('get_penalties', { cabinet: 'Baza' });
+assert.equal(calls.at(-1), 'penalties:c2:30', 'штрафы по умолчанию за 30 дней');
 
 const foreign = await call('get_stocks', { cabinet: 'Чужой кабинет' });
 assert.equal(foreign.isError, true, 'чужой кабинет недоступен');

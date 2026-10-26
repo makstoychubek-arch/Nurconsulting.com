@@ -71,6 +71,15 @@ function dataFor(admin: any, userId: string): McpData {
             }
             return [...by.values()].sort((a, b) => a.date.localeCompare(b.date));
         },
+        penalties: async (cabId, days) => {
+            const since = sinceDate(days);
+            const rows = await pageAll((a, b) => admin.from('raw_finance_report').select('rr_dt, bonus_type_name, penalty, deduction, nm_id, sa_name').eq('cabinet_id', cabId).gte('rr_dt', since).or('penalty.neq.0,deduction.neq.0').range(a, b), 20000);
+            return rows.map((r: any) => ({
+                date: String(r.rr_dt).slice(0, 10), сумма: rub(Number(r.penalty || 0) + Number(r.deduction || 0)), тип: Number(r.penalty || 0) ? 'штраф' : 'удержание',
+                причина: r.bonus_type_name || null, артикул: r.sa_name || null, nm_id: r.nm_id || null,
+                поставка: (String(r.bonus_type_name || '').match(/поставка\s+(\d+)/i) || [])[1] || null,
+            })).sort((a: any, b: any) => a.date.localeCompare(b.date) || b.сумма - a.сумма);
+        },
         finance: async (cabId, days) => {
             const since = sinceDate(days);
             const rows = await pageAll((a, b) => admin.from('raw_finance_report').select('rr_dt, supplier_oper_name, retail_amount, ppvz_for_pay, delivery_rub, penalty, storage_fee, deduction, acceptance').eq('cabinet_id', cabId).gte('rr_dt', since).range(a, b), 60000);
