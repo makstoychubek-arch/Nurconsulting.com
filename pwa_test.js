@@ -67,3 +67,7 @@ assert.ok(vercel.includes('"/dashboard"') && vercel.includes('"/sw.js"'),
     'Vercel must rewrite /dashboard and disable SW caching');
 
 console.log('pwa_test: ok');
+
+// Фото карточек WB хранятся у нас (WB кэширует их на сутки): сразу из кэша, свежая копия в фоне.
+assert.ok(sw.includes("const PHOTOS = 'nr-photos-v1'") && sw.includes('async function photoSwr(') && sw.includes("mode: 'cors'"), 'фото WB кэшируются сервис-воркером');
+assert.ok(sw.includes('k !== CACHE && k !== PHOTOS'), 'кэш фото не стирается при обновлении воркера');
