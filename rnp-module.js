@@ -503,6 +503,7 @@ const RNP = (() => {
     function _clearCabinetState() {
         _dataCache = {};
         _cabTotals = {};
+        _ghHealth = null; _ghLogi = null; _ghPayouts = null; _ghBalance = null; _ghKey = ''; _cabTotalsKey = '';
         _stockCache = {};
         _stockSchemeView = 'all';
         _metricsCache = new Map();
@@ -3364,6 +3365,23 @@ const RNP = (() => {
         return { from: dates[0], to: dates[dates.length - 1], days: dates.length, dates };
     }
 
+    // Шапка и итоги «Общего» запоминаются на устройстве по кабинету: после обновления страницы и при смене кабинета
+    // сразу видны последние верные цифры именно этого кабинета, свежие подставляются без перерисовки с нуля.
+    const GH_CACHE_KEY = (cab) => 'nr_rnp_gh_v1_' + cab;
+    function _ghCacheSave() {
+        if (!_cab) return;
+        try { localStorage.setItem(GH_CACHE_KEY(_cab), JSON.stringify({ h: _ghHealth, l: _ghLogi, p: _ghPayouts, b: _ghBalance, t: _cabTotals, at: Date.now() })); } catch (e) { /* нет места: просто без кэша */ }
+    }
+    function _ghHydrate() {
+        if (!_cab || _ghHealth || _ghBalance || _ghPayouts || Object.keys(_cabTotals).length) return;
+        try {
+            const c = JSON.parse(localStorage.getItem(GH_CACHE_KEY(_cab)) || 'null');
+            if (!c) return;
+            _ghHealth = c.h || null; _ghLogi = c.l || null; _ghPayouts = c.p || null; _ghBalance = c.b || null;
+            if (c.t && typeof c.t === 'object') _cabTotals = c.t;
+        } catch (e) { /* битый кэш игнорируем */ }
+    }
+
     async function _loadGeneralHead(cal) {
         if (!_db || !_cab) return;
         const per = _ghPeriod(cal);
@@ -3383,11 +3401,14 @@ const RNP = (() => {
         _ghPayouts = p?.error ? null : (p?.data || []);
         _ghBalance = b?.error ? null : ((b?.data || [])[0] || null);
         [h, l, p, b].forEach(r => { if (r?.error) console.warn('[RNP] шапка «Общего»:', r.error.message || r.error); });
+        _ghCacheSave();
     }
 
     // Набор включённых изменился (выключили артикул или группу) — пересчитать итоги и шапку.
     function _ensureGeneralFresh(cal) {
-        if (_ghLoading || !_db || !_cab) return;
+        if (!_cab) return;
+        _ghHydrate();
+        if (_ghLoading || !_db) return;
         const key = _generalKey(cal);
         if (key === _ghKey && key === _cabTotalsKey) return;
         _ghLoading = (async () => {
@@ -6335,9 +6356,9 @@ const RNP = (() => {
     }
 
     async function _loadCabinetTotals(cal) {
-        _cabTotals = {};
         _cabTotalsKey = _generalKey(cal);
         if (!_db || !_cab) return;
+        const cab0 = _cab, fresh = {};
         const allDates = _calAllDates(cal);
         if (!allDates.length) return;
         try {
@@ -6346,7 +6367,7 @@ const RNP = (() => {
                 p_nm_ids: _rnpVisibleArticles().map(a => Number(a.nm_id)),
             });
             if (error) throw error;
-            (data || []).forEach(r => { _cabTotals[String(r.d).split('T')[0]] = r; });
+            (data || []).forEach(r => { fresh[String(r.d).split('T')[0]] = r; });
         } catch (e) {
             console.warn('[RNP] rnp_cabinet_totals:', e.message || e);
         }
@@ -6359,11 +6380,12 @@ const RNP = (() => {
             if (spErr) throw spErr;
             (sp || []).forEach(r => {
                 const k = String(r.d).split('T')[0];
-                if (_cabTotals[k]) Object.assign(_cabTotals[k], r, { d: _cabTotals[k].d });
+                if (fresh[k]) Object.assign(fresh[k], r, { d: fresh[k].d });
             });
         } catch (e) {
             console.warn('[RNP] rnp_cabinet_fin_split:', e.message || e);
         }
+        if (cab0 === _cab && (Object.keys(fresh).length || !Object.keys(_cabTotals).length)) _cabTotals = fresh;
     }
 
     function _cabinetAggWeek(active, dates) {
