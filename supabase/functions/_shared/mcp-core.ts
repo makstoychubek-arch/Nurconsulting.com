@@ -3,7 +3,15 @@
 // deno-lint-ignore-file no-explicit-any
 
 export interface McpCab { id: string; name: string }
+export interface McpWrite {
+    allowed(): Promise<boolean>;
+    cabinets(): Promise<McpCab[]>;
+    propose(cabId: string, changes: any[]): Promise<any>;
+    apply(changeId: string): Promise<any>;
+    cancel(changeId: string): Promise<any>;
+}
 export interface McpData {
+    write?: McpWrite;
     cabinets(): Promise<McpCab[]>;
     stocks(cabId: string, article?: string): Promise<any[]>;
     orders(cabId: string, days: number): Promise<any[]>;
@@ -29,6 +37,21 @@ export const TOOLS = [
         name: 'get_penalties', description: 'Штрафы и удержания с причиной: дата, сумма, основание (например, недовоз по поставке или невыполненный заказ), артикул и номер поставки.',
         inputSchema: { type: 'object', properties: { cabinet: { type: 'string' }, days: { type: 'number', description: 'От 1 до 31, по умолчанию 30' } }, required: ['cabinet'] },
     },
+    {
+        name: 'propose_price_change', description: 'ШАГ 1 из 2. Предложить новую цену или скидку (до 30 артикулов, цена со скидкой не больше чем на 25%). Ничего не меняет: возвращает «было → станет» и номер. Покажите это человеку и применяйте только после его явного «да».',
+        inputSchema: { type: 'object', properties: { cabinet: { type: 'string' }, changes: { type: 'array', items: { type: 'object', properties: { article: { type: 'string', description: 'Артикул продавца' }, nm_id: { type: 'number' }, price: { type: 'number', description: 'Цена до скидки' }, discount: { type: 'number', description: 'Скидка продавца, %' } } } } }, required: ['cabinet', 'changes'] },
+        annotations: { readOnlyHint: true },
+    },
+    {
+        name: 'apply_change', description: 'ШАГ 2 из 2. Применить ранее предложенное изменение по его номеру. Менять можно только после явного согласия человека. Действует 15 минут.',
+        inputSchema: { type: 'object', properties: { change_id: { type: 'string' } }, required: ['change_id'] },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+    },
+    {
+        name: 'cancel_change', description: 'Отменить предложенное, но ещё не применённое изменение.',
+        inputSchema: { type: 'object', properties: { change_id: { type: 'string' } }, required: ['change_id'] },
+        annotations: { readOnlyHint: false },
+    },
 ];
 
 function pick(cabs: McpCab[], q: unknown): { cab?: McpCab; error?: string } {
@@ -47,6 +70,15 @@ const clampDays = (v: unknown) => Math.min(31, Math.max(1, Math.round(Number(v) 
 export async function callTool(name: string, args: any, data: McpData) {
     const cabs = await data.cabinets();
     if (name === 'list_cabinets') return text(cabs.map((c) => c.name));
+    if (['propose_price_change', 'apply_change', 'cancel_change'].includes(name)) {
+        const w = data.write;
+        if (!w || !(await w.allowed())) return text('Изменения выключены. Включите «Разрешить ИИ менять цены» в «Настройки → Интеграции» на сайте.', true);
+        if (name === 'apply_change') return text(await w.apply(String(args?.change_id ?? '')));
+        if (name === 'cancel_change') return text(await w.cancel(String(args?.change_id ?? '')));
+        const wc = pick(await w.cabinets(), args?.cabinet);
+        if (!wc.cab) return text(wc.error!, true);
+        return text(await w.propose(wc.cab.id, Array.isArray(args?.changes) ? args.changes : []));
+    }
     if (!['get_stocks', 'get_orders', 'get_finance', 'get_penalties'].includes(name)) return text('Неизвестный инструмент: ' + name, true);
     const r = pick(cabs, args?.cabinet);
     if (!r.cab) return text(r.error!, true);

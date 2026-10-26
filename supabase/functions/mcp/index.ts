@@ -7,7 +7,10 @@
 // deno-lint-ignore-file no-explicit-any
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { handleRpc, type McpData } from '../_shared/mcp-core.ts';
+import { handleRpc, type McpData, type McpWrite } from '../_shared/mcp-core.ts';
+import { planPriceChanges, summarize, WRITE_LIMITS, type PriceCard } from '../_shared/mcp-write.ts';
+import { PRICES_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
+import { sanitizeWbToken } from '../_shared/wb-cabinet-tokens.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -35,8 +38,66 @@ async function pageAll(build: (from: number, to: number) => any, max = 40000): P
 const sinceDate = (days: number) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 const rub = (n: number) => Math.round(n);
 
-function dataFor(admin: any, userId: string): McpData {
+function writeFor(admin: any, userId: string, canWrite: boolean): McpWrite {
+    const tokenOf = async (cabId: string) => {
+        const { data } = await admin.from('cabinets').select('wb_token').eq('id', cabId).maybeSingle();
+        return sanitizeWbToken(data?.wb_token);
+    };
+    const mine = async () => ((await admin.rpc('mcp_writable_cabinets', { p_user: userId })).data || []).map((c: any) => ({ id: c.id, name: c.name }));
     return {
+        allowed: async () => canWrite,
+        cabinets: mine,
+        propose: async (cabId, changes) => {
+            if (!(await mine()).some((c: any) => c.id === cabId)) return { error: 'В этом кабинете вы не владелец.' };
+            const token = await tokenOf(cabId);
+            if (!token) return { error: 'К кабинету не подключён токен WB.' };
+            const cards: PriceCard[] = [];
+            for (let off = 0; off < 3000; off += 1000) {
+                const r = await wbSend(`${PRICES_API}/api/v2/list/goods/filter?limit=1000&offset=${off}`, token);
+                if (!r.ok) return { error: 'WB не отдал цены: ' + wbError(r) };
+                const list = ((r.data as any)?.data?.listGoods || []) as any[];
+                for (const g of list) { const sz = (g.sizes || [])[0] || {}; cards.push({ nmID: Number(g.nmID), vendorCode: String(g.vendorCode || ''), price: Number(sz.price ?? 0), discount: Number(g.discount ?? 0) }); }
+                if (list.length < 1000) break;
+            }
+            const { items, errors } = planPriceChanges(cards, changes);
+            if (!items.length) return { изменений: 0, замечания: errors };
+            await admin.from('mcp_changes').update({ status: 'expired' }).eq('user_id', userId).eq('status', 'pending');
+            const summary = summarize(items);
+            const { data: row, error } = await admin.from('mcp_changes').insert({ user_id: userId, cabinet_id: cabId, kind: 'prices', items, summary }).select('id').single();
+            if (error) return { error: 'Не удалось подготовить изменение.' };
+            return { change_id: row.id, действует_минут: WRITE_LIMITS.ttlMin, будет_изменено: summary, замечания: errors, дальше: 'Покажите это человеку. Если он согласен, вызовите apply_change с этим change_id.' };
+        },
+        apply: async (changeId) => {
+            const { data: ch } = await admin.from('mcp_changes').select('*').eq('id', changeId).eq('user_id', userId).maybeSingle();
+            if (!ch) return { error: 'Изменение не найдено.' };
+            if (ch.status === 'applied') return { уже_применено: true, upload_id: ch.upload_id };
+            if (ch.status !== 'pending') return { error: 'Это изменение уже нельзя применить (' + ch.status + '). Подготовьте новое.' };
+            if (Date.now() - new Date(ch.created_at).getTime() > WRITE_LIMITS.ttlMin * 60000) { await admin.from('mcp_changes').update({ status: 'expired' }).eq('id', ch.id); return { error: 'Прошло больше ' + WRITE_LIMITS.ttlMin + ' минут. Подготовьте изменение заново.' }; }
+            if (!(await mine()).some((c: any) => c.id === ch.cabinet_id)) return { error: 'В этом кабинете вы не владелец.' };
+            const since = new Date(Date.now() - 3600000).toISOString();
+            const { count } = await admin.from('mcp_changes').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'applied').gte('applied_at', since);
+            if ((count || 0) >= WRITE_LIMITS.maxPerHour) return { error: 'Слишком много изменений за час. Подождите немного.' };
+            const token = await tokenOf(ch.cabinet_id);
+            const items = (ch.items || []) as any[];
+            const r = await wbSend(`${PRICES_API}/api/v2/upload/task`, token, 'POST', { data: items.map((i) => ({ nmID: i.nmID, price: i.will.price, discount: i.will.discount })) });
+            if (!r.ok) { await admin.from('mcp_changes').update({ status: 'failed', error: wbError(r) }).eq('id', ch.id); return { error: 'WB не принял изменение: ' + wbError(r) }; }
+            const up = ((r.data as any)?.data || {}) as any;
+            await admin.from('mcp_changes').update({ status: 'applied', applied_at: new Date().toISOString(), upload_id: up.id ?? null }).eq('id', ch.id);
+            try {
+                await admin.from('price_changes').insert(items.map((i) => ({ cabinet_id: ch.cabinet_id, nm_id: i.nmID, user_id: userId, old_price: i.was.price, old_discount: i.was.discount, new_price: i.will.price, new_discount: i.will.discount, upload_id: up.id ?? null })));
+            } catch (_) { /* журнал цен необязателен */ }
+            return { применено: items.length, upload_id: up.id ?? null, примечание: 'WB применяет цены в течение нескольких минут.' };
+        },
+        cancel: async (changeId) => {
+            await admin.from('mcp_changes').update({ status: 'cancelled' }).eq('id', changeId).eq('user_id', userId).eq('status', 'pending');
+            return { отменено: true };
+        },
+    };
+}
+
+function dataFor(admin: any, userId: string, canWrite = false): McpData {
+    return {
+        write: writeFor(admin, userId, canWrite),
         cabinets: async () => {
             const { data } = await admin.rpc('mcp_user_cabinets', { p_user: userId });
             return (data || []).map((c: any) => ({ id: c.id, name: c.name }));
@@ -111,12 +172,21 @@ Deno.serve(async (req) => {
     const key = new URL(req.url).pathname.split('/').filter(Boolean).pop() || '';
     if (!/^nrk_[0-9a-f]{64}$/.test(key)) return json({ error: 'Нужен личный ключ из «Настройки → Интеграции».' }, 401);
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-    const { data: userId } = await admin.rpc('mcp_resolve', { p_hash: await sha256Hex(key) });
+    const hash = await sha256Hex(key);
+    let userId: string | null = null, canWrite = false;
+    const full = await admin.rpc('mcp_resolve_key', { p_hash: hash });
+    if (!full.error) {
+        const row = Array.isArray(full.data) ? full.data[0] : full.data;
+        if (row) { userId = row.user_id; canWrite = row.can_write === true; }
+    } else {
+        // Миграция записи ещё не применена: ключ работает только на чтение.
+        userId = (await admin.rpc('mcp_resolve', { p_hash: hash })).data || null;
+    }
     if (!userId) return json({ error: 'Ключ не найден или отозван.' }, 401);
     if (req.method !== 'POST') return json({ error: 'Только POST (MCP по HTTP).' }, 405);
     let body: any;
     try { body = await req.json(); } catch { return json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }, 400); }
-    const data = dataFor(admin, String(userId));
+    const data = dataFor(admin, String(userId), canWrite);
     if (Array.isArray(body)) {
         const out = (await Promise.all(body.map((m) => handleRpc(m, data)))).filter((x) => x !== null);
         return out.length ? json(out) : new Response(null, { status: 202, headers: CORS });
