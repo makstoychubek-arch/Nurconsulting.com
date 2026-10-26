@@ -3650,12 +3650,7 @@ const RNP = (() => {
             <div class="rnp-gh-big ${profit < 0 ? 'neg' : ''}">${_ghNum(profit)}</div>
             <div class="rnp-gh-sub">заказы ${_ghNum(sum('orders'))} · продажи ${_ghNum(sum('sales'))} · маржа ${_ghPct(margin)} · ДРР ${_ghPct(drr)}</div></div>
             <div class="rnp-gh-spark">${_ghSpark(M.daily, 96, 40, '#34d399')}</div></div>`;
-        const bal = _ghBalance;
-        const balance = `<div class="rnp-gh-hero rnp-gh-balance" onclick="RNP.ghOpen('balance')">
-            <div class="rnp-gh-lbl">Баланс WB ${_ghInfoIcon('balance', true)}<span class="rnp-gh-chip">весь кабинет</span></div>
-            <div class="rnp-gh-big">${bal ? _ghNum(bal.current) : '—'}</div>
-            <div class="rnp-gh-row"><span>${M.next ? `К выводу в понедельник ${_ghDate(M.next.pay_date)}` : 'К выводу в понедельник'}</span><b>${M.next ? _ghNum(M.next.amount) : '—'}</b></div>
-            ${M.open ? `<div class="rnp-gh-row is-small"><span>Выплата ${_ghDate(M.open.pay_date)}</span><b>${_ghNum(M.open.amount)}</b></div>` : ''}</div>`;
+        // Баланс WB и «К выводу» теперь на дашборде (nr-dash-blocks.js), здесь их нет.
         const H = M.health;
         const health = H ? `<div class="rnp-gh-hero rnp-gh-health" onclick="RNP.ghOpen('health')">
             <div class="rnp-gh-lbl">Состояние кабинета ${_ghInfoIcon('health', true)}<span class="rnp-gh-chip">все ${H.total} арт.</span></div>
@@ -3735,7 +3730,7 @@ const RNP = (() => {
         // У конкретной группы (Σ Общее) из всего «Общий» оставляем только остатки — компактно, на всю ширину.
         const groupBody = `<div class="rnp-gh-group-stock">${stockRunwayCard}</div>`;
         const generalBody = `<div class="rnp-gh-grid">
-            <div class="rnp-gh-col">${hero}${balance}${health}${stockCard}</div>
+            <div class="rnp-gh-col">${hero}${health}${stockCard}</div>
             <div class="rnp-gh-rings">${revCard}${logCard}${buyCard}${catCard}</div>
             <div class="rnp-gh-col">${topCard}${lossCard}</div>
           </div>`;
