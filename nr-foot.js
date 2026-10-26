@@ -66,6 +66,19 @@
         if (Math.abs(need - cur) > 2) f.style.marginTop = need + 'px';
     }
     function fit() { var host = doc.querySelector('.main-content'), f = doc.getElementById('nr-foot'); if (host && f) push(host, f); }
-    function init() { mount(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(fit, 700); root.addEventListener('resize', fit); }
+    // Переключение разделов меняет высоту страницы: пересчитываем сразу, до отрисовки, чтобы низ не мелькал под коротким содержимым.
+    function watch() {
+        var host = doc.querySelector('.main-content');
+        if (!host || !root.MutationObserver) return;
+        var busy = false;
+        new MutationObserver(function (list) {
+            if (busy) return;
+            var f = doc.getElementById('nr-foot');
+            if (list.every(function (m) { return f && (m.target === f || f.contains(m.target)); })) return;
+            busy = true;
+            try { fit(); } finally { busy = false; }
+        }).observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+    }
+    function init() { mount(); watch(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(fit, 700); root.addEventListener('resize', fit); }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
 })(typeof window !== 'undefined' ? window : this);
