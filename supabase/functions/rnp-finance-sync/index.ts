@@ -24,6 +24,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasAllCabinetsAccess } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { addPayoutRows, toWeekPayouts } from '../_shared/payout-history.ts';
 import {
     FINANCE_DASHBOARD_FIELDS,
     fetchSalesReportsDetailedPage,
@@ -83,6 +84,42 @@ Deno.serve(async (req) => {
         } catch (e) {
             return json({ error: (e as Error).message }, 502);
         }
+    }
+
+    // История выплат за прошлые периоды: только недельные суммы «к выводу» в payout_history, сырые строки не хранятся.
+    // Окно from..to: от понедельника до воскресенья, не больше 4 недель. Только по ключу службы (запускается вручную).
+    if (mode === 'history') {
+        if (!isServiceRole) return json({ error: 'Forbidden' }, 403);
+        const cid = String(body.cabinet_id || '');
+        const hFrom = normDate(body.from), hTo = normDate(body.to);
+        if (!cid || !hFrom || !hTo || daysBetween(hFrom, hTo) > 28) return json({ error: 'cabinet_id, from, to (до 4 недель) обязательны' }, 400);
+        const { data: hc } = await admin.from('cabinets').select('id, name, wb_token').eq('id', cid).maybeSingle();
+        const hToken = sanitizeWbToken(hc?.wb_token);
+        if (!hToken || hToken.length < 50) return json({ error: 'Нет токена WB' }, 400);
+        const acc = new Map<string, number>();
+        let rrd: string | number = 0, rows = 0;
+        for (let page = 0; page < FINANCE_MAX_PAGES; page++) {
+            let res = await fetchFinancePage(hToken, hFrom, hTo, rrd);
+            for (let attempt = 0; res.status === 429 && attempt < 2; attempt++) {
+                const retry = Number(res.retryAfter || 60);
+                if (!(retry > 0 && retry <= 75)) break;
+                await sleep((retry + 2) * 1000);
+                res = await fetchFinancePage(hToken, hFrom, hTo, rrd);
+            }
+            if (res.status === 429) return json({ ok: false, reason: 'rate_limit', retry: Number(res.retryAfter || 60) }, 200);
+            if (!res.rows.length) break;
+            const mapped = res.rows.map((r) => toRawFinanceRow(cid, r));
+            addPayoutRows(acc, mapped as any);
+            rows += mapped.length;
+            if (res.rows.length < FINANCE_PAGE || !res.nextRrdId || String(res.nextRrdId) === String(rrd)) break;
+            rrd = res.nextRrdId;
+        }
+        const weeks = toWeekPayouts(acc).filter((w) => w.week_start >= hFrom && w.week_end <= hTo);
+        if (weeks.length) {
+            const { error } = await admin.from('payout_history').upsert(weeks.map((w) => ({ cabinet_id: cid, ...w, source: 'wb', updated_at: new Date().toISOString() })), { onConflict: 'cabinet_id,week_start' });
+            if (error) return json({ error: 'payout_history: ' + error.message }, 500);
+        }
+        return json({ ok: true, mode, cabinet: hc?.name, from: hFrom, to: hTo, rows, weeks: weeks.length, ms: Date.now() - started });
     }
 
     const targetCabinetId = body.cabinet_id ? String(body.cabinet_id) : null;
