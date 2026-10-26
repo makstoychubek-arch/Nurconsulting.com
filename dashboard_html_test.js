@@ -2622,5 +2622,11 @@ assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' &
     assert.ok(rnp.includes("'nr_rnp_gh_v1_' + cab") && rnp.includes('function _ghHydrate()') && rnp.includes('_ghCacheSave();'), 'итоги «Общего» запоминаются по кабинету');
     assert.ok(!/async function _loadCabinetTotals[\s\S]{0,200}_cabTotals = \{\};/.test(rnp), 'итоги не стираются, пока грузятся новые');
 }
+{
+    // Дашборд: кэш по кабинету и периоду, экран рисуется из кэша сразу, свежие данные подставляются следом.
+    assert.ok(html.includes('const DASH_CACHE = (function ()') && html.includes("indexedDB.open('nr-dash', 1)"), 'кэш дашборда лежит на устройстве');
+    assert.ok(html.includes('async function loadFromDBPass(') && html.includes("const p = { mode: 'cache', hit, key };") && html.includes("_dashPass = { mode: 'live', key, bag: {} };"), 'сначала проход из кэша, потом свежие данные');
+    assert.ok(html.includes('if (!DASH_CACHE.hasSync(dashCacheKey(newCabinetId, getActiveDateRange())))'), 'при смене кабинета с кэшем цифры не гасятся прочерками');
+}
 console.log('dashboard_html_test: ok');
 

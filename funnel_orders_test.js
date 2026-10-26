@@ -113,7 +113,7 @@ console.log('funnel_orders_test: ok');
     const h = require('fs').readFileSync(require('path').join(__dirname, 'dashboard.html'), 'utf8');
     const ok = require('assert').ok;
     ok(h.includes('id="dash-pnl"') && h.includes('function renderPnl') && h.includes('renderPnl(metrics);'), 'P&L block: Реализация → Услуги → Налоги и затраты → Операционная прибыль');
-    ok(h.includes('async function loadCostOfGoodsMap') && h.includes('settings.costOfGoods = await loadCostOfGoodsMap'), 'dashboard profit uses cost of goods from article cards');
+    ok(h.includes('async function loadCostOfGoodsMap') && h.includes('await loadCostOfGoodsMap(snapshotCabinet)'), 'dashboard profit uses cost of goods from article cards');
 }
 
 // Нижний ряд как у Raskpro: Заказы, Продажи, Логистика, Реклама, Все услуги + «Динамика показателей»
