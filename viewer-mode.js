@@ -196,6 +196,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
 .nr-tgo-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .nr-tgo-h { margin: 14px 0 0; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; } .nr-tgo-h:first-child { margin-top: 0; }
 .nr-tgo-s { display: grid; gap: 10px; } #tab-tg-owner[data-mode="tg"] [data-sec="set"], #tab-tg-owner[data-mode="set"] [data-sec="tg"] { display: none; }
+.nr-mcp-w { display: flex; align-items: center; gap: 5px; font-size: 12px; white-space: nowrap; cursor: pointer; } .nr-acc-r { flex-wrap: wrap; }
 .nr-mcp-new { border: 1px dashed var(--border); border-radius: 12px; padding: 10px; margin-bottom: 8px; } .nr-mcp-c, #nr-set-mcp { font-size: 13px; }
 .nr-tgo-col { display: block; } .nr-tgo-out { margin-left: auto; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--text-primary); }
 .nr-tgo-card b { display: block; font-size: 14px; } .nr-tgo-card small { color: var(--text-muted); font-size: 12px; }
@@ -394,13 +395,18 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         if (!host) return;
         const fresh = mc.fresh ? '<div class="nr-mcp-new"><p><b>Ключ создан. Скопируйте адрес сейчас: позже он не покажется.</b></p><div class="nr-acc-add"><input readonly value="' + esc(mcpUrl(mc.fresh)) + '" onfocus="this.select()"><button type="button" class="nr-acc-ok" data-mcopy="1">Скопировать</button></div>' +
             '<p><b>Claude:</b> Настройки → Коннекторы → Добавить свой коннектор → вставить адрес.<br><b>ChatGPT:</b> Настройки → Приложения → режим разработчика → создать коннектор → вставить адрес, вход «без авторизации».</p></div>' : '';
-        const rows = mc.keys.map((k) => '<div class="nr-acc-r"><span>' + esc(k.label || 'Ключ') + '</span><em>' + (k.last_used_at ? 'использован ' + new Date(k.last_used_at).toLocaleDateString('ru-RU') : 'ещё не использован') + '</em><button type="button" data-mrev="' + esc(k.id) + '">Отозвать</button></div>').join('');
-        host.innerHTML = '<p>Подключите свой ИИ, чтобы он отвечал по данным ваших кабинетов: остатки, заказы, финансы. Только чтение, токены WB ИИ не видит.</p>' + fresh + rows +
+        const rows = mc.keys.map((k) => '<div class="nr-acc-r"><span>' + esc(k.label || 'Ключ') + '</span><em>' + (k.last_used_at ? 'использован ' + new Date(k.last_used_at).toLocaleDateString('ru-RU') : 'ещё не использован') + '</em>' + (k.can_write === undefined ? '' : '<label class="nr-mcp-w" title="ИИ сначала покажет «было → станет» и применит только после вашего согласия"><input type="checkbox" data-mwr="' + esc(k.id) + '"' + (k.can_write ? ' checked' : '') + '> менять цены</label>') + '<button type="button" data-mrev="' + esc(k.id) + '">Отозвать</button></div>').join('');
+        host.innerHTML = '<p>Подключите свой ИИ, чтобы он отвечал по данным ваших кабинетов: остатки, заказы, финансы. По умолчанию только чтение. Галочка «менять цены» разрешает ИИ предлагать новые цены: он покажет «было → станет» и применит только после вашего «да», не больше чем на 25% за раз. Токены WB ИИ не видит.</p>' + fresh + rows +
             '<div class="nr-acc-add"><input type="text" maxlength="40" placeholder="Название, например «Мой Claude»" id="nr-mcp-label"><button type="button" class="nr-acc-ok" data-mnew="1"' + (mc.busy ? ' disabled' : '') + '>' + (mc.busy ? 'Создаём…' : 'Создать ключ') + '</button></div><div class="nr-acc-err">' + esc(mc.err) + '</div>';
     }
     function mcpLoad(host) {
         css(); mcpPaint(host);
-        supabase.from('mcp_keys').select('id,label,created_at,last_used_at').is('revoked_at', null).order('created_at').then((r) => { if (r && !r.error) { mc.keys = r.data || []; mcpPaint(host); } });
+        const keysQ = (cols) => supabase.from('mcp_keys').select(cols).is('revoked_at', null).order('created_at');
+        keysQ('id,label,created_at,last_used_at,can_write').then((r) => {
+            if (r && !r.error) { mc.keys = r.data || []; mcpPaint(host); return; }
+            // Запись ещё не включена на сервере: показываем ключи без галочки.
+            keysQ('id,label,created_at,last_used_at').then((r2) => { if (r2 && !r2.error) { mc.keys = r2.data || []; mcpPaint(host); } });
+        });
         if (host.__mcp) return;
         host.__mcp = true;
         host.addEventListener('click', (e) => {
@@ -415,6 +421,12 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
                     if (r.error) mc.err = String(r.error.message || '').includes('limit') ? 'Уже 5 ключей: отзовите ненужный.' : 'Не получилось создать ключ. Повторите.';
                     else { mc.fresh = r.data; mcpLoad(host); return; }
                     mcpPaint(host);
+                });
+            } else if (t.closest('[data-mwr]')) {
+                const box = t.closest('[data-mwr]'), id = box.getAttribute('data-mwr'), on = !!box.checked;
+                const k = mc.keys.find((x) => x.id === id); if (k) k.can_write = on;
+                supabase.rpc('mcp_key_set_write', { p_id: id, p_on: on }).then((r) => {
+                    if (r && r.error) { if (k) k.can_write = !on; mc.err = 'Не получилось сохранить. Попробуйте ещё раз.'; mcpPaint(host); }
                 });
             } else if (t.closest('[data-mrev]')) {
                 const id = t.closest('[data-mrev]').getAttribute('data-mrev');
