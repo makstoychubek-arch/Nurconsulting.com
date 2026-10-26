@@ -23,20 +23,21 @@
         return 'other';
     }
     function transit(rows) {
-        var out = { total: 0, parts: 0, routes: { bishkek: [], china: [], moscow: [], other: [] } };
+        var out = { total: 0, parts: 0, refs: [], routes: { bishkek: [], china: [], moscow: [], other: [] } };
         (rows || []).forEach(function (r) {
             if (String(r.status || '').toLowerCase() !== 'в пути') return;
             var q = Number(r.qty) || 0;
             out.total += q; out.parts++;
+            (String(r.batch || '') + ' ' + String(r.note || '')).replace(/\d{6,}/g, function (m) { if (out.refs.indexOf(m) < 0) out.refs.push(m); });
             out.routes[routeOf(r.origin)].push({ article: r.article || r.product || '', qty: q, sent: r.sent_date || '', eta: r.eta_date || '', cargo: r.cargo || '' });
         });
         return out;
     }
     // Поставки WB на склады (FBW), которые ещё не приняты: едут или ждут приёмки. По складам назначения.
-    function wbSupplies(items) {
+    function wbSupplies(items, skip) {
         var out = { total: 0, n: 0, byWh: {}, list: [] };
         (items || []).forEach(function (x) {
-            if (!x || x.done) return;
+            if (!x || x.done || (skip && skip.indexOf(String(x.id)) >= 0)) return;
             var q = Number(x.itemsCount) || 0, wh = String(x.warehouse || 'склад не указан');
             out.total += q; out.n++;
             (out.byWh[wh] = out.byWh[wh] || { qty: 0, n: 0 });
@@ -94,7 +95,7 @@
     function loadSupplies(c) {
         var items = null;
         try { var snap = JSON.parse(localStorage.getItem('nr_supplies_list_' + c) || 'null'); if (snap && snap.items) items = snap.items; } catch (e) { /* нет кэша */ }
-        if (items && S.data && c === cab()) { S.data.wb = wbSupplies(items); paint(); }
+        if (items && S.data && c === cab()) { S.data.wb = wbSupplies(items, S.data.transit && S.data.transit.refs); paint(); }
         var last = Number(S.supAt && S.supAt[c] || 0);
         if (Date.now() - last < 10 * 60 * 1000) return;
         (S.supAt = S.supAt || {})[c] = Date.now();
@@ -103,7 +104,7 @@
         Promise.resolve(call('fbw_supplies', { limit: 300, offset: 0 })).then(function (r) {
             if (!r || r.error || c !== cab() || !S.data || typeof root.mapFbwSupply !== 'function') return;
             var batch = Array.isArray(r) ? r : (r.supplies || r.data || []);
-            S.data.wb = wbSupplies(batch.map(root.mapFbwSupply));
+            S.data.wb = wbSupplies(batch.map(root.mapFbwSupply), S.data.transit && S.data.transit.refs);
             persist(); paint();
         }).catch(function () { /* WB не ответил: остаётся то, что было */ });
     }
@@ -116,7 +117,7 @@
             q(d.from('wb_balance_daily').select('date,current,for_withdraw').eq('cabinet_id', c).order('date', { ascending: false }).limit(1)),
             q(d.rpc('rnp_cabinet_payouts', { p_cabinet: c, p_weeks: 8 })),
             q(d.from('payout_history').select('pay_date,to_withdraw').eq('cabinet_id', c)),
-            q(d.from('goods_shipments').select('article,product,qty,status,origin,sent_date,eta_date,cargo').eq('cabinet_id', c).limit(1000)),
+            q(d.from('goods_shipments').select('article,product,qty,status,origin,sent_date,eta_date,cargo,batch,note').eq('cabinet_id', c).limit(1000)),
             q(d.from('production_orders').select('id,grp,nm_id,qty,status,due_date').eq('cabinet_id', c).limit(1000)),
             q(d.from('wb_stocks').select('quantity,stock_scheme').eq('cabinet_id', c).limit(5000)),
             q(d.from('ff_ledger').select('id,ff_name,kind,title,boxes,amount,entry_date').eq('cabinet_id', c).order('entry_date', { ascending: false }).limit(200))

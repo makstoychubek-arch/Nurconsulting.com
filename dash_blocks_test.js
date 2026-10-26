@@ -61,3 +61,9 @@ console.log('dash_blocks_test: ok');
         [{ status: 'в пути', origin: 'АМАН ФФ (FBS)', qty: 30 }, { status: 'в пути', origin: 'Бишкек', qty: 999 }, { status: 'принято', origin: 'АМАН ФФ (FBS)', qty: 5 }]);
     assert.deepStrictEqual([st.fbs, st.fbo, st.moved, st.total], [70, 50, 30, 120], 'партия FBS→FBO вычитается из ФБС');
 }
+{
+    const t = B.transit([{ status: 'в пути', qty: 5, origin: 'АМАН ФФ (FBS)', batch: '№14', note: 'поставка WB 41753556' }]);
+    assert.deepStrictEqual(J(t.refs), ['41753556']);
+    const w2 = B.wbSupplies([{ id: 41753556, itemsCount: 670, warehouse: 'Казань' }, { id: 1, itemsCount: 5, warehouse: 'Тула' }], t.refs);
+    assert.strictEqual(w2.total, 5, 'поставка, уже внесённая партией, не считается дважды');
+}
