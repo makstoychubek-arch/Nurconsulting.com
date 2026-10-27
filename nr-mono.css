@@ -215,3 +215,8 @@ html body header.glass .app-header-main > div:first-child { flex: 1; min-width: 
 .nr-notify--rail .nr-notify-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
 .nr-notify--rail .nr-notify-panel { position: fixed; left: calc((100vw - min(100vw, 1760px)) / 2 + 210px); bottom: 14px; top: auto; right: auto; }
 .nr-notify--rail .nr-notify-dot { right: 5px; top: 5px; }
+
+/* Шапка и основной блок в одной общей рамке: рамка начинается сверху, шапка лежит внутри неё */
+html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 10px !important; }
+html body .main-rail .main-content:not(#nr-x) { padding-top: 70px !important; }
+html body header.glass.app-header { background: var(--surface-solid) !important; border-radius: 18px 18px 0 0 !important; clip-path: inset(1px 1px 0 1px round 17px 17px 0 0); }
