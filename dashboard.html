@@ -13111,12 +13111,21 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (p && !p.classList.contains('hidden') && !p.contains(e.target)) p.classList.add('hidden');
     });
     function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    // Будущие даты в выборе периода закрыты везде, кроме РНП (там колонки плана на весь месяц).
+    function futureLocked() { return rangeTabKey() !== 'rnp'; }
     function fmtRuDate(d) { return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-    function changeYear(d) { pickerState.year += d; document.getElementById('year-label').textContent = pickerState.year; renderYearGrid(); }
+    function changeYear(d) { pickerState.year += d; if (futureLocked() && pickerState.year > new Date().getFullYear()) pickerState.year = new Date().getFullYear(); document.getElementById('year-label').textContent = pickerState.year; renderYearGrid(); }
     function changeMonth(d) {
         pickerState.month += d;
         if (pickerState.month < 0) { pickerState.month = 11; pickerState.year--; document.getElementById('year-label').textContent = pickerState.year; }
         if (pickerState.month > 11) { pickerState.month = 0; pickerState.year++; document.getElementById('year-label').textContent = pickerState.year; }
+        if (futureLocked()) {
+            const n = new Date();
+            if (pickerState.year > n.getFullYear() || (pickerState.year === n.getFullYear() && pickerState.month > n.getMonth())) {
+                pickerState.year = n.getFullYear(); pickerState.month = n.getMonth();
+                document.getElementById('year-label').textContent = pickerState.year;
+            }
+        }
         renderMonthGrid();
     }
     function renderYearGrid() {
@@ -13126,12 +13135,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             btn.textContent = RU_MONTHS_S[m];
             const isCur = (m === pickerState.month);
             btn.style.cssText = `background:${isCur?'var(--accent)':'none'};color:${isCur?'white':'var(--text-secondary)'};border:none;border-radius:6px;padding:4px 2px;font-size:10px;cursor:pointer`;
-            btn.onclick = () => { pickerState.month = m; renderYearGrid(); renderMonthGrid(); };
+            const nowD = new Date();
+            if (futureLocked() && (pickerState.year > nowD.getFullYear() || (pickerState.year === nowD.getFullYear() && m > nowD.getMonth()))) {
+                btn.disabled = true; btn.style.opacity = '.35'; btn.style.cursor = 'not-allowed'; btn.title = 'Будущие даты недоступны';
+            } else btn.onclick = () => { pickerState.month = m; renderYearGrid(); renderMonthGrid(); };
             g.appendChild(btn);
         }
     }
     function renderMonthGrid() {
         const lbl = document.getElementById('month-label'); if (lbl) lbl.textContent = RU_MONTHS_CAL[pickerState.month] + ' ' + pickerState.year;
+        ['picker-from', 'picker-to'].forEach((id) => { const inp = document.getElementById(id); if (inp) { if (futureLocked()) inp.max = todayIso(); else inp.removeAttribute('max'); } });
         const g = document.getElementById('month-grid'); if (!g) return; g.innerHTML = '';
         const first = new Date(pickerState.year, pickerState.month, 1);
         let dow = first.getDay(); if (dow === 0) dow = 7;
@@ -13146,11 +13159,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const btn = document.createElement('button'); btn.textContent = day;
             const date = new Date(pickerState.year, pickerState.month, day);
             const dw = date.getDay(); const isWE = dw === 0 || dw === 6;
+            const locked = futureLocked() && fmtDate(date) > todayIso();
             const isFrom = pickerState.fromDate && fmtDate(date) === fmtDate(pickerState.fromDate);
             const isTo = pickerState.toDate && fmtDate(date) === fmtDate(pickerState.toDate);
             const inRange = pickerState.fromDate && pickerState.toDate && date > pickerState.fromDate && date < pickerState.toDate;
             btn.style.cssText = `background:${(isFrom||isTo)?'var(--accent)':inRange?'var(--accent-soft)':'none'};color:${(isFrom||isTo)?'white':inRange?'var(--accent)':isWE?'var(--red)':'var(--text-primary)'};border:none;border-radius:50%;padding:0;font-size:11px;cursor:pointer;font-weight:${(isFrom||isTo)?'700':'400'};width:100%;aspect-ratio:1`;
+            if (locked) { btn.disabled = true; btn.title = 'Будущие даты недоступны'; btn.style.opacity = '.3'; btn.style.cursor = 'not-allowed'; }
             btn.onclick = () => {
+                if (locked) return;
                 if (pickerState.selecting === 'from' || !pickerState.fromDate) { pickerState.fromDate = date; pickerState.toDate = null; pickerState.selecting = 'to'; }
                 else { if (date < pickerState.fromDate) { pickerState.toDate = pickerState.fromDate; pickerState.fromDate = date; } else { pickerState.toDate = date; } pickerState.selecting = 'from'; }
                 const pf = document.getElementById('picker-from'); const pt = document.getElementById('picker-to');
@@ -13193,6 +13209,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function applyPicker() {
         if (!pickerState.fromDate) { showPremiumModal('warning','Выберите дату','Нужно указать хотя бы одну дату.'); return; }
         if (!pickerState.toDate) pickerState.toDate = pickerState.fromDate;
+        if (futureLocked()) {
+            // Ввод руками тоже не пускает в будущее: срезаем до сегодняшнего дня.
+            const t = new Date(); t.setHours(0, 0, 0, 0);
+            if (pickerState.toDate > t) pickerState.toDate = t;
+            if (pickerState.fromDate > t) pickerState.fromDate = t;
+        }
         activeDateFrom = fmtDate(pickerState.fromDate);
         activeDateTo = fmtDate(pickerState.toDate);
         saveActiveDateRange();
