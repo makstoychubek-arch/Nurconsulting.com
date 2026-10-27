@@ -1363,7 +1363,7 @@
 
     /* Ползунок из трёх положений: 0 — выключена, 1 — включена, A — автопилот ведёт ставки. */
     function toggleHtml(cab, camp) {
-        const pos = !camp.live ? 0 : (camp.auto ? 2 : 1);
+        const pos = !camp.live ? 0 : ((camp.auto || shelvesOn(cab.id, camp.wbId)) ? 2 : 1);
         const btn = (n, label, title) => '<button type="button" class="ads-sl-b' + (pos === n ? ' on' : '') + '" data-pos="' + n +
             '" aria-pressed="' + (pos === n ? 'true' : 'false') + '" title="' + title + '">' + label + '</button>';
         return '<div class="ads-sl p' + pos + '" role="group" aria-label="Режим кампании" data-cabinet="' + esc(cab.id) +
@@ -1378,6 +1378,9 @@
         return '<div class="ads-hq-main">' + (n > 1 ? n + ' арт.' : '') +
             (title ? (n > 1 ? ' · ' : '') + 'главный: ' + esc(title) : '') + '</div>';
     }
+
+    function shelvesOn(cabId, wbId) { return !!(root.AdvShelves && root.AdvShelves.has(cabId, wbId)); }
+    function shelvesSlot(cabId, wbId) { return root.AdvShelves ? root.AdvShelves.slotHtml(cabId, wbId) : ''; }
 
     function autoTagHtml(camp) {
         return camp.auto ? '<span class="ads-auto-tag" title="Ставками управляет автопилот">авто</span>' : '';
@@ -1407,7 +1410,7 @@
             campThumbHtml(camp.photoUrl, camp.nmId) +
             '<div class="ads-hq-camp-meta">' +
             '<button type="button" class="ads-hq-wb-name" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">' +
-            esc(camp.name) + '</button>' + autoTagHtml(camp) + usedMark(camp) + scheduleMark(cab.id, camp.wbId) +
+            esc(camp.name) + '</button>' + autoTagHtml(camp) + shelvesSlot(cab.id, camp.wbId) + usedMark(camp) + scheduleMark(cab.id, camp.wbId) +
             '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '<button type="button" class="adx-guard" data-gcab="' + esc(cab.id) + '" data-gcamp="' + esc(camp.wbId) + '"></button></div>' + mainLineHtml(camp) +
             statusPill(camp.status) +
             '</div>' + autopilotToggleHtml(cab, camp) + '</div>';
@@ -2005,7 +2008,23 @@
     function setCampPos(cabinetId, wbId, pos) {
         const obj = findCampaign(cabinetId, wbId);
         if (!obj) return;
-        const cur = !obj.live ? 0 : (obj.auto ? 2 : 1);
+        const AS = root.AdvShelves;
+        if (AS && pos === 2 && AS.needsAsk(cabinetId, obj)) {
+            // CPM-кампания: один раз спрашиваем, это «Полки» (чистим фразы) или обычный автопилот ставок.
+            AS.ask(cabinetId, obj).then((choice) => {
+                if (choice === 'shelves') { if (!obj.live) setCampPosCore(cabinetId, wbId, 1); else paintTree(); }
+                else if (choice === 'bids') setCampPosCore(cabinetId, wbId, 2);
+            });
+            return;
+        }
+        if (AS && pos !== 2 && AS.has(cabinetId, obj.wbId)) AS.setEnabled(cabinetId, obj.wbId, false);
+        setCampPosCore(cabinetId, wbId, pos);
+    }
+
+    function setCampPosCore(cabinetId, wbId, pos) {
+        const obj = findCampaign(cabinetId, wbId);
+        if (!obj) return;
+        const cur = !obj.live ? 0 : ((obj.auto || shelvesOn(cabinetId, wbId)) ? 2 : 1);
         if (cur === pos) return;
         const wasAuto = !!obj.auto;
         const wantAuto = pos === 2;
