@@ -185,7 +185,7 @@
         var totalTransit = T.total + W.total;
         set('transit', '<div class="l"><span>Товары в пути</span><em class="chip">' + fmt(totalTransit) + ' шт</em></div>' + (whRows || manual ? whRows + manual : '<div class="hint">Сейчас ничего не едет</div>') + '<button type="button" class="more" data-nrdb="transit">Что в каждой →</button>');
         var P = D.prod;
-        set('prod', '<div class="l"><span>Заказ на производство</span><em class="chip">' + P.models + ' мод.</em></div><div class="v">' + fmt(P.qty) + ' <small>шт</small></div>' +
+        set('prod', '<div class="l"><span>Производство</span><em class="chip">' + P.models + ' мод.</em></div><div class="v">' + fmt(P.qty) + ' <small>шт</small></div>' +
             (P.state ? '<div class="r"><span>Сейчас</span><b>' + P.state + '</b></div>' : '') + (P.due ? '<div class="r"><span>Срок</span><b>' + dm(P.due) + (P.due < today ? ' (просрочен)' : '') + '</b></div>' : '<div class="r"><span>Срок</span><b>не указан</b></div>'));
         var St = D.stock, fbo = St.total ? Math.round(St.fbo / St.total * 100) : 0;
         set('stock', '<div class="l"><span>Остатки всего</span><em class="chip">ФБО + ФБС</em></div><div class="v">' + fmt(St.total) + ' <small>шт</small></div>' +

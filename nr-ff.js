@@ -193,9 +193,9 @@
         var sum = hasDepAll() ? Math.abs(t.payableRub) : t.payableRub;
         el.setAttribute('data-ff', 'open'); el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
         el.innerHTML =
-            '<div class="pnl-title">Фулфилмент · ' + (hasDepAll() ? (t.payableRub >= 0 ? 'спишется с депозита' : 'вернётся на депозит') : 'выплатить') + '</div>' +
+            '<div class="pnl-title">Фулфилмент</div>' +
             '<div class="pnl-big ff-pay">' + fmt(sum) + ' ₽</div>' +
-            (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt(sum * S.rate) + ' сом</div>' : '') +
+            (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">К выплате · ≈ ' + fmt(sum * S.rate) + ' сом</div>' : '') +
             ((t.missing || t.boxMissing) ? '<div class="ff-warn">Нет цены у ' + fmt((t.missing || 0) + (t.boxMissing || 0)) + ' заказов или коробов: укажите в «Логистика → FBS»</div>' : '');
         if ($('ffm-ov')) paintFfModal();
     }

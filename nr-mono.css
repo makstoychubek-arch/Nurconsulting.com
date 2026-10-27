@@ -152,3 +152,56 @@ body { background: var(--bg); }
 .ffm-empty { color: var(--text-muted); font-size: 13px; padding: 24px 0; }
 @media (max-width: 760px) { .ffm-top, .ffm-row { grid-template-columns: minmax(0, 1fr); } }
 #tab-dashboard #ff-sum :is(.nrff-add, .nrff-due, .ff-chips) { display: none !important; }
+
+/* ===== Ж3: контурные карточки дашборда (утверждено владельцем) ===== */
+html body #tab-dashboard :is(#dash-pnl > .pnl-card, .pnl-mini-grid > .pnl-mini, .pnl-grid.ff-row > .pnl-card, .pnl-grid.ff-row > .nrdb) {
+  background: transparent !important; border: 1px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important;
+  position: relative; padding: 20px 22px !important; color: var(--text-primary) !important; overflow: hidden;
+}
+html body #tab-dashboard :is(#dash-pnl > .pnl-card, .pnl-mini-grid > .pnl-mini, .pnl-grid.ff-row > .pnl-card, .pnl-grid.ff-row > .nrdb)::after {
+  content: "\2197"; position: absolute; right: 18px; top: 16px; font-size: 15px; font-weight: 700; color: var(--text-primary);
+}
+/* названия: жирные, капсом, чёрные */
+html body #tab-dashboard :is(.pnl-title, .nrdb .l) {
+  font-size: 12.5px !important; font-weight: 800 !important; letter-spacing: .03em; text-transform: uppercase; color: var(--text-primary) !important; opacity: 1 !important; padding-right: 22px; margin-bottom: 8px;
+}
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-title, .pnl-lbl) { opacity: 1 !important; }
+/* цифры */
+html body #tab-dashboard #dash-pnl .pnl-big { font-size: 34px; font-weight: 900; letter-spacing: -.04em; line-height: 1.1; }
+html body #tab-dashboard :is(.pnl-mini-val, .pnl-grid.ff-row .pnl-big, .nrdb .v) { font-size: 24px !important; font-weight: 900 !important; letter-spacing: -.04em; line-height: 1.1; }
+html body #tab-dashboard #dash-pnl .pnl-big .pnl-chip { display: none !important; }
+/* динамика в таблетке */
+html body #tab-dashboard .pnl-mini-dyn { display: inline-block; border: 1px solid currentColor; border-radius: 99px; padding: 3px 10px; font-size: 11.5px; font-weight: 700; margin-top: 10px; }
+html body #tab-dashboard .pnl-mini-dyn:empty { display: none; }
+/* легенда: две строки, название слева, значение справа, тонкие линии */
+html body #tab-dashboard #dash-pnl .pnl-rows { display: block; margin-top: 10px; }
+html body #tab-dashboard #dash-pnl .pnl-row { display: flex; justify-content: space-between; width: 100%; padding: 5px 0; border-top: 1px solid var(--border); font-size: 12px; font-weight: 700; color: var(--text-primary); }
+html body #tab-dashboard #dash-pnl .pnl-row:first-child { border-top: 0; }
+html body #tab-dashboard #dash-pnl .pnl-row:nth-child(n+3) { display: none; }
+html body #tab-dashboard #dash-pnl .pnl-row .pnl-lbl { flex: 1; color: var(--text-primary); }
+html body #tab-dashboard #dash-pnl .pnl-dot { display: none; }
+html body #tab-dashboard #dash-pnl .pnl-row .pnl-chip { color: var(--text-primary); font-weight: 800; }
+html body #tab-dashboard #dash-pnl .pnl-row b { display: inline; font-weight: 800; }
+/* Реализация: больше не чёрная */
+html body #dash-pnl > .pnl-card:nth-child(1) { background: transparent !important; color: var(--text-primary) !important; border-color: var(--text-primary) !important; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: var(--text-primary) !important; }
+/* Услуги и Налоги: суммы строк скрыты, остаются доли */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(n+2) .pnl-row b { display: none; }
+html body #tab-dashboard #dash-pnl > .pnl-card--profit .pnl-row b { display: none; }
+/* Карточка «Все услуги» и ряд из четырёх */
+#tab-dashboard .pnl-mini-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* ===== Шапка без «плашки»: название и период в строке с контентом, без фона, тени и лисёнка ===== */
+header.glass.app-header { background: transparent !important; box-shadow: none !important; border: 0 !important; backdrop-filter: none !important; }
+[data-theme="ios"] header.glass, [data-theme="neon"] header.glass { background: transparent !important; box-shadow: none !important; }
+header.glass.app-header .nr-hdr-fox, header.glass.app-header .nr-fox-slot { display: none !important; }
+html body header.glass .header-title { font-size: 28px; font-weight: 900; letter-spacing: -.035em; }
+html body header.glass #header-date-chip-wrap { border: 1px solid var(--text-primary) !important; background: transparent !important; border-radius: 99px; font-weight: 700; }
+
+/* ===== Меню: иконки 1,5px ===== */
+.rail-btn-ico svg { stroke-width: 1.5 !important; }
+/* нижний ряд: значки-таблетки убраны из заголовков (данные уходят в мелкие строки), контур и у Фулфилмента */
+html body #tab-dashboard .pnl-grid.ff-row > #ff-sum { border: 1px solid var(--text-primary) !important; background: transparent !important; }
+html body #tab-dashboard .nrdb .l .chip, html body #tab-dashboard .nrdb .l em { display: none !important; }
+html body #tab-dashboard #ff-sum .ff-som { color: var(--text-muted); }
+html body #tab-dashboard #pnl-chart-card { border: 1px solid var(--text-primary) !important; border-radius: 26px !important; background: transparent !important; }
