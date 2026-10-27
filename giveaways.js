@@ -734,6 +734,20 @@
 
     // ───────── загрузка ─────────
 
+    function cacheKey(cab) { return 'nr_giveaways_v1_' + cab; }
+    function readCache(cab) {
+        try {
+            var d = JSON.parse(root.localStorage.getItem(cacheKey(cab)) || 'null');
+            return d && Array.isArray(d.slots) ? { slots: d.slots, articles: d.articles || [] } : null;
+        } catch (e) { return null; }
+    }
+    function writeCache(cab) {
+        try {
+            var raw = JSON.stringify({ slots: state.slots, articles: state.articles });
+            if (raw.length < 700000) root.localStorage.setItem(cacheKey(cab), raw);
+        } catch (e) { /* без кэша */ }
+    }
+
     async function load() {
         var all = [];
         for (var from = 0; ; from += 1000) {
@@ -761,12 +775,22 @@
         state.sb = opts.supabase; state.host = opts.host; state.cab = opts.cabinetId; state.active = true;
         bindOnce();
         if (changed || !state.loaded) {
-            state.host.innerHTML = '<div class="gv-wrap"><div class="gv-empty">Загрузка…</div></div>';
+            // Сразу показываем прошлые данные кабинета (или пустую таблицу), свежие подставятся следом без «Загрузка…».
             state.anchor = null; state.sel = null;
-            try { await load(); state.loaded = true; } catch (e) {
-                state.host.innerHTML = '<div class="gv-wrap"><div class="gv-empty">Не удалось загрузить раздачи: ' + esc(e && e.message) + '</div></div>';
+            var hit = readCache(opts.cabinetId);
+            if (hit) { state.slots = hit.slots; state.articles = hit.articles; state.size = Math.max(MIN_ROWS, state.slots.length + EXTRA_ROWS); }
+            else { state.slots = []; state.articles = []; state.size = MIN_ROWS; }
+            state.loaded = true;
+            paint();
+            var cab = opts.cabinetId;
+            var snap = JSON.stringify([state.slots, state.articles]);
+            try { await load(); writeCache(cab); } catch (e) {
+                if (!hit) state.loaded = false;
+                if (!hit) state.host.innerHTML = '<div class="gv-wrap"><div class="gv-empty">Не удалось загрузить раздачи: ' + esc(e && e.message) + '. Откройте раздел ещё раз.</div></div>';
                 return;
             }
+            if (state.cab !== cab || !state.active) return;
+            if (snap === JSON.stringify([state.slots, state.articles])) return; // данные те же, таблицу не перерисовываем
         }
         paint();
     }

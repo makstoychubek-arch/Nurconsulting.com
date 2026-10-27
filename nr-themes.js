@@ -47,7 +47,11 @@
         lsSet('nr_bg', opt.bg);
         var run = function () { (root.applyTheme || function () {})(opt.theme); syncBg(); };
         var reduce = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (!reduce && doc.startViewTransition) doc.startViewTransition(run); else run();
+        if (!reduce && doc.startViewTransition) {
+            var vt = doc.startViewTransition(run);
+            // Быстрые повторные нажатия отменяют прошлый переход: гасим отказ, чтобы он не попадал в журнал ошибок.
+            ['ready', 'finished', 'updateCallbackDone'].forEach(function (k) { if (vt && vt[k] && vt[k].catch) vt[k].catch(function () {}); });
+        } else run();
     }
 
     var pop = null, closedAt = 0;

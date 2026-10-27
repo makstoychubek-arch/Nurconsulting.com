@@ -33,7 +33,9 @@ const test = (name, fn) => tests.push({ name, fn });
 
 test('РК открывается одной волной запросов, а не четырьмя подряд', async ({ calls }) => {
     const at = (t) => calls.filter((c) => c.kind === 'read' && c.table === t).map((c) => c.at);
-    const times = ['adv_campaigns', 'wb_stocks', 'adv_start_schedule'].map((t) => Math.min(...at(t)));
+    // wb_stocks дашборд читает и сам при старте приложения; считаем только волну РК (от первого запроса adv_campaigns).
+    const wave = Math.min(...at('adv_campaigns')) - 50;
+    const times = ['adv_campaigns', 'wb_stocks', 'adv_start_schedule'].map((t) => Math.min(...at(t).filter((x) => x >= wave)));
     const spread = Math.max(...times) - Math.min(...times);
     assert.ok(spread < 120, 'таблицы РК запрошены с разницей ' + spread + ' мс (раньше около 330)');
 });
