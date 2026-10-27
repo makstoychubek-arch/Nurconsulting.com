@@ -335,3 +335,32 @@ html:has(.cabinet-picker.open) header.glass.app-header :is(.header-page-title, #
 html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
 html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-label { color: #000; }
 html body header.glass.app-header .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; }
+
+/* ===== «Минимализм»: приветствие нового клиента ===== */
+html body .nw-ov { background: rgba(0,0,0,.5); }
+html body .nw-modal { border: 1px solid var(--accent); border-radius: 28px; box-shadow: none; }
+html body .nw-r, html body .nw-r[class*="nw-p"] { background: var(--sel) !important; }
+html body .nw-logo span { color: var(--text-primary) !important; }
+html body .nw-h { font-weight: 900; }
+html body .nw-tag { letter-spacing: .12em; font-weight: 800; }
+html body .nw-card, html body .nw-mini, html body .nw-colR, html body .nw-kc, html body .nw-var {
+  background: var(--surface-solid) !important; border: 1px solid var(--accent) !important; border-radius: 22px !important; box-shadow: none !important; color: var(--text-primary);
+}
+html body .nw-card3, html body .nw-form .nw-card, html body .nw-s0 .nw-wide, html body .nw-var:nth-child(n) { background: var(--surface-solid) !important; }
+html body .nw-s0 .nw-dark, html body .nw-s0 > .nw-card:nth-child(2) { background: var(--accent) !important; color: var(--on-accent, #fff) !important; border-color: var(--accent) !important; }
+html body .nw-s0 .nw-dark .nw-k, html body .nw-s0 > .nw-card:nth-child(2) .nw-k { color: var(--on-accent, #fff); opacity: .75; }
+html body .nw-blue, html body .nw-green { background: var(--accent) !important; color: var(--on-accent, #fff) !important; border-color: var(--accent) !important; }
+html body .nw-rank em { background: transparent !important; border: 1px solid var(--accent); color: var(--text-primary) !important; border-radius: 6px; }
+html body .nw-rank u b { background: var(--accent) !important; }
+html body .nw-rnp .nw-ord td:not(:first-child):not(.nw-tt) { background: var(--sel); }
+html body .nw-hg { background: transparent !important; color: #16a34a; font-weight: 800; }
+html body .nw-hr { background: transparent !important; color: #dc2626 !important; font-weight: 800; }
+html body .nw-th.on { border-color: var(--accent); }
+html body .nw-img { filter: grayscale(1); }
+html body .nw-dots i.on { background: var(--accent); }
+html body .nw-d5 { grid-template-columns: repeat(4, 1fr); }
+html body .nw-pbar, html body .nw-bar i { background: var(--mono-4); }
+html body .nw-kc > b { font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 10px; }
+html body .nw-kv { font-weight: 900; }
+html body .nw-modal.nr-win { display: grid !important; }
+@media (max-width: 760px) { html body .nw-modal.nr-win { display: grid !important; grid-template-columns: 1fr !important; } }
