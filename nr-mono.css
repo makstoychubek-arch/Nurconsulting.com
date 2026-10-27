@@ -32,10 +32,15 @@
 .metric-card, .widget-card, .kpi-hero-card { border: 1px solid var(--border) !important; box-shadow: none !important; }
 .nav-beta-badge { background: var(--sel) !important; color: var(--text-muted) !important; }
 /* Цветные карточки превращаем в чёрные (в тёмной теме белые) */
-#nrdb-bal, .rnp-gh-balance, .rnp-gh-health { background: var(--accent) !important; color: var(--bg) !important; border: 0 !important; }
-#nrdb-bal *, .rnp-gh-balance *, .rnp-gh-health * { color: inherit !important; }
-#nrdb-bal :is(.l, .r span, small), .rnp-gh-balance :is(.rnp-gh-lbl, small), .rnp-gh-health :is(.rnp-gh-lbl, small) { opacity: .65; }
-[data-theme="neon"] #nrdb-bal, [data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #0A0A0B !important; }
+/* Чёрная карточка на экране одна. В РНП это «Состояние кабинета» и «Баланс», на дашборде «Реализация» */
+.rnp-gh-balance, .rnp-gh-health { background: var(--accent) !important; color: var(--bg) !important; border: 0 !important; }
+.rnp-gh-balance *, .rnp-gh-health * { color: inherit !important; }
+.rnp-gh-balance :is(.rnp-gh-lbl, small), .rnp-gh-health :is(.rnp-gh-lbl, small) { opacity: .65; }
+[data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #0A0A0B !important; }
+#nrdb-bal { background: var(--surface) !important; color: var(--text-primary) !important; border: 1px solid var(--border) !important; }
+#nrdb-bal :is(.l, .r span, .v small, .hint) { color: var(--text-muted) !important; }
+#nrdb-bal .chip { background: var(--sel) !important; color: var(--text-primary) !important; }
+#nrdb-bal .r.hi b { color: var(--text-primary) !important; }
 .rnp-gh-loss { background: var(--surface) !important; border: 1px solid var(--border) !important; }
 .rnp-gh-loss-h { color: var(--text-muted) !important; }
 :root[data-theme="dark"] .rnp-gh-loss, [data-theme="neon"] .rnp-gh-loss { background: var(--surface) !important; }
@@ -53,3 +58,33 @@
 .pnl-mini-dyn.up, .metric-trend.up { color: var(--green); }
 /* Нижний ряд дашборда: карточки по высоте содержимого, без пустых полей */
 #tab-dashboard .pnl-grid.ff-row { align-items: start !important; }
+
+/* ===== «Минимализм»: дашборд ===== */
+#tab-dashboard .pnl-card, #tab-dashboard .pnl-mini { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: none; }
+#tab-dashboard .pnl-card { padding: 18px 20px; }
+#tab-dashboard .pnl-title { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+#tab-dashboard .pnl-big { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+#tab-dashboard .pnl-rows { gap: 0; margin-top: 6px; }
+#tab-dashboard .pnl-row { padding: 8px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+#tab-dashboard .pnl-row .pnl-lbl { color: var(--text-secondary); }
+#tab-dashboard .pnl-chip { background: transparent; padding: 0; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+#tab-dashboard .pnl-bar { height: 3px; margin: 12px 0 6px; }
+/* Порядок: Реализация, Операционная прибыль, Налоги, Услуги */
+#dash-pnl > .pnl-card:nth-child(1) { order: 1; }
+#dash-pnl > .pnl-card--profit { order: 2; }
+#dash-pnl > .pnl-card--tax { order: 3; }
+#dash-pnl > .pnl-card:nth-child(2) { order: 4; }
+/* Единственная чёрная карточка: Реализация */
+html body #dash-pnl > .pnl-card:nth-child(1) { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--bg) !important; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-title, .pnl-lbl) { color: inherit !important; opacity: .65; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: inherit !important; }
+#dash-pnl > .pnl-card:nth-child(1) .pnl-row { border-color: rgba(128,128,128,.35); }
+#dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: rgba(128,128,128,.35); }
+#dash-pnl > .pnl-card:nth-child(1) #pnl-real-bar { background: var(--green) !important; }
+/* Карточки показателей за день: слева, без графиков */
+#tab-dashboard .pnl-mini { padding: 16px 18px; text-align: left; }
+#tab-dashboard .pnl-mini .pnl-title { font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
+#tab-dashboard .pnl-mini-date, #tab-dashboard .pnl-mini svg { display: none; }
+#tab-dashboard .pnl-mini-val { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+#tab-dashboard .pnl-mini-dyn { font-size: 12px; font-weight: 700; margin-top: 4px; }
+#tab-dashboard .pnl-mini-grid > .pnl-mini { min-height: 0; }
