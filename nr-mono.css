@@ -455,3 +455,4 @@ html body .ggx-cv.o, html body .ggx-cv.b { background: transparent; border: 1px 
 html body .ggx-cv.r { background: transparent; border: 1px solid #dc2626; color: #dc2626; }
 html body .ggx-cv.g { background: transparent; border: 1px solid #16a34a; color: #16a34a; }
 html body .fbf, html body .fbs-card { box-shadow: none; border: 1px solid var(--accent); border-radius: 26px; }
+html body #beta-stub-pill.beta-pill { color: var(--text-muted); border-color: var(--border); }
