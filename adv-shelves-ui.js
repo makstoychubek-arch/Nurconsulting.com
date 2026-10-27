@@ -106,7 +106,7 @@
             if (r && r.enabled) {
                 var dry = isDry(r);
                 html = '<button type="button" class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '" data-shv-open="1"><i></i>Полки · чистка каждые ' + r.interval_min + ' мин' + (dry ? ' · пробный' : '') + '</button>' +
-                    '<span class="shv-sub">' + (dry ? 'Пробный режим, WB не трогаем' : 'Исключено ' + (r.excluded_total || 0) + ' фраз') + ' · проверка ' + ago(r.last_run_at) + '</span>';
+                    '<span class="shv-sub">' + (dry ? 'Пробный режим, WB не трогаем' : 'Исключено ' + (r.excluded_total || 0) + ' фраз') + ' · ' + (r.last_run_at ? 'проверка ' + ago(r.last_run_at) : 'ещё не проверяли') + '</span>';
             }
             if (el.getAttribute('data-h') !== html) { el.innerHTML = html; el.setAttribute('data-h', html); }
         }
@@ -201,6 +201,23 @@
         return true;
     }
     var tries = 0, t = setInterval(function () { if (hook() || ++tries > 120) clearInterval(t); }, 500);
+
+    // «Пульт» рисует строки сам, без событий AdsHQ: следим за списком и подгружаем метки по мере появления.
+    var watchT = 0;
+    function watch() {
+        var host = doc.getElementById('adv-view-ads') || doc.body;
+        new MutationObserver(function () {
+            if (watchT) return;
+            watchT = setTimeout(function () {
+                watchT = 0;
+                var ids = {}, els = doc.querySelectorAll('.shv-slot');
+                for (var i = 0; i < els.length; i++) ids[els[i].getAttribute('data-shv-cab')] = 1;
+                Object.keys(ids).forEach(load);
+                paintSlots();
+            }, 80);
+        }).observe(host, { childList: true, subtree: true });
+    }
+    if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', watch); else watch();
 
     var CSS = '.shv-slot{display:block;margin-top:4px}.shv-slot:empty{display:none}' +
         '.shv-pill{display:inline-flex;align-items:center;gap:6px;border:0;font:inherit;font-weight:800;font-size:11.5px;padding:3px 10px;border-radius:99px;background:var(--sel,#f1effc);color:var(--accent,#5b4be8);cursor:pointer}.shv-pill i{width:7px;height:7px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.25)}.shv-pill.err i{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.25)}' +
