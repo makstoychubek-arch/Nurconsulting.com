@@ -296,7 +296,6 @@ html body .cabinet-picker--rail .cabinet-picker-face { display: flex; justify-co
 html body .cabinet-picker--rail .cabinet-picker-label { font-size: 12.5px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html body .cabinet-picker--rail .cabinet-dropdown-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; }
 html body #tab-dashboard .dash-plan-card[data-tone="none"] .dash-plan-status b { color: var(--text-primary); font-size: 24px; }
-<<<<<<<< HEAD:dist/nr-mono.452e3492a0.css
 
 /* переключатель периода на графике */
 html body #pnl-chart-card { position: relative; }
@@ -304,5 +303,3 @@ html body .nr-chart-period { position: absolute; top: 14px; right: 22px; display
 html body .nr-chart-period button { border: 0; background: transparent; color: var(--text-muted); font: 700 11.5px/1 inherit; font-family: inherit; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
 html body .nr-chart-period button.on { background: var(--accent); color: var(--on-accent); }
 @media (max-width: 768px) { html body .nr-chart-period { position: static; margin: 6px 0 8px; width: max-content; } }
-========
->>>>>>>> origin/main:dist/nr-mono.c0dde26562.css
