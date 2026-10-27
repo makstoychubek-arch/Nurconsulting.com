@@ -456,3 +456,6 @@ html body .ggx-cv.r { background: transparent; border: 1px solid #dc2626; color:
 html body .ggx-cv.g { background: transparent; border: 1px solid #16a34a; color: #16a34a; }
 html body .fbf, html body .fbs-card { box-shadow: none; border: 1px solid var(--accent); border-radius: 26px; }
 html body #beta-stub-pill.beta-pill { color: var(--text-muted); border-color: var(--border); }
+/* Реализация: красный остаток (возвраты) только когда есть данные; пока пусто, полоса серая */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--mono-4) !important; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar:has(#pnl-real-bar:not([style*="width: 0px"]):not([style*="width:0;"])) { background: var(--red) !important; }
