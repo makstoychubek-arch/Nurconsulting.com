@@ -1,0 +1,20 @@
+// Кампании «Полки»: чистая логика (узнавание по названию, расписание, пробный режим, что исключать).
+const assert = require('assert');
+const fs = require('fs');
+const esbuild = require('esbuild');
+const ts = fs.readFileSync(__dirname + '/supabase/functions/_shared/adv-shelves.ts', 'utf8');
+const mod = { exports: {} };
+new Function('module', 'exports', esbuild.transformSync(ts, { loader: 'ts', format: 'cjs' }).code)(mod, mod.exports);
+const m = mod.exports;
+assert.strictEqual(m.isShelvesName('Оверсайз костюм ПОЛКИ'), true);
+assert.strictEqual(m.isShelvesName('Куртка Поиск'), false);
+const now = Date.parse('2026-10-27T10:00:00Z');
+assert.strictEqual(m.isDue(null, 10, now), true, 'первый запуск сразу');
+assert.strictEqual(m.isDue('2026-10-27T09:51:00Z', 10, now), false, '9 минут из 10 ещё рано');
+assert.strictEqual(m.isDue('2026-10-27T09:49:50Z', 10, now), true, '10 минут: пора (с допуском)');
+assert.strictEqual(m.isDryRun('2026-10-28T10:00:00Z', now), true);
+assert.strictEqual(m.isDryRun('2026-10-26T10:00:00Z', now), false);
+assert.strictEqual(m.isDryRun(null, now), false);
+const out = m.phrasesToExclude(['Куртка женская', 'костюм оверсайз', 'куртка женская', 'пиджак'], ['пиджак'], ['Костюм оверсайз'], ['уже минус']);
+assert.deepStrictEqual(Array.from(out), ['Куртка женская'], 'без дублей, минусов и защищённых фраз');
+console.log('adv_shelves_test: ok');
