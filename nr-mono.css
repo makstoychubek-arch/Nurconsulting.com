@@ -88,3 +88,9 @@ html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: 
 #tab-dashboard .pnl-mini-val { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
 #tab-dashboard .pnl-mini-dyn { font-size: 12px; font-weight: 700; margin-top: 4px; }
 #tab-dashboard .pnl-mini-grid > .pnl-mini { min-height: 0; }
+/* Нижний ряд дашборда: пять карточек одной высоты, длинное содержимое Фулфилмента прокручивается внутри */
+#tab-dashboard .pnl-grid.ff-row { grid-auto-rows: 190px; align-items: stretch !important; }
+#tab-dashboard .pnl-grid.ff-row > * { min-height: 0; height: 190px; overflow: hidden; box-sizing: border-box; }
+#tab-dashboard .pnl-grid.ff-row > #ff-sum { overflow-y: auto; scrollbar-width: thin; }
+html body #tab-dashboard .pnl-grid.ff-row > #ff-sum, html body #tab-dashboard .pnl-card.ff-logcard, html body #tab-dashboard .pnl-chart-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 18px !important; box-shadow: none !important; }
+html body #tab-dashboard .pnl-grid.ff-row > * { height: 190px !important; max-height: 190px !important; min-height: 0 !important; }
