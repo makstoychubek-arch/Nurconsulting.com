@@ -2745,13 +2745,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .pnl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
         .pnl-note { margin-top: 10px; font-size: 10px; color: var(--text-muted); }
         .pnl-mini-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-        .pnl-mini { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 14px 16px 10px; box-shadow: var(--card-shadow); min-width: 0; }
-        .pnl-mini .pnl-title { margin-bottom: 2px; font-size: 15px; color: var(--text-primary); }
-        .pnl-mini-date { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
-        .pnl-mini-val { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+        .pnl-mini { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 10px 14px 8px; box-shadow: var(--card-shadow); min-width: 0; text-align: center; }
+        .pnl-mini .pnl-title { margin-bottom: 0; font-size: 13px; color: var(--text-primary); }
+        .pnl-mini-date { font-size: 10.5px; color: var(--text-muted); margin-bottom: 2px; }
+        .pnl-mini-val { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
         .pnl-mini-dyn { font-size: 11px; margin-top: 2px; }
         .pnl-mini-dyn.up { color: #16a34a; } .pnl-mini-dyn.down { color: #ef4444; }
-        .pnl-mini svg { display: block; width: 100%; height: 44px; margin-top: 8px; }
+        .pnl-mini svg { display: block; width: 100%; height: 26px; margin-top: 4px; }
         .pnl-chart-card { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 16px 18px; box-shadow: var(--card-shadow); }
         .pnl-chart-card[hidden] { display: none; }
         /* Блоки дашборда стоят на месте с первого кадра: подгружаются только значения */
@@ -2761,7 +2761,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .pnl-big { min-height: 32px; }
         #pnl-serv-rows, #pnl-tax-rows { min-height: 92px; }
         .pnl-mini-spark { height: 52px; margin-top: 8px; }
-        .pnl-mini-grid > .pnl-mini { min-height: 152px; }
+        .pnl-mini-grid > .pnl-mini { min-height: 104px; }
         /* Заготовки графиков и строк: до прихода цифр показываем контуры, потом они просто перерисовываются */
         .pnl-ghost-line { display: inline-block; height: 10px; border-radius: 5px; background: var(--sel); animation: nrPulse 1.6s ease-in-out infinite; vertical-align: middle; }
         .pnl-ghost-end { margin-left: auto; }
@@ -4966,6 +4966,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition:all 0.15s; }
         .picker-quick-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-border); }
         .picker-date-input { width:100%; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-primary); }
+        .dash-wh-total { border-top: 1px solid var(--border); padding-top: 6px; font-weight: 800; }
         .dash-wh-legend { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow: auto; }
         .dash-wh-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; }
         .dash-wh-name { color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -6121,7 +6122,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.b1f5ba04f6.css">
-<link rel="stylesheet" href="/dist/rnp-extra.8e6a78c9d0.css">
+<link rel="stylesheet" href="/dist/rnp-extra.6196b37840.css">
 <link rel="stylesheet" href="/dist/ads-pulse.75db0d6b54.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -8438,7 +8439,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.fed20b8a96.min.js"></script>
 <script src="/dist/nr-ui.758e49d7ac.min.js"></script>
-<script src="/dist/nr-goods-ui.b039c04233.min.js"></script>
+<script src="/dist/nr-goods-ui.cab356fde1.min.js"></script>
 <script src="/dist/nr-tariffs.e6b3867cfd.min.js"></script>
 <script src="/dist/nr-dash-blocks.3e3be926f3.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
@@ -14656,7 +14657,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             else legend.innerHTML = '<div class="dash-wh-row" style="color:var(--text-muted)">Нет остатков в этой схеме</div>';
             return;
         }
-        const html = entries.map(w => {
+        let html = entries.map(w => {
             const badge = w.scheme === 'fbs' ? 'FBS' : 'FBO';
             const badgeColor = w.scheme === 'fbs' ? 'var(--blue)' : 'var(--accent)';
             return `<div class="dash-wh-row" data-key="${escapeHtml(w.warehouse_name)}">
@@ -14666,6 +14667,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <span class="dash-wh-qty">${fmt(w.qty)} шт.</span>
             </div>`;
         }).join('');
+        const sum = entries.reduce((a, w) => a + (Number(w.qty) || 0), 0);
+        html += `<div class="dash-wh-row dash-wh-total" data-key="__total"><span class="dash-wh-name">Всего на складах</span><span class="dash-wh-qty">${fmt(sum)} шт.</span></div>`;
         if (window.domMorph && legend.querySelector('.dash-wh-row')) window.domMorph.morphList(legend, html, 'data-key');
         else legend.innerHTML = html;
     }

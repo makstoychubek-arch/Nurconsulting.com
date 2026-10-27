@@ -1532,3 +1532,11 @@ html.rnp-xdrag, html.rnp-xdrag * { user-select: none !important; cursor: cell !i
 .gs-ship .gs-clp { font-size: 11px; width: 44px; }
 .gs-ship .gs-xls { cursor: pointer; border: 0; background: #1d6f42; color: #fff; border-radius: 4px; font-size: 10px; font-weight: 800; padding: 2px 5px; }
 .gs-ship .gs-warn { color: #b45309; font-weight: 700; }
+
+/* РНП, телефон: поля плана и ячейки дней без внутренних отступов и рамки, цифры по центру и целиком (до 5-6 знаков) */
+body .rnp-sheet-table td.rnp-cell-plan input.rnp-plan-input:not([type="checkbox"]) {
+  padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important;
+  font-size: 12px !important; letter-spacing: -0.02em !important; text-align: center !important; font-variant-numeric: tabular-nums;
+  width: 100% !important; min-width: 0 !important; box-sizing: border-box;
+}
+body .rnp-sheet-table td.rnp-day-col, body .rnp-sheet-table td.rnp-data-col { text-align: center; }
