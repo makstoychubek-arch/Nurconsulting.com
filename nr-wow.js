@@ -196,17 +196,11 @@
         }, { passive: true });
     }
 
+    // Переключение вкладок идёт сразу, без View Transitions: анимация откладывала экран на кадр, блокировала нажатия
+    // на время перехода, а при быстром переключении давала в журнал ошибку «Transition was skipped» (правило проекта: ответ сразу).
     function withView(fn) {
         if (typeof fn !== 'function') return;
-        if (reduced() || typeof document === 'undefined' || typeof document.startViewTransition !== 'function') {
-            fn();
-            return;
-        }
-        try {
-            document.startViewTransition(fn);
-        } catch (_) {
-            fn();
-        }
+        fn();
     }
 
     const NrWow = {
