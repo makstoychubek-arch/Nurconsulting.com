@@ -1,0 +1,47 @@
+/* Чёрно-белый стиль всего сайта: акцент это чёрный (в тёмной теме белый), цвет остаётся только у зелёного и красного в метриках. */
+:root, [data-theme="ios"] {
+    --bg: #F6F6F7; --surface: #FFFFFF; --surface-solid: #FFFFFF; --sidebar-bg: #FFFFFF;
+    --border: #ECECEF; --border-strong: #DCDCE0; --border-color: #ECECEF;
+    --text-secondary: #3F3F46; --text-muted: #8B8B92;
+    --accent: #0B0B0C; --accent-hover: #000000; --accent-soft: #F0F0F2; --accent-border: #DCDCE0;
+    --accent-gradient: #0B0B0C; --blue: #0B0B0C; --purple: #0B0B0C; --purple-soft: #F0F0F2;
+    --amber: #71717A; --amber-soft: #F0F0F2; --sel: #EFEFF1;
+    --card-shadow: none; --card-shadow-lg: none; --radius-card: 18px;
+    --bg-primary: #F6F6F7; --bg-secondary: #EFEFF1; --bg-card: #FFFFFF;
+}
+[data-theme="neon"] {
+    --bg: #0A0A0B; --surface: #141416; --surface-solid: #141416; --sidebar-bg: #0A0A0B;
+    --border: #222226; --border-strong: #2E2E33; --border-color: #222226;
+    --text-secondary: #B4B4BB; --text-muted: #7C7C84;
+    --accent: #F5F5F6; --accent-hover: #FFFFFF; --accent-soft: rgba(255,255,255,.07); --accent-border: rgba(255,255,255,.16);
+    --accent-gradient: #F5F5F6; --blue: #F5F5F6; --purple: #F5F5F6; --purple-soft: rgba(255,255,255,.07);
+    --amber: #8E8E93; --amber-soft: rgba(255,255,255,.07); --sel: #1E1E22;
+    --green: #4ADE80; --red: #F87171; --green-soft: rgba(74,222,128,.12); --red-soft: rgba(248,113,113,.12);
+    --card-shadow: none; --card-shadow-lg: none; --radius-card: 18px;
+    --bg-primary: #0A0A0B; --bg-secondary: #141416; --bg-card: #141416;
+}
+/* Текст на акценте: в тёмной теме акцент светлый, текст на нём тёмный */
+[data-theme="neon"] :is(.tg-switch.on, .plan-metric-tab.active, .abtest-active-badge, .ab-pill.active, .ab-btn-primary, .ab-var-cur, .gc-ai, .rail-btn.active, [style*="background:var(--accent)"], [style*="background: var(--accent)"]) { color: #0A0A0B !important; }
+[data-theme="neon"] :is(.tg-switch.on, .rail-btn.active) * { color: #0A0A0B !important; }
+/* Левая колонка: активный раздел чёрной плашкой */
+.rail-btn.active { background: var(--accent) !important; color: var(--bg) !important; }
+.rail-btn.active .rail-btn-ico, .rail-btn.active .rail-btn-lbl { color: var(--bg) !important; }
+[data-theme="neon"] .rail-btn.active, [data-theme="neon"] .rail-btn.active * { color: #0A0A0B !important; }
+.rail-btn { font-weight: 600; }
+/* Метрики: без цветных фонов, цвет только у стрелок и значений динамики */
+.metric-card[data-tone], .kpi-hero-card[data-tone] { background: var(--surface) !important; }
+[data-theme="neon"] .metric-card[data-tone] , [data-theme="neon"] .kpi-hero-card[data-tone] { background: var(--surface) !important; }
+.metric-card, .widget-card, .kpi-hero-card { border: 1px solid var(--border) !important; box-shadow: none !important; }
+.nav-beta-badge { background: var(--sel) !important; color: var(--text-muted) !important; }
+/* Цветные карточки превращаем в чёрные (в тёмной теме белые) */
+#nrdb-bal, .rnp-gh-balance, .rnp-gh-health { background: var(--accent) !important; color: var(--bg) !important; border: 0 !important; }
+#nrdb-bal *, .rnp-gh-balance *, .rnp-gh-health * { color: inherit !important; }
+#nrdb-bal :is(.l, .r span, small), .rnp-gh-balance :is(.rnp-gh-lbl, small), .rnp-gh-health :is(.rnp-gh-lbl, small) { opacity: .65; }
+[data-theme="neon"] #nrdb-bal, [data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #0A0A0B !important; }
+.rnp-gh-loss { background: var(--surface) !important; border: 1px solid var(--border) !important; }
+.rnp-gh-loss-h { color: var(--text-muted) !important; }
+:root[data-theme="dark"] .rnp-gh-loss, [data-theme="neon"] .rnp-gh-loss { background: var(--surface) !important; }
+.rail-logo-name { border-color: var(--text-primary) !important; color: var(--text-primary) !important; }
+#nr-topbar b { background: var(--accent) !important; }
+:root, [data-theme="ios"] { --on-accent: #FFFFFF; }
+[data-theme="neon"] { --on-accent: #0A0A0B; }
