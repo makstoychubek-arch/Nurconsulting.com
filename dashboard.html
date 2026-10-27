@@ -6123,7 +6123,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.b1f5ba04f6.css">
-<link rel="stylesheet" href="/dist/rnp-extra.54de759513.css">
+<link rel="stylesheet" href="/dist/rnp-extra.2b4a0268af.css">
 <link rel="stylesheet" href="/dist/ads-pulse.75db0d6b54.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -6351,7 +6351,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     <div id="date-picker" class="hidden" onclick="event.stopPropagation()">
         <div class="date-picker-cols" style="display:flex;gap:16px">
             <div style="flex:1;min-width:0">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div class="dp-yearhdr" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                     <button onclick="changeYear(-1)" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:4px 8px;font-size:20px;line-height:1">‹</button>
                     <span id="year-label" style="font-size:13px;font-weight:600;color:var(--text-primary)">2026</span>
                     <button onclick="changeYear(1)" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:4px 8px;font-size:20px;line-height:1">›</button>
@@ -13172,15 +13172,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             g.appendChild(d);
         }
         for (let day = 1; day <= dim; day++) {
-            const btn = document.createElement('button'); btn.textContent = day;
+            const btn = document.createElement('button');
             const date = new Date(pickerState.year, pickerState.month, day);
             const dw = date.getDay(); const isWE = dw === 0 || dw === 6;
             const locked = futureLocked() && fmtDate(date) > todayIso();
             const isFrom = pickerState.fromDate && fmtDate(date) === fmtDate(pickerState.fromDate);
             const isTo = pickerState.toDate && fmtDate(date) === fmtDate(pickerState.toDate);
             const inRange = pickerState.fromDate && pickerState.toDate && date > pickerState.fromDate && date < pickerState.toDate;
-            btn.style.cssText = `background:${(isFrom||isTo)?'var(--accent)':inRange?'var(--accent-soft)':'none'};color:${(isFrom||isTo)?'white':inRange?'var(--accent)':isWE?'var(--red)':'var(--text-primary)'};border:none;border-radius:50%;padding:0;font-size:11px;cursor:pointer;font-weight:${(isFrom||isTo)?'700':'400'};width:100%;aspect-ratio:1`;
-            if (locked) { btn.disabled = true; btn.title = 'Будущие даты недоступны'; btn.style.opacity = '.3'; btn.style.cursor = 'not-allowed'; }
+            btn.className = 'dp-d' + (isFrom || isTo ? ' dp-sel' : '') + (inRange ? ' dp-in' : '') + (isFrom && pickerState.toDate && !isTo ? ' dp-first' : '') + (isTo && pickerState.fromDate && !isFrom ? ' dp-last' : '') + (fmtDate(date) === todayIso() ? ' dp-today' : '') + (isWE ? ' dp-we' : '');
+            btn.innerHTML = '<span>' + day + '</span>';
+            if (locked) { btn.disabled = true; btn.title = 'Будущие даты недоступны'; btn.classList.add('dp-lock'); }
             btn.onclick = () => {
                 if (locked) return;
                 if (pickerState.selecting === 'from' || !pickerState.fromDate) { pickerState.fromDate = date; pickerState.toDate = null; pickerState.selecting = 'to'; }
