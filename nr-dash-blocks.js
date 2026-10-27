@@ -284,4 +284,57 @@
         setInterval(function () { if (cab() && !doc.hidden) load(cab()); }, 10 * 60 * 1000);
     }
     root.NrDashBlocks = { wbSupplies: wbSupplies, routeOf: routeOf, transit: transit, production: production, stock: stock, nextPayout: nextPayout, lastYear: lastYear, ledgerTotals: ledgerTotals };
+
+    // ===== Чёрно-белый график «Динамика показателей»: плавные линии, заливка, вертикаль с точкой =====
+    root.NrMonoChart = function (Chart, cv, labels, series) {
+        var html = document.documentElement;
+        function css(n) { return getComputedStyle(html).getPropertyValue(n).trim() || '#0b0b0c'; }
+        var cross = {
+            id: 'nrMonoCross',
+            afterDatasetsDraw: function (c) {
+                var act = c.tooltip && c.tooltip.getActiveElements && c.tooltip.getActiveElements();
+                if (!act || !act.length) return;
+                var el = act[0].element, x = el.x, ctx = c.ctx, ink = css('--text-primary');
+                ctx.save(); ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x, el.y); ctx.lineTo(x, c.chartArea.bottom); ctx.stroke();
+                ctx.fillStyle = css('--surface-solid'); ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(x, el.y, 4.5, 0, 6.2832); ctx.fill(); ctx.stroke(); ctx.restore();
+            },
+        };
+        function ds(s) {
+            var ink = css('--text-primary'), mut = css('--text-muted');
+            var main = s.kind === 'main';
+            return { label: s.label, data: s.data, tension: 0.4, pointRadius: 0, pointHoverRadius: 0, borderWidth: main ? 3 : 2.4, borderColor: main ? ink : mut,
+                borderDash: s.kind === 'dash' ? [5, 5] : [], borderCapStyle: 'round', fill: main, backgroundColor: main ? ink + '14' : 'transparent' };
+        }
+        var chart = new Chart(cv, {
+            type: 'line', plugins: [cross],
+            data: { labels: labels, datasets: series.map(ds) },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', align: 'start', labels: { usePointStyle: true, pointStyle: 'line', boxWidth: 22, boxHeight: 8, font: { size: 11.5 }, padding: 16 } },
+                    tooltip: { displayColors: false, padding: 10, cornerRadius: 10, titleFont: { size: 11 }, bodyFont: { size: 12, weight: '700' },
+                        callbacks: { title: function (it) { return it.length ? 'День ' + it[0].label : ''; }, label: function (it) { return it.dataset.label + ': ' + Number(it.parsed.y).toLocaleString('ru-RU'); } } },
+                },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 11.5, weight: '600' } } },
+                    y: { border: { display: false }, ticks: { font: { size: 11.5 }, callback: function (v) { return Number(v).toLocaleString('ru-RU'); } } },
+                },
+            },
+        });
+        function paint() {
+            var ink = css('--text-primary'), mut = css('--text-muted'), line = css('--border');
+            series.forEach(function (s, i) { var d = chart.data.datasets[i], m = s.kind === 'main'; d.borderColor = m ? ink : mut; d.backgroundColor = m ? ink + '14' : 'transparent'; });
+            var o = chart.options; o.scales.x.ticks.color = mut; o.scales.y.ticks.color = mut; o.scales.y.grid = { color: line };
+            o.plugins.legend.labels.color = mut; o.plugins.tooltip.backgroundColor = ink; o.plugins.tooltip.titleColor = css('--surface-solid'); o.plugins.tooltip.bodyColor = css('--surface-solid');
+            chart.update('none');
+        }
+        paint();
+        if (!root.__nrMonoChartObs && root.MutationObserver) {
+            root.__nrMonoChartObs = new MutationObserver(function () { if (root.__nrMonoChartPaint) root.__nrMonoChartPaint(); });
+            root.__nrMonoChartObs.observe(html, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+        }
+        root.__nrMonoChartPaint = function () { if (chart.canvas && chart.canvas.isConnected) paint(); };
+        return chart;
+    };
 })(typeof window !== 'undefined' ? window : this);
