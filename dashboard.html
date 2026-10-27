@@ -6123,11 +6123,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.b1f5ba04f6.css">
-<link rel="stylesheet" href="/dist/rnp-extra.fad71b1eb4.css">
+<link rel="stylesheet" href="/dist/rnp-extra.d54b39933c.css">
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.1e1282c4e1.css">
+<link rel="stylesheet" href="/dist/nr-mono.bf77c6a6d6.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -14331,10 +14331,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
         const other = n(m.storageSum) + n(m.acceptanceSum) + n(m.penaltySum) + n(m.deductionSum) - n(m.compensationSum);
         const serv = [
-            ['Комиссия', n(m.commissionSum) + n(m.acquiringSum), '#f59e0b'],
-            ['Логистика', n(m.logisticsSum), '#7dd3fc'],
-            ['Реклама', n(m.adsSum), '#a855f7'],
-            ['Остальные', other, '#6366f1'],
+            ['Комиссия', n(m.commissionSum) + n(m.acquiringSum), 'var(--mono-1)'],
+            ['Логистика', n(m.logisticsSum), 'var(--mono-2)'],
+            ['Реклама', n(m.adsSum), 'var(--mono-3)'],
+            ['Остальные', other, 'var(--mono-4)'],
         ];
         const servTotal = serv.reduce((s, r) => s + r[1], 0);
         $('pnl-serv').textContent = fmtN(servTotal);
@@ -14346,11 +14346,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
         const ffAmt = n(m.ffForPeriod), ffOn = !!m.ffIncluded && ffAmt > 0;
         const taxes = [
-            ['Налог', n(m.taxSum), '#fb923c'],
-            ['Себестоимость продаж', n(m.costOfSalesSum), '#f9a8a0'],
+            ['Налог', n(m.taxSum), 'var(--mono-1)'],
+            ['Себестоимость продаж', n(m.costOfSalesSum), 'var(--mono-3)'],
         ];
-        if (ffOn) taxes.push(['Расходы ФФ', ffAmt, '#38bdf8', true]);
-        if (n(m.opexForPeriod) > 0) taxes.push(['Затраты', n(m.opexForPeriod), '#84cc16']);
+        if (ffOn) taxes.push(['Расходы ФФ', ffAmt, 'var(--mono-2)', true]);
+        if (n(m.opexForPeriod) > 0) taxes.push(['Затраты', n(m.opexForPeriod), 'var(--mono-4)']);
         const taxTotal = taxes.reduce((s, r) => s + r[1], 0);
         const anim = !!(opt && opt.animate) && !!window.NrMotion;
         // Число меняется как на слот-машине (при переключении ФФ), при обычной загрузке — просто текст.
@@ -14434,11 +14434,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         };
         const m = totalMetrics;
         host.innerHTML = [
-            card('Заказы', ordersTotal, 'orders', '#f97316', false),
-            card('Продажи', m.salesSum, 'sales', '#16a34a', false),
-            card('Логистика', m.logisticsSum, 'logistics', '#7dd3fc', true),
-            card('Реклама', m.adsSum, 'ads', '#a855f7', true),
-            card('Все услуги', days.reduce((s, x) => s + x.serv, 0), 'serv', '#3b82f6', true),
+            card('Заказы', ordersTotal, 'orders', 'currentColor', false),
+            card('Продажи', m.salesSum, 'sales', 'currentColor', false),
+            card('Логистика', m.logisticsSum, 'logistics', 'currentColor', true),
+            card('Реклама', m.adsSum, 'ads', 'currentColor', true),
+            card('Все услуги', days.reduce((s, x) => s + x.serv, 0), 'serv', 'currentColor', true),
         ].join('');
 
         const cardEl = document.getElementById('pnl-chart-card');

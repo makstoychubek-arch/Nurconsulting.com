@@ -45,3 +45,11 @@
 #nr-topbar b { background: var(--accent) !important; }
 :root, [data-theme="ios"] { --on-accent: #FFFFFF; }
 [data-theme="neon"] { --on-accent: #0A0A0B; }
+/* Серая шкала для долей в полосках и точках */
+:root, [data-theme="ios"] { --mono-1: #0B0B0C; --mono-2: #52525B; --mono-3: #A1A1AA; --mono-4: #D4D4D8; }
+[data-theme="neon"] { --mono-1: #F5F5F6; --mono-2: #A1A1AA; --mono-3: #63636B; --mono-4: #3A3A40; }
+.pnl-mini svg { color: var(--text-primary); }
+.pnl-mini svg polygon { opacity: .07 !important; }
+#pnl-real-bar { background: var(--accent) !important; }
+/* Выплата и прочие оранжевые суммы: минус красным, остальное чёрным */
+.pnl-mini-dyn.up, .metric-trend.up { color: var(--green); }
