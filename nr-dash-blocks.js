@@ -337,4 +337,14 @@
         root.__nrMonoChartPaint = function () { if (chart.canvas && chart.canvas.isConnected) paint(); };
         return chart;
     };
+
+    // Колокольчик уведомлений живёт в левом меню, рядом с настройками (решение владельца).
+    function moveBell() {
+        var bell = document.getElementById('nr-notify'), row = document.querySelector('.rail-bottom-icons');
+        if (!bell || !row || bell.parentNode === row) return;
+        var after = document.getElementById('rail-settings-btn');
+        row.insertBefore(bell, after ? after.nextSibling : row.firstChild);
+        bell.classList.add('nr-notify--rail');
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveBell); else moveBell();
 })(typeof window !== 'undefined' ? window : this);

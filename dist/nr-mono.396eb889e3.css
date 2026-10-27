@@ -205,3 +205,13 @@ html body #tab-dashboard .pnl-grid.ff-row > #ff-sum { border: 1px solid var(--te
 html body #tab-dashboard .nrdb .l .chip, html body #tab-dashboard .nrdb .l em { display: none !important; }
 html body #tab-dashboard #ff-sum .ff-som { color: var(--text-muted); }
 html body #tab-dashboard #pnl-chart-card { border: 1px solid var(--text-primary) !important; border-radius: 26px !important; background: transparent !important; }
+
+/* Дата справа в строке с названием, колокольчик внизу меню рядом с настройками */
+html body header.glass #header-date-chip-wrap { margin-left: auto; }
+html body header.glass .app-header-main > div:first-child { flex: 1; min-width: 0; }
+.nr-notify--rail { position: relative; display: inline-flex; }
+.nr-notify--rail .nr-notify-btn { width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--text-primary); display: grid; place-items: center; cursor: pointer; position: relative; padding: 0; }
+.nr-notify--rail .nr-notify-btn:hover { background: var(--sel); }
+.nr-notify--rail .nr-notify-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+.nr-notify--rail .nr-notify-panel { position: fixed; left: calc((100vw - min(100vw, 1760px)) / 2 + 210px); bottom: 14px; top: auto; right: auto; }
+.nr-notify--rail .nr-notify-dot { right: 5px; top: 5px; }
