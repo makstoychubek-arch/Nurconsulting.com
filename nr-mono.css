@@ -464,3 +464,9 @@ html body .cabinet-dropdown-menu { max-height: 380px; }
 html body .nr-cab-search { position: sticky; top: 0; z-index: 1; width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-solid); color: var(--text-primary); font: 600 13px inherit; font-family: inherit; outline: 0; }
 html body .nr-cab-search:focus { border-color: var(--accent); }
 html body .cabinet-dropdown-item[hidden] { display: none; }
+/* Телефон: в шапке помещается название страницы, дата и кабинет */
+@media (max-width: 480px) {
+  html body header.glass.app-header .header-title { font-size: 17px; }
+  html body header.glass.app-header .cabinet-picker-label { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html body header.glass.app-header .app-header-main { gap: 6px; }
+}
