@@ -1545,3 +1545,26 @@ body .rnp-sheet-table td.rnp-day-col, body .rnp-sheet-table td.rnp-data-col { te
 html.nr-period-busy :is(.pnl-big, .pnl-chip, .pnl-mini-val, .kpi-hero-value, .kpi-hero-sub, .metric-card-value, .ev-kpi-v, .adv-kpi-tile-value, #date-range, .module-date-label, .rnp-th-month, .rnp-th-month-col, .rnp-sheet-table td.rnp-day-col, .rnp-sheet-table td.rnp-data-col, .rnp-sheet-table td.rnp-month-col) {
 filter: blur(3px); opacity: .5; pointer-events: none; transition: filter .2s, opacity .2s;
 }
+
+/* Окно периода: простой чёрно-белый календарь без быстрого выбора и года */
+#date-picker .dp-yearhdr, #date-picker #year-grid, #date-picker .date-picker-quick { display: none !important; }
+#date-picker .date-picker-cols > div:first-child > div:last-child { border-top: 0 !important; padding-top: 0 !important; }
+@media (min-width: 641px) { #date-picker { width: 340px !important; } }
+#date-picker { padding: 18px !important; border-radius: 18px !important; }
+#date-picker [onclick^="changeMonth"] { width: 30px; height: 30px; border-radius: 50% !important; border: 1px solid var(--border) !important; display: grid; place-items: center; padding: 0 !important; color: var(--text-muted) !important; }
+#date-picker #month-label { font-size: 15px !important; font-weight: 700 !important; }
+#date-picker #month-grid { gap: 0 !important; }
+#date-picker .dp-d { background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; height: 40px; width: 100%; display: grid; place-items: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+#date-picker .dp-d span { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; }
+#date-picker .dp-d.dp-we { color: var(--text-primary); }
+#date-picker .dp-d.dp-today span { box-shadow: inset 0 0 0 1.5px var(--text-primary); }
+#date-picker .dp-d.dp-in { background: var(--sel) !important; }
+#date-picker .dp-d.dp-in:nth-child(7n+1) { border-radius: 99px 0 0 99px !important; }
+#date-picker .dp-d.dp-in:nth-child(7n) { border-radius: 0 99px 99px 0 !important; }
+#date-picker .dp-d.dp-sel span { background: var(--text-primary); color: var(--surface-solid, #fff); font-weight: 700; box-shadow: none; }
+#date-picker .dp-d.dp-first { background: linear-gradient(90deg, transparent 50%, var(--sel) 50%) !important; }
+#date-picker .dp-d.dp-last { background: linear-gradient(90deg, var(--sel) 50%, transparent 50%) !important; }
+#date-picker .dp-d.dp-lock { opacity: .3; cursor: not-allowed; }
+#date-picker .dp-d:not(.dp-sel):not(.dp-lock):hover span { background: var(--sel); }
+#date-picker div[style*="var(--red)"] { color: var(--text-muted) !important; }
+#date-picker .dp-d.dp-last:nth-child(7n+1), #date-picker .dp-d.dp-first:nth-child(7n) { background: none !important; }
