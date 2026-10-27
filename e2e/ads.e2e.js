@@ -13,6 +13,7 @@ const tables = {
     advertising_campaigns: CAMPS.map(([id, n, st], i) => ({ cabinet_id: CAB, campaign_id: id, campaign_name: n, status: st, type: 9, budget_total: i === 0 ? 120 : 4500, created_at: '2026-09-01T00:00:00Z' })),
     advertising_daily_stats: CAMPS.flatMap(([id], i) => Array.from({ length: 14 }, (_, d) => ({ cabinet_id: CAB, campaign_id: id, stat_date: day(d), spend: 800 + i * 120 + d * 7, sum_price: 6000 + i * 900, clicks: 90 + d, atbs: 20, orders: 8 + (i % 3), views: 4000, shks: 6, data: {} }))),
     adv_campaigns: [], rnp_articles: [], wb_stocks: [],
+    adv_shelves: [{ cabinet_id: CAB, advert_id: CAMPS[0][0], enabled: true, interval_min: 10, dry_run_until: new Date(Date.now() + 864e5).toISOString(), excluded_total: 0, keep_phrases: [] }],
 };
 const SERVER_DELAY = 700;
 
@@ -38,6 +39,13 @@ test('РК открывается одной волной запросов, а �
     const times = ['adv_campaigns', 'wb_stocks', 'adv_start_schedule'].map((t) => Math.min(...at(t).filter((x) => x >= wave)));
     const spread = Math.max(...times) - Math.min(...times);
     assert.ok(spread < 120, 'таблицы РК запрошены с разницей ' + spread + ' мс (раньше около 330)');
+});
+
+test('«Полки»: в «Пульте» у кампании метка с чисткой и ползунок на «A», вопрос не повторяется', async ({ page }) => {
+    const wb = String(CAMPS[0][0]);
+    await page.waitForFunction((w) => { const e = document.querySelector('.shv-slot[data-shv-adv="' + w + '"]'); return e && /Полки/.test(e.innerText); }, wb, { timeout: 4000 });
+    const pos = await page.evaluate((w) => { const r = document.querySelector('.adp2-row[data-key$=":' + w + '"] .adp2-sl'); return r ? r.className : ''; }, wb);
+    assert.ok(/\bp2\b/.test(pos), 'ползунок показывает «A» у кампании с чисткой полок: ' + pos);
 });
 
 test('«Пауза» по кампании: статус на экране меняется сразу, WB догоняет в фоне', async ({ page, calls }) => {
