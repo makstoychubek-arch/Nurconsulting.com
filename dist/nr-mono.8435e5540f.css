@@ -305,3 +305,10 @@ html.nr-period-busy body #tab-dashboard :is(.pnl-big, .pnl-chip, .pnl-mini-val, 
 html body #tab-dashboard :is(.pnl-big, .pnl-chip, .pnl-mini-val, .pnl-mini-dyn, .pnl-dpill, .pnl-row b, .pnl-bar, .pnl-chart-wrap, .dash-wh-legend, .dashboard-top-margin-legend) { transition: filter .18s ease; }
 html.nr-period-busy body #date-range { filter: none !important; opacity: 1 !important; }
 html.nr-period-busy body #tab-dashboard :is(#nrdb-bal, #nrdb-transit, #nrdb-prod, #nrdb-stock, #ff-sum) > :not(.l):not(.pnl-title) { filter: blur(6px) !important; opacity: 1 !important; transition: filter .18s ease; }
+
+/* Открыт календарь или список кабинетов: остальной сайт чуть темнее и не мешает */
+html::after { content: ""; position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+html[data-theme="neon"]::after { background: rgba(0,0,0,.5); }
+html:has(#date-picker:not(.hidden))::after, html:has(.cabinet-picker.open)::after { opacity: 1; pointer-events: auto; }
+html:has(.cabinet-picker.open) .sidebar-app { z-index: 9999 !important; }
+html:has(.cabinet-picker.open) .sidebar-app :is(.rail-btn, .rail-logo, .rail-bottom-icons, .rail-user, nav) { opacity: .45; pointer-events: none; transition: opacity .15s ease; }
