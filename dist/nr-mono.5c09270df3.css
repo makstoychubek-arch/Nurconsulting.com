@@ -296,3 +296,12 @@ html body .cabinet-picker--rail .cabinet-picker-face { display: flex; justify-co
 html body .cabinet-picker--rail .cabinet-picker-label { font-size: 12.5px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html body .cabinet-picker--rail .cabinet-dropdown-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; }
 html body #tab-dashboard .dash-plan-card[data-tone="none"] .dash-plan-status b { color: var(--text-primary); font-size: 24px; }
+
+/* Загрузка и смена даты/кабинета на дашборде: значения размываются (как в РНП), без затемнения и без прыжков */
+html body #tab-dashboard .nr-skel { animation: none !important; background: none !important; color: var(--text-primary) !important; filter: blur(6px); opacity: 1; }
+html.nr-period-busy body #tab-dashboard :is(.pnl-big, .pnl-chip, .pnl-mini-val, .pnl-mini-dyn, .pnl-dpill, .pnl-row b, .pnl-row em, .pnl-bar, .pnl-mini-date, .pnl-chart-wrap, .dash-plan-status, .dash-plan-bar, .dash-plan-skus-row, .dash-cost-card .kpi-hero-value, .dash-wh-legend, .dashboard-top-margin-legend, #nrdb-bal .v, #nrdb-bal .r, #nrdb-stock .v, #nrdb-stock .r, #ff-sum .pnl-big, #ff-sum .pnl-sub) {
+  filter: blur(6px) !important; opacity: 1 !important; pointer-events: none; transition: filter .18s ease;
+}
+html body #tab-dashboard :is(.pnl-big, .pnl-chip, .pnl-mini-val, .pnl-mini-dyn, .pnl-dpill, .pnl-row b, .pnl-bar, .pnl-chart-wrap, .dash-wh-legend, .dashboard-top-margin-legend) { transition: filter .18s ease; }
+html.nr-period-busy body #date-range { filter: none !important; opacity: 1 !important; }
+html.nr-period-busy body #tab-dashboard :is(#nrdb-bal, #nrdb-transit, #nrdb-prod, #nrdb-stock, #ff-sum) > :not(.l):not(.pnl-title) { filter: blur(6px) !important; opacity: 1 !important; transition: filter .18s ease; }
