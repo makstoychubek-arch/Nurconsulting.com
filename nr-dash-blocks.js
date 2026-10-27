@@ -355,7 +355,13 @@
         logo.parentNode.insertBefore(pick, logo.nextSibling);
         pick.classList.add('cabinet-picker--rail');
     }
-    function moveAll() { moveBell(); moveCabinet(); }
+    // Календарь живёт прямо в body, чтобы затемнение страницы не накрывало его.
+    function liftPicker() {
+        if (typeof document === 'undefined') return;
+        var p = document.getElementById('date-picker');
+        if (p && p.parentNode !== document.body) document.body.appendChild(p);
+    }
+    function moveAll() { moveBell(); moveCabinet(); liftPicker(); }
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
