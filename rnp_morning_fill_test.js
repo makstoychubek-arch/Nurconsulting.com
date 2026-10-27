@@ -26,7 +26,7 @@ assert.ok(fn.includes('moscowYmd'),
     'morning funnel window is Moscow calendar like the WB seller card');
 assert.ok(fn.includes('funnel_only'),
     'later morning pass can refresh funnel without orders or Telegram');
-assert.ok(fn.includes("notify = funnelOnly || groupAll ? false"),
+assert.ok(fn.includes("notify = funnelOnly || groupAll || groupKey === 'other' ? false"),
     'funnel_only / group=all must not spam the team chat');
 assert.ok(fn.includes("wantFunnel = funnelOnly || body.funnel === true"),
     '06/07/08 skip funnel so Karina can say готово before the edge timeout');
@@ -36,7 +36,7 @@ assert.ok(fn.includes('уркунбаев') && fn.includes('айлин') && fn.i
     'morning groups match legal IP names, not only Baza/Elium/Zevina latin');
 assert.ok(fn.includes('auto-sync-4h'),
     'Zevina schedule documents the 00:00 UTC collision with auto-sync');
-assert.ok(fn.includes("group: 'zevina'|'baza'|'elium'|'all'"),
+assert.ok(fn.includes("group: 'zevina'|'baza'|'elium'|'other'|'all'"),
     'catch-up can pass group=all for a silent funnel refresh');
 assert.ok(fn.includes('orders: WB вернул не массив'), 'empty/non-array WB payload must not wipe the day');
 assert.ok(fn.includes("mode: 'stocks'") && fn.includes('syncStocksViaAutoSync'),
@@ -126,3 +126,6 @@ assert.ok(zevinaShift.includes('"funnel":false'),
     '06:20 Zevina does not wait on the WB funnel before Telegram');
 
 console.log('rnp_morning_fill_test: ok');
+assert.ok(fn.includes("groupKey === 'other'") && fn.includes(".eq('nr_managed', false)"),
+    'group=other fills RNP data for client cabinets only, never through the team query');
+console.log('rnp_morning_fill_test: other group ok');
