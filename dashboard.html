@@ -4966,6 +4966,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition:all 0.15s; }
         .picker-quick-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-border); }
         .picker-date-input { width:100%; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-primary); }
+        .dash-wh-total { border-top: 1px solid var(--border); padding-top: 6px; font-weight: 800; }
         .dash-wh-legend { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow: auto; }
         .dash-wh-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; }
         .dash-wh-name { color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -14656,7 +14657,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             else legend.innerHTML = '<div class="dash-wh-row" style="color:var(--text-muted)">Нет остатков в этой схеме</div>';
             return;
         }
-        const html = entries.map(w => {
+        let html = entries.map(w => {
             const badge = w.scheme === 'fbs' ? 'FBS' : 'FBO';
             const badgeColor = w.scheme === 'fbs' ? 'var(--blue)' : 'var(--accent)';
             return `<div class="dash-wh-row" data-key="${escapeHtml(w.warehouse_name)}">
@@ -14666,6 +14667,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <span class="dash-wh-qty">${fmt(w.qty)} шт.</span>
             </div>`;
         }).join('');
+        const sum = entries.reduce((a, w) => a + (Number(w.qty) || 0), 0);
+        html += `<div class="dash-wh-row dash-wh-total" data-key="__total"><span class="dash-wh-name">Всего на складах</span><span class="dash-wh-qty">${fmt(sum)} шт.</span></div>`;
         if (window.domMorph && legend.querySelector('.dash-wh-row')) window.domMorph.morphList(legend, html, 'data-key');
         else legend.innerHTML = html;
     }
