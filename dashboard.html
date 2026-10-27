@@ -6123,7 +6123,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.b1f5ba04f6.css">
-<link rel="stylesheet" href="/dist/rnp-extra.6a498849ab.css">
+<link rel="stylesheet" href="/dist/rnp-extra.54de759513.css">
 <link rel="stylesheet" href="/dist/ads-pulse.75db0d6b54.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -13360,7 +13360,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const selectHeader = document.getElementById('cabinet-select-header');
         if (selectHeader) selectHeader.value = currentCabinetId;
 
-        await loadFromDB();
+        { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); await lp; }
         updateEmptyCabinetState();
         await loadLastSyncTime();
         bootRnpTab(true);
@@ -13554,7 +13554,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 loadLastSyncTime();
                 return;
             }
-            await loadFromDB();
+            { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); await lp; }
             await loadLastSyncTime();
             const rnpMod = getRnp();
             if (rnpMod && !isBetaStubOpen()) {
