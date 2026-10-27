@@ -8,7 +8,7 @@
 #adv-view-ads:has(#adv-pulse:not(:empty)) #ads-hq-schedule { display: none !important; }
 
 .adp2-switch { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; flex-shrink: 0; }
-.adp2-newbtn { height: 32px; padding: 0 12px; border-radius: 10px; border: 0; background: var(--accent); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.adp2-newbtn { height: 32px; padding: 0 12px; border-radius: 10px; border: 0; background: var(--accent); color: var(--on-accent, #fff); font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
 .adp2-newbtn:hover { background: var(--accent-hover); }
 
 /* тип кампании: CP + цветная буква */
@@ -106,7 +106,7 @@
 .adp2-pk span b { display: block; font-size: 13px; }
 .adp2-pk span small { color: var(--text-muted); font-size: 11px; }
 .adp2-mf { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
-.adp2-go { height: 38px; padding: 0 18px; border-radius: 12px; border: 0; background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; }
+.adp2-go { height: 38px; padding: 0 18px; border-radius: 12px; border: 0; background: var(--accent); color: var(--on-accent, #fff); font-weight: 700; cursor: pointer; }
 .adp2-go:disabled { opacity: .4; cursor: default; }
 .adp2-gh { height: 38px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); cursor: pointer; }
 
@@ -162,7 +162,7 @@
 .adp2-waste button { margin-left: auto; height: 32px; padding: 0 14px; border-radius: 10px; border: 0; background: var(--red); color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
 .adp2-kt-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .adp2-fc { height: 30px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-secondary); font-weight: 600; font-size: 12px; cursor: pointer; }
-.adp2-fc.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.adp2-fc.on { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
 .adp2-ksearch, .adp2-ksort { height: 32px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary); padding: 0 10px; font-size: 13px; }
 .adp2-ksort { margin-left: auto; padding: 0 28px 0 10px; line-height: 30px; }
 .adp2-klist { display: flex; flex-direction: column; gap: 6px; }
@@ -258,7 +258,7 @@
 /* Баланс кампании в строке и окно пополнения */
 .adp2-pre{display:flex;gap:6px;flex-wrap:wrap}
 .adp2-pre button{flex:1;min-width:64px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text-primary);font:inherit;font-weight:700;cursor:pointer}
-.adp2-pre button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.adp2-pre button.on{background:var(--accent);border-color:var(--accent);color: var(--on-accent, #fff)}
 .adp2-go:disabled{opacity:.5;cursor:not-allowed}
 
 /* Строка кампании: круглое фото, название и показатели слева; баланс с «+» и переключатель справа */
