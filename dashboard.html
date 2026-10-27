@@ -8443,7 +8443,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ui.44c7317afc.min.js"></script>
 <script src="/dist/nr-goods-ui.cab356fde1.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
-<script src="/dist/nr-dash-blocks.e6aca7cb03.min.js"></script>
+<script src="/dist/nr-dash-blocks.fc218cd2c1.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
@@ -14461,25 +14461,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             cardEl.hidden = false;
             cardEl.querySelector('.pnl-ghost-bars')?.remove();
             if (_pnlChart) { _pnlChart.destroy(); _pnlChart = null; }
-            _pnlChart = new Chart(cv, {
-                type: 'bar',
-                data: {
-                    labels: days.map(x => Number(x.d.slice(8))),
-                    datasets: [
-                        { label: 'Заказы', data: days.map(x => Math.round(x.orders)), backgroundColor: '#fb9a4f', stack: 's' },
-                        { label: 'Продажи', data: days.map(x => Math.round(x.sales)), backgroundColor: '#6ea8fe', stack: 's' },
-                        { label: 'Прибыль', data: days.map(x => Math.round(x.profit)), backgroundColor: '#4ade80', stack: 's' },
-                    ],
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, animation: false,
-                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } },
-                    scales: {
-                        x: { stacked: true, grid: { display: false }, title: { display: true, text: 'Дата' } },
-                        y: { stacked: true, title: { display: true, text: 'Сумма' }, ticks: { callback: (v) => Number(v).toLocaleString('ru-RU') } },
-                    },
-                },
-            });
+            _pnlChart = window.NrMonoChart ? window.NrMonoChart(Chart, cv, days.map(x => Number(x.d.slice(8))), [
+                { label: 'Заказы', data: days.map(x => Math.round(x.orders)), kind: 'main' },
+                { label: 'Продажи', data: days.map(x => Math.round(x.sales)), kind: 'soft' },
+                { label: 'Прибыль', data: days.map(x => Math.round(x.profit)), kind: 'dash' },
+            ]) : null;
         }
     }
 
