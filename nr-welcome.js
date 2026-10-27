@@ -101,7 +101,7 @@
     function heat(v, good, bad) { return v >= good ? 'nw-hg' : v <= bad ? 'nw-hr' : ''; }
     function fit(w, html) { return '<div class="nw-fitbox"><div class="nw-fit" data-w="' + w + '" style="width:' + w + 'px">' + html + '</div></div>'; }
 
-    var COLS = ['#111111', '#4d4d4d', '#8a8a8a', '#c4c4c4', '#e3e3e3', '#16a34a'];
+    var COLS = ['var(--text-primary)', 'var(--mono-2)', 'var(--mono-3)', 'var(--mono-4)', 'var(--border)', '#16a34a'];
 
     // ---- 0. обзор
     function s0() {
@@ -221,7 +221,7 @@
         var mx = Math.max.apply(null, wk), bars = '';
         wk.forEach(function (v, i) {
             var x = 52 + i * 56;
-            [[v, '#111111'], [ws[i], '#8a8a8a'], [wp[i], '#16a34a']].forEach(function (q, j) { var hgt = Math.max(1, q[0] / mx * 150); bars += '<rect x="' + (x + j * 15) + '" y="' + (176 - hgt) + '" width="13" height="' + hgt + '" rx="2" fill="' + q[1] + '"/>'; });
+            [[v, 'var(--text-primary)'], [ws[i], 'var(--mono-3)'], [wp[i], '#16a34a']].forEach(function (q, j) { var hgt = Math.max(1, q[0] / mx * 150); bars += '<rect x="' + (x + j * 15) + '" y="' + (176 - hgt) + '" width="13" height="' + hgt + '" rx="2" fill="' + q[1] + '"/>'; });
             bars += '<text x="' + (x + 22) + '" y="194" text-anchor="middle" font-size="9" fill="#9aa3b2">' + (i + 1) + '</text>';
         });
         var html = '<div class="nw-dash"><div class="nw-note">Прибыль, маржа и комиссия считаются по отчёту Wildberries, заказы и остатки — за весь выбранный период.</div>' +
@@ -229,7 +229,7 @@
             '<div class="nw-kc big"><b>Услуги WB</b><div class="nw-kv">' + fmt(T.services) + '</div><div class="nw-lr"><span><i style="background:#8a8a8a"></i>Комиссия</span><b>' + fmt(T.com) + ' <em>' + shS[0] + '%</em></b></div><div class="nw-lr"><span><i style="background:#4d4d4d"></i>Логистика</span><b>' + fmt(T.log) + ' <em>' + shS[1] + '%</em></b></div><div class="nw-lr"><span><i style="background:#8a8a8a"></i>Реклама</span><b>' + fmt(T.ad) + ' <em>' + shS[2] + '%</em></b></div><div class="nw-lr"><span><i style="background:#4d4d4d"></i>Хранение</span><b>' + fmt(T.stor) + ' <em>' + shS[3] + '%</em></b></div></div>' +
             '<div class="nw-kc big"><b>Налоги и затраты</b><div class="nw-kv">' + fmt(tc) + '</div><div class="nw-lr"><span><i style="background:#fca5a5"></i>Налог 6%</span><b>' + fmt(T.tax) + '</b></div><div class="nw-lr"><span><i style="background:#111111"></i>Себестоимость продаж</span><b>' + fmt(T.cogs) + '</b></div><div class="nw-lr"><span><i style="background:#8a8a8a"></i>Затраты</span><b>0</b></div></div>' +
             '<div class="nw-kc big"><b>Операционная прибыль</b><div class="nw-kv nw-gt2">' + fmt(T.profit) + '</div><div class="nw-lr"><span>Маржинальность</span><b>' + pct(T.margin, 0) + '</b></div><div class="nw-lr"><span>Рентабельность</span><b>' + pct(T.profit / T.cogs * 100, 0) + '</b></div></div></div>' +
-            '<div class="nw-d5">' + card('Заказы', T.ordAmt, '#111111') + card('Продажи', T.rev, '#16a34a') + card('Логистика', T.log, '#4d4d4d') + card('Реклама', T.ad, '#8a8a8a') + '</div>' +
+            '<div class="nw-d5">' + card('Заказы', T.ordAmt, 'var(--text-primary)') + card('Продажи', T.rev, '#16a34a') + card('Логистика', T.log, 'var(--mono-2)') + card('Реклама', T.ad, 'var(--mono-3)') + '</div>' +
             '<div class="nw-kc nw-chart"><b>Динамика показателей</b><svg width="820" height="204" viewBox="0 0 820 204"><line x1="40" y1="176" x2="810" y2="176" stroke="#e5e7eb"/>' + bars + '</svg><div class="nw-lgd"><i style="background:#111111"></i>Заказы <i style="background:#8a8a8a"></i>Продажи <i style="background:#16a34a"></i>Прибыль</div></div></div>';
         return '<div class="nw-stage nw-stage-wide">' + fit(860, html) + '</div>';
     }
