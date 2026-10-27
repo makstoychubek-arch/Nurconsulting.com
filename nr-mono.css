@@ -383,3 +383,42 @@ html body .ggx-chip.on { outline: 0; border-color: var(--accent) !important; box
 /* админ-кнопки: без цветных градиентов и свечения */
 html body .ax-test, html body .ax-ok { background: #16a34a !important; box-shadow: none !important; }
 html body .ax-staff.on, html body .ax-full.on { background: var(--accent) !important; color: var(--on-accent, #fff) !important; box-shadow: none !important; }
+
+/* ПК: меню всегда на виду, стрелка «назад» не нужна (остаётся на телефоне и в карточке кампании) */
+@media (min-width: 769px) { html body #header-back-btn.header-back-btn:not(.nr-keep-back) { display: none !important; } }
+
+/* ===== «Минимализм»: дашборд на телефоне (nr-motion.js, блок nmd) ===== */
+@media (max-width: 768px) {
+  html body .nmd-per i { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+  html body .nmd-per i.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
+  html body .nmd-card { background: transparent; border: 1px solid var(--accent); border-radius: 26px; padding: 16px 18px; }
+  html body .nmd-hero { background: var(--accent); color: var(--on-accent, #fff); }
+  html body .nmd-hero .nmd-lbl, html body .nmd-hero .nmd-sm, html body .nmd-hero .nmd-xl { color: var(--on-accent, #fff); opacity: .75; }
+  html body .nmd-hero .nmd-pill { color: var(--on-accent, #fff); opacity: .6; }
+  html body .nmd-hero .nmd-pill.on { background: var(--on-accent, #fff); color: var(--accent); opacity: 1; }
+  html body .nmd-hero .nmd-chart i { background: rgba(255,255,255,.22); }
+  [data-theme="neon"] body .nmd-hero .nmd-chart i, html[data-theme="neon"] body .nmd-hero .nmd-chart i { background: rgba(0,0,0,.18); }
+  html body .nmd-hero .nmd-chart i.hl { background: var(--on-accent, #fff); }
+  html body .nmd-big { font-weight: 900; letter-spacing: -.03em; }
+  html body .nmd-lbl { font-weight: 800; letter-spacing: .07em; text-transform: uppercase; font-size: 11px; }
+  html body .nmd-sq { background: transparent; border: 1px solid var(--accent); border-radius: 18px; }
+  html body .nmd-sq svg { color: var(--text-primary); stroke: currentColor; }
+  html body .nmd-tile span { font-weight: 800; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  html body .nmd-green { background: transparent; color: var(--text-primary); }
+  html body .nmd-green .nmd-lbl { color: var(--text-muted); }
+  html body .nmd-green .nmd-big { color: #16a34a; }
+  html body .nmd-bal { background: transparent; }
+  html body .nmd-bal .nmd-lbl { color: var(--text-muted); }
+  html body .nmd-dash { border-top: 1px solid var(--border); }
+  html body .nmd-btn { background: var(--accent); color: var(--on-accent, #fff); }
+  html body .nmd-chart i { background: var(--mono-4); }
+  html body .nmd-chart i.hl { background: var(--accent); }
+  html body .nmd-seg > * { filter: grayscale(1); }
+  html body .nmd-seg > :last-child { filter: none; background: #16a34a !important; }
+  html body .nmd-leg u { filter: grayscale(1); }
+  html body .nmd-leg:last-child u { filter: none; background: #16a34a !important; }
+  html body .nmd-tag { background: transparent !important; border: 1px solid var(--border); color: var(--text-primary) !important; }
+  html body .nmd-tag.nmd-g { color: #16a34a !important; border-color: #16a34a; }
+  html body .nmd-tag.nmd-r { color: #dc2626 !important; border-color: #dc2626; }
+  html body .nmd-tile em { background: #dc2626; }
+}
