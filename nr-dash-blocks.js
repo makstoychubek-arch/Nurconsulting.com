@@ -355,6 +355,7 @@
         logo.parentNode.insertBefore(pick, logo.nextSibling);
         pick.classList.add('cabinet-picker--rail');
     }
+<<<<<<< HEAD
     // Переключатель периода на графике: 7 дней / Месяц / Год, выставляет общий период страницы.
     function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     function presetRange(k) {
@@ -390,6 +391,9 @@
         markPeriodTabs();
     }
     function moveAll() { moveBell(); moveCabinet(); addPeriodTabs(); }
+=======
+    function moveAll() { moveBell(); moveCabinet(); }
+>>>>>>> origin/main
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).

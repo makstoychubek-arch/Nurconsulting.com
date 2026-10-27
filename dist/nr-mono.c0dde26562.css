@@ -1,0 +1,308 @@
+/* Чёрно-белый стиль всего сайта: акцент это чёрный (в тёмной теме белый), цвет остаётся только у зелёного и красного в метриках. */
+:root, [data-theme="ios"] {
+    --bg: #F6F6F7; --surface: #FFFFFF; --surface-solid: #FFFFFF; --sidebar-bg: #FFFFFF;
+    --border: #ECECEF; --border-strong: #DCDCE0; --border-color: #ECECEF;
+    --text-secondary: #3F3F46; --text-muted: #8B8B92;
+    --accent: #0B0B0C; --accent-hover: #000000; --accent-soft: #F0F0F2; --accent-border: #DCDCE0;
+    --accent-gradient: #0B0B0C; --blue: #0B0B0C; --purple: #0B0B0C; --purple-soft: #F0F0F2;
+    --amber: #71717A; --amber-soft: #F0F0F2; --sel: #EFEFF1;
+    --card-shadow: none; --card-shadow-lg: none; --radius-card: 18px;
+    --bg-primary: #F6F6F7; --bg-secondary: #EFEFF1; --bg-card: #FFFFFF;
+}
+[data-theme="neon"] {
+    --bg: #0A0A0B; --surface: #141416; --surface-solid: #141416; --sidebar-bg: #0A0A0B;
+    --border: #222226; --border-strong: #2E2E33; --border-color: #222226;
+    --text-secondary: #B4B4BB; --text-muted: #7C7C84;
+    --accent: #F5F5F6; --accent-hover: #FFFFFF; --accent-soft: rgba(255,255,255,.07); --accent-border: rgba(255,255,255,.16);
+    --accent-gradient: #F5F5F6; --blue: #F5F5F6; --purple: #F5F5F6; --purple-soft: rgba(255,255,255,.07);
+    --amber: #8E8E93; --amber-soft: rgba(255,255,255,.07); --sel: #1E1E22;
+    --green: #4ADE80; --red: #F87171; --green-soft: rgba(74,222,128,.12); --red-soft: rgba(248,113,113,.12);
+    --card-shadow: none; --card-shadow-lg: none; --radius-card: 18px;
+    --bg-primary: #0A0A0B; --bg-secondary: #141416; --bg-card: #141416;
+}
+/* Текст на акценте: в тёмной теме акцент светлый, текст на нём тёмный */
+[data-theme="neon"] :is(.tg-switch.on, .plan-metric-tab.active, .abtest-active-badge, .ab-pill.active, .ab-btn-primary, .ab-var-cur, .gc-ai, [style*="background:var(--accent)"], [style*="background: var(--accent)"]) { color: #0A0A0B !important; }
+[data-theme="neon"] :is(.tg-switch.on) * { color: #0A0A0B !important; }
+/* Левая колонка: как было, выбранный раздел светло-серой плашкой */
+.rail-btn.active { background: var(--sel) !important; color: var(--text-primary) !important; }
+
+/* Метрики: без цветных фонов, цвет только у стрелок и значений динамики */
+.metric-card[data-tone], .kpi-hero-card[data-tone] { background: var(--surface) !important; }
+[data-theme="neon"] .metric-card[data-tone] , [data-theme="neon"] .kpi-hero-card[data-tone] { background: var(--surface) !important; }
+.metric-card, .widget-card, .kpi-hero-card { border: 1px solid var(--border) !important; box-shadow: none !important; }
+.nav-beta-badge { background: var(--sel) !important; color: var(--text-muted) !important; }
+/* Цветные карточки превращаем в чёрные (в тёмной теме белые) */
+/* Чёрная карточка на экране одна. В РНП это «Состояние кабинета» и «Баланс», на дашборде «Реализация» */
+.rnp-gh-balance, .rnp-gh-health { background: var(--accent) !important; color: var(--bg) !important; border: 0 !important; }
+.rnp-gh-balance *, .rnp-gh-health * { color: inherit !important; }
+.rnp-gh-balance :is(.rnp-gh-lbl, small), .rnp-gh-health :is(.rnp-gh-lbl, small) { opacity: .65; }
+[data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #0A0A0B !important; }
+#nrdb-bal { background: var(--surface) !important; color: var(--text-primary) !important; border: 1px solid var(--border) !important; }
+#nrdb-bal :is(.l, .r span, .v small, .hint) { color: var(--text-muted) !important; }
+#nrdb-bal .chip { background: var(--sel) !important; color: var(--text-primary) !important; }
+#nrdb-bal .r.hi b { color: var(--text-primary) !important; }
+.rnp-gh-loss { background: var(--surface) !important; border: 1px solid var(--border) !important; }
+.rnp-gh-loss-h { color: var(--text-muted) !important; }
+:root[data-theme="dark"] .rnp-gh-loss, [data-theme="neon"] .rnp-gh-loss { background: var(--surface) !important; }
+.rail-logo-name { border-color: var(--text-primary) !important; color: var(--text-primary) !important; }
+#nr-topbar b { background: var(--accent) !important; }
+:root, [data-theme="ios"] { --on-accent: #FFFFFF; }
+[data-theme="neon"] { --on-accent: #0A0A0B; }
+/* Серая шкала для долей в полосках и точках */
+:root, [data-theme="ios"] { --mono-1: #0B0B0C; --mono-2: #52525B; --mono-3: #A1A1AA; --mono-4: #D4D4D8; }
+[data-theme="neon"] { --mono-1: #F5F5F6; --mono-2: #A1A1AA; --mono-3: #63636B; --mono-4: #3A3A40; }
+.pnl-mini svg { color: var(--text-primary); }
+.pnl-mini svg polygon { opacity: .07 !important; }
+#pnl-real-bar { background: var(--accent) !important; }
+/* Выплата и прочие оранжевые суммы: минус красным, остальное чёрным */
+.pnl-mini-dyn.up, .metric-trend.up { color: var(--green); }
+/* Нижний ряд дашборда: карточки по высоте содержимого, без пустых полей */
+#tab-dashboard .pnl-grid.ff-row { align-items: start !important; }
+
+/* ===== «Минимализм»: дашборд ===== */
+#tab-dashboard .pnl-card, #tab-dashboard .pnl-mini { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: none; }
+#tab-dashboard .pnl-card { padding: 18px 20px; }
+#tab-dashboard .pnl-title { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+#tab-dashboard .pnl-big { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+/* Единственная чёрная карточка: Реализация */
+html body #dash-pnl > .pnl-card:nth-child(1) { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--bg) !important; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-title, .pnl-lbl) { color: inherit !important; opacity: .65; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: inherit !important; }
+#dash-pnl > .pnl-card:nth-child(1) #pnl-real-bar { background: var(--green) !important; }
+/* Карточки показателей за день: слева, без графиков */
+#tab-dashboard .pnl-mini { padding: 16px 18px; text-align: left; }
+#tab-dashboard .pnl-mini .pnl-title { font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
+#tab-dashboard .pnl-mini-date, #tab-dashboard .pnl-mini svg { display: none; }
+#tab-dashboard .pnl-mini-val { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+#tab-dashboard .pnl-mini-dyn { font-size: 12px; font-weight: 700; margin-top: 4px; }
+#tab-dashboard .pnl-mini-grid > .pnl-mini { min-height: 0; }
+/* Нижний ряд дашборда: пять карточек одной высоты, длинное содержимое Фулфилмента прокручивается внутри */
+#tab-dashboard .pnl-grid.ff-row { grid-auto-rows: 140px; align-items: stretch !important; }
+#tab-dashboard .pnl-grid.ff-row > * { min-height: 0; height: 140px; overflow: hidden; box-sizing: border-box; }
+#tab-dashboard .pnl-grid.ff-row > #ff-sum { overflow-y: auto; scrollbar-width: thin; }
+html body #tab-dashboard .pnl-grid.ff-row > #ff-sum, html body #tab-dashboard .pnl-card.ff-logcard, html body #tab-dashboard .pnl-chart-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 18px !important; box-shadow: none !important; }
+html body #tab-dashboard .pnl-grid.ff-row > *, html body #tab-dashboard .pnl-mini-grid > .pnl-mini { height: 140px !important; max-height: 140px !important; min-height: 0 !important; box-sizing: border-box; overflow: hidden; }
+
+/* Верхний ряд, вариант А: главная цифра, снизу тонкая полоса долей и мелкая легенда */
+#dash-pnl > .pnl-card { display: flex; flex-direction: column; min-height: 200px; }
+#tab-dashboard .pnl-big { display: block; }
+#tab-dashboard .pnl-big .pnl-chip { display: block; margin-top: 8px; font-size: 12.5px; font-weight: 700; color: var(--text-muted); background: transparent; padding: 0; }
+html body #tab-dashboard #dash-pnl .pnl-bar { margin: auto 0 0 !important; height: 5px; gap: 2px; background: transparent; padding-top: 0; }
+#tab-dashboard #dash-pnl .pnl-bar i { border-radius: 9px; }
+#tab-dashboard #dash-pnl .pnl-rows { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; }
+#tab-dashboard #dash-pnl .pnl-row { display: inline-flex; width: auto; border: 0; padding: 0; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
+#tab-dashboard #dash-pnl .pnl-row .pnl-lbl { flex: none; color: var(--text-muted); }
+#tab-dashboard #dash-pnl .pnl-dot { width: 7px; height: 7px; }
+#tab-dashboard #dash-pnl .pnl-row b { display: none; }
+#tab-dashboard #dash-pnl .pnl-row .pnl-chip { background: transparent; padding: 0; font-size: 11.5px; font-weight: 700; color: var(--text-primary); }
+html body #dash-pnl > .pnl-card:nth-child(1) .pnl-row .pnl-lbl { color: inherit !important; opacity: .7; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-row b { display: inline; font-weight: 700; }
+#dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--red); }
+#dash-pnl > .pnl-card--profit .pnl-bar { background: transparent; }
+html body #pnl-serv-rows, html body #pnl-tax-rows { min-height: 0 !important; }
+/* ===== Контейнер всего приложения (меню, шапка и страница вместе), как у WB: при уменьшении масштаба по бокам пустой фон ===== */
+body { background: var(--bg); }
+#dashboard-app-shell { max-width: 1760px; margin-left: auto; margin-right: auto; }
+/* Шапка «приклеена» к экрану: сдвигаем её края вслед за контейнером, когда экран шире 1760px */
+@media (min-width: 1761px) {
+  .sidebar-app { left: calc((100vw - 1760px) / 2); }
+  header.glass.app-header { left: calc((100vw - 1760px) / 2 + 232px); right: calc((100vw - 1760px) / 2 + 12px); }
+  body.flyout-expanded header.glass.app-header { left: calc((100vw - 1760px) / 2 + 452px); }
+}
+@media (max-width: 1200px) {
+  #tab-dashboard #dash-pnl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #tab-dashboard .pnl-grid.ff-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  #tab-dashboard #dash-pnl, #tab-dashboard .pnl-mini-grid, #tab-dashboard .pnl-grid.ff-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ===== Фулфилмент: карточка (только сумма) и окно с подробностями ===== */
+#tab-dashboard #ff-sum { cursor: pointer; overflow: hidden; }
+#tab-dashboard #ff-sum .ff-pay { margin-top: 10px; }
+#tab-dashboard #ff-sum .ff-som { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+#tab-dashboard #ff-sum .ff-warn { font-size: 11px; margin-top: 8px; }
+.ffm-ov { position: fixed; inset: 0; z-index: 9000; background: rgba(10,10,12,.45); display: grid; place-items: center; padding: 16px; }
+.ffm { background: var(--surface-solid); color: var(--text-primary); border-radius: 26px; width: min(1000px, 100%); max-height: 92vh; overflow: auto; padding: 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.25); }
+.ffm-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ffm-h h2 { margin: 6px 0 0; font-size: 22px; letter-spacing: -.03em; font-weight: 800; }
+.ffm-h h2 small { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-left: 6px; }
+.ffm-x { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; }
+.ffm-k { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); }
+.ffm-top { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+.ffm-top > div { background: var(--bg); border-radius: 16px; padding: 14px 16px; }
+.ffm-top b { display: block; margin-top: 8px; font-size: 24px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.ffm-tile { cursor: pointer; }
+.ffm-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px; }
+.ffm-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.ffm-tbl th { font-size: 11px; font-weight: 600; color: var(--text-muted); text-align: right; padding: 8px 6px; text-transform: uppercase; letter-spacing: .03em; }
+.ffm-tbl th:first-child, .ffm-tbl td:first-child { text-align: left; }
+.ffm-tbl td { padding: 11px 6px; text-align: right; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.ffm-tbl td:first-child { font-weight: 700; }
+.ffm-tbl tr.t td { font-weight: 800; }
+.ffm-ch { width: 100%; height: 170px; display: block; margin-top: 10px; overflow: visible; color: var(--text-primary); }
+.ffm-fbs { stroke: var(--text-muted); }
+.ffm-dot { fill: var(--surface-solid); }
+.ffm-ax { display: flex; justify-content: space-between; margin-top: 6px; }
+.ffm-ax span { font-size: 11.5px; font-weight: 600; color: var(--text-muted); padding: 4px 9px; }
+.ffm-ax span.on { background: var(--accent); color: var(--on-accent, #fff); border-radius: 99px; font-weight: 700; }
+.ffm-leg { display: flex; gap: 16px; font-size: 11.5px; color: var(--text-muted); margin-top: 6px; flex-wrap: wrap; }
+.ffm-leg span::before { content: ""; display: inline-block; width: 18px; border-top: 3px solid var(--text-primary); vertical-align: middle; margin-right: 6px; }
+.ffm-leg span.f::before { border-top: 3px dashed var(--text-muted); }
+.ffm-empty { color: var(--text-muted); font-size: 13px; padding: 24px 0; }
+@media (max-width: 760px) { .ffm-top, .ffm-row { grid-template-columns: minmax(0, 1fr); } }
+#tab-dashboard #ff-sum :is(.nrff-add, .nrff-due, .ff-chips) { display: none !important; }
+
+/* ===== Ж3: контурные карточки дашборда (утверждено владельцем) ===== */
+html body #tab-dashboard :is(#dash-pnl > .pnl-card, .pnl-mini-grid > .pnl-mini, .pnl-grid.ff-row > .pnl-card, .pnl-grid.ff-row > .nrdb) {
+  background: transparent !important; border: 1px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important;
+  position: relative; padding: 20px 22px !important; color: var(--text-primary) !important; overflow: hidden;
+}
+html body #tab-dashboard :is(#dash-pnl > .pnl-card, .pnl-mini-grid > .pnl-mini, .pnl-grid.ff-row > .pnl-card, .pnl-grid.ff-row > .nrdb)::after {
+  content: "\2197"; position: absolute; right: 18px; top: 16px; font-size: 15px; font-weight: 700; color: var(--text-primary);
+}
+/* названия: жирные, капсом, чёрные */
+html body #tab-dashboard :is(.pnl-title, .nrdb .l) {
+  font-size: 12.5px !important; font-weight: 800 !important; letter-spacing: .03em; text-transform: uppercase; color: var(--text-primary) !important; opacity: 1 !important; padding-right: 22px; margin-bottom: 8px;
+}
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-title, .pnl-lbl) { opacity: 1 !important; }
+/* цифры */
+html body #tab-dashboard #dash-pnl .pnl-big { font-size: 34px; font-weight: 900; letter-spacing: -.04em; line-height: 1.1; }
+html body #tab-dashboard :is(.pnl-mini-val, .pnl-grid.ff-row .pnl-big, .nrdb .v) { font-size: 24px !important; font-weight: 900 !important; letter-spacing: -.04em; line-height: 1.1; }
+html body #tab-dashboard #dash-pnl .pnl-big .pnl-chip { display: none !important; }
+/* динамика в таблетке */
+html body #tab-dashboard .pnl-mini-dyn { display: inline-block; border: 1px solid currentColor; border-radius: 99px; padding: 3px 10px; font-size: 11.5px; font-weight: 700; margin-top: 10px; }
+html body #tab-dashboard .pnl-mini-dyn:empty { display: none; }
+/* легенда: две строки, название слева, значение справа, тонкие линии */
+html body #tab-dashboard #dash-pnl .pnl-rows { display: block; margin-top: 10px; }
+html body #tab-dashboard #dash-pnl .pnl-row { display: flex; justify-content: space-between; width: 100%; padding: 5px 0; border-top: 1px solid var(--border); font-size: 12px; font-weight: 700; color: var(--text-primary); }
+html body #tab-dashboard #dash-pnl .pnl-row:first-child { border-top: 0; }
+html body #tab-dashboard #dash-pnl .pnl-row:nth-child(n+3) { display: none; }
+html body #tab-dashboard #dash-pnl .pnl-row .pnl-lbl { flex: 1; color: var(--text-primary); }
+html body #tab-dashboard #dash-pnl .pnl-dot { display: none; }
+html body #tab-dashboard #dash-pnl .pnl-row .pnl-chip { color: var(--text-primary); font-weight: 800; }
+html body #tab-dashboard #dash-pnl .pnl-row b { display: inline; font-weight: 800; }
+/* Реализация: больше не чёрная */
+html body #dash-pnl > .pnl-card:nth-child(1) { background: transparent !important; color: var(--text-primary) !important; border-color: var(--text-primary) !important; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: var(--text-primary) !important; }
+/* Услуги и Налоги: суммы строк скрыты, остаются доли */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(n+2) .pnl-row b { display: none; }
+html body #tab-dashboard #dash-pnl > .pnl-card--profit .pnl-row b { display: none; }
+/* Карточка «Все услуги» и ряд из четырёх */
+#tab-dashboard .pnl-mini-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* ===== Шапка без «плашки»: название и период в строке с контентом, без фона, тени и лисёнка ===== */
+header.glass.app-header { background: transparent !important; box-shadow: none !important; border: 0 !important; backdrop-filter: none !important; }
+[data-theme="ios"] header.glass, [data-theme="neon"] header.glass { background: transparent !important; box-shadow: none !important; }
+header.glass.app-header .nr-hdr-fox, header.glass.app-header .nr-fox-slot { display: none !important; }
+html body header.glass .header-title { font-size: 28px; font-weight: 900; letter-spacing: -.035em; }
+html body header.glass #header-date-chip-wrap { border: 1px solid var(--text-primary) !important; background: transparent !important; border-radius: 99px; font-weight: 700; }
+
+/* ===== Меню: иконки 1,5px ===== */
+.rail-btn-ico svg { stroke-width: 1.5 !important; }
+/* нижний ряд: значки-таблетки убраны из заголовков (данные уходят в мелкие строки), контур и у Фулфилмента */
+html body #tab-dashboard .pnl-grid.ff-row > #ff-sum { border: 1px solid var(--text-primary) !important; background: transparent !important; }
+html body #tab-dashboard .nrdb .l .chip, html body #tab-dashboard .nrdb .l em { display: none !important; }
+html body #tab-dashboard #ff-sum .ff-som { color: var(--text-muted); }
+html body #tab-dashboard #pnl-chart-card { border: 1px solid var(--text-primary) !important; border-radius: 26px !important; background: transparent !important; }
+
+/* Дата справа в строке с названием, колокольчик внизу меню рядом с настройками */
+html body header.glass #header-date-chip-wrap { margin-left: auto; }
+html body header.glass .app-header-main > div:first-child { flex: 1; min-width: 0; }
+.nr-notify--rail { position: relative; display: inline-flex; }
+.nr-notify--rail .nr-notify-btn { width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--text-primary); display: grid; place-items: center; cursor: pointer; position: relative; padding: 0; }
+.nr-notify--rail .nr-notify-btn:hover { background: var(--sel); }
+.nr-notify--rail .nr-notify-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+.nr-notify--rail .nr-notify-panel { position: fixed; left: calc((100vw - min(100vw, 1760px)) / 2 + 210px); bottom: 14px; top: auto; right: auto; }
+.nr-notify--rail .nr-notify-dot { right: 5px; top: 5px; }
+
+/* Шапка и основной блок в одной общей рамке: рамка начинается сверху, шапка лежит внутри неё */
+html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 10px !important; }
+html body .main-rail .main-content:not(#nr-x) { padding-top: 70px !important; }
+html body header.glass.app-header { background: var(--surface-solid) !important; border-radius: 18px 18px 0 0 !important; clip-path: inset(1px 1px 0 1px round 17px 17px 0 0); }
+
+/* ===== Дотяжка по референсу: динамика в верхних карточках, полосы, высоты ===== */
+html body #tab-dashboard .pnl-dpill { display: inline-block; border: 1px solid currentColor; border-radius: 99px; padding: 3px 10px; font-size: 11.5px; font-weight: 700; margin: 10px 0 0; align-self: flex-start; width: fit-content; }
+html body #tab-dashboard .pnl-dpill.up { color: var(--green); }
+html body #tab-dashboard .pnl-dpill.down { color: var(--red); }
+/* Реализация: красная часть полосы это возвраты, зелёная доля реализации */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--red) !important; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) #pnl-real-bar { background: var(--green) !important; border-radius: 9px; }
+/* Прибыль: чёрная часть маржа, серая остальное */
+html body #tab-dashboard #dash-pnl > .pnl-card--profit .pnl-bar { background: transparent !important; display: flex; gap: 2px; }
+/* ряд показателей по высоте содержимого; лишние строки нижнего ряда убраны */
+html body #tab-dashboard .pnl-mini-grid > .pnl-mini { height: auto !important; min-height: 0 !important; }
+html body #tab-dashboard .nrdb .more { display: none !important; }
+
+/* Услуги и Налоги: в легенде суммы, а не проценты; Прибыль: проценты как есть, полоса на одной линии с остальными */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(2) .pnl-row b, html body #tab-dashboard #dash-pnl > .pnl-card--tax .pnl-row b { display: inline !important; font-weight: 800; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(2) .pnl-row .pnl-chip, html body #tab-dashboard #dash-pnl > .pnl-card--tax .pnl-row .pnl-chip { display: none !important; }
+html body #tab-dashboard #dash-pnl #pnl-extra-rows, html body #tab-dashboard #dash-pnl .pnl-rows:empty { display: none !important; }
+html body #tab-dashboard #dash-pnl > .pnl-card { min-height: 232px; }
+html body #tab-dashboard #dash-pnl .pnl-bar { margin-top: auto !important; }
+html body #tab-dashboard #dash-pnl .pnl-dpill { margin-bottom: 14px; }
+
+/* Телефон: шапка узкая и прижата к верху, общая рамка без верхнего отступа */
+@media (max-width: 768px) {
+  html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 0 !important; }
+  html body .main-rail .main-content:not(#nr-x) { padding-top: 48px !important; }
+  html body header.glass.app-header { border-radius: 0 !important; clip-path: none; }
+}
+
+/* ===== «Минимализм»: блоки под графиком дашборда (план, штрафы, остатки, топ-5) ===== */
+html body #tab-dashboard .dash-plan-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; min-height: 0; }
+html body #tab-dashboard .dash-plan-left, html body #tab-dashboard .dash-plan-skus { display: contents; }
+html body #tab-dashboard .dash-plan-cabs { order: 1; min-width: 0; }
+html body #tab-dashboard .dash-plan-skus-col { order: 2; }
+html body #tab-dashboard .dash-cost-card { order: 3; }
+html body #tab-dashboard :is(.dash-plan-card, .dash-plan-skus-col, .dash-cost-card, .chart-box, #dashboard-top-margin-card) {
+  background: transparent !important; border: 1px solid var(--accent) !important; border-radius: 26px !important;
+  box-shadow: none !important; padding: 18px 22px !important; min-height: 0;
+}
+html body #tab-dashboard .dash-plan-ph { min-height: 100px; }
+html body #tab-dashboard :is(.dash-plan-kicker, .dash-plan-skus-kicker, .chart-box-title, #dashboard-top-margin-card h3, .dash-cost-card .kpi-hero-label) {
+  font-size: 12.5px !important; font-weight: 800 !important; letter-spacing: .08em; text-transform: uppercase; color: var(--text-primary) !important; margin: 0 0 8px;
+}
+html body #tab-dashboard .dash-plan-status b { font-size: 24px; font-weight: 900; letter-spacing: -.03em; }
+html body #tab-dashboard .dash-cost-card .kpi-hero-value { font-size: 24px; font-weight: 900; color: var(--text-primary); }
+html body #tab-dashboard .dash-plan-bar { height: 3px; }
+html body #tab-dashboard .dash-plan-card[data-tone="ok"] .dash-plan-bar > i { background: var(--accent); }
+html body #tab-dashboard .dash-plan-sku.is-done { box-shadow: inset 0 0 0 1.5px var(--accent); }
+@media (max-width: 900px) { html body #tab-dashboard .dash-plan-board { grid-template-columns: 1fr 1fr; } }
+
+/* остатки по складам: список с полосками вместо пончика */
+html body #tab-dashboard .chart-box:has(#chart-warehouse-donut) .chart-canvas-wrap { display: none; }
+html body #tab-dashboard .dash-wh-legend { max-height: none; margin-top: 12px; gap: 14px; }
+html body #tab-dashboard .dash-wh-row { position: relative; display: flex; justify-content: space-between; gap: 10px; padding-bottom: 7px; font-size: 12.5px; font-weight: 700; }
+html body #tab-dashboard .dash-wh-row .dash-wh-name span { color: var(--text-muted) !important; font-weight: 600; }
+html body #tab-dashboard .dash-wh-row::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 3px; background: var(--mono-4); }
+html body #tab-dashboard .dash-wh-row > i { position: absolute; left: 0; bottom: 0; height: 3px; border-radius: 3px; background: var(--accent); z-index: 1; }
+html body #tab-dashboard .dash-wh-total { display: none; }
+
+/* топ-5: нумерованный список вместо пончика */
+html body #tab-dashboard .dashboard-top-margin-chart { display: none; }
+html body #tab-dashboard .dashboard-top-margin-body { display: block; }
+html body #tab-dashboard .dashboard-top-margin-legend { counter-reset: tm; gap: 8px; min-width: 0; }
+html body #tab-dashboard .dashboard-top-margin-row { counter-increment: tm; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 12px; font-size: 12.5px; font-weight: 700; }
+html body #tab-dashboard .dashboard-top-margin-dot { width: 22px; height: 22px; border-radius: 6px !important; background: transparent !important; border: 1px solid var(--accent); display: grid; place-items: center; flex: none; }
+html body #tab-dashboard .dashboard-top-margin-dot::before { content: counter(tm); font-size: 11px; font-weight: 800; }
+html body #tab-dashboard .dashboard-top-margin-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body #tab-dashboard .dashboard-top-margin-pct { font-weight: 800; }
+
+/* выбор кабинета в меню под логотипом */
+html body .cabinet-picker--rail { display: block !important; position: relative; margin: 6px 12px 10px; width: auto; }
+html body .cabinet-picker--rail .cabinet-picker-btn { width: 100%; border: 1px solid var(--accent) !important; border-radius: 14px !important; background: transparent !important; padding: 8px 12px; }
+html body .cabinet-picker--rail .cabinet-picker-face { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
+html body .cabinet-picker--rail .cabinet-picker-label { font-size: 12.5px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body .cabinet-picker--rail .cabinet-dropdown-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; }
+html body #tab-dashboard .dash-plan-card[data-tone="none"] .dash-plan-status b { color: var(--text-primary); font-size: 24px; }
+<<<<<<<< HEAD:dist/nr-mono.452e3492a0.css
+
+/* переключатель периода на графике */
+html body #pnl-chart-card { position: relative; }
+html body .nr-chart-period { position: absolute; top: 14px; right: 22px; display: flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; }
+html body .nr-chart-period button { border: 0; background: transparent; color: var(--text-muted); font: 700 11.5px/1 inherit; font-family: inherit; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
+html body .nr-chart-period button.on { background: var(--accent); color: var(--on-accent); }
+@media (max-width: 768px) { html body .nr-chart-period { position: static; margin: 6px 0 8px; width: max-content; } }
+========
+>>>>>>>> origin/main:dist/nr-mono.c0dde26562.css
