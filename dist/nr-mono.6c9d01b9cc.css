@@ -441,3 +441,17 @@ html body #adv-view-ads .ads-sl.p2 .ads-sl-b.on, html body .adp2-sl.p2 button.on
 html body #adv-view-ads .ads-auto-tag, html body .adp2-auto { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
 html body .cf-av, html body .cf-av.b, html body .cf-av.c, html body .cf-av.d { background: var(--accent); color: var(--on-accent, #fff); }
 html body .cf-th-ph, html body .cf-th-ph.b { background: var(--sel); }
+
+/* Логистика: списки остатков, FBS и поставки без цветных заливок */
+html body .ggx-grp { background: transparent !important; border: 1px solid var(--accent) !important; border-radius: 26px; }
+html body .ggx-gh h3 { color: var(--text-primary); }
+html body .ggx-gh small { color: var(--text-muted); }
+html body .ggx-strip .ggx-ph { border-color: var(--surface-solid); }
+html body .ggx-ph i { color: var(--text-primary); }
+html body .ggx-bb { background: var(--mono-4); }
+html body .ggx-bb .fbo { background: var(--accent); } html body .ggx-bb .fbs { background: var(--mono-3); }
+html body .ggx-row.ggx-o, html body .ggx-row.ggx-b { box-shadow: inset 4px 0 0 var(--mono-3); }
+html body .ggx-cv.o, html body .ggx-cv.b { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+html body .ggx-cv.r { background: transparent; border: 1px solid #dc2626; color: #dc2626; }
+html body .ggx-cv.g { background: transparent; border: 1px solid #16a34a; color: #16a34a; }
+html body .fbf, html body .fbs-card { box-shadow: none; border: 1px solid var(--accent); border-radius: 26px; }
