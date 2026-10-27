@@ -32,10 +32,15 @@
 .metric-card, .widget-card, .kpi-hero-card { border: 1px solid var(--border) !important; box-shadow: none !important; }
 .nav-beta-badge { background: var(--sel) !important; color: var(--text-muted) !important; }
 /* Цветные карточки превращаем в чёрные (в тёмной теме белые) */
-#nrdb-bal, .rnp-gh-balance, .rnp-gh-health { background: var(--accent) !important; color: var(--bg) !important; border: 0 !important; }
-#nrdb-bal *, .rnp-gh-balance *, .rnp-gh-health * { color: inherit !important; }
-#nrdb-bal :is(.l, .r span, small), .rnp-gh-balance :is(.rnp-gh-lbl, small), .rnp-gh-health :is(.rnp-gh-lbl, small) { opacity: .65; }
-[data-theme="neon"] #nrdb-bal, [data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #0A0A0B !important; }
+/* Чёрная карточка на экране одна. В РНП это «Состояние кабинета» и «Баланс», на дашборде «Реализация» */
+.rnp-gh-balance, .rnp-gh-health { background: var(--accent) !important; color: var(--bg) !important; border: 0 !important; }
+.rnp-gh-balance *, .rnp-gh-health * { color: inherit !important; }
+.rnp-gh-balance :is(.rnp-gh-lbl, small), .rnp-gh-health :is(.rnp-gh-lbl, small) { opacity: .65; }
+[data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #0A0A0B !important; }
+#nrdb-bal { background: var(--surface) !important; color: var(--text-primary) !important; border: 1px solid var(--border) !important; }
+#nrdb-bal :is(.l, .r span, .v small, .hint) { color: var(--text-muted) !important; }
+#nrdb-bal .chip { background: var(--sel) !important; color: var(--text-primary) !important; }
+#nrdb-bal .r.hi b { color: var(--text-primary) !important; }
 .rnp-gh-loss { background: var(--surface) !important; border: 1px solid var(--border) !important; }
 .rnp-gh-loss-h { color: var(--text-muted) !important; }
 :root[data-theme="dark"] .rnp-gh-loss, [data-theme="neon"] .rnp-gh-loss { background: var(--surface) !important; }
@@ -54,6 +59,47 @@
 /* Нижний ряд дашборда: карточки по высоте содержимого, без пустых полей */
 #tab-dashboard .pnl-grid.ff-row { align-items: start !important; }
 
+/* ===== «Минимализм»: дашборд ===== */
+#tab-dashboard .pnl-card, #tab-dashboard .pnl-mini { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: none; }
+#tab-dashboard .pnl-card { padding: 18px 20px; }
+#tab-dashboard .pnl-title { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+#tab-dashboard .pnl-big { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+/* Единственная чёрная карточка: Реализация */
+html body #dash-pnl > .pnl-card:nth-child(1) { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--bg) !important; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-title, .pnl-lbl) { color: inherit !important; opacity: .65; }
+html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: inherit !important; }
+#dash-pnl > .pnl-card:nth-child(1) #pnl-real-bar { background: var(--green) !important; }
+/* Карточки показателей за день: слева, без графиков */
+#tab-dashboard .pnl-mini { padding: 16px 18px; text-align: left; }
+#tab-dashboard .pnl-mini .pnl-title { font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
+#tab-dashboard .pnl-mini-date, #tab-dashboard .pnl-mini svg { display: none; }
+#tab-dashboard .pnl-mini-val { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+#tab-dashboard .pnl-mini-dyn { font-size: 12px; font-weight: 700; margin-top: 4px; }
+#tab-dashboard .pnl-mini-grid > .pnl-mini { min-height: 0; }
+/* Нижний ряд дашборда: пять карточек одной высоты, длинное содержимое Фулфилмента прокручивается внутри */
+#tab-dashboard .pnl-grid.ff-row { grid-auto-rows: 140px; align-items: stretch !important; }
+#tab-dashboard .pnl-grid.ff-row > * { min-height: 0; height: 140px; overflow: hidden; box-sizing: border-box; }
+#tab-dashboard .pnl-grid.ff-row > #ff-sum { overflow-y: auto; scrollbar-width: thin; }
+html body #tab-dashboard .pnl-grid.ff-row > #ff-sum, html body #tab-dashboard .pnl-card.ff-logcard, html body #tab-dashboard .pnl-chart-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 18px !important; box-shadow: none !important; }
+html body #tab-dashboard .pnl-grid.ff-row > *, html body #tab-dashboard .pnl-mini-grid > .pnl-mini { height: 140px !important; max-height: 140px !important; min-height: 0 !important; box-sizing: border-box; overflow: hidden; }
+
+/* Верхний ряд, вариант А: главная цифра, снизу тонкая полоса долей и мелкая легенда */
+#dash-pnl > .pnl-card { display: flex; flex-direction: column; min-height: 200px; }
+#tab-dashboard .pnl-big { display: block; }
+#tab-dashboard .pnl-big .pnl-chip { display: block; margin-top: 8px; font-size: 12.5px; font-weight: 700; color: var(--text-muted); background: transparent; padding: 0; }
+html body #tab-dashboard #dash-pnl .pnl-bar { margin: auto 0 0 !important; height: 5px; gap: 2px; background: transparent; padding-top: 0; }
+#tab-dashboard #dash-pnl .pnl-bar i { border-radius: 9px; }
+#tab-dashboard #dash-pnl .pnl-rows { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; }
+#tab-dashboard #dash-pnl .pnl-row { display: inline-flex; width: auto; border: 0; padding: 0; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
+#tab-dashboard #dash-pnl .pnl-row .pnl-lbl { flex: none; color: var(--text-muted); }
+#tab-dashboard #dash-pnl .pnl-dot { width: 7px; height: 7px; }
+#tab-dashboard #dash-pnl .pnl-row b { display: none; }
+#tab-dashboard #dash-pnl .pnl-row .pnl-chip { background: transparent; padding: 0; font-size: 11.5px; font-weight: 700; color: var(--text-primary); }
+html body #dash-pnl > .pnl-card:nth-child(1) .pnl-row .pnl-lbl { color: inherit !important; opacity: .7; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-row b { display: inline; font-weight: 700; }
+#dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--red); }
+#dash-pnl > .pnl-card--profit .pnl-bar { background: transparent; }
+html body #pnl-serv-rows, html body #pnl-tax-rows { min-height: 0 !important; }
 /* ===== Контейнер всего приложения (меню, шапка и страница вместе), как у WB: при уменьшении масштаба по бокам пустой фон ===== */
 body { background: var(--bg); }
 #dashboard-app-shell { max-width: 1760px; margin-left: auto; margin-right: auto; }
