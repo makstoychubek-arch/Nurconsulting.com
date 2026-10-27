@@ -189,25 +189,77 @@
     function renderSummary() {
         var el = $('ff-sum');
         if (!el) return;
-        var t = cur() || blank();
-        var chips = '<button type="button" class="ff-chip' + (S.sel === 'all' ? ' on' : '') + '" data-ff="sel" data-id="all">Все</button>' +
-            S.providers.map(function (p) { return '<button type="button" class="ff-chip' + (S.sel === p.id ? ' on' : '') + '" data-ff="sel" data-id="' + esc(p.id) + '">' + esc(p.name) + '</button>'; }).join('') +
-            (S.byFf.none ? '<button type="button" class="ff-chip' + (S.sel === 'none' ? ' on' : '') + '" data-ff="sel" data-id="none">Без ФФ</button>' : '');
+        var t = S.total || blank();
+        var sum = hasDepAll() ? Math.abs(t.payableRub) : t.payableRub;
+        el.setAttribute('data-ff', 'open'); el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
         el.innerHTML =
-            '<div class="pnl-title">Фулфилмент</div><div class="ff-chips">' + chips + '</div>' +
-            '<div class="pnl-rows">' +
-            '<div class="pnl-row" title="Заказы FBS за выбранный период, по которым есть цена отправки (' + fmt(t.shipRub) + ' ₽)"><span class="pnl-lbl">Отправки</span><b>' + fmt(t.shipCnt) + ' шт</b></div>' +
-            '<div class="pnl-row" title="Дни хранения в выбранном периоде (' + fmt(t.storageRub) + ' ₽)"><span class="pnl-lbl">Хранение</span><b>' + fmt(t.storageDays) + ' дн</b></div>' +
-            '<div class="pnl-row ff-edit" data-ff="adj" data-kind="swap" title="Открыть список и добавить"><span class="pnl-lbl">Подмены</span><b>' + fmt(t.swap) + ' ₽</b></div>' +
-            '<div class="pnl-row ff-edit" data-ff="adj" data-kind="cancel" title="Открыть список и добавить"><span class="pnl-lbl">Отмены</span><b>' + fmt(t.cancel) + ' ₽</b></div></div>' +
-            (t.paidCnt > 0 ? '<div class="ff-paid" title="Заказы за этот период уже оплачены ФФ, в выплату не входят">' + (t.paidTo ? 'Оплачено по ' + t.paidTo.slice(8) + '.' + t.paidTo.slice(5, 7) + ' · ' : 'Оплачено · ') + fmt(t.paidCnt) + ' шт</div>' : '') +
-            '<div class="ff-pay-l">' + (hasDep() ? (t.payableRub >= 0 ? 'Спишется с депозита' : 'Вернётся на депозит') : 'Выплатить') + '</div><div class="pnl-big ff-pay">' + fmt(hasDep() ? Math.abs(t.payableRub) : t.payableRub) + ' ₽</div>' +
-            (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt((hasDep() ? Math.abs(t.payableRub) : t.payableRub) * S.rate) + ' сом</div>' : '') +
-            '<div class="ff-sub" title="Выплатить = отправки + хранение − подмены − отмены">отправки ' + fmt(t.shipRub) + ' ₽ + хранение ' + fmt(t.storageRub) + ' ₽</div>' +
-            depositHtml() +
-            (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов — укажите цену ФФ в «Логистика → FBS»</div>' : '') +
-            (t.boxMissing ? '<div class="ff-warn">Нет цены за короб: ' + fmt(t.boxMissing) + ' коробов — укажите в «Логистика → FBS»</div>' : '');
+            '<div class="pnl-title">Фулфилмент · ' + (hasDepAll() ? (t.payableRub >= 0 ? 'спишется с депозита' : 'вернётся на депозит') : 'выплатить') + '</div>' +
+            '<div class="pnl-big ff-pay">' + fmt(sum) + ' ₽</div>' +
+            (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">≈ ' + fmt(sum * S.rate) + ' сом</div>' : '') +
+            ((t.missing || t.boxMissing) ? '<div class="ff-warn">Нет цены у ' + fmt((t.missing || 0) + (t.boxMissing || 0)) + ' заказов или коробов: укажите в «Логистика → FBS»</div>' : '');
+        if ($('ffm-ov')) paintFfModal();
     }
+    function hasDepAll() { return (S.deposits || []).length > 0 && S.sel !== 'all' ? hasDep() : false; }
+
+    // ─── окно «Фулфилмент»: сумма, склады, график заказов ───
+    function smoothPath(pts) {
+        var d = 'M' + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1);
+        for (var i = 1; i < pts.length; i++) {
+            var x0 = pts[i - 1][0], y0 = pts[i - 1][1], x1 = pts[i][0], y1 = pts[i][1], cx = (x0 + x1) / 2;
+            d += ' C' + cx.toFixed(1) + ',' + y0.toFixed(1) + ' ' + cx.toFixed(1) + ',' + y1.toFixed(1) + ' ' + x1.toFixed(1) + ',' + y1.toFixed(1);
+        }
+        return d;
+    }
+    function ordersChartHtml() {
+        var fbs = {};
+        (S.orders || []).forEach(function (o) { fbs[o.d] = (fbs[o.d] || 0) + (Number(o.orders_fbs) || 0); });
+        var days = (S.daily || []).map(function (d) { return { d: String(d.date).slice(0, 10), all: Number(d.count) || 0 }; });
+        if (days.length < 2) return '<div class="ffm-empty">Нет заказов за период</div>';
+        var max = Math.max.apply(null, days.map(function (x) { return Math.max(x.all, fbs[x.d] || 0); }).concat([1]));
+        var W = 440, H = 140, n = days.length;
+        var X = function (i) { return i / (n - 1) * W; }, Y = function (v) { return H - 6 - v / max * (H - 18); };
+        var A = days.map(function (x, i) { return [X(i), Y(x.all)]; }), B = days.map(function (x, i) { return [X(i), Y(Math.min(fbs[x.d] || 0, x.all))]; });
+        var mark = A.reduce(function (m, p, i) { return p[1] < A[m][1] ? i : m; }, 0), sel = A[mark];
+        var lab = function (i) { return R().fmtD(days[i].d).slice(0, 5); };
+        var totAll = days.reduce(function (s, x) { return s + x.all; }, 0), totF = Object.keys(fbs).reduce(function (s, k) { return s + fbs[k]; }, 0);
+        return '<svg class="ffm-ch" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+            '<defs><linearGradient id="ffmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".13"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>' +
+            '<path d="' + smoothPath(A) + ' L' + W + ',' + H + ' L0,' + H + 'Z" fill="url(#ffmg)"/>' +
+            '<path d="' + smoothPath(A) + '" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/>' +
+            '<path d="' + smoothPath(B) + '" fill="none" class="ffm-fbs" stroke-width="2.4" stroke-dasharray="5 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>' +
+            '<line x1="' + sel[0].toFixed(1) + '" y1="' + sel[1].toFixed(1) + '" x2="' + sel[0].toFixed(1) + '" y2="' + H + '" stroke="currentColor" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
+            '<circle cx="' + sel[0].toFixed(1) + '" cy="' + sel[1].toFixed(1) + '" r="4.5" class="ffm-dot" stroke="currentColor" stroke-width="2.4" vector-effect="non-scaling-stroke"/></svg>' +
+            '<div class="ffm-ax"><span>' + lab(0) + '</span><span class="on">' + lab(mark) + '</span><span>' + lab(n - 1) + '</span></div>' +
+            '<div class="ffm-leg"><span>Все заказы ' + fmt(totAll) + '</span><span class="f">Заказы с FBS-склада ' + fmt(totF) + '</span></div>';
+    }
+    function ffModalHtml() {
+        var t = S.total || blank(), rate = S.rate > 0 ? S.rate : 0;
+        var ids = (S.providers || []).map(function (p) { return p.id; }); if (S.byFf.none) ids.push('none');
+        var rows = ids.map(function (id) {
+            var x = S.byFf[id]; if (!x) return '';
+            return '<tr><td>' + esc(ffName(id)) + '</td><td>' + fmt(x.shipCnt) + '</td><td>' + fmt(x.storageRub) + ' ₽</td><td>' + fmt(x.payableRub) + ' ₽</td></tr>';
+        }).join('');
+        var pen = (t.swap || 0) + (t.cancel || 0);
+        return '<div class="ffm-h"><div><div class="ffm-k">Фулфилмент</div><h2>К выплате ' + fmt(t.payableRub) + ' ₽' + (rate ? ' <small>≈ ' + fmt(t.payableRub * rate) + ' сом</small>' : '') + '</h2></div>' +
+            '<button type="button" class="ffm-x" data-ff="ffclose" aria-label="Закрыть">✕</button></div>' +
+            '<div class="ffm-top"><div><div class="ffm-k">Отправки</div><b>' + fmt(t.shipCnt) + ' шт</b></div><div><div class="ffm-k">Хранение</div><b>' + fmt(t.storageDays) + ' дн</b></div>' +
+            '<div class="ffm-tile" data-ff="adj" data-kind="swap" role="button" tabindex="0"><div class="ffm-k">Подмены и отмены</div><b>' + fmt(pen) + ' ₽</b></div></div>' +
+            '<div class="ffm-row"><div><div class="ffm-k">По складам</div><table class="ffm-tbl"><thead><tr><th>Склад</th><th>Отправки</th><th>Хранение</th><th>Выплатить</th></tr></thead><tbody>' + rows +
+            '<tr class="t"><td>Итого</td><td>' + fmt(t.shipCnt) + '</td><td>' + fmt(t.storageRub) + ' ₽</td><td>' + fmt(t.payableRub) + ' ₽</td></tr></tbody></table>' + depositHtml() +
+            (t.missing ? '<div class="ff-warn">Нет цены отправки у ' + fmt(t.missing) + ' заказов: укажите цену ФФ в «Логистика → FBS»</div>' : '') + '</div>' +
+            '<div><div class="ffm-k">Заказы по дням</div>' + ordersChartHtml() + '</div></div>';
+    }
+    function paintFfModal() { var m = document.querySelector('#ffm-ov .ffm'); if (m) m.innerHTML = ffModalHtml(); }
+    function openFf() {
+        if ($('ffm-ov')) return;
+        var ov = document.createElement('div'); ov.className = 'ffm-ov'; ov.id = 'ffm-ov';
+        ov.innerHTML = '<div class="ffm" role="dialog" aria-modal="true">' + ffModalHtml() + '</div>';
+        document.body.appendChild(ov);
+        ov.addEventListener('click', function (e) { if (e.target === ov) closeFf(); });
+        document.addEventListener('keydown', onFfKey);
+    }
+    function closeFf() { var ov = $('ffm-ov'); if (ov) ov.remove(); document.removeEventListener('keydown', onFfKey); }
+    function onFfKey(e) { if (e.key === 'Escape') closeFf(); }
 
     function hasDep() { return S.sel !== 'all' && (S.deposits || []).some(function (d) { return d.ff === S.sel; }); }
     // Депозит у ФФ: сколько лежало на дату и сколько осталось после списаний.
@@ -315,7 +367,7 @@
     async function update(db, cab, from, to, dailyOrders) {
         S.db = db; S.cab = cab; S.from = from; S.to = to; S.daily = dailyOrders || S.daily || [];
         S.readonly = !!document.getElementById('nr-viewer-banner');
-        try { var saved = localStorage.getItem(selKey()); if (saved && S.sel === 'all') S.sel = saved; } catch (e) {}
+        S.sel = 'all';
         var end = to > today() ? today() : to;
         await loadGroups(db, cab);
         var res = await Promise.all([
@@ -375,6 +427,8 @@
             if (!b || !S.db) return;
             var a = b.dataset.ff;
             if (a === 'sel') { S.sel = b.dataset.id; try { localStorage.setItem(selKey(), S.sel); } catch (x) {} renderSummary(); renderChart(); return; }
+            if (a === 'open') { openFf(); return; }
+            if (a === 'ffclose') { closeFf(); return; }
             if (a === 'adj') { openAdj(b.dataset.kind); return; }
             if (a === 'close') { closeAdj(); return; }
             try {
@@ -394,6 +448,6 @@
         });
     }
     if (typeof document !== 'undefined') bind();
-    root.NrFF = { update: update, compute: compute };
+    root.NrFF = { update: update, compute: compute, _S: S, render: renderSummary, openModal: openFf };
     if (typeof module !== 'undefined' && module.exports) module.exports = { compute: compute, depositLeft: depositLeft };
 })(typeof window !== 'undefined' ? window : globalThis);
