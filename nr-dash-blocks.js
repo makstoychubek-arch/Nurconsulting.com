@@ -355,41 +355,7 @@
         logo.parentNode.insertBefore(pick, logo.nextSibling);
         pick.classList.add('cabinet-picker--rail');
     }
-    // Переключатель периода на графике: 7 дней / Месяц / Год, выставляет общий период страницы.
-    function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-    function presetRange(k) {
-        var t = new Date(), f = new Date(t);
-        if (k === 'week') f.setDate(t.getDate() - 6); else if (k === 'month') f.setDate(1); else { f.setMonth(0); f.setDate(1); }
-        return { from: iso(f), to: iso(t) };
-    }
-    function markPeriodTabs() {
-        var box = document.getElementById('nr-chart-period'), r = typeof window.nrGetRange === 'function' ? window.nrGetRange() : null;
-        if (!box || !r) return;
-        Array.prototype.forEach.call(box.children, function (b) {
-            var p = presetRange(b.getAttribute('data-p'));
-            b.classList.toggle('on', p.from === r.from && p.to === r.to);
-        });
-    }
-    function addPeriodTabs() {
-        if (typeof document === 'undefined') return;
-        var card = document.getElementById('pnl-chart-card'), title = card && card.querySelector('.pnl-title');
-        if (!title || document.getElementById('nr-chart-period')) return;
-        var box = document.createElement('div');
-        box.id = 'nr-chart-period'; box.className = 'nr-chart-period';
-        box.innerHTML = '<button type="button" data-p="week">7 дней</button><button type="button" data-p="month">С начала месяца</button><button type="button" data-p="year">С начала года</button>';
-        box.addEventListener('click', function (e) {
-            var b = e.target.closest('button[data-p]');
-            if (!b || typeof window.nrSetRange !== 'function') return;
-            var r = presetRange(b.getAttribute('data-p'));
-            window.nrSetRange(r.from, r.to);
-            markPeriodTabs();
-        });
-        title.parentNode.insertBefore(box, title.nextSibling);
-        var lbl = document.getElementById('date-range');
-        if (lbl && window.MutationObserver) new MutationObserver(markPeriodTabs).observe(lbl, { childList: true, characterData: true, subtree: true });
-        markPeriodTabs();
-    }
-    function moveAll() { moveBell(); moveCabinet(); addPeriodTabs(); }
+    function moveAll() { moveBell(); moveCabinet(); }
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
