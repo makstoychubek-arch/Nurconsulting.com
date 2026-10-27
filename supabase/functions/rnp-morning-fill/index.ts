@@ -19,7 +19,7 @@
 // Остатки по дням не пишет: колонка дня фиксируется в 03:00 Бишкек (00:00 МСК)
 // функцией goods-daily-eod — после закрытия продаж за вчера.
 //
-// Body: { group: 'zevina'|'baza'|'elium'|'all', date?, notify?, today?,
+// Body: { group: 'zevina'|'baza'|'elium'|'other'|'all', date?, notify?, today?,
 //         funnel?, funnel_only? }
 // group=all только с funnel_only (без заказов и без Telegram).
 
@@ -47,6 +47,8 @@ const GROUPS: Record<string, { title: string; match: (name: string) => boolean }
     zevina: { title: 'Zevina', match: (n) => /zevina|зевин|уркунбаев|ailin|айлин/i.test(n) },
     baza: { title: 'Baza', match: (n) => /^baza$/i.test(n.trim()) || /бейшеев/i.test(n) },
     elium: { title: 'Elium', match: (n) => /elium|элиум|айзада/i.test(n) },
+    // Клиентские и новые кабинеты (nr_managed = false): заполняем только данные РНП, в Telegram команды они не попадают.
+    other: { title: 'Клиентские кабинеты', match: () => true },
 };
 
 type Admin = ReturnType<typeof createClient>;
@@ -64,7 +66,7 @@ Deno.serve(async (req) => {
     const funnelOnly = body.funnel_only === true;
     const groupAll = groupKey === 'all';
     const group = GROUPS[groupKey];
-    if (!group && !groupAll) return json({ error: 'group must be zevina, baza, elium or all' }, 400);
+    if (!group && !groupAll) return json({ error: 'group must be zevina, baza, elium, other or all' }, 400);
     if (groupAll && !funnelOnly) return json({ error: 'group=all только с funnel_only' }, 400);
 
     // Сутки WB — по Москве (заказы приходят в московском времени, день кончается в 00:00 МСК = 03:00 Бишкек).
@@ -76,7 +78,7 @@ Deno.serve(async (req) => {
         : [];
     const alsoToday = body.today === false ? [] : (fillDate === today ? [] : [today]);
     const days = datesIn.length ? datesIn : [fillDate, ...alsoToday];
-    const notify = funnelOnly || groupAll ? false : body.notify !== false;
+    const notify = funnelOnly || groupAll || groupKey === 'other' ? false : body.notify !== false;
     // Воронка по умолчанию выкл: 06/07/08 должны успеть написать «готово».
     // Явный funnel:true или funnel_only (11:00 Бишкек) — отдельный прогон.
     const wantFunnel = funnelOnly || body.funnel === true;
@@ -89,8 +91,20 @@ Deno.serve(async (req) => {
         .gt('wb_token', '')
         .eq('nr_managed', true); // только кабинеты команды, не клиентов
     if (cabErr) return json({ error: cabErr.message }, 500);
+    let pool = cabinets || [];
+    if (groupKey === 'other') {
+        // Только данные РНП для кабинетов клиентов: отчёты и Telegram команды их по-прежнему не трогают (nr_managed = false).
+        const { data: clients, error: clErr } = await admin
+            .from('cabinets')
+            .select('id, name, wb_token')
+            .not('wb_token', 'is', null)
+            .gt('wb_token', '')
+            .eq('nr_managed', false);
+        if (clErr) return json({ error: clErr.message }, 500);
+        pool = clients || [];
+    }
 
-    const groupTargets = (cabinets || []).filter((c) => (
+    const groupTargets = pool.filter((c) => (
         groupAll
             ? Object.values(GROUPS).some((g) => g.match(String(c.name || '')))
             : Boolean(group?.match(String(c.name || '')))
