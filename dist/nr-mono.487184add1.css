@@ -241,3 +241,10 @@ html body #tab-dashboard #dash-pnl #pnl-extra-rows, html body #tab-dashboard #da
 html body #tab-dashboard #dash-pnl > .pnl-card { min-height: 232px; }
 html body #tab-dashboard #dash-pnl .pnl-bar { margin-top: auto !important; }
 html body #tab-dashboard #dash-pnl .pnl-dpill { margin-bottom: 14px; }
+
+/* Телефон: шапка узкая и прижата к верху, общая рамка без верхнего отступа */
+@media (max-width: 768px) {
+  html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 0 !important; }
+  html body .main-rail .main-content:not(#nr-x) { padding-top: 48px !important; }
+  html body header.glass.app-header { border-radius: 0 !important; clip-path: none; }
+}
