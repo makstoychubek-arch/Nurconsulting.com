@@ -233,3 +233,11 @@ html body #tab-dashboard #dash-pnl > .pnl-card--profit .pnl-bar { background: tr
 /* ряд показателей по высоте содержимого; лишние строки нижнего ряда убраны */
 html body #tab-dashboard .pnl-mini-grid > .pnl-mini { height: auto !important; min-height: 0 !important; }
 html body #tab-dashboard .nrdb .more { display: none !important; }
+
+/* Услуги и Налоги: в легенде суммы, а не проценты; Прибыль: проценты как есть, полоса на одной линии с остальными */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(2) .pnl-row b, html body #tab-dashboard #dash-pnl > .pnl-card--tax .pnl-row b { display: inline !important; font-weight: 800; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(2) .pnl-row .pnl-chip, html body #tab-dashboard #dash-pnl > .pnl-card--tax .pnl-row .pnl-chip { display: none !important; }
+html body #tab-dashboard #dash-pnl #pnl-extra-rows, html body #tab-dashboard #dash-pnl .pnl-rows:empty { display: none !important; }
+html body #tab-dashboard #dash-pnl > .pnl-card { min-height: 232px; }
+html body #tab-dashboard #dash-pnl .pnl-bar { margin-top: auto !important; }
+html body #tab-dashboard #dash-pnl .pnl-dpill { margin-bottom: 14px; }
