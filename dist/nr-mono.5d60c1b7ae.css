@@ -459,3 +459,8 @@ html body #beta-stub-pill.beta-pill { color: var(--text-muted); border-color: va
 /* Реализация: красный остаток (возвраты) только когда есть данные; пока пусто, полоса серая */
 html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--mono-4) !important; }
 html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar:has(#pnl-real-bar:not([style*="width: 0px"]):not([style*="width:0;"])) { background: var(--red) !important; }
+/* Поиск в списке кабинетов (когда их 8 и больше) */
+html body .cabinet-dropdown-menu { max-height: 380px; }
+html body .nr-cab-search { position: sticky; top: 0; z-index: 1; width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-solid); color: var(--text-primary); font: 600 13px inherit; font-family: inherit; outline: 0; }
+html body .nr-cab-search:focus { border-color: var(--accent); }
+html body .cabinet-dropdown-item[hidden] { display: none; }
