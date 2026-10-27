@@ -8416,14 +8416,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.8825fbcab6.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
-<script src="/dist/viewer-mode.c8021b6c34.min.js"></script>
+<script src="/dist/viewer-mode.911e0a7134.min.js"></script>
 <script src="/dist/space-admin-ext.ac6467584f.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
-<script src="/dist/nr-admin.e43aa8bd34.min.js"></script>
+<script src="/dist/nr-admin.b8ad8082be.min.js"></script>
 <script src="/dist/ad-autopilot-ui.2ec2082149.min.js"></script>
 <script src="/dist/ads-campaign-detail.40f4e1bf6d.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
@@ -8440,7 +8440,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-motion.fed20b8a96.min.js"></script>
 <script src="/dist/nr-ui.758e49d7ac.min.js"></script>
 <script src="/dist/nr-goods-ui.cab356fde1.min.js"></script>
-<script src="/dist/nr-tariffs.e6b3867cfd.min.js"></script>
+<script src="/dist/nr-tariffs.bb9fc751f5.min.js"></script>
 <script src="/dist/nr-dash-blocks.3e3be926f3.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
@@ -19589,12 +19589,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const list = $('ft-list');
         const all = $('ft-all');
         if (!list || !all) return;
-        const anyOn = ft.items.some((i) => i.active);
+        const shown = isSuperAdmin ? ft.items : ft.items.filter((i) => i.agent !== 'Карина');
+        const anyOn = shown.some((i) => i.active);
         all.innerHTML = '<div><div class="ft-title">Все функции кабинета</div><div class="ft-hint">Одним действием для всех функций ниже</div></div>'
             + '<div class="ft-ctl">' + pauseSelect('all')
             + '<button type="button" class="ui-btn ui-btn-secondary" data-ft-resume="all">Включить все</button></div>';
         all.dataset.on = anyOn ? '1' : '0';
-        list.innerHTML = ft.items.map((it) => (
+        list.innerHTML = shown.map((it) => (
             '<div class="ft-row" data-feature="' + it.feature + '">'
             + '<div><div class="ft-title"><span class="ft-agent">' + esc(it.agent || 'Карина') + '</span>' + esc(it.title) + chip(it) + '</div><div class="ft-hint">' + esc(it.hint) + '</div></div>'
             + '<div class="ft-ctl">'
