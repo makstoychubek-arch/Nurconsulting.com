@@ -120,8 +120,9 @@ console.log('funnel_orders_test: ok');
 {
     const h = require('fs').readFileSync(require('path').join(__dirname, 'dashboard.html'), 'utf8');
     const ok = require('assert').ok;
-    ok(h.includes('function renderPnlDaily') && h.includes("card('Все услуги'") && !h.includes("card('Услуги ЕАЭС'"), 'the row ends with «Все услуги», no EAEU card');
-    ok(h.includes('id="pnl-chart"') && h.includes("label: 'Прибыль'"), 'stacked daily chart: orders, sales, profit');
+    ok(h.includes('function renderPnlDaily') && !h.includes("card('Все услуги'") && !h.includes("card('Услуги ЕАЭС'"), 'the row has no «Все услуги» (removed by owner), no EAEU card');
+    const nb = require('fs').readFileSync(require('path').join(__dirname, 'nr-dash-blocks.js'), 'utf8');
+    ok(h.includes('id="pnl-chart"') && h.includes("label: 'Прибыль'") && nb.includes('NrMonoChart'), 'daily chart: orders, sales, profit (black-and-white lines)');
 }
 
 // Дашборд без старой россыпи карточек: скрыты hero-карточки, сетка из 30 метрик и дубль графика заказов

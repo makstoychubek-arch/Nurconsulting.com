@@ -185,7 +185,7 @@
         var totalTransit = T.total + W.total;
         set('transit', '<div class="l"><span>Товары в пути</span><em class="chip">' + fmt(totalTransit) + ' шт</em></div>' + (whRows || manual ? whRows + manual : '<div class="hint">Сейчас ничего не едет</div>') + '<button type="button" class="more" data-nrdb="transit">Что в каждой →</button>');
         var P = D.prod;
-        set('prod', '<div class="l"><span>Заказ на производство</span><em class="chip">' + P.models + ' мод.</em></div><div class="v">' + fmt(P.qty) + ' <small>шт</small></div>' +
+        set('prod', '<div class="l"><span>Производство</span><em class="chip">' + P.models + ' мод.</em></div><div class="v">' + fmt(P.qty) + ' <small>шт</small></div>' +
             (P.state ? '<div class="r"><span>Сейчас</span><b>' + P.state + '</b></div>' : '') + (P.due ? '<div class="r"><span>Срок</span><b>' + dm(P.due) + (P.due < today ? ' (просрочен)' : '') + '</b></div>' : '<div class="r"><span>Срок</span><b>не указан</b></div>'));
         var St = D.stock, fbo = St.total ? Math.round(St.fbo / St.total * 100) : 0;
         set('stock', '<div class="l"><span>Остатки всего</span><em class="chip">ФБО + ФБС</em></div><div class="v">' + fmt(St.total) + ' <small>шт</small></div>' +
@@ -336,5 +336,43 @@
         }
         root.__nrMonoChartPaint = function () { if (chart.canvas && chart.canvas.isConnected) paint(); };
         return chart;
+    };
+
+    // Колокольчик уведомлений живёт в левом меню, рядом с настройками (решение владельца).
+    function moveBell() {
+        if (typeof document === 'undefined') return;
+        var bell = document.getElementById('nr-notify'), row = document.querySelector('.rail-bottom-icons');
+        if (!bell || !row || bell.parentNode === row) return;
+        var after = document.getElementById('rail-settings-btn');
+        row.insertBefore(bell, after ? after.nextSibling : row.firstChild);
+        bell.classList.add('nr-notify--rail');
+    }
+    if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveBell); else moveBell(); }
+
+    // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
+    root.NrPnlDelta = function (m, base) {
+        if (typeof document === 'undefined' || !m) return;
+        var n = function (v) { return Number(v) || 0; };
+        var real = function (x) { return n(x.salesSum) - n(x.returnsSum); };
+        var serv = function (x) { return n(x.commissionSum) + n(x.acquiringSum) + n(x.logisticsSum) + n(x.adsSum) + n(x.storageSum) + n(x.acceptanceSum) + n(x.penaltySum) + n(x.deductionSum) - n(x.compensationSum); };
+        var tax = function (x) { return n(x.taxSum) + n(x.costOfSalesSum) + n(x.opexForPeriod); };
+        var cards = [
+            ['#dash-pnl > .pnl-card:nth-child(1)', real, false], ['#dash-pnl > .pnl-card:nth-child(2)', serv, true],
+            ['#dash-pnl > .pnl-card--tax', tax, true], ['#dash-pnl > .pnl-card--profit', function (x) { return n(x.profitFull); }, false],
+        ];
+        cards.forEach(function (c) {
+            var card = document.querySelector(c[0]); if (!card) return;
+            var old = card.querySelector('.pnl-dpill'); if (old) old.remove();
+            if (!base) return;
+            var cur = c[1](m), prev = c[1](base);
+            if (!prev) return;
+            var pct = (cur - prev) / Math.abs(prev) * 100, up = pct >= 0, good = c[2] ? !up : up;
+            var el = document.createElement('div');
+            el.className = 'pnl-dpill ' + (good ? 'up' : 'down');
+            el.textContent = (up ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(1).replace('.', ',') + '%';
+            var big = card.querySelector('.pnl-big'); if (big) big.after(el);
+        });
+        var pb = document.querySelector('#dash-pnl > .pnl-card--profit .pnl-bar');
+        if (pb) { var rl = real(m), mg = rl > 0 ? Math.max(0, Math.min(100, n(m.profitFull) / rl * 100)) : 0; pb.innerHTML = '<i style="width:' + mg + '%;background:var(--mono-1)"></i><i style="flex:1;background:var(--mono-4)"></i>'; }
     };
 })(typeof window !== 'undefined' ? window : this);
