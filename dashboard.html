@@ -6127,7 +6127,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.c0dde26562.css">
+<link rel="stylesheet" href="/dist/nr-mono.9bfb55b68c.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8419,7 +8419,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/giveaways.8825fbcab6.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
 <script src="/dist/viewer-mode.911e0a7134.min.js"></script>
-<script src="/dist/space-admin-ext.ac6467584f.min.js"></script>
+<script src="/dist/space-admin-ext.7587daca0d.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
@@ -8443,7 +8443,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ui.44c7317afc.min.js"></script>
 <script src="/dist/nr-goods-ui.cab356fde1.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
-<script src="/dist/nr-dash-blocks.eae5035037.min.js"></script>
+<script src="/dist/nr-dash-blocks.79d9a73ae9.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
@@ -13116,8 +13116,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 p.style.top = top + 'px';
                 p.style.left = '8px';
             } else {
-                p.style.top = '100px';
-                p.style.left = '300px';
+                const chip = document.getElementById('header-date-chip-wrap');
+                const r = chip ? chip.getBoundingClientRect() : null;
+                p.style.top = (r ? Math.round(r.bottom + 10) : 84) + 'px';
+                p.style.left = Math.max(8, (r ? Math.round(r.right) : window.innerWidth - 24) - p.offsetWidth) + 'px';
             }
             syncPickerFromActive();
             renderYearGrid(); renderMonthGrid();

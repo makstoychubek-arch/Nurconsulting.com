@@ -296,3 +296,42 @@ html body .cabinet-picker--rail .cabinet-picker-face { display: flex; justify-co
 html body .cabinet-picker--rail .cabinet-picker-label { font-size: 12.5px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html body .cabinet-picker--rail .cabinet-dropdown-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; }
 html body #tab-dashboard .dash-plan-card[data-tone="none"] .dash-plan-status b { color: var(--text-primary); font-size: 24px; }
+
+/* Загрузка и смена даты/кабинета на дашборде: значения размываются (как в РНП), без затемнения и без прыжков */
+html body #tab-dashboard .nr-skel { animation: none !important; background: none !important; color: var(--text-primary) !important; filter: blur(6px); opacity: 1; }
+html.nr-period-busy body #tab-dashboard :is(.pnl-big, .pnl-chip, .pnl-mini-val, .pnl-mini-dyn, .pnl-dpill, .pnl-row b, .pnl-row em, .pnl-bar, .pnl-mini-date, .pnl-chart-wrap, .dash-plan-status, .dash-plan-bar, .dash-plan-skus-row, .dash-cost-card .kpi-hero-value, .dash-wh-legend, .dashboard-top-margin-legend, #nrdb-bal .v, #nrdb-bal .r, #nrdb-stock .v, #nrdb-stock .r, #ff-sum .pnl-big, #ff-sum .pnl-sub) {
+  filter: blur(6px) !important; opacity: 1 !important; pointer-events: none; transition: filter .18s ease;
+}
+html body #tab-dashboard :is(.pnl-big, .pnl-chip, .pnl-mini-val, .pnl-mini-dyn, .pnl-dpill, .pnl-row b, .pnl-bar, .pnl-chart-wrap, .dash-wh-legend, .dashboard-top-margin-legend) { transition: filter .18s ease; }
+html.nr-period-busy body #date-range { filter: none !important; opacity: 1 !important; }
+html.nr-period-busy body #tab-dashboard :is(#nrdb-bal, #nrdb-transit, #nrdb-prod, #nrdb-stock, #ff-sum) > :not(.l):not(.pnl-title) { filter: blur(6px) !important; opacity: 1 !important; transition: filter .18s ease; }
+
+/* Открыт календарь или список кабинетов: остальной сайт чуть темнее и не мешает */
+html::after { content: ""; position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+html[data-theme="neon"]::after { background: rgba(0,0,0,.5); }
+html:has(#date-picker:not(.hidden))::after, html:has(.cabinet-picker.open)::after { opacity: 1; pointer-events: auto; }
+/* выбранный объект (кнопка даты / кабинета) остаётся белым и ярким над затемнением */
+html:has(#date-picker:not(.hidden)) header.glass.app-header { z-index: 9999 !important; }
+html:has(#date-picker:not(.hidden)) header.glass.app-header :is(.header-page-title, button:not(.nr-keep)) { opacity: .4; transition: opacity .15s ease; }
+html:has(#date-picker:not(.hidden)) #header-date-chip-wrap { background: var(--surface-solid, #fff) !important; position: relative; z-index: 1; }
+html:has(#date-picker:not(.hidden)) .module-date-label { position: relative; z-index: 9999; background: var(--surface-solid, #fff); border-radius: 999px; }
+html:has(#date-picker:not(.hidden)) header.glass.app-header { background: transparent !important; border-color: transparent !important; box-shadow: none !important; clip-path: none !important; pointer-events: none; }
+html:has(#date-picker:not(.hidden)) header.glass.app-header #header-date-chip-wrap { pointer-events: auto; }
+html body .cabinet-picker--rail { margin: 0 12px 8px; }
+html:has(.cabinet-picker.open) .cabinet-picker--rail .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
+html:has(.cabinet-picker.open) .cabinet-picker--rail .cabinet-picker-label { color: #000; }
+html:has(#date-picker:not(.hidden)) #header-date-chip-wrap { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); border-radius: 999px; }
+html:has(#date-picker:not(.hidden)) #header-date-chip-wrap #date-range { color: #000; }
+html::after { background: rgba(0,0,0,.4); }
+html[data-theme="neon"]:has(.cabinet-picker.open) .cabinet-picker--rail .cabinet-picker-btn, html[data-theme="neon"]:has(#date-picker:not(.hidden)) #header-date-chip-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.5); }
+html body #date-picker, html body .cabinet-picker--rail .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; opacity: 1; }
+
+/* выбор кабинета вверху справа, рядом с датой */
+html body header.glass.app-header .cabinet-picker-btn { border: 1px solid var(--accent) !important; border-radius: 999px !important; background: transparent !important; }
+html body header.glass.app-header .cabinet-picker-label { font-weight: 800; color: var(--text-primary); }
+html:has(.cabinet-picker.open) header.glass.app-header { z-index: 9999 !important; background: transparent !important; border-color: transparent !important; box-shadow: none !important; clip-path: none !important; pointer-events: none; }
+html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker { pointer-events: auto; }
+html:has(.cabinet-picker.open) header.glass.app-header :is(.header-page-title, #header-date-chip-wrap) { opacity: .4; }
+html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
+html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-label { color: #000; }
+html body header.glass.app-header .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; }
