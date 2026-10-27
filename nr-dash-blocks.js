@@ -347,7 +347,16 @@
         row.insertBefore(bell, after ? after.nextSibling : row.firstChild);
         bell.classList.add('nr-notify--rail');
     }
-    if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveBell); else moveBell(); }
+    // Выбор кабинета стоит в меню под логотипом (решение владельца).
+    function moveCabinet() {
+        if (typeof document === 'undefined') return;
+        var pick = document.getElementById('cabinet-picker-wrap'), logo = document.getElementById('sidebar-home-btn');
+        if (!pick || !logo || pick.classList.contains('cabinet-picker--rail')) return;
+        logo.parentNode.insertBefore(pick, logo.nextSibling);
+        pick.classList.add('cabinet-picker--rail');
+    }
+    function moveAll() { moveBell(); moveCabinet(); }
+    if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
     root.NrPnlDelta = function (m, base) {
