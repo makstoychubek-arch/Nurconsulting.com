@@ -6127,7 +6127,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.0f55748f6f.css">
+<link rel="stylesheet" href="/dist/nr-mono.4cf11f07ec.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -6435,7 +6435,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                 </div>
                 <div class="pnl-card">
-                    <div class="pnl-title">Услуги</div>
+                    <div class="pnl-title">Услуги WB</div>
                     <div class="pnl-big"><span class="nr-skel" id="pnl-serv">—</span><em class="pnl-chip" id="pnl-serv-pct"></em></div>
                     <div class="pnl-bar" id="pnl-serv-bar"></div>
                     <div class="pnl-rows" id="pnl-serv-rows"><div class="pnl-row"><span class="pnl-ghost-line" style="width:88px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:70px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:60px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div><div class="pnl-row"><span class="pnl-ghost-line" style="width:76px"></span><span class="pnl-ghost-line pnl-ghost-end" style="width:54px"></span></div></div>
@@ -8443,7 +8443,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ui.44c7317afc.min.js"></script>
 <script src="/dist/nr-goods-ui.cab356fde1.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
-<script src="/dist/nr-dash-blocks.9d47cceaa5.min.js"></script>
+<script src="/dist/nr-dash-blocks.8aac9deafb.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
@@ -13968,6 +13968,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     const base = fromCache ? (pass.hit.base || null) : await loadFinanceTrendBase(snapshotCabinet, fin, settings);
                     if (base && finId === _loadRequestId && finCabinet === currentCabinetId) {
                         applyMetricTrends(metrics, base);
+                        if (window.NrPnlDelta) NrPnlDelta(metrics, base);
                     }
                     if (pass && !fromCache && finId === _loadRequestId && finCabinet === currentCabinetId && rows && rows.length && pass.bag.summary) {
                         pass.bag.base = base || null;

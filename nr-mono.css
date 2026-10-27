@@ -220,3 +220,16 @@ html body header.glass .app-header-main > div:first-child { flex: 1; min-width: 
 html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 10px !important; }
 html body .main-rail .main-content:not(#nr-x) { padding-top: 70px !important; }
 html body header.glass.app-header { background: var(--surface-solid) !important; border-radius: 18px 18px 0 0 !important; clip-path: inset(1px 1px 0 1px round 17px 17px 0 0); }
+
+/* ===== Дотяжка по референсу: динамика в верхних карточках, полосы, высоты ===== */
+html body #tab-dashboard .pnl-dpill { display: inline-block; border: 1px solid currentColor; border-radius: 99px; padding: 3px 10px; font-size: 11.5px; font-weight: 700; margin: 10px 0 0; align-self: flex-start; width: fit-content; }
+html body #tab-dashboard .pnl-dpill.up { color: var(--green); }
+html body #tab-dashboard .pnl-dpill.down { color: var(--red); }
+/* Реализация: красная часть полосы это возвраты, зелёная доля реализации */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--red) !important; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) #pnl-real-bar { background: var(--green) !important; border-radius: 9px; }
+/* Прибыль: чёрная часть маржа, серая остальное */
+html body #tab-dashboard #dash-pnl > .pnl-card--profit .pnl-bar { background: transparent !important; display: flex; gap: 2px; }
+/* ряд показателей по высоте содержимого; лишние строки нижнего ряда убраны */
+html body #tab-dashboard .pnl-mini-grid > .pnl-mini { height: auto !important; min-height: 0 !important; }
+html body #tab-dashboard .nrdb .more { display: none !important; }
