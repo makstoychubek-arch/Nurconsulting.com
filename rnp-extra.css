@@ -1135,7 +1135,7 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .ff-row { margin-top: 12px; }
 .ff-logcard { grid-column: span 3; }
 .ff-pay-l { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
-.ff-pay { color: #ea580c; margin-top: 2px; }
+.ff-pay { color: var(--text-primary); margin-top: 2px; }
 .ff-sub { margin-top: 4px; font-size: 11px; color: var(--text-muted); }
 .ff-paid { margin-top: 6px; font-size: 11px; font-weight: 600; color: var(--green); }
 .ff-dep { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--green) 10%, transparent); }
