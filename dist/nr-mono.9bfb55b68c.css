@@ -310,8 +310,6 @@ html.nr-period-busy body #tab-dashboard :is(#nrdb-bal, #nrdb-transit, #nrdb-prod
 html::after { content: ""; position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .15s ease; }
 html[data-theme="neon"]::after { background: rgba(0,0,0,.5); }
 html:has(#date-picker:not(.hidden))::after, html:has(.cabinet-picker.open)::after { opacity: 1; pointer-events: auto; }
-html:has(.cabinet-picker.open) .sidebar-app { z-index: 9999 !important; }
-html:has(.cabinet-picker.open) .sidebar-app :is(.rail-btn, .rail-logo, .rail-bottom-icons, .rail-user, nav) { opacity: .45; pointer-events: none; transition: opacity .15s ease; }
 /* выбранный объект (кнопка даты / кабинета) остаётся белым и ярким над затемнением */
 html:has(#date-picker:not(.hidden)) header.glass.app-header { z-index: 9999 !important; }
 html:has(#date-picker:not(.hidden)) header.glass.app-header :is(.header-page-title, button:not(.nr-keep)) { opacity: .4; transition: opacity .15s ease; }
@@ -327,3 +325,13 @@ html:has(#date-picker:not(.hidden)) #header-date-chip-wrap #date-range { color: 
 html::after { background: rgba(0,0,0,.4); }
 html[data-theme="neon"]:has(.cabinet-picker.open) .cabinet-picker--rail .cabinet-picker-btn, html[data-theme="neon"]:has(#date-picker:not(.hidden)) #header-date-chip-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.5); }
 html body #date-picker, html body .cabinet-picker--rail .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; opacity: 1; }
+
+/* выбор кабинета вверху справа, рядом с датой */
+html body header.glass.app-header .cabinet-picker-btn { border: 1px solid var(--accent) !important; border-radius: 999px !important; background: transparent !important; }
+html body header.glass.app-header .cabinet-picker-label { font-weight: 800; color: var(--text-primary); }
+html:has(.cabinet-picker.open) header.glass.app-header { z-index: 9999 !important; background: transparent !important; border-color: transparent !important; box-shadow: none !important; clip-path: none !important; pointer-events: none; }
+html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker { pointer-events: auto; }
+html:has(.cabinet-picker.open) header.glass.app-header :is(.header-page-title, #header-date-chip-wrap) { opacity: .4; }
+html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
+html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-label { color: #000; }
+html body header.glass.app-header .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; }

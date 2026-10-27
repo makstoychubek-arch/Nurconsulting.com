@@ -361,7 +361,7 @@
         var p = document.getElementById('date-picker');
         if (p && p.parentNode !== document.body) document.body.appendChild(p);
     }
-    function moveAll() { moveBell(); moveCabinet(); liftPicker(); }
+    function moveAll() { moveBell(); liftPicker(); }
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
