@@ -2744,6 +2744,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .pnl-row b { font-weight: 700; font-variant-numeric: tabular-nums; }
         .pnl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
         .pnl-note { margin-top: 10px; font-size: 10px; color: var(--text-muted); }
+
         .pnl-mini-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
         .pnl-mini { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 12px 14px 8px; box-shadow: var(--card-shadow); min-width: 0; text-align: center; }
         .pnl-mini .pnl-title { margin-bottom: 0; font-size: 14px; color: var(--text-primary); }
@@ -6122,7 +6123,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.b1f5ba04f6.css">
-<link rel="stylesheet" href="/dist/rnp-extra.6196b37840.css">
+<link rel="stylesheet" href="/dist/rnp-extra.54de759513.css">
 <link rel="stylesheet" href="/dist/ads-pulse.75db0d6b54.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -10001,6 +10002,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function showTab(name, el) {
+        if (window.NrBusy) window.NrBusy.off();
         name = TAB_ALIASES[name] || name;
         if (window.NrViewer?.on && !window.NrViewer.allows(name)) {
             const t = window.NrViewer.firstTab();
@@ -13058,11 +13060,25 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (pt) pt.value = activeDateTo;
     }
 
+    // Плашки на время загрузки нового периода: включаем в ту же миллисекунду, снимаем, когда пришли данные (или через 12 с, чтобы не зависнуть).
+    const NrBusy = (function () {
+        let t = 0, n = 0;
+        function end(id) { if (id !== n) return; clearTimeout(t); document.documentElement.classList.remove('nr-period-busy'); }
+        function run(promise) {
+            const id = ++n;
+            document.documentElement.classList.add('nr-period-busy');
+            clearTimeout(t); t = setTimeout(() => end(id), 12000);
+            Promise.resolve(promise).catch(() => {}).then(() => end(id));
+        }
+        function off() { n++; clearTimeout(t); document.documentElement.classList.remove('nr-period-busy'); }
+        return { run, off };
+    })();
+    window.NrBusy = NrBusy;
     function onDateRangeApplied() {
         if (!hasUserCabinets || !currentCabinetId) return;
         const active = document.querySelector('.tab-content.active');
         const name = active?.id?.replace('tab-', '') || 'dashboard';
-        if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
+        if (name === 'dashboard' || name === 'summary') NrBusy.run(loadFromDB(activeDateFrom, activeDateTo));
         else if (name === 'advertising') {
             if (window._advView === 'detail') loadAdvertisingFromDB();
             else if (window.AdsHQ && typeof window.AdsHQ.load === 'function') window.AdsHQ.load();
@@ -13074,7 +13090,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         else if (name === 'planning') loadPlanningTab();
         else if (name === 'cabinets-hub') window.CabinetsHub?.reload();
-        else if (name === 'rnp') { const rnp = getRnp(); if (rnp && rnp.setDateRange) rnp.setDateRange(activeDateFrom, activeDateTo).catch(function (e) { console.warn('[RNP] range:', e); }); }
+        else if (name === 'rnp') { const rnp = getRnp(); if (rnp && rnp.setDateRange) { const pr = rnp.setDateRange(activeDateFrom, activeDateTo); NrBusy.run(pr); Promise.resolve(pr).catch(function (e) { console.warn('[RNP] range:', e); }); } }
     }
 
     function toggleModuleDatePicker(e, el) {
@@ -13344,7 +13360,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const selectHeader = document.getElementById('cabinet-select-header');
         if (selectHeader) selectHeader.value = currentCabinetId;
 
-        await loadFromDB();
+        { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); await lp; }
         updateEmptyCabinetState();
         await loadLastSyncTime();
         bootRnpTab(true);
@@ -13538,7 +13554,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 loadLastSyncTime();
                 return;
             }
-            await loadFromDB();
+            { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); await lp; }
             await loadLastSyncTime();
             const rnpMod = getRnp();
             if (rnpMod && !isBetaStubOpen()) {

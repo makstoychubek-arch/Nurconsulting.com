@@ -1540,3 +1540,8 @@ body .rnp-sheet-table td.rnp-cell-plan input.rnp-plan-input:not([type="checkbox"
   width: 100% !important; min-width: 0 !important; box-sizing: border-box;
 }
 body .rnp-sheet-table td.rnp-day-col, body .rnp-sheet-table td.rnp-data-col { text-align: center; }
+
+/* Смена периода и первая загрузка: значения и названия месяцев размываются и тускнеют, новые приходят вместе с данными (NrBusy). */
+html.nr-period-busy :is(.pnl-big, .pnl-chip, .pnl-mini-val, .kpi-hero-value, .kpi-hero-sub, .metric-card-value, .ev-kpi-v, .adv-kpi-tile-value, #date-range, .module-date-label, .rnp-th-month, .rnp-th-month-col, .rnp-sheet-table td.rnp-day-col, .rnp-sheet-table td.rnp-data-col, .rnp-sheet-table td.rnp-month-col) {
+filter: blur(3px); opacity: .5; pointer-events: none; transition: filter .2s, opacity .2s;
+}

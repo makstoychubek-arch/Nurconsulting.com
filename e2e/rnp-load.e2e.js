@@ -31,6 +31,18 @@ const tables = {
         const ms = Date.now() - t0;
         assert.ok(ms < SLOW, 'таблица с цифрами появилась за ' + ms + ' мс, хотя тяжёлая выборка идёт ' + SLOW + ' мс — отрисовка не должна её ждать');
         console.log('ok   РНП: таблица появляется, не дожидаясь тяжёлой выборки (' + ms + ' мс при задержке ' + SLOW + ' мс)');
+        // смена периода: плашки вместо значений появляются сразу и уходят, когда пришли данные
+        {
+            const r = await page.evaluate(async () => {
+                const t = performance.now();
+                onDateRangeApplied();
+                const ms = performance.now() - t;
+                return { ms, on: document.documentElement.classList.contains('nr-period-busy') };
+            });
+            assert.ok(r.on && r.ms < 100, 'после смены дат плашки видны сразу (' + Math.round(r.ms) + ' мс)');
+            await page.waitForFunction(() => !document.documentElement.classList.contains('nr-period-busy'), null, { timeout: 15000 });
+            console.log('ok   смена периода: плашки загрузки сразу и снимаются после данных');
+        }
         // обычные долгие запросы не показывают лисёнка в углу: плашка нужна только при первой загрузке нового кабинета
         await page.waitForTimeout(2200);
         assert.strictEqual(await page.locator('#nr-fox-long').count(), 0, 'при долгой загрузке РНП лисёнок в углу не появляется');
