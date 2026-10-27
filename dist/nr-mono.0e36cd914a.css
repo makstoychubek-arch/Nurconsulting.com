@@ -53,3 +53,13 @@
 .pnl-mini-dyn.up, .metric-trend.up { color: var(--green); }
 /* Нижний ряд дашборда: карточки по высоте содержимого, без пустых полей */
 #tab-dashboard .pnl-grid.ff-row { align-items: start !important; }
+
+/* ===== Контейнер: страницы кабинета не растягиваются на всю ширину (как у WB). РНП остаётся на всю ширину, таблица прокручивается внутри ===== */
+.main-content:not(.rnp-compact) > .tab-content { max-width: 1240px; margin-left: auto; margin-right: auto; width: 100%; }
+@media (max-width: 1200px) {
+  #tab-dashboard #dash-pnl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #tab-dashboard .pnl-grid.ff-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  #tab-dashboard #dash-pnl, #tab-dashboard .pnl-mini-grid, #tab-dashboard .pnl-grid.ff-row { grid-template-columns: minmax(0, 1fr); }
+}
