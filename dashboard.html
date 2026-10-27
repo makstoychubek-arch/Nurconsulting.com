@@ -6127,7 +6127,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.c895d8bf07.css">
+<link rel="stylesheet" href="/dist/nr-mono.01657db655.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -14396,7 +14396,21 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     let _pnlChart = null;
 
     /** Нижний ряд как у Raskpro: Заказы, Продажи, Логистика, Реклама, Все услуги + график «Динамика показателей». */
+    let _rubKgs = 0, _rubKgsAsked = false, _pnlDailyArgs = null;
+    try { _rubKgs = Number(localStorage.getItem('nr_rub_kgs_v1')) || 0; } catch (e) {}
+    const somKeys = new Set(['orders', 'sales']);
+    /** Курс ₽ → сом для карточек «Заказы» и «Выкупы»: из памяти сразу, свежий подтягиваем в фоне. */
+    function loadRubKgs() {
+        if (_rubKgsAsked) return; _rubKgsAsked = true;
+        supabase.from('exchange_rates').select('rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).limit(1).then(function (r) {
+            const v = Number(r && r.data && r.data[0] && r.data[0].rate);
+            if (!(v > 0) || v === _rubKgs) return;
+            _rubKgs = v; try { localStorage.setItem('nr_rub_kgs_v1', String(v)); } catch (e) {}
+            if (_pnlDailyArgs) renderPnlDaily.apply(null, _pnlDailyArgs);
+        }, function () {});
+    }
     function renderPnlDaily(rows, ordersDaily, adsByDay, settings, from, to, totalMetrics, ordersTotal) {
+        _pnlDailyArgs = [rows, ordersDaily, adsByDay, settings, from, to, totalMetrics, ordersTotal]; loadRubKgs();
         const host = document.getElementById('pnl-mini');
         if (!host || typeof WBFormulas === 'undefined') return;
         const dates = [];
@@ -14429,13 +14443,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const a = vals[vals.length - 1] || 0, b = vals[vals.length - 2] || 0;
             const dyn = b > 0 ? Math.round((a - b) / b * 100) : null;
             const good = dyn == null ? '' : ((dyn >= 0) !== !!costLike ? 'up' : 'down');
-            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${n(total)}</div>
+            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 ? n(total * _rubKgs) + ' с' : n(total)}</div>
               <div class="pnl-mini-dyn ${good}">${dyn == null ? '' : (dyn >= 0 ? '+' : '') + dyn + '% динамика за день'}</div>${spark(vals, color)}</div>`;
         };
         const m = totalMetrics;
         host.innerHTML = [
             card('Заказы', ordersTotal, 'orders', 'currentColor', false),
-            card('Продажи', m.salesSum, 'sales', 'currentColor', false),
+            card('Выкупы', m.salesSum, 'sales', 'currentColor', false),
             card('Логистика', m.logisticsSum, 'logistics', 'currentColor', true),
             card('Реклама', m.adsSum, 'ads', 'currentColor', true),
             card('Все услуги', days.reduce((s, x) => s + x.serv, 0), 'serv', 'currentColor', true),

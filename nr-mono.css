@@ -64,22 +64,10 @@
 #tab-dashboard .pnl-card { padding: 18px 20px; }
 #tab-dashboard .pnl-title { font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
 #tab-dashboard .pnl-big { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
-#tab-dashboard .pnl-rows { gap: 0; margin-top: 6px; }
-#tab-dashboard .pnl-row { padding: 8px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
-#tab-dashboard .pnl-row .pnl-lbl { color: var(--text-secondary); }
-#tab-dashboard .pnl-chip { background: transparent; padding: 0; font-size: 12px; font-weight: 700; color: var(--text-muted); }
-#tab-dashboard .pnl-bar { height: 3px; margin: 12px 0 6px; }
-/* Порядок: Реализация, Операционная прибыль, Налоги, Услуги */
-#dash-pnl > .pnl-card:nth-child(1) { order: 1; }
-#dash-pnl > .pnl-card--profit { order: 2; }
-#dash-pnl > .pnl-card--tax { order: 3; }
-#dash-pnl > .pnl-card:nth-child(2) { order: 4; }
 /* Единственная чёрная карточка: Реализация */
 html body #dash-pnl > .pnl-card:nth-child(1) { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--bg) !important; }
 html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-title, .pnl-lbl) { color: inherit !important; opacity: .65; }
 html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: inherit !important; }
-#dash-pnl > .pnl-card:nth-child(1) .pnl-row { border-color: rgba(128,128,128,.35); }
-#dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: rgba(128,128,128,.35); }
 #dash-pnl > .pnl-card:nth-child(1) #pnl-real-bar { background: var(--green) !important; }
 /* Карточки показателей за день: слева, без графиков */
 #tab-dashboard .pnl-mini { padding: 16px 18px; text-align: left; }
@@ -94,3 +82,21 @@ html body #dash-pnl > .pnl-card:nth-child(1) :is(.pnl-big, .pnl-row b) { color: 
 #tab-dashboard .pnl-grid.ff-row > #ff-sum { overflow-y: auto; scrollbar-width: thin; }
 html body #tab-dashboard .pnl-grid.ff-row > #ff-sum, html body #tab-dashboard .pnl-card.ff-logcard, html body #tab-dashboard .pnl-chart-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 18px !important; box-shadow: none !important; }
 html body #tab-dashboard .pnl-grid.ff-row > *, html body #tab-dashboard .pnl-mini-grid > .pnl-mini { height: 140px !important; max-height: 140px !important; min-height: 0 !important; box-sizing: border-box; overflow: hidden; }
+
+/* Верхний ряд, вариант А: главная цифра, снизу тонкая полоса долей и мелкая легенда */
+#dash-pnl > .pnl-card { display: flex; flex-direction: column; min-height: 200px; }
+#tab-dashboard .pnl-big { display: block; }
+#tab-dashboard .pnl-big .pnl-chip { display: block; margin-top: 8px; font-size: 12.5px; font-weight: 700; color: var(--text-muted); background: transparent; padding: 0; }
+html body #tab-dashboard #dash-pnl .pnl-bar { margin: auto 0 0 !important; height: 5px; gap: 2px; background: transparent; padding-top: 0; }
+#tab-dashboard #dash-pnl .pnl-bar i { border-radius: 9px; }
+#tab-dashboard #dash-pnl .pnl-rows { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; }
+#tab-dashboard #dash-pnl .pnl-row { display: inline-flex; width: auto; border: 0; padding: 0; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
+#tab-dashboard #dash-pnl .pnl-row .pnl-lbl { flex: none; color: var(--text-muted); }
+#tab-dashboard #dash-pnl .pnl-dot { width: 7px; height: 7px; }
+#tab-dashboard #dash-pnl .pnl-row b { display: none; }
+#tab-dashboard #dash-pnl .pnl-row .pnl-chip { background: transparent; padding: 0; font-size: 11.5px; font-weight: 700; color: var(--text-primary); }
+html body #dash-pnl > .pnl-card:nth-child(1) .pnl-row .pnl-lbl { color: inherit !important; opacity: .7; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-row b { display: inline; font-weight: 700; }
+#dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--red); }
+#dash-pnl > .pnl-card--profit .pnl-bar { background: transparent; }
+html body #pnl-serv-rows, html body #pnl-tax-rows { min-height: 0 !important; }
