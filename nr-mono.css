@@ -248,3 +248,51 @@ html body #tab-dashboard #dash-pnl .pnl-dpill { margin-bottom: 14px; }
   html body .main-rail .main-content:not(#nr-x) { padding-top: 48px !important; }
   html body header.glass.app-header { border-radius: 0 !important; clip-path: none; }
 }
+
+/* ===== «Минимализм»: блоки под графиком дашборда (план, штрафы, остатки, топ-5) ===== */
+html body #tab-dashboard .dash-plan-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; min-height: 0; }
+html body #tab-dashboard .dash-plan-left, html body #tab-dashboard .dash-plan-skus { display: contents; }
+html body #tab-dashboard .dash-plan-cabs { order: 1; min-width: 0; }
+html body #tab-dashboard .dash-plan-skus-col { order: 2; }
+html body #tab-dashboard .dash-cost-card { order: 3; }
+html body #tab-dashboard :is(.dash-plan-card, .dash-plan-skus-col, .dash-cost-card, .chart-box, #dashboard-top-margin-card) {
+  background: transparent !important; border: 1px solid var(--accent) !important; border-radius: 26px !important;
+  box-shadow: none !important; padding: 18px 22px !important; min-height: 0;
+}
+html body #tab-dashboard .dash-plan-ph { min-height: 100px; }
+html body #tab-dashboard :is(.dash-plan-kicker, .dash-plan-skus-kicker, .chart-box-title, #dashboard-top-margin-card h3, .dash-cost-card .kpi-hero-label) {
+  font-size: 12.5px !important; font-weight: 800 !important; letter-spacing: .08em; text-transform: uppercase; color: var(--text-primary) !important; margin: 0 0 8px;
+}
+html body #tab-dashboard .dash-plan-status b { font-size: 24px; font-weight: 900; letter-spacing: -.03em; }
+html body #tab-dashboard .dash-cost-card .kpi-hero-value { font-size: 24px; font-weight: 900; color: var(--text-primary); }
+html body #tab-dashboard .dash-plan-bar { height: 3px; }
+html body #tab-dashboard .dash-plan-card[data-tone="ok"] .dash-plan-bar > i { background: var(--accent); }
+html body #tab-dashboard .dash-plan-sku.is-done { box-shadow: inset 0 0 0 1.5px var(--accent); }
+@media (max-width: 900px) { html body #tab-dashboard .dash-plan-board { grid-template-columns: 1fr 1fr; } }
+
+/* остатки по складам: список с полосками вместо пончика */
+html body #tab-dashboard .chart-box:has(#chart-warehouse-donut) .chart-canvas-wrap { display: none; }
+html body #tab-dashboard .dash-wh-legend { max-height: none; margin-top: 12px; gap: 14px; }
+html body #tab-dashboard .dash-wh-row { position: relative; display: flex; justify-content: space-between; gap: 10px; padding-bottom: 7px; font-size: 12.5px; font-weight: 700; }
+html body #tab-dashboard .dash-wh-row .dash-wh-name span { color: var(--text-muted) !important; font-weight: 600; }
+html body #tab-dashboard .dash-wh-row::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 3px; background: var(--mono-4); }
+html body #tab-dashboard .dash-wh-row > i { position: absolute; left: 0; bottom: 0; height: 3px; border-radius: 3px; background: var(--accent); z-index: 1; }
+html body #tab-dashboard .dash-wh-total { display: none; }
+
+/* топ-5: нумерованный список вместо пончика */
+html body #tab-dashboard .dashboard-top-margin-chart { display: none; }
+html body #tab-dashboard .dashboard-top-margin-body { display: block; }
+html body #tab-dashboard .dashboard-top-margin-legend { counter-reset: tm; gap: 8px; min-width: 0; }
+html body #tab-dashboard .dashboard-top-margin-row { counter-increment: tm; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 12px; font-size: 12.5px; font-weight: 700; }
+html body #tab-dashboard .dashboard-top-margin-dot { width: 22px; height: 22px; border-radius: 6px !important; background: transparent !important; border: 1px solid var(--accent); display: grid; place-items: center; flex: none; }
+html body #tab-dashboard .dashboard-top-margin-dot::before { content: counter(tm); font-size: 11px; font-weight: 800; }
+html body #tab-dashboard .dashboard-top-margin-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body #tab-dashboard .dashboard-top-margin-pct { font-weight: 800; }
+
+/* выбор кабинета в меню под логотипом */
+html body .cabinet-picker--rail { display: block !important; position: relative; margin: 6px 12px 10px; width: auto; }
+html body .cabinet-picker--rail .cabinet-picker-btn { width: 100%; border: 1px solid var(--accent) !important; border-radius: 14px !important; background: transparent !important; padding: 8px 12px; }
+html body .cabinet-picker--rail .cabinet-picker-face { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
+html body .cabinet-picker--rail .cabinet-picker-label { font-size: 12.5px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body .cabinet-picker--rail .cabinet-dropdown-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; }
+html body #tab-dashboard .dash-plan-card[data-tone="none"] .dash-plan-status b { color: var(--text-primary); font-size: 24px; }
