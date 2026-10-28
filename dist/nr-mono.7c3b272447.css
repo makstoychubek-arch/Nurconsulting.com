@@ -471,3 +471,6 @@ html body .cabinet-dropdown-item[hidden] { display: none; }
 /* РНП на ПК: фон страницы совпадает с шапкой, разделителя между ними нет */
 @media (min-width: 769px) { html body .main-rail .main-content.rnp-compact:not(#nr-x) { background: var(--surface-solid) !important; } }
 @media (min-width: 769px) { html body .rnp-workspace { border: 0 !important; border-radius: 0 !important; } }
+/* РНП: при загрузке значения размыты без затемнения */
+html.nr-period-busy body .rnp-sheet-table :is(td.rnp-day-col, td.rnp-data-col, td.rnp-month-col) { opacity: 1 !important; }
+html body .rnp-sheet-table td.rnp-cell-competitor { background: var(--sel) !important; }

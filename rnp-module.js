@@ -7600,6 +7600,9 @@ const RNP = (() => {
         const renderId = ++_mainRenderGen;
         const snapReq = _loadRequestId();
         const snapCab = _cab;
+        // Первый заход в кабинет: пока догружаются итоги и воронка, цифры в таблице размыты (как при смене периода), а не нули.
+        const firstLoad = window._rnpLoadedForCabinet !== _cab;
+        let lateDone = () => {};
         let loadOk = false;
         let loadErr = null;
         let fullSettled = Promise.resolve();
@@ -7612,6 +7615,7 @@ const RNP = (() => {
             const first = await Promise.race([corePromise, fullP.then((v) => ({ v }), (e) => ({ e }))]);
             if (first === 'core') {
                 loadOk = true;
+                if (firstLoad && window.NrBusy) window.NrBusy.run(new Promise((r) => { lateDone = r; }));
                 fullSettled = fullP.then(() => {}, () => {});
                 fullP.then((ok) => {
                     if (!ok || _abandonStaleMain(renderId, snapReq, snapCab)) return;
@@ -7644,11 +7648,11 @@ const RNP = (() => {
         window.NrLoader && window.NrLoader.step('rnp', 3);
         window._rnpLoadedForCabinet = _cab;
         setTimeout(() => {
-            if (renderId !== _mainRenderGen || _cab !== snapCab) return;
+            if (renderId !== _mainRenderGen || _cab !== snapCab) { lateDone(); return; }
             // Если итоги ещё догружаются, дозагрузку воронки начинаем после них: иначе она рисует таблицу второй раз зря.
             fullSettled.then(() => {
-                if (renderId !== _mainRenderGen || _cab !== snapCab) return;
-                _hydrateFunnelAfterPaint(snapCab, renderId);
+                if (renderId !== _mainRenderGen || _cab !== snapCab) { lateDone(); return; }
+                Promise.resolve(_hydrateFunnelAfterPaint(snapCab, renderId)).then(lateDone, lateDone);
             });
         }, 0);
         _applyResolvedPhotos();
