@@ -335,3 +335,138 @@ html:has(.cabinet-picker.open) header.glass.app-header :is(.header-page-title, #
 html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
 html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-label { color: #000; }
 html body header.glass.app-header .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; }
+
+/* ===== «Минимализм»: приветствие нового клиента ===== */
+html body .nw-ov { background: rgba(0,0,0,.5); }
+html body .nw-modal { border: 1px solid var(--accent); border-radius: 28px; box-shadow: none; }
+html body .nw-r, html body .nw-r[class*="nw-p"] { background: var(--sel) !important; }
+html body .nw-logo span { color: var(--text-primary) !important; }
+html body .nw-h { font-weight: 900; }
+html body .nw-tag { letter-spacing: .12em; font-weight: 800; }
+html body .nw-card, html body .nw-mini, html body .nw-colR, html body .nw-kc, html body .nw-var {
+  background: var(--surface-solid) !important; border: 1px solid var(--accent) !important; border-radius: 22px !important; box-shadow: none !important; color: var(--text-primary);
+}
+html body .nw-card3, html body .nw-form .nw-card, html body .nw-s0 .nw-wide, html body .nw-var:nth-child(n) { background: var(--surface-solid) !important; }
+html body .nw-s0 .nw-dark, html body .nw-s0 > .nw-card:nth-child(2) { background: var(--accent) !important; color: var(--on-accent, #fff) !important; border-color: var(--accent) !important; }
+html body .nw-s0 .nw-dark .nw-k, html body .nw-s0 > .nw-card:nth-child(2) .nw-k { color: var(--on-accent, #fff); opacity: .75; }
+html body .nw-blue, html body .nw-green { background: var(--accent) !important; color: var(--on-accent, #fff) !important; border-color: var(--accent) !important; }
+html body .nw-rank em { background: transparent !important; border: 1px solid var(--accent); color: var(--text-primary) !important; border-radius: 6px; }
+html body .nw-rank u b { background: var(--accent) !important; }
+html body .nw-rnp .nw-ord td:not(:first-child):not(.nw-tt) { background: var(--sel); }
+html body .nw-hg { background: transparent !important; color: #16a34a; font-weight: 800; }
+html body .nw-hr { background: transparent !important; color: #dc2626 !important; font-weight: 800; }
+html body .nw-th.on { border-color: var(--accent); }
+html body .nw-img { filter: grayscale(1); }
+html body .nw-dots i.on { background: var(--accent); }
+html body .nw-d5 { grid-template-columns: repeat(4, 1fr); }
+html body .nw-pbar, html body .nw-bar i { background: var(--mono-4); }
+html body .nw-kc > b { font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 10px; }
+html body .nw-kv { font-weight: 900; }
+html body .nw-modal.nr-win { display: grid !important; }
+@media (max-width: 760px) { html body .nw-modal.nr-win { display: grid !important; grid-template-columns: 1fr !important; } }
+
+/* ===== «Минимализм»: остатки цветных градиентов в разделах ===== */
+html body #nr-topbar b { background: var(--accent) !important; box-shadow: none !important; }
+html body .nx-bar i { background: var(--accent) !important; }
+html body .nx-trial, html body .fbx-bulk, html body .fbx-term { background: var(--sel) !important; border: 1px solid var(--accent) !important; color: var(--text-primary) !important; }
+html body .nx-ic, html body .ggx-ph { background: var(--sel) !important; }
+/* Логистика: карточки-сводки и чипы */
+html body .ggx-k { background: transparent !important; color: var(--text-primary) !important; border: 1px solid var(--accent); border-radius: 26px; box-shadow: none !important; padding: 16px 20px; }
+html body .ggx-k small { opacity: 1; font-size: 12px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+html body .ggx-k b { font-size: 30px; font-weight: 900; }
+html body .ggx-k.k4 b { color: #dc2626; }
+html body .ggx-chip { background: transparent !important; border: 1px solid var(--border) !important; color: var(--text-primary) !important; }
+html body .ggx-chip.r { color: #dc2626 !important; } html body .ggx-chip.g { color: #16a34a !important; }
+html body .ggx-chip.on { outline: 0; border-color: var(--accent) !important; box-shadow: inset 0 0 0 1px var(--accent); }
+/* админ-кнопки: без цветных градиентов и свечения */
+html body .ax-test, html body .ax-ok { background: #16a34a !important; box-shadow: none !important; }
+html body .ax-staff.on, html body .ax-full.on { background: var(--accent) !important; color: var(--on-accent, #fff) !important; box-shadow: none !important; }
+
+/* ПК: меню всегда на виду, стрелка «назад» не нужна (остаётся на телефоне и в карточке кампании) */
+@media (min-width: 769px) { html body #header-back-btn.header-back-btn:not(.nr-keep-back) { display: none !important; } }
+
+/* ===== «Минимализм»: дашборд на телефоне (nr-motion.js, блок nmd) ===== */
+@media (max-width: 768px) {
+  html body .nmd-per i { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+  html body .nmd-per i.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
+  html body .nmd-card { background: transparent; border: 1px solid var(--accent); border-radius: 26px; padding: 16px 18px; }
+  html body .nmd-hero { background: var(--accent); color: var(--on-accent, #fff); }
+  html body .nmd-hero .nmd-lbl, html body .nmd-hero .nmd-sm, html body .nmd-hero .nmd-xl { color: var(--on-accent, #fff); opacity: .75; }
+  html body .nmd-hero .nmd-pill { color: var(--on-accent, #fff); opacity: .6; }
+  html body .nmd-hero .nmd-pill.on { background: var(--on-accent, #fff); color: var(--accent); opacity: 1; }
+  html body .nmd-hero .nmd-chart i { background: rgba(255,255,255,.22); }
+  [data-theme="neon"] body .nmd-hero .nmd-chart i, html[data-theme="neon"] body .nmd-hero .nmd-chart i { background: rgba(0,0,0,.18); }
+  html body .nmd-hero .nmd-chart i.hl { background: var(--on-accent, #fff); }
+  html body .nmd-big { font-weight: 900; letter-spacing: -.03em; }
+  html body .nmd-lbl { font-weight: 800; letter-spacing: .07em; text-transform: uppercase; font-size: 11px; }
+  html body .nmd-sq { background: transparent; border: 1px solid var(--accent); border-radius: 18px; }
+  html body .nmd-sq svg { color: var(--text-primary); stroke: currentColor; }
+  html body .nmd-tile span { font-weight: 800; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  html body .nmd-green { background: transparent; color: var(--text-primary); }
+  html body .nmd-green .nmd-lbl { color: var(--text-muted); }
+  html body .nmd-green .nmd-big { color: #16a34a; }
+  html body .nmd-bal { background: transparent; }
+  html body .nmd-bal .nmd-lbl { color: var(--text-muted); }
+  html body .nmd-dash { border-top: 1px solid var(--border); }
+  html body .nmd-btn { background: var(--accent); color: var(--on-accent, #fff); }
+  html body .nmd-chart i { background: var(--mono-4); }
+  html body .nmd-chart i.hl { background: var(--accent); }
+  html body .nmd-seg > * { filter: grayscale(1); }
+  html body .nmd-seg > :last-child { filter: none; background: #16a34a !important; }
+  html body .nmd-leg u { filter: grayscale(1); }
+  html body .nmd-leg:last-child u { filter: none; background: #16a34a !important; }
+  html body .nmd-tag { background: transparent !important; border: 1px solid var(--border); color: var(--text-primary) !important; }
+  html body .nmd-tag.nmd-g { color: #16a34a !important; border-color: #16a34a; }
+  html body .nmd-tag.nmd-r { color: #dc2626 !important; border-color: #dc2626; }
+  html body .nmd-tile em { background: #dc2626; }
+}
+html body .rnp-stock-donut, html body .rnp-stock-scheme-wrap { --rnp-fbo: var(--mono-1); --rnp-fbs: var(--mono-3); }
+/* РНП: карточки сводки в контуре «Минимализма» */
+html body .rnp-gh-card { background: transparent !important; border: 1px solid var(--accent) !important; border-radius: 22px !important; padding: 12px 16px; box-shadow: none !important; }
+html body .rnp-gh-title { font-weight: 800; letter-spacing: .05em; text-transform: uppercase; font-size: 11.5px; }
+html body .rnp-gh-hero { border-radius: 22px; }
+html body .rnp-gh-chip { border-radius: 999px; }
+html[data-theme] body .rnp-gh-hero.rnp-gh-health, html[data-theme] body .rnp-gh-hero.rnp-gh-balance { background: transparent !important; border: 1px solid var(--accent) !important; color: var(--text-primary) !important; }
+html[data-theme] body .rnp-gh-hero.rnp-gh-health *, html[data-theme] body .rnp-gh-hero.rnp-gh-balance * { color: inherit !important; }
+html[data-theme] body .rnp-gh-hero.rnp-gh-health .rnp-gh-chip, html[data-theme] body .rnp-gh-hero.rnp-gh-balance .rnp-gh-chip { background: var(--sel); }
+html[data-theme] body .rnp-gh-hero.rnp-gh-health .rnp-gh-bar div, html[data-theme] body .rnp-gh-hero.rnp-gh-balance .rnp-gh-bar div { background: var(--mono-4); }
+html[data-theme] body .rnp-gh-hero.rnp-gh-health .rnp-gh-bar i { background: var(--accent); }
+html[data-theme] body .rnp-gh-hero.rnp-gh-balance .rnp-gh-row { border-top-color: var(--border); }
+html[data-theme] body .rnp-gh-hero.rnp-gh-profit { background: var(--accent) !important; color: var(--on-accent, #fff) !important; border: 0 !important; }
+html[data-theme="neon"] body .rnp-gh-hero.rnp-gh-profit .rnp-gh-big { color: #16a34a; }
+html[data-theme="neon"] body .rnp-gh-hero.rnp-gh-profit .rnp-gh-big.neg { color: #dc2626; }
+html body .rnp-sheet-table td.rnp-cell-period.rnp-data-col, html body .rnp-sheet-table th.rnp-th-total { background: var(--sel) !important; }
+/* Продвижение: автоставки и метки без фиолетового; аватары и заглушки контент-завода в сером */
+html body #adv-view-ads .ads-sl.p2 .ads-sl-b.on, html body .adp2-sl.p2 button.on { background: var(--accent); color: var(--on-accent, #fff); }
+html body #adv-view-ads .ads-auto-tag, html body .adp2-auto { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+html body .cf-av, html body .cf-av.b, html body .cf-av.c, html body .cf-av.d { background: var(--accent); color: var(--on-accent, #fff); }
+html body .cf-th-ph, html body .cf-th-ph.b { background: var(--sel); }
+
+/* Логистика: списки остатков, FBS и поставки без цветных заливок */
+html body .ggx-grp { background: transparent !important; border: 1px solid var(--accent) !important; border-radius: 26px; }
+html body .ggx-gh h3 { color: var(--text-primary); }
+html body .ggx-gh small { color: var(--text-muted); }
+html body .ggx-strip .ggx-ph { border-color: var(--surface-solid); }
+html body .ggx-ph i { color: var(--text-primary); }
+html body .ggx-bb { background: var(--mono-4); }
+html body .ggx-bb .fbo { background: var(--accent); } html body .ggx-bb .fbs { background: var(--mono-3); }
+html body .ggx-row.ggx-o, html body .ggx-row.ggx-b { box-shadow: inset 4px 0 0 var(--mono-3); }
+html body .ggx-cv.o, html body .ggx-cv.b { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+html body .ggx-cv.r { background: transparent; border: 1px solid #dc2626; color: #dc2626; }
+html body .ggx-cv.g { background: transparent; border: 1px solid #16a34a; color: #16a34a; }
+html body .fbf, html body .fbs-card { box-shadow: none; border: 1px solid var(--accent); border-radius: 26px; }
+html body #beta-stub-pill.beta-pill { color: var(--text-muted); border-color: var(--border); }
+/* Реализация: красный остаток (возвраты) только когда есть данные; пока пусто, полоса серая */
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar { background: var(--mono-4) !important; }
+html body #tab-dashboard #dash-pnl > .pnl-card:nth-child(1) .pnl-bar:has(#pnl-real-bar:not([style*="width: 0px"]):not([style*="width:0;"])) { background: var(--red) !important; }
+/* Поиск в списке кабинетов (когда их 8 и больше) */
+html body .cabinet-dropdown-menu { max-height: 380px; }
+html body .nr-cab-search { position: sticky; top: 0; z-index: 1; width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-solid); color: var(--text-primary); font: 600 13px inherit; font-family: inherit; outline: 0; }
+html body .nr-cab-search:focus { border-color: var(--accent); }
+html body .cabinet-dropdown-item[hidden] { display: none; }
+/* Телефон: в шапке помещается название страницы, дата и кабинет */
+@media (max-width: 480px) {
+  html body header.glass.app-header .header-title { font-size: 17px; }
+  html body header.glass.app-header .cabinet-picker-label { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html body header.glass.app-header .app-header-main { gap: 6px; }
+}

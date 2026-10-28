@@ -211,7 +211,8 @@ export function pickDailyReport(reports: SalesReportMeta[], date: string): Sales
 export function aggregatePenaltyRows(raw: Record<string, unknown>[]): PenaltyLine[] {
     const byReason = new Map<string, number>();
     for (const r of raw) {
-        const penalty = parseMoney(ffield(r, 'penalty'));
+        const penaltyRaw = parseSignedMoney(ffield(r, 'penalty'));
+        const penalty = Math.abs(penaltyRaw);
         const deduction = parseMoney(ffield(r, 'deduction'));
         const docType = String(ffield(r, 'docTypeName', 'doc_type_name') || '');
         const operName = String(ffield(
@@ -229,10 +230,15 @@ export function aggregatePenaltyRows(raw: Record<string, unknown>[]): PenaltyLin
         );
 
         let amount = 0;
-        if (penalty > 0) amount += penalty;
-        if (deduction > 0 && !excluded) amount += deduction;
-        if (amount <= 0 && !blob.includes('штраф') && !blob.includes('удерж')) continue;
-        if (amount <= 0) continue;
+        // «Сторно. …» с минусом: WB вернул ранее удержанный штраф. Это возврат, а не новое удержание: сумма остаётся отрицательной.
+        const storno = penaltyRaw < 0 && /сторно/i.test(blob);
+        if (storno) amount = penaltyRaw;
+        else {
+            if (penalty > 0 && penaltyRaw > 0) amount += penalty;
+            if (deduction > 0 && !excluded) amount += deduction;
+        }
+        if (amount === 0) continue;
+        if (amount < 0 && !storno) continue;
 
         const reason = (bonusName || operName || docType || 'Удержание').trim();
         byReason.set(reason, (byReason.get(reason) || 0) + amount);
@@ -247,6 +253,12 @@ function ffield(obj: Record<string, unknown>, ...keys: string[]): unknown {
         if (obj[k] != null && obj[k] !== '') return obj[k];
     }
     return null;
+}
+
+function parseSignedMoney(v: unknown): number {
+    if (v == null || v === '') return 0;
+    const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
 }
 
 function parseMoney(v: unknown): number {

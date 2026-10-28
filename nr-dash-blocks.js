@@ -361,7 +361,34 @@
         var p = document.getElementById('date-picker');
         if (p && p.parentNode !== document.body) document.body.appendChild(p);
     }
-    function moveAll() { moveBell(); liftPicker(); }
+    // Список кабинетов: когда их много (20+ у консалтинга), сверху появляется поиск по названию.
+    function cabinetSearch() {
+        if (typeof document === 'undefined' || !root.MutationObserver) return;
+        var menu = document.getElementById('cabinet-dropdown-menu');
+        if (!menu || menu.__nrSearch) return;
+        menu.__nrSearch = true;
+        function build() {
+            var items = menu.querySelectorAll('.cabinet-dropdown-item');
+            if (items.length < 8 || menu.querySelector('.nr-cab-search')) return;
+            var inp = document.createElement('input');
+            inp.type = 'search'; inp.className = 'nr-cab-search'; inp.placeholder = 'Найти кабинет'; inp.autocomplete = 'off';
+            inp.addEventListener('click', function (e) { e.stopPropagation(); });
+            inp.addEventListener('input', function () {
+                var q = inp.value.trim().toLowerCase();
+                menu.querySelectorAll('.cabinet-dropdown-item').forEach(function (it) { it.hidden = !!q && it.textContent.toLowerCase().indexOf(q) < 0; });
+            });
+            inp.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                var first = Array.prototype.find.call(menu.querySelectorAll('.cabinet-dropdown-item'), function (it) { return !it.hidden; });
+                if (first) first.click();
+            });
+            menu.insertBefore(inp, menu.firstChild);
+            setTimeout(function () { try { inp.focus({ preventScroll: true }); } catch (e) {} }, 60);
+        }
+        new MutationObserver(build).observe(menu, { childList: true });
+        build();
+    }
+    function moveAll() { moveBell(); liftPicker(); cabinetSearch(); }
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).

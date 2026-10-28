@@ -85,6 +85,15 @@ execSync(
         { penalty: 200, sellerOperName: 'Штраф за недопоставку' },
     ]);
     assert.strictEqual(rows.length, 3);
+    // сторно: WB вернул штраф (минус в penalty), это возврат, а не новое удержание
+    const st = aggregatePenaltyRows([
+        { penalty: -390711.37, sellerOperName: 'Штраф', bonusTypeName: 'Сторно. Занижение фактических габаритов упаковки товара' },
+        { penalty: 100, sellerOperName: 'Штраф', bonusTypeName: 'Занижение фактических габаритов упаковки товара' },
+        { penalty: -50, sellerOperName: 'Штраф', bonusTypeName: 'Прочий минус' },
+    ]);
+    assert.strictEqual(st.length, 2, 'минус без «сторно» игнорируется, сторно остаётся');
+    assert.ok(st.find((x) => /^Сторно/.test(x.reason) && x.amount < 0), 'сторно остаётся отрицательным');
+    assert.ok(st.find((x) => !/^Сторно/.test(x.reason) && x.amount === 100), 'обычный штраф остаётся положительным');
     assert.ok(rows[0].reason.includes('Штраф МП'));
 
     assert.ok(PENALTY_DETAIL_FIELDS.includes('sellerOperName'));

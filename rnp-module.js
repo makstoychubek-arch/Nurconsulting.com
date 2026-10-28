@@ -3353,7 +3353,8 @@ const RNP = (() => {
     let _ghKey = '';
     let _ghLoading = null;
 
-    const GH_COLORS = ['#7B61FF', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#94A3B8'];
+    const GH_COLORS = ['var(--mono-1)', 'var(--mono-2)', '#10B981', 'var(--mono-3)', '#EF4444', 'var(--mono-4)'];
+    const GH_MONO = ['var(--mono-1)', 'var(--mono-2)', 'var(--mono-3)', 'var(--mono-4)', 'var(--mono-2)', 'var(--mono-3)'];
     const _ghEsc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const _ghNum = (v) => Math.round(Number(v) || 0).toLocaleString('ru');
     const _ghPct = (v, d = 1) => (Number(v) || 0).toFixed(d).replace('.', ',') + '%';
@@ -3660,8 +3661,8 @@ const RNP = (() => {
         const fbo = sum('fbo'), fbs = sum('fbs'), stockT = fbo + fbs;
         const pc = _schemePercents(fbo, fbs);
         const stockCard = `<div class="rnp-gh-card"><div class="rnp-gh-title">Остатки: FBO и FBS ${_ghInfoIcon('stock')}</div>
-            <div class="rnp-gh-flex">${_ghRing([{ name: 'FBO', v: fbo, c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS', v: fbs, c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }], _ghNum(stockT), 'шт', 92)}
-            ${_ghLegend([{ name: 'FBO · склад WB', val: pc.fbo + '%', c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS · свой склад', val: pc.fbs + '%', c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }])}</div></div>`;
+            <div class="rnp-gh-flex">${_ghRing([{ name: 'FBO', v: fbo, c: 'var(--mono-1)', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS', v: fbs, c: 'var(--mono-3)', click: "RNP.ghOpen('stock','fbs')" }], _ghNum(stockT), 'шт', 92)}
+            ${_ghLegend([{ name: 'FBO · склад WB', val: pc.fbo + '%', c: 'var(--mono-1)', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS · свой склад', val: pc.fbs + '%', c: 'var(--mono-3)', click: "RNP.ghOpen('stock','fbs')" }])}</div></div>`;
         // В «Σ Общее» по группе баланс/прибыль/здоровье кабинета дублируют вкладку «Общий» — вместо них
         // остатки с «хватит на N дней» и расходом на хранение в день (идея владельца после 5 макетов).
         const avgDailySales = M.per.days > 0 ? sum('sales') / M.per.days : 0;
@@ -3672,8 +3673,8 @@ const RNP = (() => {
             : '';
         const stockRunwayCard = `<div class="rnp-gh-card rnp-gh-runway"><div class="rnp-gh-title">Остатки и хранение ${_ghInfoIcon('runway')}</div>
             <div class="rnp-gh-runway-row">
-              <div class="rnp-gh-flex">${_ghRing([{ name: 'FBO', v: fbo, c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS', v: fbs, c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }], _ghNum(stockT), 'шт', 92)}
-              ${_ghLegend([{ name: 'FBO · склад WB', val: pc.fbo + '%', c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS · свой склад', val: pc.fbs + '%', c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }])}</div>
+              <div class="rnp-gh-flex">${_ghRing([{ name: 'FBO', v: fbo, c: 'var(--mono-1)', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS', v: fbs, c: 'var(--mono-3)', click: "RNP.ghOpen('stock','fbs')" }], _ghNum(stockT), 'шт', 92)}
+              ${_ghLegend([{ name: 'FBO · склад WB', val: pc.fbo + '%', c: 'var(--mono-1)', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS · свой склад', val: pc.fbs + '%', c: 'var(--mono-3)', click: "RNP.ghOpen('stock','fbs')" }])}</div>
               <div class="rnp-gh-runway-sep"></div>
               <div class="rnp-gh-runway-stat"><span>Хватит на</span><b>${runwayDays == null ? '—' : '≈ ' + Math.round(runwayDays)} <small>${runwayDays == null ? '' : 'дней'}</small></b>${runwayPill}<em>при ${_ghNum(Math.round(avgDailySales))} шт/день</em></div>
               <div class="rnp-gh-runway-sep"></div>
@@ -3694,8 +3695,8 @@ const RNP = (() => {
         const logRows = (_ghLogi || []).map(r => ({ name: r.reason, v: Number(r.amount) || 0 })).filter(r => r.v > 0);
         const logT = logRows.reduce((x, r) => x + r.v, 0);
         const logCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('logistics')"><div class="rnp-gh-title">На что уходит логистика ${_ghInfoIcon('logistics')}</div>
-            <div class="rnp-gh-flex">${_ghRing(logRows.map((r, i) => ({ name: r.name, v: r.v, c: LG[r.name] || GH_COLORS[(i + 2) % 6] })), logT >= 1000 ? Math.round(logT / 1000) + ' т' : _ghNum(logT), 'сом', ringSize)}
-            ${_ghLegend(logRows.slice(0, 5).map((r, i) => ({ name: LGN[r.name] || r.name, full: r.name, val: pct(r.v, logT), c: LG[r.name] || GH_COLORS[(i + 2) % 6] })))}</div></div>`;
+            <div class="rnp-gh-flex">${_ghRing(logRows.map((r, i) => ({ name: r.name, v: r.v, c: LG[r.name] || GH_MONO[(i + 2) % 6] })), logT >= 1000 ? Math.round(logT / 1000) + ' т' : _ghNum(logT), 'сом', ringSize)}
+            ${_ghLegend(logRows.slice(0, 5).map((r, i) => ({ name: LGN[r.name] || r.name, full: r.name, val: pct(r.v, logT), c: LG[r.name] || GH_MONO[(i + 2) % 6] })))}</div></div>`;
         const sales = sum('sales'), can = sum('cancels'), ret = sum('returns'), bt = sales + can + ret;
         const buyCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('buyout')"><div class="rnp-gh-title">Выкупы и отказы ${_ghInfoIcon('buyout')}</div>
             <div class="rnp-gh-flex">${_ghRing([{ name: 'Выкуплено', v: sales, c: GH_COLORS[2] }, { name: 'Отказы', v: can, c: GH_COLORS[5] }, { name: 'Возвраты', v: ret, c: GH_COLORS[4] }], pct(sales, bt), 'выкуп', ringSize)}
@@ -3707,8 +3708,8 @@ const RNP = (() => {
         const catT = catList.reduce((x, [, v]) => x + v, 0);
         const catEnc = (n) => n === 'Остальные' ? '' : encodeURIComponent(n).replace(/'/g, '%27');
         const catCard = `<div class="rnp-gh-card"><div class="rnp-gh-title">Остатки по категориям ${_ghInfoIcon('cats')}</div>
-            <div class="rnp-gh-flex">${_ghRing(catList.map(([n, v], i) => ({ name: n, v, c: GH_COLORS[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })), String(Object.keys(cats).length), 'кат.', ringSize)}
-            ${_ghLegend(catList.map(([n, v], i) => ({ name: n, full: `${n}: ${_ghNum(v)} шт`, val: pct(v, catT), c: GH_COLORS[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })))}</div></div>`;
+            <div class="rnp-gh-flex">${_ghRing(catList.map(([n, v], i) => ({ name: n, v, c: GH_MONO[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })), String(Object.keys(cats).length), 'кат.', ringSize)}
+            ${_ghLegend(catList.map(([n, v], i) => ({ name: n, full: `${n}: ${_ghNum(v)} шт`, val: pct(v, catT), c: GH_MONO[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })))}</div></div>`;
         // правая колонка
         const minSales = Math.max(1, M.per.days);
         const top = st.filter(o => o.sales >= minSales && o.transfer > 0).sort((a, b) => b.margin - a.margin).slice(0, 5);
