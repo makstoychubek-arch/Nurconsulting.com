@@ -56,6 +56,18 @@ Deno.serve(async (req) => {
             error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_PENALTIES не заданы',
         }, 400);
     }
+    // Служебное: убрать ошибочно отправленные сообщения (только с сервисным ключом)
+    if (Array.isArray(body?.delete_message_ids)) {
+        const deleted: number[] = [];
+        const failed: Array<Record<string, unknown>> = [];
+        for (const raw of body.delete_message_ids as unknown[]) {
+            const id = Number(raw);
+            if (!Number.isFinite(id)) continue;
+            const err = await deleteTelegramMessage(tgToken, tgChatId, id);
+            if (err) failed.push({ id, error: String(err) }); else deleted.push(id);
+        }
+        return json({ ok: true, deleted, failed });
+    }
 
     const isTest = body?.test === true;
     const reportDate = typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
@@ -129,8 +141,11 @@ Deno.serve(async (req) => {
                 const rows = bundle.rows;
                 const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
                 // Подпись — только отметка, и только когда штрафы есть
-                // Отметка только если есть реальные удержания; день с одним сторно (возврат штрафов) никого не зовёт
-                const caption = bundle.rows.some((r) => r.amount > 0) ? `@${esc(ALERT_USERNAME)}` : '';
+                // Отметка: при настоящих удержаниях и при сторно (возврат штрафов, подпись «сторнировали», сумма со знаком +)
+                const stornoSum = bundle.rows.filter((r) => r.amount < 0).reduce((a, r) => a + Math.abs(r.amount), 0);
+                const caption = stornoSum > 0
+                    ? `@${esc(ALERT_USERNAME)} сторнировали штрафы: +${Math.round(stornoSum).toLocaleString('ru-RU').replace(/\u00A0/g, ' ')} сом (WB вернул удержанное)`
+                    : bundle.rows.some((r) => r.amount > 0) ? `@${esc(ALERT_USERNAME)}` : '';
                 const legalName = cabinetLegalName(cabinet.name);
                 // Если дневной отчёт ещё не готов, берём последний закрытый — подписываем его периодом
                 const dateLabel = bundle.weekOpen
