@@ -80,13 +80,12 @@
         }
         html.oauth-pending #screen-auth { display: none !important; }
         html.oauth-pending #screen-oauth-loading { display: flex !important; }
-        .oauth-hello { color: var(--ink-dim); font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-        .oauth-rule { width: 46px; height: 3px; border-radius: 3px; background: #f97316; margin: 22px 0; }
         .oauth-brand { display: flex; align-items: center; gap: 12px; }
         .oauth-logo { width: 64px; height: 64px; border-radius: 18px; }
-        .oauth-space { border: 2px solid #f97316; color: #f97316; border-radius: 99px; padding: 4px 18px; font-size: 27px; font-weight: 800; line-height: 1.1; }
+        .oauth-space { border: 2px solid var(--ink); color: var(--ink); border-radius: 99px; padding: 4px 18px; font-size: 27px; font-weight: 800; line-height: 1.1; }
         .nr-brand-mark { display: none; }
         .oauth-loading-text { color: var(--ink-dim); font-size: 14px; line-height: 1.6; text-align: center; max-width: 320px; margin-top: 22px; }
+        .oauth-loading-text:empty { display: none; }
         .oauth-dots { display: flex; gap: 10px; margin-top: 22px; }
         .oauth-dots span { width: 9px; height: 9px; border-radius: 50%; background: var(--ink); opacity: .45; animation: oauthBounce 1.2s infinite; }
         .oauth-dots span:nth-child(2) { opacity: .7; animation-delay: .2s; }
@@ -115,13 +114,11 @@
 
     <!-- ЭКРАН: OAuth / проверка сессии -->
     <div id="screen-oauth-loading">
-        <div class="oauth-hello">Добро пожаловать</div>
-        <div class="oauth-rule"></div>
         <div class="oauth-brand">
             <img class="oauth-logo logo-nr" src="/icons/logo-nr.svg" alt="NR" width="64" height="64">
             <div class="oauth-space">Space</div>
         </div>
-        <p id="oauth-loading-text" class="oauth-loading-text">Входим в ваш кабинет…</p>
+        <p id="oauth-loading-text" class="oauth-loading-text"></p>
         <div class="oauth-dots"><span></span><span></span><span></span></div>
     </div>
 
