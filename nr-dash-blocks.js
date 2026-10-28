@@ -388,7 +388,17 @@
         new MutationObserver(build).observe(menu, { childList: true });
         build();
     }
-    function moveAll() { moveBell(); liftPicker(); cabinetSearch(); }
+    // Высота шапки (на iPhone в режиме приложения она выше из-за системной строки): от неё считается отступ контента на телефоне.
+    function headerHeightVar() {
+        if (typeof document === 'undefined') return;
+        var h = document.querySelector('header.app-header');
+        if (!h) return;
+        function set() { document.documentElement.style.setProperty('--nr-hdr-h', h.offsetHeight + 'px'); }
+        set();
+        if (root.ResizeObserver) new root.ResizeObserver(set).observe(h, { box: 'border-box' });
+        root.addEventListener('resize', set);
+    }
+    function moveAll() { moveBell(); liftPicker(); cabinetSearch(); headerHeightVar(); }
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
