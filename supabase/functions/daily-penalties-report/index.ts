@@ -129,7 +129,8 @@ Deno.serve(async (req) => {
                 const rows = bundle.rows;
                 const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
                 // Подпись — только отметка, и только когда штрафы есть
-                const caption = bundle.rows.length ? `@${esc(ALERT_USERNAME)}` : '';
+                // Отметка только если есть реальные удержания; день с одним сторно (возврат штрафов) никого не зовёт
+                const caption = bundle.rows.some((r) => r.amount > 0) ? `@${esc(ALERT_USERNAME)}` : '';
                 const legalName = cabinetLegalName(cabinet.name);
                 // Если дневной отчёт ещё не готов, берём последний закрытый — подписываем его периодом
                 const dateLabel = bundle.weekOpen

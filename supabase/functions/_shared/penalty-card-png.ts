@@ -35,7 +35,7 @@ const mw = (ctx: any, t: string, bold = false): number => textW(ctx, t, bold);
 // Ширина числа «1 240»: у DejaVu Sans Bold все цифры 0.696em, пробел 0.348em (measureText в этой библиотеке для цифр врёт)
 const numWidth = (t: string, px: number): number =>
     [...t].reduce((w, ch) => w + (ch === ' ' ? 0.348 : 0.696) * px, 0);
-const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/ /g, ' ');
+const fmt = (n: number) => (n < 0 ? '\u2212' : '') + Math.abs(Math.round(n)).toLocaleString('ru-RU').replace(/ /g, ' ');
 
 function items(n: number): string {
     const m10 = n % 10, m100 = n % 100;
@@ -137,7 +137,7 @@ export async function renderPenaltyCardPng(m: PenaltyCardModel): Promise<Uint8Ar
     const ty = cardY + inner;
     ctx.fillStyle = '#9CA3AF';
     ctx.font = '11px DejaVu';
-    ctx.fillText('УДЕРЖАНО ЗА', L, ty + 12);
+    ctx.fillText(m.totals && m.totals.total < 0 ? 'ВОЗВРАЩЕНО (СТОРНО) ЗА' : 'УДЕРЖАНО ЗА', L, ty + 12);
     ctx.fillStyle = '#111827';
     ctx.font = 'bold 20px DejaVu';
     ctx.fillText(fitText(ctx, m.dateLabel + pageSuffix, innerW / 2), L, ty + 40);
@@ -147,7 +147,7 @@ export async function renderPenaltyCardPng(m: PenaltyCardModel): Promise<Uint8Ar
         ctx.fillStyle = '#6B7280';
         ctx.font = '15px DejaVu';
         ctx.fillText('сом', R - 29, ty + 40);
-        ctx.fillStyle = '#B91C1C';
+        ctx.fillStyle = total < 0 ? '#15803D' : '#B91C1C';
         ctx.font = 'bold 34px DejaVu';
         ctx.fillText(fmt(total), R - 36 - numWidth(fmt(total), 34), ty + 40);
 
@@ -183,7 +183,7 @@ export async function renderPenaltyCardPng(m: PenaltyCardModel): Promise<Uint8Ar
         const amt = fmt(r.amount);
         ctx.font = '14px DejaVu';
         ctx.fillText(fitText(ctx, r.reason, innerW - 90), L, y + rowH / 2 + 5);
-        ctx.fillStyle = '#B91C1C';
+        ctx.fillStyle = r.amount < 0 ? '#15803D' : '#B91C1C';
         ctx.font = 'bold 14px DejaVu';
         ctx.fillText(amt, R - numWidth(amt, 14), y + rowH / 2 + 5);
         y += rowH;
@@ -193,12 +193,12 @@ export async function renderPenaltyCardPng(m: PenaltyCardModel): Promise<Uint8Ar
     if (m.totals) {
         const by = y + 10;
         roundRect(ctx, L, by, innerW, totalBoxH, 10);
-        ctx.fillStyle = '#FEF2F2';
+        ctx.fillStyle = m.totals.total < 0 ? '#F0FDF4' : '#FEF2F2';
         ctx.fill();
-        ctx.fillStyle = '#7F1D1D';
+        ctx.fillStyle = m.totals.total < 0 ? '#14532D' : '#7F1D1D';
         ctx.font = 'bold 14px DejaVu';
         ctx.fillText(`Итого, ${items(m.totals.items)}`, L + 14, by + totalBoxH / 2 + 5);
-        ctx.fillStyle = '#B91C1C';
+        ctx.fillStyle = m.totals.total < 0 ? '#15803D' : '#B91C1C';
         ctx.font = 'bold 17px DejaVu';
         ctx.fillText(fmt(m.totals.total), R - 14 - numWidth(fmt(m.totals.total), 17), by + totalBoxH / 2 + 6);
     }
