@@ -188,9 +188,11 @@
 
     // Оплаты и доп. услуги ФФ (таблица ff_ledger): оплата привязана к периоду, период хранится в начале названия «[с..по] текст».
     var LG_TAG = /^\[(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})\]\s*/;
+    // Если оплату ввели в сомах, сумма в ₽ считается по курсу на момент записи, а введённые сомы хранятся в названии как {сом:N}.
+    var LG_SOM = /^\{сом:([\d.]+)\}\s*/;
     function lgParse(r) {
-        var m = LG_TAG.exec(r.title || '');
-        return { id: r.id, kind: r.kind, ff: r.ff_name || null, amount: Number(r.amount) || 0, date: String(r.entry_date || '').slice(0, 10), from: m ? m[1] : null, to: m ? m[2] : null, text: String(r.title || '').replace(LG_TAG, '') };
+        var m = LG_TAG.exec(r.title || ''), rest = String(r.title || '').replace(LG_TAG, ''), sm = LG_SOM.exec(rest);
+        return { id: r.id, kind: r.kind, ff: r.ff_name || null, amount: Number(r.amount) || 0, som: sm ? Number(sm[1]) : null, date: String(r.entry_date || '').slice(0, 10), from: m ? m[1] : null, to: m ? m[2] : null, text: rest.replace(LG_SOM, '') };
     }
     function lgInPeriod(x) { var a = x.from || x.date, b = x.to || x.date; return !!a && a <= S.to && b >= S.from; }
     function lgTotals() {
@@ -198,6 +200,8 @@
         (S.ledger || []).forEach(function (r) { var x = lgParse(r); if (!lgInPeriod(x)) return; if (x.kind === 'payment') pay += x.amount; else extra += x.amount; });
         return { pay: pay, extra: extra };
     }
+    function somOf(rub) { return S.rate > 0 ? ' <small>≈ ' + fmt(rub * S.rate) + ' сом</small>' : ''; }
+    function amtLabel(x) { return x.som != null ? fmt(x.som) + ' сом' : fmt(x.amount) + ' ₽'; }
     async function loadLedger(db, cab) {
         try {
             var r = await db.from('ff_ledger').select('id,ff_name,kind,title,amount,entry_date').eq('cabinet_id', cab).order('entry_date', { ascending: false }).range(0, 199);
@@ -283,15 +287,16 @@
             '<label class="ffl-per">Период с<input type="date" id="ffl-from" value="' + esc(S.from) + '"></label>' +
             '<label class="ffl-per">по<input type="date" id="ffl-to" value="' + esc(to0) + '"></label>' +
             '<label>Дата<input type="date" id="ffl-date" value="' + today() + '"></label></div>' +
-            '<div class="ffl-row"><label class="ffl-w">Сумма, ₽<input type="text" inputmode="decimal" id="ffl-amt" placeholder="0"></label>' +
+            '<div class="ffl-row"><label class="ffl-w">Сумма<input type="text" inputmode="decimal" id="ffl-amt" placeholder="0"></label>' +
+            '<label>Валюта<select id="ffl-cur"><option value="som">сом</option><option value="rub">₽</option></select></label>' +
             '<label class="ffl-w2">Комментарий (например, забор груза)<input type="text" id="ffl-note" maxlength="120"></label>' +
             '<button type="button" class="ffl-btn" data-ff="lgadd">Записать</button></div></div>';
         var rows = (S.ledger || []).map(lgParse).filter(function (x) { return lgInPeriod(x); }).map(function (x) {
             var pay = x.kind === 'payment';
             var what = pay ? 'Оплата' + (x.from ? ' за ' + dmy(x.from) + '–' + dmy(x.to) : '') : 'Доп. услуга';
-            return '<div class="ffl-li"><time>' + dmy(x.date) + '</time><span>' + esc(what) + (x.text && !/^(Оплата|Доп\. услуга)$/.test(x.text) ? ' · ' + esc(x.text) : '') + (x.ff ? ' · ' + esc(x.ff) : '') + '</span><b class="' + (pay ? 'ffl-g' : '') + '">' + (pay ? '−' : '+') + fmt(x.amount) + ' ₽</b>' + (ro ? '' : '<button type="button" class="ffl-x" data-ff="lgdel" data-id="' + esc(x.id) + '" aria-label="Удалить">×</button>') + '</div>';
+            return '<div class="ffl-li"><time>' + dmy(x.date) + '</time><span>' + esc(what) + (x.text && !/^(Оплата|Доп\. услуга)$/.test(x.text) ? ' · ' + esc(x.text) : '') + (x.ff ? ' · ' + esc(x.ff) : '') + '</span><b class="' + (pay ? 'ffl-g' : '') + '">' + (pay ? '−' : '+') + amtLabel(x) + '</b>' + (ro ? '' : '<button type="button" class="ffl-x" data-ff="lgdel" data-id="' + esc(x.id) + '" aria-label="Удалить">×</button>') + '</div>';
         }).join('') || '<div class="ffl-empty">За этот период записей нет</div>';
-        return '<div class="ffm-led"><div class="ffm-k">Оплаты и доп. услуги</div><div class="ffl-tiles"><div><span>Начислено</span><b>' + fmt(accrued) + ' ₽</b></div><div><span>Оплачено</span><b class="ffl-g">' + fmt(lgt.pay) + ' ₽</b></div><div class="ffl-due"><span>К выплате</span><b>' + fmt(due) + ' ₽</b></div></div>' + form + '<div class="ffl-list">' + rows + '</div></div>';
+        return '<div class="ffm-led"><div class="ffm-k">Оплаты и доп. услуги</div><div class="ffl-tiles"><div><span>Начислено</span><b>' + fmt(accrued) + ' ₽' + somOf(accrued) + '</b></div><div><span>Оплачено</span><b class="ffl-g">' + fmt(lgt.pay) + ' ₽' + somOf(lgt.pay) + '</b></div><div class="ffl-due"><span>К выплате</span><b>' + fmt(due) + ' ₽' + somOf(due) + '</b></div></div>' + form + '<div class="ffl-list">' + rows + '</div></div>';
     }
     function paintFfModal() { var m = document.querySelector('#ffm-ov .ffm'); if (m) m.innerHTML = ffModalHtml(); }
     function openFf() {
@@ -482,8 +487,10 @@
                 if (!(amtL > 0)) { $('ffl-amt').style.outline = '2px solid #ef4444'; $('ffl-amt').focus(); return; }
                 var isPay = $('ffl-type').value === 'pay', pf = $('ffl-from').value, pt = $('ffl-to').value;
                 if (isPay && (!pf || !pt || pf > pt)) { say('Укажите период оплаты: дата «с» не позже даты «по».'); return; }
-                var note = $('ffl-note').value.trim();
-                var row = { id: 'tmp' + Date.now(), ff_name: $('ffl-ff').value || null, kind: isPay ? 'payment' : 'charge', title: (isPay ? '[' + pf + '..' + pt + '] ' : '') + (note || (isPay ? 'Оплата' : 'Доп. услуга')), amount: amtL, entry_date: $('ffl-date').value || today() };
+                var note = $('ffl-note').value.trim(), inSom = $('ffl-cur').value === 'som';
+                if (inSom && !(S.rate > 0)) { say('Нет курса рубля к сому на сегодня: выберите валюту ₽ или повторите позже.'); return; }
+                var rubAmt = inSom ? Math.round(amtL / S.rate * 100) / 100 : amtL;
+                var row = { id: 'tmp' + Date.now(), ff_name: $('ffl-ff').value || null, kind: isPay ? 'payment' : 'charge', title: (isPay ? '[' + pf + '..' + pt + '] ' : '') + (inSom ? '{сом:' + amtL + '} ' : '') + (note || (isPay ? 'Оплата' : 'Доп. услуга')), amount: rubAmt, entry_date: $('ffl-date').value || today() };
                 S.ledger = [row].concat(S.ledger || []); renderSummary(); paintFfModal();
                 var ins = await S.db.from('ff_ledger').insert({ cabinet_id: S.cab, ff_name: row.ff_name, kind: row.kind, title: row.title, boxes: null, amount: row.amount, entry_date: row.entry_date });
                 if (ins.error) { S.ledger = S.ledger.filter(function (x) { return x.id !== row.id; }); renderSummary(); paintFfModal(); say('Не удалось записать: ' + ins.error.message); return; }
