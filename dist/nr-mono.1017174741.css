@@ -387,8 +387,6 @@ html body .ax-staff.on, html body .ax-full.on { background: var(--accent) !impor
 
 /* ===== «Минимализм»: дашборд на телефоне (nr-motion.js, блок nmd) ===== */
 @media (max-width: 768px) {
-  html body .nmd-per i { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-  html body .nmd-per i.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
   html body .nmd-card { background: transparent; border: 1px solid var(--accent); border-radius: 26px; padding: 16px 18px; }
   html body .nmd-hero { background: var(--accent); color: var(--on-accent, #fff); }
   html body .nmd-hero .nmd-lbl, html body .nmd-hero .nmd-sm, html body .nmd-hero .nmd-xl { color: var(--on-accent, #fff); opacity: .75; }
@@ -470,3 +468,6 @@ html body .cabinet-dropdown-item[hidden] { display: none; }
   html body header.glass.app-header .cabinet-picker-label { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   html body header.glass.app-header .app-header-main { gap: 6px; }
 }
+/* РНП на ПК: фон страницы совпадает с шапкой, разделителя между ними нет */
+@media (min-width: 769px) { html body .main-rail .main-content.rnp-compact:not(#nr-x) { background: var(--surface-solid) !important; } }
+@media (min-width: 769px) { html body .rnp-workspace { border: 0 !important; border-radius: 0 !important; } }

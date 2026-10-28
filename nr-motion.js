@@ -255,8 +255,7 @@
             var t = { orders: ['#m-orders-sum', '#m-orders-count', '#trend-m-orders-sum', 'spark-orders'], sales: ['#m-sales-sum', '#m-sales-count', '#trend-m-sales-sum', 'spark-sales'], profit: ['#m-profit', '#m-margin', '#trend-m-profit', 'spark-profit'] }[S.tab];
             var big = txt(t[0]), sub = txt(t[1]);
             if (!ok(big)) return null;
-            var chip = chipNow(), cl = function (k, l) { return '<i data-nmd="chip:' + k + '" class="' + (chip === k ? 'on' : '') + '">' + l + '</i>'; };
-            var h = '<div class="nmd-per">' + cl('today', 'Сегодня') + cl('yday', 'Вчера') + cl('week', 'Неделя') + cl('month', 'Месяц') + cl('own', 'Свой') + '</div>';
+            var h = '';
             var tb = function (k, l) { return '<span data-nmd="tab:' + k + '" class="nmd-pill ' + (S.tab === k ? 'on' : '') + '">' + l + '</span>'; };
             h += '<div class="nmd-card nmd-hero"><div class="nmd-tabs">' + tb('orders', 'Заказы') + tb('sales', 'Выкупы') + tb('profit', 'Прибыль') + '</div>' +
                 '<div class="nmd-big">' + esc(big) + '</div><div class="nmd-sm">' + esc(ok(sub) ? sub : '') + ' ' + trendTag(t[2]) + '</div>' + bars(series(t[3])) + '</div>';
