@@ -632,11 +632,11 @@ html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sid
   html[data-theme="neon"] body .sidebar-app::before { background: rgba(0,0,0,.5); }
   html body.flyout-expanded .sidebar-app::before { opacity: 1; pointer-events: auto; }
   html body header.glass.app-header { transition: filter .5s ease; }
-  html body.flyout-expanded header.glass.app-header { filter: brightness(.72); clip-path: inset(-24px -24px -24px 198px); }
+  html body.flyout-expanded header.glass.app-header { filter: brightness(.72); }
   html[data-theme="neon"] body.flyout-expanded header.glass.app-header { filter: brightness(.5); }
 }
 @media (min-width: 1761px) {
-  html body.flyout-expanded header.glass.app-header { left: calc((100vw - 1760px) / 2 + 232px) !important; clip-path: inset(-24px -24px -24px 166px); }
+  html body.flyout-expanded header.glass.app-header { left: calc((100vw - 1760px) / 2 + 232px) !important; }
 }
 
 /* Окно «Новый А/Б тест» в стиле «Минимализм»: без светофора, контуры без заливки, жирные подписи капсом */
