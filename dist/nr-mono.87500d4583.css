@@ -612,9 +612,9 @@ html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sid
   html body .sidebar-flyout {
     position: absolute; left: 200px; top: 0; width: 196px; min-width: 196px; flex-shrink: 0;
     transform: translateX(-14px); opacity: 0; visibility: hidden; pointer-events: none;
-    transition: transform .34s cubic-bezier(.22,1,.36,1), opacity .24s ease, clip-path .34s cubic-bezier(.22,1,.36,1), visibility .34s;
+    transition: transform .6s cubic-bezier(.4,0,.2,1), opacity .5s ease, clip-path .6s cubic-bezier(.4,0,.2,1), visibility .6s;
   }
-  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; height: auto; bottom: auto; }
+  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; height: auto; bottom: auto; transition: transform .34s cubic-bezier(.22,1,.36,1), opacity .24s ease, clip-path .34s cubic-bezier(.22,1,.36,1), visibility 0s; }
   html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(6) { transition-delay: .15s; }
   html body .flyout-pin { display: none !important; }
   /* Вариант 3 «Жирный контур»: короткая карточка у кнопки, без шапки, заголовков и заливки; высота по содержимому, выбранный пункт подчёркнут */
@@ -628,10 +628,10 @@ html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sid
   html body .sidebar-flyout .flyout-body .nav-item.active .nav-item-label { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
   html body.flyout-expanded .main-rail { margin-left: 194px !important; }
   html body.flyout-expanded header.glass.app-header { left: 200px !important; }
-  html body .sidebar-app::before { content: ""; position: fixed; inset: 0; z-index: -1; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  html body .sidebar-app::before { content: ""; position: fixed; inset: 0; z-index: -1; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .5s ease; }
   html[data-theme="neon"] body .sidebar-app::before { background: rgba(0,0,0,.5); }
   html body.flyout-expanded .sidebar-app::before { opacity: 1; pointer-events: auto; }
-  html body header.glass.app-header { transition: filter .2s ease; }
+  html body header.glass.app-header { transition: filter .5s ease; }
   html body.flyout-expanded header.glass.app-header { filter: brightness(.72); clip-path: inset(-24px -24px -24px 198px); }
   html[data-theme="neon"] body.flyout-expanded header.glass.app-header { filter: brightness(.5); }
 }
