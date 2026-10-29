@@ -7517,6 +7517,8 @@ const RNP = (() => {
     // Первый заход в кабинет: цифры размыты с первой миллисекунды и до конца догрузки, а не после того, как уже мелькнули.
     function _startFirstBusy() {
         if (window._rnpBusyEnd || window._rnpLoadedForCabinet === _cab || !window.NrBusy) return;
+        // Свежие цифры на экране из кэша уже есть: показываем их сразу, догрузка идёт в фоне без размытия.
+        try { if (_rnpMainRendered() || (_cab && String(_readRnpKey(_rnpShellKey(_cab)) || '').indexOf('rnp-workspace') >= 0)) return; } catch (e) {}
         window._rnpBusyLate = false;
         window.NrBusy.run(new Promise((r) => { window._rnpBusyEnd = r; }));
     }
