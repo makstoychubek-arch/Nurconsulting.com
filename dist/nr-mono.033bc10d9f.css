@@ -510,3 +510,9 @@ html body .ffl-empty { color: var(--text-muted); font-size: 13px; padding: 10px 
 
 /* Аудит: подписи метрик в РНП переносятся на вторую строку, а не обрезаются */
 html body .rnp-sheet-table .rnp-metric-col { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; }
+
+/* Разделы только для команды помечены BETA */
+html body .rail-btn[data-tab="analytics"]::after,
+html body #nr-ads-tabs [data-av="content"]::after { content: 'BETA'; font-family: inherit; font-weight: 800; font-size: 8px; line-height: 1; letter-spacing: .06em; padding: 3px 5px; border-radius: 999px; background: var(--accent); color: var(--on-accent, #fff); }
+html body .rail-btn[data-tab="analytics"]::after { margin-left: auto; }
+html body #nr-ads-tabs [data-av="content"]::after { margin-left: 6px; vertical-align: 1px; }
