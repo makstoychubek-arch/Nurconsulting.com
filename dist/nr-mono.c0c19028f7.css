@@ -638,3 +638,43 @@ html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sid
 @media (min-width: 1761px) {
   html body.flyout-expanded header.glass.app-header { left: calc((100vw - 1760px) / 2 + 232px) !important; clip-path: inset(-24px -24px -24px 166px); }
 }
+
+/* Окно «Новый А/Б тест» в стиле «Минимализм»: без светофора, контуры без заливки, жирные подписи капсом */
+html body .ab-new-dialog.nr-win { width: min(720px, calc(100vw - 24px)) !important; height: min(900px, calc(100dvh - 24px)) !important; border-radius: 26px; background: var(--surface-solid, #fff); box-shadow: 0 24px 80px rgba(0,0,0,.28); }
+html body .ab-new-dialog .nr-win-bar { background: transparent !important; border: 0 !important; padding: 20px 64px 0 26px; min-height: 0; }
+html body .ab-new-dialog .nr-win-lights { display: none !important; }
+html body .ab-new-dialog .nr-win-title { font-size: 26px; font-weight: 900; letter-spacing: -.02em; color: var(--text-primary); text-align: left; flex: 1; }
+html body .ab-new-dialog .rnp-settings-close { top: 18px; right: 20px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--text-primary) !important; background: transparent !important; color: var(--text-primary); font-size: 18px; font-weight: 800; }
+html body .ab-new-dialog.nr-win > .nr-win-scroll { padding: 14px 26px 18px; overflow: hidden; }
+html body .ab-new-dialog .ab-new-body { padding: 0 6px 0 0; }
+html body .ab-new-dialog .ab-wizard-card { background: transparent; border: 0; border-bottom: 0; padding: 0; margin: 0 0 22px; }
+html body .ab-new-dialog .ab-wizard-card h4 { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px; }
+html body .ab-new-dialog .ab-camp-count { color: var(--text-primary); letter-spacing: .04em; }
+html body .ab-new-dialog .ab-product-search, html body .ab-new-dialog select.ab-product-search, html body .ab-new-dialog input.ab-product-search { background: transparent !important; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; padding: 10px 18px; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+html body .ab-new-dialog .ab-product-search:focus { box-shadow: none; border-color: var(--text-primary); outline: 2px solid var(--text-primary); outline-offset: 2px; }
+html body .ab-new-dialog .ab-stop-grid { gap: 12px; }
+html body .ab-new-dialog .ab-stop-grid .text-xs { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 6px 4px; }
+html body .ab-new-dialog .ab-pill { height: auto; padding: 8px 16px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 800; box-shadow: none; }
+html body .ab-new-dialog .ab-pill.active { background: transparent; color: var(--text-primary); border-color: var(--text-primary); box-shadow: none; }
+html body .ab-new-dialog .ab-pill.active::before { content: none; }
+html body .ab-new-dialog .ab-pill:not(.active):hover { background: transparent; color: var(--text-primary); border-color: var(--text-primary); }
+html body .ab-new-dialog .ab-camp-status { margin-bottom: 10px; }
+html body .ab-new-dialog .ab-selected-card, html body .ab-new-dialog .ab-campaign-list { background: transparent; border: 1px solid var(--text-primary); border-radius: 20px; }
+html body .ab-new-dialog .ab-campaign-row { padding: 11px 16px; font-size: 14px; font-weight: 800; border-bottom: 1px solid var(--border); }
+html body .ab-new-dialog .ab-campaign-row input[type=checkbox], html body .ab-new-dialog .ab-check input[type=checkbox] { accent-color: var(--text-primary); width: 18px; height: 18px; }
+html body .ab-new-dialog .ab-campaign-status { background: transparent; border: 1px solid; border-radius: 999px; font-size: 11px; font-weight: 800; padding: 3px 10px; }
+html body .ab-new-dialog .ab-campaign-status.run { color: var(--green, #16803c); }
+html body .ab-new-dialog .ab-campaign-status.stop { color: var(--text-muted); border-color: var(--border); }
+html body .ab-new-dialog .ab-var-tile, html body .ab-new-dialog .ab-var-add { border-radius: 16px !important; border-width: 1px; background: transparent; }
+html body .ab-new-dialog .ab-var-tile.is-current { border: 2px solid var(--text-primary); }
+html body .ab-new-dialog .ab-var-cur { background: var(--surface-solid, #fff); color: var(--text-primary); border: 1px solid var(--text-primary); border-radius: 999px; left: 8px; right: auto; top: 8px; padding: 2px 8px; letter-spacing: .1em; }
+html body .ab-new-dialog .ab-var-ph b { color: var(--text-primary); }
+html body .ab-new-dialog .ab-check { font-size: 14px; font-weight: 700; }
+html body .ab-new-dialog .ab-wizard-hint { font-size: 12.5px; font-weight: 600; color: var(--text-muted); margin-top: 8px; }
+html body .ab-new-dialog .ab-new-foot { border: 0; padding: 4px 26px 22px; gap: 10px; }
+html body .ab-new-dialog .ab-btn { height: auto; padding: 12px 26px; border-radius: 999px !important; font-size: 14px; font-weight: 800; border: 1px solid var(--text-primary); }
+html body .ab-new-dialog .ab-btn-ghost { background: transparent; color: var(--text-primary); }
+html body .ab-new-dialog .ab-btn-primary { background: var(--text-primary); color: var(--surface-solid, #fff); }
+html body .ab-new-dialog.nr-win .rnp-settings-close { display: grid !important; place-items: center; position: absolute; z-index: 7; }
+html body .ab-new-dialog .ab-new-body { overflow-y: auto; }
+html body .ab-new-dialog .ab-selected-card.hidden { display: none !important; }
