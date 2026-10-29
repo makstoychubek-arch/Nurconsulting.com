@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.4cbb513301.css">
+<link rel="stylesheet" href="/dist/nr-mono.b6886c4d36.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7464,10 +7464,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <div class="ab-wizard-card">
                         <h4>Карточка товара</h4>
                         <div id="ab-wizard-pick">
-                            <input type="text" id="ab-product-search" class="ab-product-search" placeholder="Название или артикул" oninput="debounceABProductSearch()" autocomplete="off">
-                            <div id="ab-product-list" class="ab-combo-list">
-                                <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка карточек из WB...</div>
-                            </div>
+                            <input type="text" id="ab-product-search" class="ab-product-search" inputmode="numeric" placeholder="Введите артикул WB" oninput="debounceABProductSearch()" autocomplete="off">
+                            <div id="ab-product-list" class="ab-pick-status" aria-live="polite"></div>
                         </div>
                         <div id="ab-selected-card" class="ab-selected-card hidden"></div>
                         <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
@@ -15133,7 +15131,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const campSearch = document.getElementById('ab-campaign-search');
         if (campSearch) campSearch.value = '';
         openAbSheet(form);
-        loadABProductCards('');
+        setTimeout(() => document.getElementById('ab-product-search')?.focus(), 80);
     }
 
     function hideNewTestForm() {
@@ -15157,11 +15155,23 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
     }
 
+    // Артикул вводят целиком: как только он введён, ищем карточку и сразу открываем следующий шаг с галереей фото.
     function debounceABProductSearch() {
         clearTimeout(abSearchTimer);
-        abSearchTimer = setTimeout(() => {
-            loadABProductCards(document.getElementById('ab-product-search')?.value.trim() || '');
-        }, 350);
+        const status = document.getElementById('ab-product-list');
+        const q = (document.getElementById('ab-product-search')?.value || '').trim();
+        if (status) status.textContent = '';
+        if (q.length < 6) return;
+        abSearchTimer = setTimeout(() => abLookupArticle(q), 300);
+    }
+    async function abLookupArticle(q) {
+        const status = document.getElementById('ab-product-list');
+        if (status) status.innerHTML = '<span class="ab-pick-ring"></span> Ищем карточку…';
+        await loadABProductCards(q);
+        if ((document.getElementById('ab-product-search')?.value || '').trim() !== q) return; // уже печатают другое
+        const hit = abProductCards.find(c => String(c.nmID) === q) || (abProductCards.length === 1 ? abProductCards[0] : null);
+        if (hit) { selectABProduct(hit.nmID); return; }
+        if (status) status.textContent = abProductCards.length ? 'Найдено несколько карточек, введите артикул WB полностью.' : 'Такой артикул не найден. Проверьте номер.';
     }
 
     function parseWBCard(card) {
@@ -15176,24 +15186,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     async function loadABProductCards(search) {
-        const list = document.getElementById('ab-product-list');
-        if (!list) return;
-        list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)"><div class="nr-loader-ring"></div></div>';
         const data = await callWbProxy('content_cards', { limit: 50, textSearch: search, withPhoto: 1 });
-        const cards = (data?.cards || []).map(parseWBCard).filter(c => c.nmID);
-        abProductCards = cards;
-        if (!cards.length) {
-            list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Карточки не найдены. Проверьте токен Content API.</div>';
-            return;
-        }
-        list.innerHTML = cards.map(c => `
-            <div class="ab-product-item" onclick="selectABProduct(${c.nmID})">
-                <img src="${escapeHtml(c.thumb)}" onerror="this.style.opacity=0.3" alt="">
-                <div>
-                    <div class="ab-product-item-title">${escapeHtml(c.title)}</div>
-                    <div class="ab-product-item-id">${c.nmID}</div>
-                </div>
-            </div>`).join('');
+        abProductCards = (data?.cards || []).map(parseWBCard).filter(c => c.nmID);
     }
 
     function selectABProduct(nmID) {
@@ -15600,7 +15594,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     let abCreatingTest = false;
     async function createABTest() {
-        if (abCreatingTest) return; // защита от повторного клика — иначе создаётся 2 одинаковых теста
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет.'); return; }
         if (!abSelectedCard) { showPremiumModal('warning', 'Выберите товар', 'Сначала выберите карточку на шаге 1.'); abWizardGoStep(1); return; }
         const nmId = String(abSelectedCard.nmID);
@@ -15615,83 +15608,76 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const abFiles = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).map(i => abVariantFiles[i]).filter(Boolean);
         if (abFiles.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
 
-        abCreatingTest = true;
-        const submitBtn = document.getElementById('ab-create-test-btn');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; submitBtn.style.pointerEvents = 'none'; }
+        // Снимок настроек: окно закрываем сразу, всё остальное идёт в фоне.
+        const rotMode = document.getElementById('ab-rot-mode')?.value;
+        const minImp = parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 1000;
+        const snap = {
+            cabinetId: currentCabinetId, nmId, name, interval, maxRot, abFiles, rotMode, minImp,
+            settings: {
+                metric: document.getElementById('ab-metric')?.value || 'ctr',
+                sources: { ...abWizardSources },
+                platforms: [...abWizardPlatforms],
+                campaigns: [...abSelectedCampaigns],
+                campaignNames: Object.fromEntries(
+                    [...abSelectedCampaigns].map(id => {
+                        const c = (abCampaignCatalog || []).find(x => Number(x.id) === Number(id));
+                        return [String(id), c?.name || `РК ${id}`];
+                    })
+                ),
+                autoStop: !!document.getElementById('ab-auto-stop')?.checked,
+                finishOnCampaignOff: document.getElementById('ab-off-finish')?.checked !== false,
+                stopOnWinner: !!document.getElementById('ab-stop-on-winner')?.checked,
+                minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
+                stopCampaigns: true,
+                minImpressions: minImp,
+                rotateByImpressions: rotMode !== 'time' && abWizardSources.ads && abSelectedCampaigns.size > 0,
+            },
+        };
+        hideNewTestForm();
+        showPremiumModal('success', 'Тест создан', 'Загружаем фото и ставим первое на WB, это займёт до минуты.');
+        runABCreate(snap);
+    }
 
-        showPremiumModal('info', 'Создаём тест...', 'Загружаем фото, подождите.');
-
-        let released = false; // кнопку и флаг отпускаем раньше, чем кончится смена фото на WB
+    // Фоновое создание: тест, фото, варианты, первое фото на WB. Если не вышло, короткая ошибка и «Повторить».
+    async function runABCreate(snap) {
+        let testId = null;
         try {
-        const { data: test, error } = await supabase.from('ab_tests').insert({
-            cabinet_id: currentCabinetId,
-            nm_id: nmId,
-            product_name: name,
-            status: 'active',
-            rotation_interval_min: interval,
-            max_rotations: maxRot || null,
-            current_variant_index: 0,
-            rotation_count: 0,
-            started_at: new Date().toISOString()
-        }).select().single();
+            const { data: test, error } = await supabase.from('ab_tests').insert({
+                cabinet_id: snap.cabinetId,
+                nm_id: snap.nmId,
+                product_name: snap.name,
+                status: 'active',
+                rotation_interval_min: snap.interval,
+                max_rotations: snap.maxRot || null,
+                current_variant_index: 0,
+                rotation_count: 0,
+                started_at: new Date().toISOString()
+            }).select().single();
+            if (error || !test) throw new Error(error?.message || 'Тест не сохранился.');
+            testId = test.id;
+            saveABSettings(test.id, snap.settings);
+            loadABTests();
 
-        if (error || !test) { showPremiumModal('error', 'Ошибка создания', error?.message || 'Попробуйте ещё раз.'); return; }
-
-        saveABSettings(test.id, {
-            metric: document.getElementById('ab-metric')?.value || 'ctr',
-            sources: abWizardSources,
-            platforms: [...abWizardPlatforms],
-            campaigns: [...abSelectedCampaigns],
-            campaignNames: Object.fromEntries(
-                [...abSelectedCampaigns].map(id => {
-                    const c = (abCampaignCatalog || []).find(x => Number(x.id) === Number(id));
-                    return [String(id), c?.name || `РК ${id}`];
-                })
-            ),
-            autoStop: !!document.getElementById('ab-auto-stop')?.checked,
-            finishOnCampaignOff: document.getElementById('ab-off-finish')?.checked !== false,
-            stopOnWinner: !!document.getElementById('ab-stop-on-winner')?.checked,
-            minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
-            stopCampaigns: true,
-            minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 1000,
-            rotateByImpressions: document.getElementById('ab-rot-mode')?.value !== 'time' && abWizardSources.ads && abSelectedCampaigns.size > 0,
-        });
-
-        try {
             const variantRows = [];
-            for (let i = 0; i < abFiles.length; i++) {
-                const file = abFiles[i];
+            for (let i = 0; i < snap.abFiles.length; i++) {
                 const label = abVariantLabel(i);
-                const url = await uploadVariantPhoto(file, test.id, label);
+                const url = await uploadVariantPhoto(snap.abFiles[i], test.id, label);
                 variantRows.push({ test_id: test.id, variant_label: label, photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
             }
             const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
             if (vErr) throw new Error(vErr.message);
-
-            // Тест и варианты уже в базе — окно закрываем, не дожидаясь WB.
-            hideNewTestForm();
-            released = true;
-            abCreatingTest = false;
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
-            showPremiumModal('info', 'Тест создан', 'Ставим первое фото на WB, это может занять до минуты.');
             loadABTests();
 
-            const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId, variantRows[0].variant_label);
-            if (!ok) throw new Error('WB не принял первое фото. Попробуйте ещё раз.');
+            const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label);
+            if (!ok) throw new Error('WB не принял первое фото.');
+            showPremiumModal('success', 'Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
+            loadABTests();
         } catch (e) {
-            await supabase.from('ab_tests').delete().eq('id', test.id);
+            if (testId) { try { await supabase.from('ab_tests').delete().eq('id', testId); } catch (_) {} }
             loadABTests();
-            showPremiumModal('error', 'Ошибка загрузки', e.message);
-            return;
-        }
-
-        showPremiumModal('success', 'Тест запущен', 'Фото будет меняться каждые ' + (document.getElementById('ab-rot-mode').value == 'time' ? interval + ' мин.' : document.getElementById('ab-min-impressions').value + ' показов.'));
-        loadABTests();
-        } finally {
-            if (!released) {
-                abCreatingTest = false;
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
-            }
+            const msg = String(e && e.message || e || 'Попробуйте ещё раз.');
+            if (window.NrUi) window.NrUi.toast('error', 'Тест не создался', msg, { action: { label: 'Повторить', onClick: () => runABCreate(snap) } });
+            else showPremiumModal('error', 'Тест не создался', msg);
         }
     }
 

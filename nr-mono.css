@@ -651,7 +651,7 @@ html body .ab-new-dialog .ab-wizard-card { background: transparent; border: 0; b
 html body .ab-new-dialog .ab-wizard-card h4 { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px; }
 html body .ab-new-dialog .ab-camp-count { color: var(--text-primary); letter-spacing: .04em; }
 html body .ab-new-dialog .ab-product-search, html body .ab-new-dialog select.ab-product-search, html body .ab-new-dialog input.ab-product-search { background: transparent !important; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; padding: 10px 18px; font-size: 14px; font-weight: 700; color: var(--text-primary); }
-html body .ab-new-dialog .ab-product-search:focus { box-shadow: none; border-color: var(--text-primary); outline: 2px solid var(--text-primary); outline-offset: 2px; }
+html body .ab-new-dialog .ab-product-search:focus { outline: none !important; box-shadow: none !important; border: 2px solid var(--text-primary) !important; padding-left: 17px; }
 html body .ab-new-dialog .ab-stop-grid { gap: 12px; }
 html body .ab-new-dialog .ab-stop-grid .text-xs { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 6px 4px; }
 html body .ab-new-dialog .ab-pill { height: auto; padding: 8px 16px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 800; box-shadow: none; }
@@ -698,7 +698,7 @@ html body .nr-win:not(.nr-win-photo):not(.nw-modal) > .nr-win-scroll { padding: 
 html body .nr-win .nr-win-dup { display: none !important; }
 html body .nr-win :is(input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]), select, textarea) { background: transparent !important; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; color: var(--text-primary); font-weight: 700; box-shadow: none; }
 html body .nr-win textarea { border-radius: 18px !important; }
-html body .nr-win :is(input, select, textarea):focus { outline: 2px solid var(--text-primary); outline-offset: 2px; box-shadow: none !important; }
+html body .nr-win :is(input, select, textarea):focus { outline: none !important; box-shadow: none !important; border-width: 2px !important; }
 html body .nr-win :is(.ui-btn-secondary, .ab-btn-ghost) { background: transparent !important; border: 1px solid var(--text-primary) !important; color: var(--text-primary) !important; border-radius: 999px !important; font-weight: 800; box-shadow: none; }
 html body .nr-win :is(.ui-btn-primary, .ab-btn-primary) { background: var(--text-primary) !important; color: var(--surface-solid, #fff) !important; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; font-weight: 800; box-shadow: none; }
 html body .nr-win button.rounded-xl, html body .nr-win button.rounded-lg { border-radius: 999px !important; font-weight: 800; }
@@ -708,3 +708,9 @@ html body .nru-toast.sticky .nru-bar { display: none; }
 html body :is(.ffm-ov, .adx-gp-ov, .adp2-ov, .shv-ov, #nrdb-modal, .tg-overlay, .nw-ov, .nx-ov, .gc-overlay) { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp, .rnp-plan-panel.rnp-modal-panel, #nrdb-modal > *) { background: var(--surface-solid, #fff) !important; border: 1.5px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important; }
 html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp) h3, html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp) h4 { font-weight: 900; letter-spacing: -.02em; }
+
+/* шаг 1 «Новый А/Б тест»: артикул по центру окна */
+html body .ab-new-dialog #ab-wizard-pick:not(.hidden) { min-height: 300px; display: grid; align-content: center; justify-items: center; gap: 14px; text-align: center; }
+html body .ab-new-dialog #ab-wizard-pick .ab-product-search { width: min(420px, 100%); text-align: center; font-size: 20px; padding: 14px 20px; }
+html body .ab-new-dialog .ab-pick-status { min-height: 22px; font-size: 14px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px; justify-content: center; }
+html body .ab-new-dialog .ab-pick-ring { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--text-primary); animation: spin .8s linear infinite; }
