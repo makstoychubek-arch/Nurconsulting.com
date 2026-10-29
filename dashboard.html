@@ -4325,13 +4325,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform 0.15s ease;
         }
         .ab-variant-remove-btn:hover { transform: scale(1.1); }
-        .ab-wizard-steps { display: flex; gap: 8px; margin-bottom: 16px; }
-        .ab-wizard-step-dot {
-            width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 12px; font-weight: 700; border: 2px solid var(--border); color: var(--text-muted);
-        }
-        .ab-wizard-step-dot.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-        .ab-wizard-step-dot.done { border-color: var(--green); color: var(--green); background: rgba(52,211,153,0.1); }
         .ab-confidence-pill { font-size: 11px; padding: 8px 10px; }
         #modal-actions { display: none; gap: 8px; justify-content: center; margin-top: 4px; }
         #modal-actions.visible { display: flex; }
@@ -6127,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.87500d4583.css">
+<link rel="stylesheet" href="/dist/nr-mono.c0c19028f7.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7501,8 +7494,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         </div>
 
                         <div class="ab-wizard-card">
-                            <h4>РК, в которой идут показы</h4>
+                            <h4>РК, в которой идут показы <span id="ab-camp-count" class="ab-camp-count"></span></h4>
                             <input type="text" id="ab-campaign-search" class="ab-product-search" placeholder="Поиск по названию или id" oninput="filterABCampaigns()" autocomplete="off" style="margin-bottom:6px">
+                            <div class="ab-pill-toggle ab-camp-status" id="ab-camp-status">
+                                <div class="ab-pill active" data-st="run" onclick="toggleABCampStatus('run', this)">Работают</div>
+                                <div class="ab-pill" data-st="pause" onclick="toggleABCampStatus('pause', this)">На паузе</div>
+                            </div>
                             <div id="ab-campaign-list" class="ab-campaign-list">
                                 <div class="text-center py-4 text-sm" style="color:var(--text-muted)">Загрузка кампаний...</div>
                             </div>
@@ -8122,7 +8119,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </div>
     </div>
 
-<script src="/dist/nr-win.c38ceba7bd.min.js"></script>
+<script src="/dist/nr-win.1d62b15088.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-module.b92440f0df.min.js"></script>
@@ -15126,6 +15123,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         abVariantFiles = {};
         abCreatingTest = false;
         abSelectedCampaigns = new Set();
+        abCampStatuses = new Set(['run']);
+        document.querySelectorAll('#ab-camp-status .ab-pill').forEach(p => p.classList.toggle('active', p.dataset.st === 'run'));
         abCampaignCatalog = [];
         abCampaignQuery = '';
         abWizardSources = { ads: true, funnel: true };
@@ -15304,12 +15303,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 name: (!generic && fromApi) ? fromApi : (fromDb || fromApi || `Кампания ${id}`),
             };
         });
-        nameById.forEach((name, id) => {
-            if (!merged.some(c => Number(c.id) === id)) {
-                merged.push({ id, name, status: 11, statusLabel: 'Остановлен' });
-            }
-        });
-        abCampaignCatalog = merged;
+        // Только работающие (9) и на паузе (11): завершённые и архивные не нужны и не показываются.
+        abCampaignCatalog = merged.filter(c => c.status === 9 || c.status === 11);
         abArticleCampaignIds = new Set();
         const nmId = abSelectedCard?.nmID ? Number(abSelectedCard.nmID) : null;
         if (nmId && currentCabinetId) {
@@ -15338,6 +15333,15 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         renderABCampaignList();
     }
 
+    let abCampStatuses = new Set(['run']);
+    function toggleABCampStatus(st, el) {
+        if (abCampStatuses.has(st)) { if (abCampStatuses.size > 1) abCampStatuses.delete(st); }
+        else abCampStatuses.add(st);
+        document.querySelectorAll('#ab-camp-status .ab-pill').forEach(p => p.classList.toggle('active', abCampStatuses.has(p.dataset.st)));
+        renderABCampaignList();
+    }
+    window.toggleABCampStatus = toggleABCampStatus;
+
     function filterABCampaigns() {
         abCampaignQuery = (document.getElementById('ab-campaign-search')?.value || '').trim().toLowerCase();
         renderABCampaignList();
@@ -15353,7 +15357,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const el = document.getElementById('ab-campaign-list');
         if (!el) return;
         const q = abCampaignQuery;
-        const campaigns = (abCampaignCatalog || []).filter(c => abCampaignMatches(c, q));
+        const all = abCampaignCatalog || [];
+        const runN = all.filter(c => c.status === 9).length, pauseN = all.length - runN;
+        document.querySelectorAll('#ab-camp-status .ab-pill').forEach(p => {
+            const base = p.dataset.st === 'run' ? 'Работают' : 'На паузе';
+            p.textContent = base + ' ' + (p.dataset.st === 'run' ? runN : pauseN);
+        });
+        const cnt = document.getElementById('ab-camp-count');
+        if (cnt) cnt.textContent = abSelectedCampaigns.size ? abSelectedCampaigns.size + ' выбрано' : '';
+        const campaigns = all.filter(c => abCampaignMatches(c, q)
+            && (abCampStatuses.has(c.status === 9 ? 'run' : 'pause') || abSelectedCampaigns.has(c.id)));
         paintABCampaignRows(el, campaigns, abArticleCampaignIds, q);
     }
 
@@ -15380,7 +15393,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <input type="checkbox" ${abSelectedCampaigns.has(c.id) ? 'checked' : ''} onchange="toggleABCampaign(${c.id}, this.checked)" style="accent-color:var(--accent)">
                 <span class="ab-campaign-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
                 <span class="ab-campaign-id">${c.id}</span>
-                <span class="ab-campaign-status ${run ? 'run' : 'stop'}">${escapeHtml(c.statusLabel || (run ? 'Работает' : 'Остановлен'))}</span>
+                <span class="ab-campaign-status ${run ? 'run' : 'stop'}">${run ? 'Работает' : 'На паузе'}</span>
             </label>`;
         }).join('');
     }
@@ -15388,6 +15401,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function toggleABCampaign(id, checked) {
         if (checked) abSelectedCampaigns.add(id);
         else abSelectedCampaigns.delete(id);
+        const cnt = document.getElementById('ab-camp-count');
+        if (cnt) cnt.textContent = abSelectedCampaigns.size ? abSelectedCampaigns.size + ' выбрано' : '';
         // Ничего не перерисовываем и не двигаем: клик по РК не должен сдвигать окно и список.
         document.activeElement?.blur?.();
     }

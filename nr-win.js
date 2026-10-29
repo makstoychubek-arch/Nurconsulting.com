@@ -82,6 +82,8 @@
         if (!box || !box.style) return;
         if (box.classList.contains('nr-win-max') || box.classList.contains('nr-win-min')) return;
         // Лист план/факт широкий — размер задаёт его CSS, общий размер окон ему не подходит.
+        // Окно нового А/Б теста тоже со своим размером из CSS («Минимализм»).
+        if (box.classList.contains('ab-new-dialog')) { box.style.removeProperty('width'); box.style.removeProperty('height'); return; }
         if (box.classList.contains('rnp-plan-fact-dialog')) { box.style.removeProperty('width'); box.style.removeProperty('height'); return; }
         // Настройки РНП на телефоне: на весь экран, а не окном размером для компьютера.
         if (box.parentElement && box.parentElement.id === 'rnp-settings-overlay' && typeof matchMedia === 'function' && matchMedia('(max-width: 768px)').matches) {
