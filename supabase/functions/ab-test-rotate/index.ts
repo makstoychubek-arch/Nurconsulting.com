@@ -29,7 +29,7 @@ import {
 } from '../_shared/wb-main-photo.ts';
 import { decideAbAutoStop } from '../_shared/ab-test-auto-stop.ts';
 import { attributeSnapshots, takeAdSnapshots } from '../_shared/ab-adv-snapshots.ts';
-import { decideRotation, isFinalWindow, quotaOf, windowImpressions } from '../_shared/ab-quota.ts';
+import { CHECK_EVERY_MIN, decideRotation, isFinalWindow, quotaOf, windowImpressions } from '../_shared/ab-quota.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
                     ? Boolean(((test.settings as Record<string, unknown>).sources as Record<string, unknown>).ads)
                     : true; // по умолчанию считаем (старые тесты без settings)
 
-                // Замеры раз в 10 минут (ab_test_adv_snapshots) дают показы по реальным окнам. Пока замеров нет
+                // Замеры раз в 5 минут (ab_test_adv_snapshots) дают показы по реальным окнам. Пока замеров нет
                 // (старые и завершённые тесты), считаем по-старому. Если замеры есть, по-старому считаем только
                 // целые дни ДО первого замера, а время после него берём из замеров.
                 const { data: snapRows } = adsEnabled
@@ -915,7 +915,8 @@ async function rotateActiveTest(
     if (quota > 0 && !opts.ignoreDue) {
         const winStart = new Date(String(dueSince || new Date().toISOString()));
         windowImps = await windowImpressions(admin, test, winStart);
-        const prevImps = await windowImpressions(admin, test, winStart, new Date(Date.now() - 10 * 60_000));
+        // Шаг прироста за последний период между проверками (проверка и замер раз в 5 минут).
+        const prevImps = await windowImpressions(admin, test, winStart, new Date(Date.now() - CHECK_EVERY_MIN * 60_000));
         const d = decideRotation({ quota, intervalMin, elapsedMs, windowImpressions: windowImps, stepImpressions: Math.max(0, windowImps - prevImps) });
         if (!d.due) return { test_id: test.id, skipped: 'waiting_quota', window_impressions: Math.round(windowImps), quota };
         rotateReason = d.reason;

@@ -10,6 +10,7 @@
 import { attributeSnapshots } from './ab-adv-snapshots.ts';
 
 export const DEFAULT_QUOTA = 2000;
+export const CHECK_EVERY_MIN = 5; // как часто cron проверяет показы и делает замер РК
 export const MIN_CAP_MIN = 360; // 6 часов: меньше этого «потолок» не бывает
 
 /** Квота показов на одно окно или 0, если тест крутится по времени. */
@@ -27,7 +28,7 @@ export type Decision = { due: boolean; reason: 'quota' | 'cap' | 'wait' };
 
 export function decideRotation(i: { quota: number; intervalMin: number; elapsedMs: number; windowImpressions: number; stepImpressions?: number }): Decision {
     if (i.windowImpressions >= i.quota) return { due: true, reason: 'quota' };
-    // Проверка раз в 10 минут: если до следующего замера фото перелетит квоту сильнее, чем сейчас недобрало,
+    // Проверка раз в 5 минут: если до следующего замера фото перелетит квоту сильнее, чем сейчас недобрало,
     // меняем сразу (940 вместо 1400 при квоте 1000).
     const step = Number(i.stepImpressions) || 0;
     if (step > 0 && i.windowImpressions + step >= i.quota && i.quota - i.windowImpressions < i.windowImpressions + step - i.quota) {
