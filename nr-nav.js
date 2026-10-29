@@ -173,6 +173,28 @@
             if ((e.target === doc.documentElement || (e.target.id === 'sidebar-app')) && doc.body.classList.contains('flyout-expanded') && root.closeSidebarMenus) root.closeSidebarMenus(true);
             else if (e.target.closest && e.target.closest('.sidebar-flyout .nav-item')) setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(true); }, 0);
         });
+        // На компьютере панель выезжает при наведении на кнопку раздела (с короткой паузой, чтобы не мигала от случайного проезда),
+        // а уходит, когда курсор оказывается на затемнённой странице. Закреплённая и телефонная панели не трогаются.
+        if (root.matchMedia && root.matchMedia('(min-width: 769px) and (hover: hover)').matches) {
+            var inTimer = null, outTimer = null;
+            doc.addEventListener('mouseover', function (e) {
+                var t = e.target, btn = t.closest && t.closest('#sidebar-app .rail-btn[data-flyout]');
+                if (btn) {
+                    clearTimeout(outTimer); clearTimeout(inTimer);
+                    var id = btn.getAttribute('data-flyout');
+                    var cur = doc.querySelector('.sidebar-flyout.visible');
+                    if (cur && cur.id === id) return;
+                    inTimer = setTimeout(function () { if (root.openSidebarFlyout) root.openSidebarFlyout(id); }, cur ? 40 : 90);
+                    return;
+                }
+                if (t.closest && t.closest('#sidebar-app .sidebar-flyout, #sidebar-app .sidebar-rail')) { clearTimeout(outTimer); clearTimeout(inTimer); return; }
+                clearTimeout(inTimer);
+                if (!(t.closest && t.closest('#sidebar-app')) && doc.body.classList.contains('flyout-expanded')) {
+                    clearTimeout(outTimer);
+                    outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 220);
+                }
+            });
+        }
         doc.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && doc.body.classList.contains('flyout-expanded') && root.closeSidebarMenus) root.closeSidebarMenus(true);
         });
