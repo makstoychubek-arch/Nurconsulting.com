@@ -507,3 +507,6 @@ html body .ffl-empty { color: var(--text-muted); font-size: 13px; padding: 10px 
   html body .nh-i { position: relative; }
   html body .nh-i::after { content: ''; position: absolute; inset: -12px; }
 }
+
+/* Аудит: подписи метрик в РНП переносятся на вторую строку, а не обрезаются */
+html body .rnp-sheet-table .rnp-metric-col { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; }
