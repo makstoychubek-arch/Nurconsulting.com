@@ -13862,12 +13862,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const to = range.to;
         const prev = prevPeriodRange(from, to);
 
-        // Раньше здесь было 3 постраничных запроса (fetchAllRows по 1000 строк
-        // за раз — для wb_stocks у активных кабинетов это легко 15-20+ HTTP-
-        // запросов) ради того, чтобы на клиенте просуммировать несколько чисел.
-        // Теперь вся агрегация (суммы/количества/разбивка по складам) считается
-        // одним SQL-запросом на стороне базы через RPC dashboard_summary —
-        // клиенту приходит один компактный jsonb вместо тысяч сырых строк.
+        // Агрегация делается в базе одним запросом, а не постраничным чтением на клиенте.
         const adsCurP = fromCache ? Promise.resolve(pass.hit.adsCur) : loadAdsSpendForDash(snapshotCabinet, from, to);
         const adsPrevP = fromCache ? Promise.resolve(pass.hit.adsPrev) : loadAdsSpendForDash(snapshotCabinet, prev.from, prev.to);
         const { data: summary, error: summaryErr } = fromCache ? { data: pass.hit.summary, error: null } : await supabase.rpc('dashboard_summary', {
@@ -14001,14 +13996,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
     }
 
-    // "Топ 5 маржинальных товаров" на главном дашборде — конкретно для
-    // выбранного кабинета (currentCabinetId, через metrics.byNmId, который
-    // WBFormulas.calculateMetrics уже считает из отчёта по текущему периоду).
-    // У нас нет себестоимости на уровне SKU в этом движке, поэтому
-    // распределяем общую чистую прибыль периода (metrics.profitFull)
-    // пропорционально доле каждого артикула в "к перечислению" (forPay) —
-    // это лучшая доступная оценка вклада товара в итоговую прибыль без
-    // отдельного ввода себестоимости по каждому SKU.
+    // «Топ 5 маржинальных товаров» на главном дашборде (по выбранному кабинету).
     function renderTopMarginalProducts(metrics) {
         const legendEl = document.getElementById('dashboard-top-margin-legend');
         if (!legendEl) return;
@@ -14219,13 +14207,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
 
         try {
-            // Раньше кнопка сама тянула заказы из WB (dateFrom=2026-01-01),
-            // УДАЛЯЛА в базе всё от этой даты и записывала ответ на его место.
-            // WB на этот запрос отдаёт не период, а заказы по lastChangeDate —
-            // то есть последние изменившиеся, — поэтому каждое нажатие стирало
-            // месяцы истории: у Базы в базе оставалось только с 1 сентября,
-            // хотя курсор докачки стоял на 10 июля. Синхронизацию делает
-            // сервер: он ходит по календарным дням WB и историю не трогает.
+            // Кнопка не тянет заказы из WB сама: она только читает базу (прежняя версия стирала данные периода).
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 const syncRes = await fetch(AUTO_SYNC_URL, {
@@ -15705,7 +15687,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         return true;
     }
 
-    async function forceRotateABTest(testId) { await doClientRotation(testId); }
+    async function forceRotateABTest(testId) {
+        const h = window.NrUi ? window.NrUi.toast('info', 'Меняем фото…', '', { loading: true, key: 'ab-rot-' + testId }) : null;
+        let ok = false;
+        try { ok = await doClientRotation(testId, { force: true }); } catch (e) { console.warn('[AB] rotate:', e); }
+        if (h) h.update(ok ? 'success' : 'error', ok ? 'Фото сменено' : 'Фото не сменилось', ok ? '' : 'WB не принял фото или тест уже завершён. Повторите.');
+    }
 
     async function loadABTests() {
         const container = document.getElementById('abtests-list');
@@ -15993,34 +15980,40 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         });
     }
 
-    async function doClientRotation(testId) {
+    // opts.force: ручная смена кнопкой «Сменить»: работает и для тестов «по показам», и раньше срока. Возвращает true/false.
+    async function doClientRotation(testId, opts) {
+        const force = !!(opts && opts.force);
         // Подстраховка: перечитываем свежую строку теста — если серверный
         // cron уже провернул ротацию, last_rotated_at будет недавним и мы
         // просто выходим, не дублируя ротацию.
         const { data: freshTest } = await supabase.from('ab_tests').select('*').eq('id', testId).maybeSingle();
-        if (!freshTest || freshTest.status !== 'active') return;
-        if (freshTest.settings?.rotateByImpressions === true) return; // меняет сервер по показам
+        if (!freshTest || freshTest.status !== 'active') return false;
+        if (!force && freshTest.settings?.rotateByImpressions === true) return false; // меняет сервер по показам
         const intervalMsCheck = (freshTest.rotation_interval_min || 60) * 60 * 1000;
         const dueSinceCheck = freshTest.last_rotated_at || freshTest.started_at;
         const elapsedCheck = dueSinceCheck ? Date.now() - new Date(dueSinceCheck).getTime() : Infinity;
-        if (elapsedCheck < intervalMsCheck) { await loadABTests(); return; }
+        if (!force && elapsedCheck < intervalMsCheck) { await loadABTests(); return false; }
 
         const cached = allABTests.find(t => String(t.id) === String(testId));
         const test = { ...freshTest };
         const { data: freshVariants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
         const variants = freshVariants || cached?.variants || [];
-        if (variants.length < 2) return;
+        if (variants.length < 2) return false;
         const nextIdx = ((test.current_variant_index || 0) + 1) % variants.length;
         const nextVariant = variants[nextIdx];
         const currentVariant = variants[test.current_variant_index || 0];
         if (currentVariant) {
             await supabase.from('ab_test_variants').update({
-                minutes_active: (currentVariant.minutes_active || 0) + (test.rotation_interval_min || 60),
+                minutes_active: (currentVariant.minutes_active || 0) + (force && Number.isFinite(elapsedCheck) ? Math.max(1, Math.round(elapsedCheck / 60000)) : (test.rotation_interval_min || 60)),
                 is_currently_on_wb: false
             }).eq('id', currentVariant.id);
         }
         const ok = await rotateTestPhoto(testId, nextIdx, nextVariant.photo_url, test.nm_id, nextVariant.variant_label);
-        if (!ok) return;
+        if (!ok) {
+            // WB не принял фото: возвращаем прежнее фото «сейчас» в базе
+            if (currentVariant) await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', currentVariant.id);
+            return false;
+        }
         const newRotCount = (test.rotation_count || 0) + 1;
         const shouldFinish = test.max_rotations && newRotCount >= test.max_rotations;
         await supabase.from('ab_tests').update({
@@ -16037,6 +16030,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             await pauseABTestCampaigns({ ...test, settings: cached?.settings || test.settings });
         }
         await loadABTests();
+        return true;
     }
 
     async function pauseABTestCampaigns(test) {
