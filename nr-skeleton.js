@@ -35,7 +35,9 @@
 
     // ── полоса сверху ──
     var bar = null, fill = null, pending = 0, pct = 0, tShow = null, tTrickle = null, tHide = null, visible = false;
+    // Полоса загрузки сверху убрана («Минимализм»): индикатор состояния теперь только в блоках и уведомлениях.
     function ensureBar() {
+        return;
         if (bar || !doc.body) return;
         bar = doc.createElement('div'); bar.id = 'nr-topbar'; bar.setAttribute('aria-hidden', 'true');
         fill = doc.createElement('b'); bar.appendChild(fill); doc.body.appendChild(bar);

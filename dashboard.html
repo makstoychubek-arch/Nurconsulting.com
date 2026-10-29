@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.12e4bd4232.css">
+<link rel="stylesheet" href="/dist/nr-mono.0b46770743.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8420,7 +8420,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/ad-autopilot-ui.072c47d435.min.js"></script>
 <script src="/dist/ads-campaign-detail.40f4e1bf6d.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
-<script src="/dist/nr-skeleton.f6e83bed0b.min.js"></script>
+<script src="/dist/nr-skeleton.1a0ae1d5ae.min.js"></script>
 <script src="/dist/nr-themes.2fd4d06812.min.js"></script>
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.196452a689.min.js"></script>
@@ -13363,9 +13363,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const selectHeader = document.getElementById('cabinet-select-header');
         if (selectHeader) selectHeader.value = currentCabinetId;
 
-        { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); await lp; }
         updateEmptyCabinetState();
-        await loadLastSyncTime();
+        // Данные дашборда грузятся в фоне: запуск страницы (и открытая вкладка, например РНП) не ждёт их,
+        // иначе холодные запросы дашборда держали «загрузка идёт дольше обычного» на любой вкладке.
+        { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); lp.catch(() => {}).then(() => { updateEmptyCabinetState(); return loadLastSyncTime(); }).catch(() => {}); }
         bootRnpTab(true);
         bootRnpSettings(true);
     }
@@ -19207,7 +19208,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         try {
             await loadCabinets();
             if (hasUserCabinets) updateDateRangeLabel();
-            if (hasUserCabinets) await loadABTests();
+            if (hasUserCabinets) loadABTests().catch(() => {}); // список тестов не задерживает запуск страницы
         } catch (e) {
             console.error('[init] load:', e);
         }
