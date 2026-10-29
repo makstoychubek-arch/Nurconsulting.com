@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: wb-proxy
 // Securely proxies all Wildberries API requests.
 // Requires a valid user JWT in Authorization header.

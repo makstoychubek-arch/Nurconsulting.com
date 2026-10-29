@@ -1,6 +1,7 @@
 // Разбор и запись ставок WB Promotion API (аукцион type 9).
 // Ставки в /adv/v1/bids — в копейках (1500 = 15 ₽).
 // deno-lint-ignore-file no-explicit-any
+import './wb-user-agent.ts';
 
 export const ADV_API = 'https://advert-api.wildberries.ru';
 

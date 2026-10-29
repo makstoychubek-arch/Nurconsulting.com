@@ -13,7 +13,7 @@ import json, os, re, sys, time, uuid, urllib.request, urllib.error
 REF = 'fiukyfyhotctvfdidktx'
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'supabase', 'functions')
 API = 'https://api.supabase.com/v1/projects/' + REF
-IMPORT_RE = re.compile(r"""from\s+['"](\.{1,2}/[^'"]+)['"]""")
+IMPORT_RE = re.compile(r"""(?:from|import)\s+['"](\.{1,2}/[^'"]+)['"]""")
 
 
 def request(method, path, data=None, headers=None):

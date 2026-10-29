@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: advertising-sync
 // Задача 6: Кэширование данных рекламы.
 // Fetches WB Promotion API campaign stats and upserts them into

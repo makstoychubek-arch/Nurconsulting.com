@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: wb-clusters
 // Полностью изолированный модуль для нового раздела "Кластеры" (/wb-clusters).
 // НЕ импортирует и не переиспользует wb-proxy — отдельная реализация auth +

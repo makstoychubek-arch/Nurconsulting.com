@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: ff-orders-sync
 // Раз в час забирает у WB заказы FBS (marketplace-api /api/v3/orders, не старше 30 дней) с номером склада продавца
 // и сохраняет в fbs_orders: какой склад (ФФ, например «АМАН ФФ 3») собирал каждый заказ. По ним дашборд точно

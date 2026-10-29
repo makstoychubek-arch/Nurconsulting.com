@@ -1,3 +1,4 @@
+import './wb-user-agent.ts';
 // Снимок продаж по кабинету за один день (WB Statistics API, flag=1).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

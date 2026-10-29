@@ -6,6 +6,7 @@
 // (границы окон из ab_test_rotation_log). Ротация идёт сразу после замера, поэтому почти весь
 // следующий интервал целиком падает на новое фото.
 // deno-lint-ignore-file no-explicit-any
+import './wb-user-agent.ts';
 
 import { CABINET_TOKEN_SELECT, pickCabinetToken } from './wb-cabinet-tokens.ts';
 import { moscowYmd } from './wb-funnel-day.ts';

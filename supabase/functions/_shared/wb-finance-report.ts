@@ -1,3 +1,4 @@
+import './wb-user-agent.ts';
 /**
  * Отчёт реализации WB — наследник GET /api/v5/supplier/reportDetailByPeriod.
  *

@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: orders-watch
 // Следит за новыми заказами FBS у кабинетов команды и пишет их в order_events (по ним сайт играет звук).
 // Запускается pg_cron раз в минуту, только service role. Отвечает сразу (pg_net ждёт 5 с), а внутри

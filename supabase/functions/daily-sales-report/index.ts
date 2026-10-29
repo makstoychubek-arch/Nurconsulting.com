@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: daily-sales-report
 // Ежедневный отчёт в Telegram-группу по каждому кабинету: таблица по артикулам
 // продавца — заказы шт/руб, выкупы шт/руб, остаток товара + строка "Итого".

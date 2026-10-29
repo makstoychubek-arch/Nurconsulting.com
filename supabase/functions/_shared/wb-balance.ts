@@ -1,3 +1,4 @@
+import './wb-user-agent.ts';
 // Баланс продавца WB: GET finance-api.wildberries.ru/api/v1/account/balance (токен категории «Финансы»).
 // Лимит WB — 1 запрос в минуту на аккаунт, поэтому по кабинету зовём один раз и не повторяем.
 import { sanitizeWbToken } from './wb-cabinet-tokens.ts';

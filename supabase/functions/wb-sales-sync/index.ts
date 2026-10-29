@@ -5,6 +5,7 @@
 // Первый запуск тянет 45 дней, дальше — от последней сохранённой даты минус 3 дня (WB догружает правки).
 // Тело (необязательно): { cabinet_id, days } — только один кабинет / глубина в днях.
 // deno-lint-ignore-file no-explicit-any
+import '../_shared/wb-user-agent.ts';
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';

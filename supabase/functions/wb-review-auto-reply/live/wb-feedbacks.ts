@@ -1,3 +1,4 @@
+import '../../_shared/wb-user-agent.ts';
 // WB Feedbacks API — общие методы (официальный flow dev.wildberries.ru).
 export const FEEDBACKS_API = 'https://feedbacks-api.wildberries.ru';
 /** Шаг 1: есть ли новые непросмотренные отзывы */ export async function checkHasNewFeedbacks(token) {
