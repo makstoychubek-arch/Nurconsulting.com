@@ -13836,6 +13836,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 mem.set(key, v);
                 if (mem.size > 8) mem.delete(mem.keys().next().value);
                 req('readwrite', (st) => st.put(v, key));
+                // «Последний срез» кабинета: завтра период сдвинется на день, а на экране уже будет что показать, пока грузится точный.
+                const last = String(key).split('|')[0] + '|last';
+                mem.set(last, v);
+                req('readwrite', (st) => st.put(v, last));
             },
         };
     })();
@@ -13847,7 +13851,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const cab = currentCabinetId;
         const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
         const key = dashCacheKey(cab, range);
-        const hit = await DASH_CACHE.get(key);
+        // Точного кэша нет (новый день, другой период): показываем последний срез кабинета (цифры размыты до прихода свежих).
+        const hit = (await DASH_CACHE.get(key)) || (await DASH_CACHE.get(cab + '|last'));
         if (hit && hit.summary && cab === currentCabinetId) {
             const p = { mode: 'cache', hit, key };
             _dashPass = p;
