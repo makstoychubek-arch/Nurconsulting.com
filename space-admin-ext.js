@@ -407,13 +407,7 @@
 
     // ===== Вид «Настройки»: минимализм (вариант B) =====
     const MIN_CSS = `
-#tab-settings.active{display:grid;grid-template-columns:200px minmax(0,1fr);column-gap:40px;align-items:start;max-width:1000px;margin:0 auto}
-#tab-settings>.space-pending-banner{grid-column:1/-1}
-#tab-settings>.settings-section-tabs{grid-column:1;grid-row:2/span 30;position:sticky;top:12px;display:flex;flex-direction:column;gap:2px;background:none;border:0;padding:0;margin:0}
-#tab-settings>[id^="settings-"]:not(.settings-section-tabs){grid-column:2;grid-row:2;min-width:0}
-#tab-settings .settings-section-tab{flex:none;text-align:left;padding:9px 12px;font-size:14px;font-weight:500;border-radius:10px;color:var(--text-muted);background:none}
-#tab-settings .settings-section-tab:hover{background:var(--sel,#ededed);color:var(--text-primary)}
-#tab-settings .settings-section-tab.active{background:var(--sel,#ededed);color:var(--text-primary);font-weight:600}
+#tab-settings.active{display:block;max-width:1000px;margin:0 auto}
 #tab-settings .widget-card{box-shadow:none;border:1px solid var(--border);border-radius:16px;background:var(--surface-solid,var(--surface))}
 #tab-settings #settings-security .security-sessions-card{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-radius:0;overflow:visible}
 #tab-settings #settings-security .security-sessions-card>.p-6{padding:0 0 10px!important}
@@ -425,15 +419,12 @@
 #tab-settings #settings-devsessions .security-sessions-card h3{font-size:15px;font-weight:600}
 #tab-settings #settings-devsessions .security-sessions-card>.px-6{padding:0!important}
 #tab-settings #dev-sessions-list{background:var(--surface-solid,var(--surface));border:1px solid var(--border);border-radius:14px;overflow:hidden}
-#tab-settings #settings-profile>.widget-card,#tab-settings #settings-api>.widget-card,#tab-settings #settings-features>.widget-card,#tab-settings #settings-about>.widget-card{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}
-#tab-settings #settings-profile h3,#tab-settings #settings-api h3,#tab-settings #settings-features h3,#tab-settings #settings-about h3{font-size:15px;font-weight:600;margin-bottom:12px}
+#tab-settings #settings-api>.widget-card{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}
+#tab-settings #settings-api h3{font-size:15px;font-weight:600;margin-bottom:12px}
 #tab-settings #settings-api .flex.items-center.justify-between h3{margin-bottom:0}
-#tab-settings #settings-user-info,#tab-settings #settings-about .text-sm[class*="space-y"]{background:var(--surface-solid,var(--surface));border:1px solid var(--border);border-radius:14px;padding:16px 18px}
-#tab-settings #settings-profile button[onclick^="handleLogout"]{background:none!important;border:1px solid var(--border)!important;color:var(--red,#d4372c)!important;border-radius:9px!important;padding:8px 16px!important;margin-top:14px!important;font-weight:550}
 #tab-settings #cabinets-api-list>*{background:var(--surface-solid,var(--surface));border:1px solid var(--border)!important;border-radius:14px;padding:14px 16px}
 #tab-settings #settings-api button[onclick^="showAddCabinetForm"]{background:var(--text-primary);color:var(--bg,#fff);border:1px solid var(--text-primary);border-radius:9px}
 #tab-settings #add-cabinet-form{background:var(--surface-solid,var(--surface))!important;border:1px solid var(--border)!important;border-radius:14px}
-#tab-settings #settings-features .ft-list>*,#tab-settings #settings-features .ft-all{border-radius:14px}
 #tab-settings #settings-security.space-y-4>*+*{margin-top:36px}
 #tab-settings #settings-security .security-sessions-card+.security-sessions-card,#tab-settings #settings-security #admin-access-card+.security-sessions-card{margin-top:36px}
 #tab-settings .security-device-icon{width:34px;height:34px;border-radius:9px;border:0;background:var(--sel,#ededed)}
@@ -467,7 +458,6 @@
 .axm-empty{padding:36px 20px;text-align:center;color:var(--text-muted);font-size:13px}
 @media(max-width:760px){
  #tab-settings.active{display:block}
- #tab-settings>.settings-section-tabs{position:static;flex-direction:row;overflow-x:auto;scrollbar-width:none;white-space:nowrap;margin-bottom:16px}
  #tab-settings .security-session-row{flex-wrap:wrap}
  .axm-btns .ax{flex:1 1 auto;justify-content:center}.axm-btns .ax-ok{flex:1 1 100%}
  .axm-row{flex-wrap:wrap}

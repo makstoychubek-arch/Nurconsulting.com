@@ -715,3 +715,40 @@ html body .ab-new-dialog #ab-wizard-pick .ab-product-search { width: min(420px, 
 html body .ab-new-dialog .ab-pick-status { min-height: 22px; font-size: 14px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px; justify-content: center; }
 html body .ab-new-dialog .ab-pick-ring { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--text-primary); animation: spin .8s linear infinite; }
 html body #nr-topbar { display: none !important; }
+
+/* ===== Настройки: разделы одной полосой сверху, профиль с чёрной карточкой кабинета (вариант 3) ===== */
+html body #tab-settings .settings-section-tabs { display: grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0 !important; padding: 0 !important; margin: 0 0 22px !important; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; background: transparent !important; overflow: hidden; }
+html body #tab-settings .settings-section-tab { padding: 11px 8px !important; text-align: center !important; font-size: 13px !important; font-weight: 800 !important; color: var(--text-muted) !important; background: transparent !important; border-radius: 0 !important; white-space: nowrap; cursor: pointer; box-shadow: none; }
+html body #tab-settings .settings-section-tab + .settings-section-tab { border-left: 1px solid var(--border); }
+html body #tab-settings .settings-section-tab:hover { color: var(--text-primary) !important; background: transparent !important; }
+html body #tab-settings .settings-section-tab.active { color: var(--text-primary) !important; background: transparent !important; box-shadow: inset 0 -2px 0 var(--text-primary); }
+html body #tab-settings .settings-section-tab.hidden-tab { display: none !important; }
+html body #tab-settings .nrs-prof { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+html body #tab-settings .nrs-cab { background: var(--accent); color: var(--on-accent, #fff); border-radius: 26px; padding: 22px; display: grid; gap: 10px; }
+html body #tab-settings .nrs-k { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+html body #tab-settings .nrs-cab .nrs-k { color: inherit; opacity: .65; }
+html body #tab-settings .nrs-cab-name { font-size: 28px; font-weight: 900; letter-spacing: -.02em; line-height: 1.15; }
+html body #tab-settings .nrs-r { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+html body #tab-settings .nrs-r:last-child { border-bottom: 0; }
+html body #tab-settings .nrs-r span { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); align-self: center; }
+html body #tab-settings .nrs-r b { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+html body #tab-settings .nrs-cab .nrs-r { border-bottom-color: rgba(127,127,127,.35); }
+html body #tab-settings .nrs-cab .nrs-r span { color: inherit; opacity: .65; }
+html body #tab-settings i.nrs-ok, html body #tab-settings i.nrs-no { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+html body #tab-settings i.nrs-ok { color: var(--green, #16803c); border-color: var(--green, #16803c); }
+html body #tab-settings i.nrs-no { color: var(--red, #c42b2b); border-color: var(--red, #c42b2b); }
+html body #tab-settings .nrs-cab i.nrs-ok { color: #7ee2a0; border-color: #7ee2a0; }
+html body #tab-settings .nrs-cab i.nrs-no { color: #ff8f8f; border-color: #ff8f8f; }
+html[data-theme="neon"] body #tab-settings .nrs-cab i.nrs-ok { color: #16803c; border-color: #16803c; }
+html body #tab-settings .nrs-side { display: grid; gap: 14px; }
+html body #tab-settings .nrs-card, html body #tab-settings #nr-acc-card.widget-card { border: 1px solid var(--text-primary) !important; border-radius: 22px !important; background: transparent !important; box-shadow: none !important; padding: 16px 18px !important; display: grid; gap: 8px; }
+html body #tab-settings .nrs-v { font-size: 15px; font-weight: 800; }
+html body #tab-settings .nrs-out { justify-self: start; background: transparent; border: 1px solid var(--red, #c42b2b); color: var(--red, #c42b2b); border-radius: 999px; padding: 8px 20px; font-size: 13px; font-weight: 800; cursor: pointer; }
+html body #tab-settings .nrs-link { justify-self: start; background: none; border: 0; border-bottom: 1.5px solid var(--text-primary); color: var(--text-primary); padding: 0 0 2px; line-height: 1.3; font-size: 13px; font-weight: 800; cursor: pointer; }
+html body #tab-settings #nr-acc-card h3, html body #tab-settings #nr-mcp-card h3 { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin: 0; }
+html body #tab-settings #nr-mcp-card.widget-card { border: 1px solid var(--text-primary) !important; border-radius: 22px !important; background: transparent !important; box-shadow: none !important; padding: 18px 20px !important; }
+@media (max-width: 760px) {
+  html body #tab-settings .settings-section-tabs { display: flex !important; overflow-x: auto; border-radius: 22px !important; scrollbar-width: none; }
+  html body #tab-settings .settings-section-tab { flex: 0 0 auto; padding: 11px 16px !important; }
+  html body #tab-settings .nrs-prof { grid-template-columns: 1fr; }
+}

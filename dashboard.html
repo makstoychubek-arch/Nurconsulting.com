@@ -50,7 +50,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     <script defer src="/nr-monitor.js"></script>
     <script defer src="/nr-perf.js"></script>
     <script defer src="/nr-fox.js"></script>
-    <link rel="stylesheet" href="/dist/tailwind.04f542f59e.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.0736a4a529.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.78b289c102.css">
+<link rel="stylesheet" href="/dist/nr-mono.e7a3bae035.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7606,20 +7606,33 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 Магазин ещё не подключён. Вставьте API-токен Wildberries на главном экране — после проверки токена все разделы откроются.
             </div>
             <div class="settings-section-tabs" id="settings-section-tabs">
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-profile" onclick="showSettingsSection('profile', this)">Профиль</div>
+                <div class="settings-section-tab active" id="settings-tab-btn-profile" onclick="showSettingsSection('profile', this)">Профиль</div>
                 <div class="settings-section-tab" id="settings-tab-btn-security" onclick="showSettingsSection('security', this)">Безопасность</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии разработчиков</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-spaces" onclick="showSettingsSection('spaces', this)">Управление Спейсами</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">Кабинеты</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-features" onclick="showSettingsSection('features', this)">Агенты и функции</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-tariffs" onclick="showTab('tariffs')">Тарифы</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">NR Space</div>
+                <div class="settings-section-tab" id="settings-tab-btn-integrations" onclick="showSettingsSection('integrations', this)">Интеграции</div>
+                <div class="settings-section-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API Wildberries</div>
+                <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showTab('tariffs')">Тарифы</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии</div>
             </div>
-            <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
-                <div class="widget-card p-6">
-                    <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
-                    <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка…</div>
-                    <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
+            <div id="settings-profile" class="settings-tab-anim space-y-4">
+                <div class="nrs-prof">
+                    <div class="nrs-cab" id="nrs-cab-card">
+                        <div class="nrs-k">Открытый кабинет</div>
+                        <div class="nrs-cab-name" id="nrs-cab-name">—</div>
+                        <div class="nrs-cab-rows" id="nrs-cab-rows"></div>
+                    </div>
+                    <div class="nrs-side">
+                        <div class="nrs-card">
+                            <div class="nrs-k">Аккаунт</div>
+                            <div id="settings-user-info" class="nrs-acc">Загрузка…</div>
+                            <button type="button" onclick="handleLogout()" class="nrs-out">Выйти</button>
+                        </div>
+                        <div class="nrs-card">
+                            <div class="nrs-k">Тариф</div>
+                            <div class="nrs-v" id="nrs-plan">—</div>
+                            <button type="button" class="nrs-link" onclick="showTab('tariffs')">Сменить тариф</button>
+                        </div>
+                        <div id="nrs-users-slot"></div>
+                    </div>
                 </div>
             </div>
             <div id="settings-security" class="settings-tab-anim space-y-4">
@@ -7674,11 +7687,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                 </div>
             </div>
-            <div id="settings-spaces" class="settings-tab-anim hidden space-y-4">
-                <div class="widget-card p-6">
-                    <p class="text-sm" style="color:var(--text-muted)">Доступ и блокировки перенесены во вкладку «Безопасность».</p>
-                    <button type="button" class="ui-btn ui-btn-primary mt-3" onclick="showSettingsSection('security', document.getElementById('settings-tab-btn-security'))">Открыть Безопасность</button>
-                </div>
+            <div id="settings-integrations" class="settings-tab-anim hidden space-y-4">
+                <div id="nrs-mcp-slot"></div>
             </div>
             <div id="settings-api" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card p-6">
@@ -7695,27 +7705,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         </div>
                     </div>
                     <div id="cabinets-api-list" class="space-y-2"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка…</div></div>
-                </div>
-            </div>
-            <div id="settings-features" class="settings-tab-anim hidden space-y-4">
-                <div class="widget-card p-6">
-                    <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                        <h3 class="font-semibold" style="color:var(--text-primary)">Агенты и функции</h3>
-                        <select id="ft-cabinet" class="ft-select" aria-label="Кабинет"></select>
-                    </div>
-                    <p class="text-xs mb-4" style="color:var(--text-muted)">Включайте и отключайте работу функций по каждому кабинету. «Отключить на…» вернёт функцию само, когда срок кончится.</p>
-                    <div id="ft-all" class="ft-all"></div>
-                    <div id="ft-list" class="ft-list"><div class="text-sm" style="color:var(--text-muted)">Загрузка…</div></div>
-                </div>
-            </div>
-            <div id="settings-about" class="settings-tab-anim hidden space-y-4">
-                <div class="widget-card p-6">
-                    <h3 class="font-semibold mb-3" style="color:var(--text-primary)">NR Space</h3>
-                    <div class="text-sm space-y-1.5" style="color:var(--text-secondary)">
-                        <div>Версия: <span style="color:var(--text-primary)">NR Space v1.3</span></div>
-                        <div>База данных: <span style="color:var(--green)">Работает</span></div>
-                        <div>WB API: <span style="color:var(--green)">Работает</span></div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -7820,6 +7809,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         <div id="tab-agents" class="tab-content space-y-5">
             <div class="agents-pages-tabs" id="agents-pages-tabs">
                 <button type="button" class="agents-page-tab active" data-agents-page="fns" onclick="showAgentsPage('fns')">Функции</button>
+                <button type="button" class="agents-page-tab" data-agents-page="cabs" onclick="showAgentsPage('cabs')">По кабинетам</button>
                 <button type="button" class="agents-page-tab" data-agents-page="chats" onclick="showAgentsPage('chats')">Ватсап и Телеграм</button>
                 <button type="button" class="agents-page-tab" data-agents-page="brain" onclick="showAgentsPage('brain')">Мозг</button>
                 <button type="button" class="agents-page-tab" data-agents-page="akylai" onclick="showAgentsPage('akylai')">Акылай</button>
@@ -7836,6 +7826,17 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 </div>
                 <div id="agents-panel" class="widget-card p-4">
                     <div class="text-sm" style="color:var(--text-muted)">Выберите функцию</div>
+                </div>
+            </div>
+            <div id="agents-page-cabs" class="agents-page hidden">
+                <div class="widget-card p-6">
+                    <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Агенты и функции по кабинетам</h3>
+                        <select id="ft-cabinet" class="ft-select" aria-label="Кабинет"></select>
+                    </div>
+                    <p class="text-xs mb-4" style="color:var(--text-muted)">Включайте и отключайте работу функций по каждому кабинету. Одним действием можно отключить все функции кабинета на время.</p>
+                    <div id="ft-all" class="ft-all"></div>
+                    <div id="ft-list" class="ft-list"><div class="text-sm" style="color:var(--text-muted)">Загрузка…</div></div>
                 </div>
             </div>
             <div id="agents-page-chats" class="agents-page hidden">
@@ -8409,8 +8410,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
-<script src="/dist/viewer-mode.911e0a7134.min.js"></script>
-<script src="/dist/space-admin-ext.7587daca0d.min.js"></script>
+<script src="/dist/viewer-mode.5362af6cd3.min.js"></script>
+<script src="/dist/space-admin-ext.68d561b81b.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
@@ -13362,6 +13363,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
         const selectHeader = document.getElementById('cabinet-select-header');
         if (selectHeader) selectHeader.value = currentCabinetId;
+        try { loadSettingsProfile(); } catch (_) {}
 
         updateEmptyCabinetState();
         // Данные дашборда грузятся в фоне: запуск страницы (и открытая вкладка, например РНП) не ждёт их,
@@ -16566,16 +16568,20 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     function addVariantInput() { addVariantSlot(); }
 
+    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'devsessions'];
     function showSettingsSection(section, el) {
+        if (!SETTINGS_PANES.includes(section)) section = 'profile';
+        el = el || document.getElementById('settings-tab-btn-' + section);
         document.querySelectorAll('.settings-section-tab').forEach(t => t.classList.remove('active'));
-        ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
+        SETTINGS_PANES.forEach(s => {
             const pane = document.getElementById('settings-' + s);
             if (pane) pane.classList.add('hidden');
         });
-        el.classList.add('active');
-        document.getElementById('settings-' + section).classList.remove('hidden');
+        el?.classList.add('active');
+        document.getElementById('settings-' + section)?.classList.remove('hidden');
+        if (section === 'profile' || section === 'integrations') { try { window.NrAccess?.card?.(); } catch (_) {} }
+        if (section === 'profile') loadSettingsProfile();
         if (section === 'api') loadCabinetsAPIList();
-        if (section === 'features') window.loadCabinetFeatures?.();
         if (section === 'security') {
             loadSecuritySessions();
             if (isSuperAdmin) {
@@ -16584,47 +16590,44 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
         }
         if (section === 'devsessions') loadDevSessions();
-        if (section === 'spaces') showSettingsSection('security', document.getElementById('settings-tab-btn-security'));
     }
+    window.showSettingsSection = showSettingsSection;
+
+    // Профиль: данные открытого кабинета и тариф. Обновляются при открытии раздела и при смене кабинета.
+    async function loadSettingsProfile() {
+        const nameEl = document.getElementById('nrs-cab-name');
+        const rowsEl = document.getElementById('nrs-cab-rows');
+        if (!nameEl || !rowsEl) return;
+        const esc2 = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const row = (k, v) => `<div class="nrs-r"><span>${k}</span><b>${v}</b></div>`;
+        const when = (d) => d ? new Date(d).toLocaleDateString('ru-RU') : '—';
+        if (!hasUserCabinets || !currentCabinetId) { nameEl.textContent = 'Кабинет не выбран'; rowsEl.innerHTML = ''; }
+        else {
+            try {
+                const { data: c } = await supabase.from('cabinets').select('id, name, created_at, wb_token_set, adv_token_valid, last_full_orders_sync_at').eq('id', currentCabinetId).maybeSingle();
+                if (c && c.id === currentCabinetId) {
+                    nameEl.textContent = c.name || '—';
+                    rowsEl.innerHTML = row('Подключён', when(c.created_at))
+                        + row('Токен WB', c.wb_token_set ? '<i class="nrs-ok">подключён</i>' : '<i class="nrs-no">не задан</i>')
+                        + row('Токен рекламы', c.adv_token_valid === true ? '<i class="nrs-ok">подключён</i>' : c.adv_token_valid === false ? '<i class="nrs-no">не работает</i>' : '—')
+                        + row('Последняя загрузка заказов', when(c.last_full_orders_sync_at));
+                }
+            } catch (_) { /* остаётся прежнее */ }
+        }
+        try {
+            const { data: sp } = await supabase.from('spaces').select('tariff_plan').eq('user_id', currentUserId).maybeSingle();
+            const plan = document.getElementById('nrs-plan');
+            if (plan) plan.textContent = (typeof TARIFF_LABELS !== 'undefined' && TARIFF_LABELS[sp?.tariff_plan]) || sp?.tariff_plan || '—';
+        } catch (_) {}
+    }
+    window.addEventListener('nr-cabinet-changed', () => { if (!document.getElementById('settings-profile')?.classList.contains('hidden')) loadSettingsProfile(); });
 
     function applySettingsTabsForRole() {
-        const tabs = {
-            profile: document.getElementById('settings-tab-btn-profile'),
-            security: document.getElementById('settings-tab-btn-security'),
-            devsessions: document.getElementById('settings-tab-btn-devsessions'),
-            spaces: document.getElementById('settings-tab-btn-spaces'),
-            api: document.getElementById('settings-tab-btn-api'),
-            features: document.getElementById('settings-tab-btn-features'),
-            about: document.getElementById('settings-tab-btn-about'),
-        };
-        Object.values(tabs).forEach(t => t?.classList.add('hidden-tab'));
-
-        if (isSuperAdmin) {
-            tabs.security?.classList.remove('hidden-tab');
-            tabs.profile?.classList.remove('hidden-tab');
-            tabs.devsessions?.classList.remove('hidden-tab');
-            tabs.api?.classList.remove('hidden-tab');
-            tabs.features?.classList.remove('hidden-tab');
-            tabs.about?.classList.remove('hidden-tab');
-            document.getElementById('settings-tab-btn-tariffs')?.classList.remove('hidden-tab');
-            ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
-                document.getElementById('settings-' + s)?.classList.add('hidden');
-            });
-            document.getElementById('admin-access-card')?.classList.remove('hidden');
-            if (tabs.security) showSettingsSection('security', tabs.security);
-        } else {
-            tabs.security?.classList.remove('hidden-tab');
-            tabs.api?.classList.remove('hidden-tab');
-            if (isStaff) tabs.features?.classList.remove('hidden-tab');
-            document.getElementById('settings-tab-btn-tariffs')?.classList.remove('hidden-tab');
-            ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
-                document.getElementById('settings-' + s)?.classList.add('hidden');
-            });
-            document.getElementById('settings-security')?.classList.remove('hidden');
-            if (tabs.security) {
-                tabs.security.classList.add('active');
-            }
-        }
+        // Профиль, Безопасность, Интеграции, API Wildberries и Тарифы видят все; «Сессии» только команда.
+        document.getElementById('settings-tab-btn-devsessions')?.classList.toggle('hidden-tab', !isSuperAdmin);
+        document.getElementById('admin-access-card')?.classList.toggle('hidden', !isSuperAdmin);
+        const active = document.querySelector('.settings-section-tab.active');
+        showSettingsSection('profile', document.getElementById('settings-tab-btn-profile'));
     }
 
     async function ensureUserSpace(user) {
@@ -17443,7 +17446,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function showAgentsPage(page) {
-        if (page !== 'fns' && page !== 'chats' && page !== 'brain' && page !== 'akylai') page = 'fns';
+        if (page !== 'fns' && page !== 'cabs' && page !== 'chats' && page !== 'brain' && page !== 'akylai') page = 'fns';
         _agentHub.page = page;
         try { localStorage.setItem('nr_agents_page', page); } catch (_) {}
         document.querySelectorAll('.agents-page').forEach((el) => {
@@ -17453,6 +17456,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             el.classList.toggle('active', el.getAttribute('data-agents-page') === page);
         });
         if (page === 'brain') renderAgentsCanvas();
+        if (page === 'cabs') window.loadCabinetFeatures?.();
         if (page === 'fns') {
             renderAgentFnsGrid();
             openAgentFn(window._agentFn || 'invite', { stay: true });
@@ -19169,7 +19173,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (headerName) headerName.textContent = name;
         const fi = document.getElementById('flyout-user-initial');
         if (fi) fi.textContent = initial;
-        document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>${isSuperAdmin ? '<div class="mt-1"><span style="color:var(--green)">Super Admin</span></div>' : ''}`;
+        document.getElementById('settings-user-info').innerHTML = `<div class="nrs-r"><span>Имя</span><b>${name}</b></div><div class="nrs-r"><span>Почта</span><b>${session.user.email}</b></div>${isSuperAdmin ? '<div class="nrs-r"><span>Роль</span><b><i class="nrs-ok">команда NR</i></b></div>' : ''}`;
         registerUserSession().catch(e => console.warn('[security] init:', e));
         applySettingsTabsForRole();
         updateSpaceStatusUI();
@@ -19655,7 +19659,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     async function send(body) {
         if (ft.busy || !ft.cabinetId) return;
         ft.busy = true;
-        document.querySelectorAll('#settings-features button, #settings-features select').forEach((e) => { e.disabled = true; });
+        document.querySelectorAll('#agents-page-cabs button, #agents-page-cabs select').forEach((e) => { e.disabled = true; });
         const out = await call({ cabinet_id: ft.cabinetId, ...body });
         ft.busy = false;
         if (out.ok && Array.isArray(out.features)) {
@@ -19688,7 +19692,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (!ft.items.length) $('ft-list').innerHTML = '<div class="text-sm" style="color:var(--text-muted)">Не удалось загрузить. Обновите страницу.</div>';
         else render();
         clearTimeout(ft.timer);
-        ft.timer = setTimeout(() => { if ($('settings-features') && !$('settings-features').classList.contains('hidden')) load(); }, 60000);
+        ft.timer = setTimeout(() => { if ($('agents-page-cabs') && !$('agents-page-cabs').classList.contains('hidden')) load(); }, 60000);
     }
 
     document.addEventListener('click', (e) => {

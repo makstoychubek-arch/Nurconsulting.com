@@ -1250,8 +1250,12 @@ assert.ok(html.includes('function loadTelegramBotsPage') && html.includes('toggl
     'Telegram page must list bots and mute a cabinet channel');
 assert.ok(html.includes('function saveOzonForCabinet') && html.includes('ozon_client_id'),
     'Ozon page must save client id and api key per cabinet');
-assert.ok(html.includes("tabs.api?.classList.remove('hidden-tab')"),
-    'settings must show the cabinets tab for regular users, not only Super Admin');
+assert.ok(/class="settings-section-tab" id="settings-tab-btn-api"[^>]*>API Wildberries</.test(html),
+    'settings shows the API Wildberries tab to regular users, not only Super Admin');
+assert.ok(!html.includes('id="settings-about"') && !html.includes('id="settings-features"') && html.includes('id="agents-page-cabs"'),
+    'NR Space section is gone and agent functions per cabinet live on the Agents page');
+assert.ok(/id="settings-tab-btn-integrations"/.test(html) && /class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions"[^>]*>Сессии</.test(html),
+    'settings have a separate Integrations section; Sessions is team-only');
 assert.ok(html.includes('function deleteCabinet') && html.includes("rpc('delete_cabinet'"),
     'settings cabinets must have a delete button that wipes tokens and data');
 assert.ok(
