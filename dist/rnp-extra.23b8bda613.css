@@ -1542,9 +1542,12 @@ body .rnp-sheet-table td.rnp-cell-plan input.rnp-plan-input:not([type="checkbox"
 body .rnp-sheet-table td.rnp-day-col, body .rnp-sheet-table td.rnp-data-col { text-align: center; }
 
 /* Смена периода и первая загрузка: значения и названия месяцев размываются и тускнеют, новые приходят вместе с данными (NrBusy). */
-html.nr-period-busy :is(.pnl-big, .pnl-chip, .pnl-mini-val, .kpi-hero-value, .kpi-hero-sub, .metric-card-value, .ev-kpi-v, .adv-kpi-tile-value, #date-range, .module-date-label, .rnp-th-month, .rnp-th-month-col, .rnp-sheet-table td.rnp-day-col, .rnp-sheet-table td.rnp-data-col, .rnp-sheet-table td.rnp-month-col) {
+html.nr-period-busy :is(.pnl-big, .pnl-chip, .pnl-mini-val, .kpi-hero-value, .kpi-hero-sub, .metric-card-value, .ev-kpi-v, .adv-kpi-tile-value, #date-range, .module-date-label, .rnp-sheet-table td.rnp-day-col, .rnp-sheet-table td.rnp-data-col, .rnp-sheet-table td.rnp-month-col) {
 filter: blur(3px); opacity: .5; pointer-events: none; transition: filter .2s, opacity .2s;
 }
+
+/* Шапка месяцев закреплена над строками: размываем только текст, а сама ячейка остаётся непрозрачной, иначе при прокрутке под ней проступают строки. */
+html.nr-period-busy .rnp-sheet-table thead :is(.rnp-th-month, .rnp-th-month-col, .rnp-th-month-stick) { color: transparent !important; text-shadow: 0 0 6px var(--text-muted); pointer-events: none; }
 
 /* Окно периода: простой чёрно-белый календарь без быстрого выбора и года */
 #date-picker .dp-yearhdr, #date-picker #year-grid, #date-picker .date-picker-quick { display: none !important; }
