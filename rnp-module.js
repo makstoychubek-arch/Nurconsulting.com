@@ -159,14 +159,9 @@ const RNP = (() => {
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
             { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
-            { key: 'plan_orders_pct',    label: 'Выпол. плана ЗАКАЗ, шт %',        type: 'pct', src: 'calc',   cl: 'plan' },
-            { key: 'plan_sales_pct',     label: 'Выпол. плана ПРОДАЖИ %',           type: 'pct', src: 'calc',   cl: 'plan' },
         ]},
         { id: 'price', label: 'ЦЕНА', color: '#6d4fe8', rows: [
-            { key: 'price_base',         label: 'Цена до скидки',                   type: 'som', src: 'auto', carry: true, articleOnly: true },
-            { key: 'disc_pct',           label: 'Скидка продавца, %',               type: 'int', src: 'auto', carry: true, articleOnly: true },
             { key: 'price_disc',         label: 'Цена со скидкой',                  type: 'som', src: 'auto', carry: true, articleOnly: true },
-            { key: 'price_spp',          label: 'Цена с СПП (на сайте)',            type: 'som', src: 'auto', carry: true, articleOnly: true },
         ]},
         { id: 'cash', label: 'Сумма продаж в кассе', color: '#1a73e8', rows: [
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
@@ -187,7 +182,6 @@ const RNP = (() => {
             { key: 'ad_clicks',          label: 'Клики РК',                         type: 'int',  src: 'promo' },
             { key: 'plan_clicks',        label: 'План Кликов из РК',                type: 'int',  src: 'manual', isPlan: true },
             { key: 'ad_ctr',             label: 'CTR % РК',                         type: 'pct2', src: 'promo' },
-            { key: 'ad_cro',             label: 'CR0 РК%',                          type: 'pct2', src: 'promo' },
             { key: 'ad_cpc',             label: 'Стоимость Клика',                  type: 'dec2', src: 'promo' },
             { key: 'ad_basket',          label: 'Корзин с РК',                      type: 'int',  src: 'promo' },
             { key: 'ad_orders',          label: 'Заказов с РК',                     type: 'int',  src: 'promo' },
@@ -205,7 +199,6 @@ const RNP = (() => {
             { key: 'returns_count',      label: 'Возвраты',                         type: 'int',  src: 'auto' },
             { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
             { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'buyout_pct',         label: 'Выкуп % (продажи / заказы)',       type: 'pct',  src: 'auto',  hm: 'high' },
         ]},
         { id: 'logistics', label: 'Логистика', color: '#0ea5e9', rows: [
             { key: 'delivery_sum',       label: 'Доставка (WB)',                    type: 'som',  src: 'auto',  hm: 'cost' },
@@ -217,13 +210,10 @@ const RNP = (() => {
         { id: 'result', label: 'Платежи и удержания WB', color: '#84cc16', rows: [
             { key: 'realization',        label: 'Реализация (WB)',                  type: 'som',  src: 'auto' },
             { key: 'wb_commission', label: 'Комиссия WB и вычеты с продаж', type: 'som', src: 'auto',  hm: 'cost', cabinetOnly: true },
-            { key: 'acquiring_sum', label: 'Эквайринг', type: 'som', src: 'auto',  hm: 'cost', cabinetOnly: true },
-            { key: 'compensation_sum', label: 'Компенсации WB (плюс)', type: 'som', src: 'auto', cabinetOnly: true },
             { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
-            { key: 'additional_sum', label: 'Доплаты WB (плюс)', type: 'som', src: 'auto', cabinetOnly: true },
             { key: 'acceptance_sum',     label: 'Обработка товара (WB)',            type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'deduction_sum',      label: 'Прочие удержания',                 type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'other_net_sum', label: 'Прочие удержания и доплаты', type: 'som', src: 'auto', cabinetOnly: true },
             { key: 'to_withdraw',        label: 'К выводу',                         type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
         ]},
         { id: 'profit', label: 'Прибыль', color: '#22c55e', rows: [
@@ -232,11 +222,6 @@ const RNP = (() => {
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
             { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
-        ]},
-        { id: 'unit', label: 'На единицу', color: '#f97316', rows: [
-            { key: 'logistics_per_unit', label: 'Логистика на ед',                  type: 'som',  src: 'auto',  hm: 'low' },
-            { key: 'to_transfer_unit',   label: 'К перечислению на ед',             type: 'som',  src: 'auto' },
-            { key: 'profit_per_unit',    label: 'Прибыль на 1 ед',                  type: 'som',  src: 'calc',  bold: true },
         ]},
         { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
@@ -2977,6 +2962,7 @@ const RNP = (() => {
         compensation_sum: ['Компенсации WB (плюс)', 'Добровольные компенсации при возврате. Входят в «К перечислению».'],
         additional_sum: ['Доплаты WB (плюс)', 'Дополнительные выплаты WB из финотчёта; прибавляются при расчёте «К выводу».'],
         to_withdraw: ['К выводу', 'По всему кабинету, как «Итого к оплате» в отчёте реализации WB: к перечислению + доплаты − доставка − хранение − обработка − штрафы − прочие удержания. Считается по всему кабинету.'],
+        other_net_sum: ['Прочие удержания и доплаты', 'Доплаты и компенсации WB минус эквайринг и прочие удержания по финотчёту. Плюс значит, что WB доплатил, минус значит, что удержал.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
@@ -6209,7 +6195,7 @@ const RNP = (() => {
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
-        'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission',
+        'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
     ];
 
@@ -6320,6 +6306,7 @@ const RNP = (() => {
         m.compensation_sum = n(t.compensation);
         m.additional_sum = n(t.additional);
         m.wb_commission = Math.max(0, m.realization - m.acquiring_sum - (m.to_transfer - m.compensation_sum));
+        m.other_net_sum = m.additional_sum + m.compensation_sum - m.acquiring_sum - m.deduction_sum;
         m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
         m.wb_for_withdraw = t.balance_for_withdraw == null ? null : n(t.balance_for_withdraw);
         m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
@@ -8464,7 +8451,7 @@ const RNP = (() => {
         'sales_count', 'sales_sum', 'avg_check_sales', 'plan_sales_pct', 'return_pct', 'buyout_pct', 'returns_count', 'cancels_count', 'buyout_fin_pct',
         'logistics_per_unit', 'logistics_pct', 'storage_pct', 'realization', 'to_transfer', 'to_transfer_unit',
         'delivery_sum', 'penalty_sum', 'storage_sum', 'deduction_sum', 'log_to_pvz_avg',
-        'acceptance_sum', 'to_withdraw', 'acquiring_sum', 'compensation_sum', 'additional_sum', 'wb_commission', 'cost_price_val', 'profit', 'profit_per_unit', 'margin_pct', 'roi_pct',
+        'acceptance_sum', 'to_withdraw', 'acquiring_sum', 'compensation_sum', 'additional_sum', 'wb_commission', 'other_net_sum', 'cost_price_val', 'profit', 'profit_per_unit', 'margin_pct', 'roi_pct',
     ]);
 
     // Раскрытие «Заказы»/«Продажи» на две строки: склад продавца (FBS) и склад WB (FBO).
