@@ -71,6 +71,16 @@
             var btn = doc.querySelector('.rail-btn[data-tab="' + tab + '"]');
             if (btn) btn.setAttribute('data-flyout', s.fly);
         });
+        // «Агенты» живут в «Инструментах» (только команда)
+        var tools = doc.querySelector('#fly-tools .flyout-body');
+        if (tools && !tools.querySelector('[data-nr-agents]')) {
+            var ag = doc.createElement('div');
+            ag.className = 'nav-item'; ag.setAttribute('data-nr-agents', '1'); ag.setAttribute('data-staff-only', '1');
+            ag.setAttribute('onclick', "showTab('agents', this)");
+            ag.innerHTML = SVG + '<circle cx="9" cy="8.5" r="3.3"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M16 5.4a3 3 0 0 1 0 6M17.5 14.6c2 .6 3.2 2.4 3.2 5.4"/></svg><span class="nav-item-label">Агенты</span>';
+            var sec = doc.createElement('div'); sec.className = 'flyout-sec'; sec.setAttribute('data-staff-only', '1'); sec.textContent = 'Помощники';
+            tools.appendChild(sec); tools.appendChild(ag);
+        }
         // подпись под логотипом
         var logo = doc.getElementById('sidebar-home-btn');
         if (logo && !doc.getElementById('nr-logo-sub')) {
@@ -134,9 +144,11 @@
             var it = s.items.filter(function (x) { return x.id === cur; })[0];
             if (it) { label = it.label; secTitle = s.title; go1 = (s.items.filter(function (x) { return x.dflt; })[0] || it).id; }
         } else if (tab === 'ab-testing') { secTitle = 'Инструменты'; label = 'А/Б тесты'; }
+        else if (tab === 'agents' || tab === 'akylai') { secTitle = 'Инструменты'; label = 'Агенты'; }
+        else if (tab === 'tariffs') { secTitle = 'Настройки'; label = 'Тарифы'; go1 = '*settings'; }
         if (!label) { el.innerHTML = ''; el.classList.remove('on'); return; }
         el.classList.add('on');
-        el.innerHTML = '<button type="button" class="nr-crumb" data-nrc="' + (go1 ? tab + ':' + go1 : '') + '">' + esc(secTitle) + '</button><span class="nr-crumb-sep">›</span><span class="nr-crumb-cur">' + esc(label) + '</span>';
+        el.innerHTML = '<button type="button" class="nr-crumb" data-nrc="' + (go1 ? (go1.charAt(0) === '*' ? go1 : tab + ':' + go1) : '') + '">' + esc(secTitle) + '</button><span class="nr-crumb-sep">›</span><span class="nr-crumb-cur">' + esc(label) + '</span>';
         desired = (s && label !== secTitle) ? label : '';
         if (title && desired && title.textContent !== desired) title.textContent = desired;
         watchTitle(title);
@@ -158,7 +170,11 @@
             var n = e.target.closest && e.target.closest('[data-nrn]');
             if (n) { var p = n.getAttribute('data-nrn').split(':'); go(p[0], p[1]); return; }
             var c = e.target.closest && e.target.closest('[data-nrc]');
-            if (c && c.getAttribute('data-nrc')) { var q = c.getAttribute('data-nrc').split(':'); go(q[0], q[1]); return; }
+            if (c && c.getAttribute('data-nrc')) {
+                var v = c.getAttribute('data-nrc');
+                if (v.charAt(0) === '*') { if (root.showTab) root.showTab(v.slice(1), null); return; }
+                var q = v.split(':'); go(q[0], q[1]); return;
+            }
             setTimeout(refresh, 80);
         });
         doc.addEventListener('keydown', function (e) {
