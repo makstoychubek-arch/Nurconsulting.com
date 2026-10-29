@@ -7522,11 +7522,22 @@ const RNP = (() => {
         const L = window.NrLoader, silent = _rnpMainRendered();
         if (L && !silent) L.begin('rnp', 'Загружаем РНП', RNP_LOAD_STEPS);
         if (!silent) _showFirstSkeleton();
+        _startFirstBusy();
+        const busyEnd = window._rnpBusyEnd;
         try { return await _renderMainImpl(); } finally {
             if (L && !silent) L.end('rnp');
             document.querySelectorAll('#tab-rnp .rnp-first-skel').forEach((n) => n.remove());
+            // если дозагрузка воронки взяла снятие размытия на себя, оно снимется там; иначе снимаем сейчас
+            if (busyEnd && !window._rnpBusyLate) _endFirstBusy();
         }
     }
+    // Первый заход в кабинет: цифры размыты с первой миллисекунды и до конца догрузки, а не после того, как уже мелькнули.
+    function _startFirstBusy() {
+        if (window._rnpBusyEnd || window._rnpLoadedForCabinet === _cab || !window.NrBusy) return;
+        window._rnpBusyLate = false;
+        window.NrBusy.run(new Promise((r) => { window._rnpBusyEnd = r; }));
+    }
+    function _endFirstBusy() { const r = window._rnpBusyEnd; window._rnpBusyEnd = null; if (r) r(); }
     async function _renderMainImpl() {
         await Promise.resolve();
         const el = document.getElementById('tab-rnp');
@@ -7640,7 +7651,7 @@ const RNP = (() => {
             const first = await Promise.race([corePromise, fullP.then((v) => ({ v }), (e) => ({ e }))]);
             if (first === 'core') {
                 loadOk = true;
-                if (firstLoad && window.NrBusy) window.NrBusy.run(new Promise((r) => { lateDone = r; }));
+                if (firstLoad && window._rnpBusyEnd) { lateDone = _endFirstBusy; window._rnpBusyLate = true; }
                 fullSettled = fullP.then(() => {}, () => {});
                 fullP.then((ok) => {
                     if (!ok || _abandonStaleMain(renderId, snapReq, snapCab)) return;
@@ -9322,6 +9333,7 @@ const RNP = (() => {
         if (!force && !stuck && mounted && _rnpMainRendered() && window._rnpLoadedForCabinet === _cab) return;
         const cab = _cab;
         _mainInflightCab = cab;
+        _startFirstBusy();
         if (!_rnpMainRendered()) _showFirstSkeleton();
         _mainInflight = (async () => {
             try {
@@ -9337,6 +9349,7 @@ const RNP = (() => {
                 _setRnpTabState('error', e.message || 'Ошибка открытия РНП');
             } finally {
                 document.querySelectorAll('#tab-rnp .rnp-first-skel').forEach((n) => n.remove());
+                if (!window._rnpBusyLate) _endFirstBusy();
                 if (_mainInflightCab === cab) {
                     _mainInflight = null;
                     _mainInflightCab = null;
