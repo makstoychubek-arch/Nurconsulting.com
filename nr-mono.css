@@ -537,3 +537,15 @@ html body #nr-ads-tabs [data-av="content"]::after { margin-left: 6px; vertical-a
   html body #adv-view-ads .ads-hq-bulk { flex-wrap: wrap !important; row-gap: 4px; }
   html body #adv-view-ads #ads-hq-tools { flex-wrap: wrap; margin-left: auto; }
 }
+
+/* РНП, первый заход: заготовка таблицы вместо пустого экрана */
+html body .rnp-first-skel { padding: 16px 12px; display: grid; gap: 14px; }
+html body .rnp-fs-pills { display: flex; gap: 10px; margin-bottom: 6px; }
+html body .rnp-fs-pills i { width: 96px; height: 30px; border-radius: 999px; }
+html body .rnp-fs-row { display: grid; grid-template-columns: 180px repeat(12, minmax(0, 1fr)); gap: 12px; align-items: center; }
+html body .rnp-fs-l { height: 14px; border-radius: 999px; width: 70%; }
+html body .rnp-fs-c { height: 22px; border-radius: 8px; }
+html body .rnp-first-skel i { display: block; background: linear-gradient(90deg, var(--border) 0%, var(--sel) 50%, var(--border) 100%); background-size: 200% 100%; animation: rnp-fs-shine 1.4s ease-in-out infinite; opacity: .7; }
+@keyframes rnp-fs-shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { html body .rnp-first-skel i { animation: none; } }
+@media (max-width: 768px) { html body .rnp-fs-row { grid-template-columns: 90px repeat(5, minmax(0, 1fr)); } html body .rnp-fs-c:nth-child(n+7) { display: none; } }

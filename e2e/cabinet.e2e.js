@@ -125,10 +125,11 @@ test('«Σ Общее» у группы: заказы только по её а�
     assert.strictEqual(await page.locator('.rnp-gh-runway').count(), 1, 'вместо них — остатки с «хватит на N дней» и хранением в день');
     const todayOrders = await page.evaluate(() => {
         const row = [...document.querySelectorAll('tr')].find((r) => /ЗАКАЗЫ/.test(r.textContent));
-        const cells = row ? [...row.querySelectorAll('td')].map((t) => t.textContent.trim()) : [];
+        const cells = row ? [...row.querySelectorAll('td:not(.rnp-cell-period)')].map((t) => t.textContent.trim()) : [];
         return cells.filter((t) => /^\d+$/.test(t)).pop();
     });
     assert.strictEqual(Number(todayOrders), ORDERS_PER_DAY[0] + ORDERS_PER_DAY[1], 'в таблице за день сумма по группе');
+    assert.strictEqual(await page.locator('th.rnp-period-total-th').count(), 1, 'у «Σ Общее» в конце таблицы есть колонка «ИТОГ за период», как у артикула');
     await sigma('Оверсайз').click();
     await page.waitForFunction(() => /Оверсайз/.test(document.querySelector('.rnp-cat-sigma.active')?.closest('.rnp-cat-group')?.querySelector('.rnp-cat-name')?.textContent || ''));
     assert.strictEqual(await activeGroupCount(page), '2');

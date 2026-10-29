@@ -3904,7 +3904,16 @@ const RNP = (() => {
 
     function _buildGeneralTableHTML(active, cal) {
         _metricRowSeq = 0;
-        const cols = _buildCabinetCols(active, cal);
+        let cols = _buildCabinetCols(active, cal);
+        // «ИТОГ за период» в конце таблицы, как у отдельного артикула (только недельный вид).
+        let periodExtra = 0;
+        if (cal.mode !== 'month') {
+            const pd = (cal._allDays || cal.days).filter(d => !d.isFuture).map(d => d.date);
+            if (pd.length) {
+                cols = cols.concat([{ type: 'period', isPeriodCol: true, colKey: 'period-total', date: pd[pd.length - 1], dates: pd, data: _cabinetAggWeek(active, pd) }]);
+                periodExtra = 1;
+            }
+        }
         const galleryCls = cal.mode === 'month' ? ' rnp-sheet-table--months' : '';
         const headRows = _notesVisible ? 4 : 3;
         const notesRow = _notesVisible ? `<tr class="rnp-notes-head-row">${_buildNotesHeadCells(cols, CABINET_ART)}</tr>` : '';
@@ -3958,13 +3967,14 @@ const RNP = (() => {
         const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `<table class="${_sheetTableClass(` rnp-sheet-table--cabinet${galleryCls}${noNotesCls}`)}" style="${_sheetVarsStyle(cal)}">
-          ${_colgroupHTML(cal)}
+          ${_colgroupHTML(cal, periodExtra)}
           <thead>
             <tr class="rnp-cal-month-row">
               ${_buildGeneralHeadMeta()}
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
+              ${periodExtra ? `<th class="rnp-th-week rnp-th-total rnp-data-col rnp-period-total-th" rowspan="${headRows}">ИТОГ<small>за период</small></th>` : ''}
             </tr>
             <tr class="rnp-cal-date-row">${weekThs}${totalTh}${dayThs}</tr>
             <tr class="rnp-dow-head-row">${dowWeeks}${dowTotal}${dowDays}</tr>
@@ -7497,10 +7507,25 @@ const RNP = (() => {
 
     // Загрузка РНП с понятным прогрессом (NrLoader живёт в nr-skeleton.js): полоса сверху + карточка с шагами.
     const RNP_LOAD_STEPS = ['Артикулы и фото', 'Заказы и продажи', 'Финансы, остатки и поставки', 'Итоги и таблица'];
+    // Первый заход: пока артикулы и заказы едут, вместо пустого белого экрана сразу видна заготовка таблицы.
+    function _showFirstSkeleton() {
+        const tab = document.getElementById('tab-rnp');
+        if (!tab || tab.querySelector('.rnp-first-skel')) return;
+        // заготовка встаёт в пустое тело таблицы, а если каркаса ещё нет, в саму вкладку
+        const body = tab.querySelector('#rnp-sheet-body');
+        const el = body || tab;
+        if (body ? body.children.length : tab.querySelector('.rnp-workspace')) return;
+        const row = (w) => `<div class="rnp-fs-row"><i class="rnp-fs-l"></i>${'<i class="rnp-fs-c"></i>'.repeat(w)}</div>`;
+        el.insertAdjacentHTML('afterbegin', `<div class="rnp-first-skel" aria-busy="true" aria-label="Загружаем РНП">${'<div class="rnp-fs-pills"><i></i><i></i><i></i><i></i></div>'}${row(12).repeat(9)}</div>`);
+    }
     async function _renderMain() {
         const L = window.NrLoader, silent = _rnpMainRendered();
         if (L && !silent) L.begin('rnp', 'Загружаем РНП', RNP_LOAD_STEPS);
-        try { return await _renderMainImpl(); } finally { if (L && !silent) L.end('rnp'); }
+        if (!silent) _showFirstSkeleton();
+        try { return await _renderMainImpl(); } finally {
+            if (L && !silent) L.end('rnp');
+            document.querySelectorAll('#tab-rnp .rnp-first-skel').forEach((n) => n.remove());
+        }
     }
     async function _renderMainImpl() {
         await Promise.resolve();
@@ -9297,6 +9322,7 @@ const RNP = (() => {
         if (!force && !stuck && mounted && _rnpMainRendered() && window._rnpLoadedForCabinet === _cab) return;
         const cab = _cab;
         _mainInflightCab = cab;
+        if (!_rnpMainRendered()) _showFirstSkeleton();
         _mainInflight = (async () => {
             try {
                 if (_initInflight && !_articles.length) {
@@ -9310,6 +9336,7 @@ const RNP = (() => {
                 console.error('[RNP] openMain:', e);
                 _setRnpTabState('error', e.message || 'Ошибка открытия РНП');
             } finally {
+                document.querySelectorAll('#tab-rnp .rnp-first-skel').forEach((n) => n.remove());
                 if (_mainInflightCab === cab) {
                     _mainInflight = null;
                     _mainInflightCab = null;
