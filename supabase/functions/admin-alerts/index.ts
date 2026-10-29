@@ -78,7 +78,7 @@ Deno.serve(async () => {
     for (const a of alerts) {
         const prev = state.get(a.key);
         if (!shouldSend(prev?.fingerprint ?? '', prev?.last_sent ?? null, a.fingerprint, now)) continue;
-        if (token && chat && await sendTelegramMessage(token, chat, '⚠ NR Space\n' + a.text)) {
+        if (token && chat && await sendTelegramMessage(token, chat, 'NR SPACE · СИГНАЛ\n' + a.text)) {
             sent.push(a.key);
             await admin.from('admin_alert_state').upsert({ key: a.key, fingerprint: a.fingerprint, last_sent: now.toISOString() });
         }

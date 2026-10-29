@@ -185,9 +185,9 @@ export function bulkApproveKeyboard(count) {
 export const REVIEW_BATCH_SIZE = 8;
 export function moderationPanelText(count) {
   if (count <= 0) {
-    return '📋 <b>Модерация</b>\n\nОтзывов 0 · новых на всех кабинетах нет';
+    return '<b>МОДЕРАЦИЯ</b>\nОтзывов 0, новых на всех кабинетах нет';
   }
-  return `📋 <b>Модерация</b> · ${count} ${pluralReviews(count)}`;
+  return `<b>МОДЕРАЦИЯ</b> · ${count} ${pluralReviews(count)}`;
 }
 export function moderationPanelKeyboard(count) {
   const rows = [];
@@ -339,7 +339,7 @@ export function footerRejected(_userName) {
   return '<i>✕ отклонён</i>';
 }
 export function footerEditing() {
-  return '<i>✏️ реплай с текстом ответа</i>';
+  return '<i>ответьте на это сообщение новым текстом</i>';
 }
 function pluralReviews(n) {
   const m = Math.abs(n) % 100;

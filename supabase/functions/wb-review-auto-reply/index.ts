@@ -51,7 +51,7 @@ Deno.serve(async (req)=>{
         error: telegramConfigError('reviews')
       }, 400);
     }
-    const sent = await sendTelegramMessage(tgToken, tgChatId, '✅ NR Space · Отзывы WB\n\nFlow: новые отзывы → OpenAI → автопубликация на WB → карточка в TG.', undefined);
+    const sent = await sendTelegramMessage(tgToken, tgChatId, 'NR SPACE · ОТЗЫВЫ WB\nНовые отзывы идут в OpenAI, затем автопубликация на WB и карточка сюда.', undefined);
     return json({
       ok: sent,
       channel: 'reviews'
@@ -170,7 +170,7 @@ Deno.serve(async (req)=>{
       if (autoPublish) {
         const sentWb = await postFeedbackAnswer(item.token, fb.id, generated.reply);
         const publishedAt = sentWb ? new Date().toISOString() : null;
-        const footer = sentWb ? footerPublished(generated.model) : '<i>⚠️ WB не принял ответ</i>';
+        const footer = sentWb ? footerPublished(generated.model) : '<i>WB не принял ответ</i>';
         const orderStatus = feedbackOrderStatus(fb) ?? null;
         const rowForCard = {
           cabinet_name: item.cab.name,
