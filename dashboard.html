@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.36365c8275.css">
+<link rel="stylesheet" href="/dist/nr-mono.ca6eac9798.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -6855,65 +6855,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         <span id="ads-hq-freshness" class="ads-hq-status ads-hq-fresh" aria-live="polite"></span>
                     </div>
                 </div>
-                <div id="ads-hq-kpis" class="ads-hq-kpi-bar">
-                    <div class="ads-hq-kpi">
-                        <div class="ads-hq-kpi-label">Баланс</div>
-                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-balance"></div>
-                    </div>
-                    <div class="ads-hq-kpi">
-                        <div class="ads-hq-kpi-label">Заказы</div>
-                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-revenue"></div>
-                    </div>
-                    <div class="ads-hq-kpi">
-                        <div class="ads-hq-kpi-label">Затраты</div>
-                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-spend"></div>
-                    </div>
-                    <div class="ads-hq-kpi">
-                        <div class="ads-hq-kpi-label">ДРР</div>
-                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-drr"></div>
-                    </div>
-                    <div class="ads-hq-kpi">
-                        <div class="ads-hq-kpi-label">ROAS</div>
-                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-roas"></div>
-                    </div>
-                    <div class="ads-hq-kpi">
-                        <div class="ads-hq-kpi-label">CTR</div>
-                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-ctr"></div>
-                    </div>
-                </div>
+                <div id="ads-hq-kpis" class="ads-hq-kpi-bar"><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Сумма заказов</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-revenue"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-revenue"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Затраты</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-spend"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-spend"></span></div></div><div class="ads-hq-kpi main"><div class="ads-hq-kpi-label">Доля затрат</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-drr"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-drr"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ROAS</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-roas"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-roas"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">CTR</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-ctr"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-ctr"></span></div></div></div>
                 <div class="widget-card ads-hq-list-card">
                     <div id="adv-pulse" class="adp2"></div>
                     <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap" id="ads-hq-camps-wrap">
                         <table class="data-table ads-hq-table">
-                            <thead id="ads-hq-thead">
-                                <tr>
-                                    <th class="ads-hq-pin ads-hq-pin-tg"></th>
-                                    <th class="ads-hq-pin ads-hq-pin-camp">Кампания</th>
-                                    <th class="ads-hq-pin ads-hq-pin-sku">Товар</th>
-                                    <th class="ads-hq-pin ads-hq-pin-type">Тип кампании</th>
-                                    <th class="ads-hq-metric">Остаток бюджета</th>
-                                    <th class="ads-hq-metric">Затраты</th>
-                                    <th class="ads-hq-metric">Показы</th>
-                                    <th class="ads-hq-metric">CTR</th>
-                                    <th class="ads-hq-metric">Созданные заказы</th>
-                                    <th class="ads-hq-metric">Принятые заказы</th>
-                                    <th class="ads-hq-metric">Доля затрат</th>
-                                    <th class="ads-hq-metric">Позиция в поиске</th>
-                                    <th class="ads-hq-metric">Клики</th>
-                                    <th class="ads-hq-metric">Добавления в корзину</th>
-                                    <th class="ads-hq-metric">Сумма заказов</th>
-                                    <th class="ads-hq-metric">CPC</th>
-                                    <th class="ads-hq-metric">CPO</th>
-                                    <th class="ads-hq-metric">CR</th>
-                                    <th class="ads-hq-metric">CPM</th>
-                                    <th class="ads-hq-metric">ROAS</th>
-                                    <th class="ads-hq-metric">Отмены технические</th>
-                                </tr>
-                            </thead>
+                            <thead id="ads-hq-thead"><tr><th class="ads-hq-pin ads-hq-pin-tg">Режим</th><th class="ads-hq-pin ads-hq-pin-camp">Кампания</th><th class="ads-hq-pin ads-hq-pin-type">Тип</th><th class="ads-hq-metric">Баланс</th><th class="ads-hq-metric">Затраты</th><th class="ads-hq-metric">Показы</th><th class="ads-hq-metric">CTR</th><th class="ads-hq-metric">Заказы</th><th class="ads-hq-metric">Доля затрат</th><th class="ads-hq-metric">Позиция в поиске</th><th class="ads-hq-metric">Клики</th><th class="ads-hq-metric">Добавления в корзину</th><th class="ads-hq-metric">Сумма заказов</th><th class="ads-hq-metric">CPC</th><th class="ads-hq-metric">CPO</th><th class="ads-hq-metric">CR</th><th class="ads-hq-metric">CPM</th><th class="ads-hq-metric">ROAS</th></tr></thead>
                             <tbody id="ads-hq-tbody">
-                                <tr class="ads-hq-skel"><td colspan="22"><div class="nr-skel-line"></div><div class="nr-skel-line"></div><div class="nr-skel-line"></div></td></tr>
+                                <tr class="ads-hq-skel"><td colspan="18"><div class="nr-skel-line"></div><div class="nr-skel-line"></div><div class="nr-skel-line"></div></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -8405,8 +8356,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-plan-fact.68223e16a0.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.87e041bc34.min.js"></script>
-<script src="/dist/ads-pulse.48cf3354e7.min.js"></script>
+<script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.8591619bd4.min.js"></script>
+<script src="/dist/ads-pulse.ce623c0bb3.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>

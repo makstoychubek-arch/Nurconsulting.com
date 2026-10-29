@@ -400,8 +400,33 @@
     function switchHtml(key, camp, live) {
         var AS = root.AdvShelves, kp = String(key).split(':');
         var pos = !live ? 0 : ((camp.auto || (AS && AS.has(kp[0], kp[1]))) ? 2 : 1);
-        function b(n, l, t) { return '<button type="button" data-pact="pos" data-pos="' + n + '" data-key="' + esc(key) + '" class="' + (pos === n ? 'on' : '') + '" aria-pressed="' + (pos === n) + '" title="' + t + '">' + l + '</button>'; }
+        var IC = ['<path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/>', '<path d="M8 5.5v13l11-6.5z"/>', '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'];
+        function b(n, l, t) { return '<button type="button" data-pact="pos" data-pos="' + n + '" data-key="' + esc(key) + '" class="' + (pos === n ? 'on' : '') + '" aria-pressed="' + (pos === n) + '" aria-label="' + t + '" title="' + t + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg></button>'; }
         return '<div class="adp2-sl p' + pos + '" role="group" aria-label="Режим кампании">' + b(0, '0', 'Выключена') + b(1, '1', 'Включена') + b(2, 'A', 'Автопилот сам ведёт ставки') + '</div>';
+    }
+    /* Таблица на широком экране: тип кампании меткой и остальные колонки метрик справа (на телефоне прячутся CSS) */
+    function bidWord(camp) { var b = String(camp.bidType || '').toLowerCase(); return b === 'unified' ? 'единая' : (b === 'manual' ? 'ручная' : ''); }
+    function typeCellHtml(camp, kind) {
+        var w = bidWord(camp);
+        return '<div class="adp2-ty"><span class="adp2-tag2">' + (kind === 'cpc' ? 'CPC' : 'CPM') + (w ? ' · ' + w : '') + '</span></div>';
+    }
+    function tableCols() {
+        var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
+        return all.filter(function (c) { return c.key !== 'budget'; });
+    }
+    function metricCellsHtml(camp) {
+        var A = root.AdsHQ;
+        return '<div class="adp2-mx">' + tableCols().map(function (c) { return '<div class="adp2-mc">' + esc(A && A.formatMetric ? A.formatMetric(camp, c.key) : '—') + '</div>'; }).join('') + '</div>';
+    }
+    function headerHtml() {
+        var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
+        var tip = function (t, x) { return '<div class="' + x + ' adp2-tip" data-tip="' + esc(t || '') + '"><span>'; };
+        return '<div class="adp2-hd" data-key="hd" aria-hidden="true">' +
+            tip('Выключена, включена или автопилот сам ведёт ставки.', 'adp2-hpos') + 'Режим</span></div>' +
+            tip('Название, номер и статус кампании.', 'adp2-hnm') + 'Кампания</span></div>' +
+            tip('Как оплачивается реклама (CPM за показы, CPC за клики) и как ведётся ставка.', 'adp2-ty') + 'Тип</span></div>' +
+            all.map(function (c) { return tip(c.tip, c.key === 'budget' ? 'adp2-hbal' : 'adp2-mc') + esc(c.title) + '</span></div>'; }).join('') +
+            '</div>';
     }
     function rowHtml(cab, camp) {
         var key = keyOf(cab, camp), kind = payKind(camp), open = !!S.open[key];
@@ -411,9 +436,11 @@
         return '<article class="adp2-row' + (open ? ' open' : '') + (live ? '' : ' off') + '" data-key="' + esc(key) + '">' +
             '<div class="adp2-head" data-pact="open" data-key="' + esc(key) + '">' +
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
-            '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small>' + unitText(kind) + ' · № ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small>' + mainLine(cab, camp, nmCount) + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
+            '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small>№ ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small>' + mainLine(cab, camp, nmCount) + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
             '<div class="adp2-st">' + metricsHtml(c) + '</div>' +
+            typeCellHtml(camp, kind) +
             '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + '</div></div>' +
+            metricCellsHtml(c) +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<span class="adp2-cv">⌄</span></div>' +
             (open ? '<div class="adp2-body"><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
@@ -455,7 +482,7 @@
         });
         if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = [0, 1, 2, 3].map(skelRowHtml).join('');
         else if (!total && !S.virtual.length) html = '<div class="adp2-empty" data-key="empty">Кампаний по выбранному фильтру нет. Нажмите «Новая РК», чтобы создать.</div>';
-        var full = virtualHtml() + html;
+        var full = headerHtml() + virtualHtml() + html;
         // Полная перерисовка списка на каждое обновление данных роняла фокус и сбрасывала ползунки
         // («трясло» при любом обновлении) — теперь патчим по data-key, как в ads-command-center.js.
         if (root.domMorph && host.querySelector('[data-key]')) root.domMorph.morphList(host, full, 'data-key');

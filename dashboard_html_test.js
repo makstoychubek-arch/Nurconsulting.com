@@ -1604,12 +1604,12 @@ assert.ok(
 );
 assert.ok(html.includes('getDateRange: getActiveDateRange'),
     'RK shelves read spend/DRR for the header date range');
-assert.ok(html.includes('>Заказы<') && html.includes('>Затраты<') && html.includes('>ДРР<') && html.includes('>ROAS<') && html.includes('id="ads-hq-kpi-ctr"') && !html.includes('Подменный артикул') && !html.includes('Расход сегодня') && !html.includes('ДРР 7д'),
+assert.ok(html.includes('>Сумма заказов<') && html.includes('>Затраты<') && html.includes('>Доля затрат<') && html.includes('>ROAS<') && html.includes('id="ads-hq-kpi-ctr"') && html.includes('id="ads-hq-kpi-d-drr"') && !html.includes('Подменный артикул') && !html.includes('Расход сегодня') && !html.includes('ДРР 7д'),
     'RK KPI bar matches WB: order sum, spend, spend share, ROAS, CTR');
 assert.ok(html.includes('data-col-preset="all"') && html.includes('data-col-preset="stats"'),
     'RK HQ clones WB campaigns/products tabs and column presets');
 assert.ok(
-    html.includes('>Принятые заказы<') && html.includes('>Позиция в поиске<') && html.includes('>Добавления в корзину<') && html.includes('>Отмены технические<') && html.includes('>Остаток бюджета<'),
+    html.includes('>Позиция в поиске<') && html.includes('>Добавления в корзину<') && html.includes('>Баланс<') && !html.includes('>Принятые заказы<'),
     'RK HQ default sheet has the full WB metric set for horizontal scroll'
 );
 assert.ok(

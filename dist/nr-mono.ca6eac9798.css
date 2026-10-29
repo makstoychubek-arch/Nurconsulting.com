@@ -757,3 +757,80 @@ html body #tab-settings #nr-mcp-card.widget-card { border: 1px solid var(--text-
 html body .rnp-xh { position: absolute; z-index: 5; pointer-events: none; display: none; background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
 /* Страница и каркас приложения не прокручиваются вбок сами (фокус, выделение мышью, scrollIntoView): clip, а не hidden */
 html body .dashboard-app-shell, html body .main-rail, html body #tab-rnp, html body .rnp-workspace { overflow: clip !important; }
+
+/* Продвижение, «Кампании»: плотная таблица как у WB в «Минимализме» (макет «Кампании плотный вид»). Режим и название закреплены, колонки метрик по центру с тонкими линиями. */
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-tg { width: 88px !important; min-width: 88px !important; max-width: 88px !important; padding: 0 4px !important; text-align: center; }
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-camp { left: 88px !important; width: 300px !important; min-width: 300px !important; max-width: 300px !important; }
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-type { left: 388px !important; width: 104px !important; min-width: 104px !important; max-width: 104px !important; text-align: center; box-shadow: 1px 0 0 var(--border); }
+html body #ads-hq-camps-wrap .ads-hq-table tbody td { padding-block: 6px; border-bottom: 1px solid var(--border); }
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-metric { text-align: center !important; border-left: 1px solid var(--border); min-width: 92px; font-variant-numeric: tabular-nums; }
+html body #ads-hq-camps-wrap .ads-hq-table thead th { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 1.15; text-align: center; white-space: normal; }
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-camp-name { gap: 8px; align-items: center; }
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-camp-name img, html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-thumb { width: 26px !important; height: 26px !important; border-radius: 7px !important; }
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-wb-name { font-weight: 700; font-size: 12px; }
+html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-wb-id { font-size: 10px; color: var(--text-muted); }
+html body #ads-hq-camps-wrap .ads-hq-type { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+html body #ads-hq-camps-wrap .ads-hq-type span { font-weight: 600; }
+html body #adv-view-ads .ads-sl { background: transparent; border: 1px solid var(--border); padding: 2px; }
+html body #adv-view-ads .ads-sl-b { min-width: 24px; height: 22px; display: grid; place-items: center; padding: 0; background: transparent; color: var(--text-muted); box-shadow: none; }
+html body #adv-view-ads .ads-sl-b svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+html body #adv-view-ads .ads-sl-b.on, html body #adv-view-ads .ads-sl.p1 .ads-sl-b.on, html body #adv-view-ads .ads-sl.p2 .ads-sl-b.on { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+/* Пояснение к названию колонки при наведении */
+html body .ads-hq-tip { position: relative; cursor: help; }
+html body .ads-hq-tip > span { border-bottom: 1px dotted var(--border); }
+html body .ads-hq-tip::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); width: 210px; background: var(--accent); color: var(--on-accent, #fff); font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1.35; text-align: left; padding: 8px 10px; border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 30; }
+html body .ads-hq-tip:hover::after { opacity: 1; }
+/* Полоса метрик: пять показателей с динамикой к прошлому периоду, «Доля затрат» чёрная */
+html body #adv-view-ads .ads-hq-kpi-bar { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-end; }
+html body #adv-view-ads .ads-hq-kpi { background: transparent; border: 0; border-radius: 12px; padding: 4px 6px; }
+html body #adv-view-ads .ads-hq-kpi.main { background: var(--accent); color: var(--on-accent, #fff); padding: 6px 12px; }
+html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-label { color: var(--on-accent, #fff); opacity: .65; }
+html body #adv-view-ads .ads-hq-kpi-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+html body #adv-view-ads .ads-hq-kpi-d { margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--red); }
+html body #adv-view-ads .ads-hq-kpi-d.up { color: var(--green); }
+html body #adv-view-ads .ads-hq-kpi-d:empty { display: none; }
+
+/* «Кампании» (Пульт РК), широкий экран: плотная таблица как у WB. Режим и название закреплены слева, колонки метрик прокручиваются вправо, заголовок закреплён сверху. */
+@media (min-width: 761px) {
+  html body #adv-pulse { overflow-x: auto; overflow-y: visible; position: relative; padding-bottom: 6px; max-width: 100%; min-width: 0; }
+  html body #adv-view-ads, html body #adv-view-ads .ads-hq-list-card, html body #tab-advertising { min-width: 0; max-width: 100%; }
+  html body #adv-pulse .adp2-hd, html body #adv-pulse .adp2-head { display: flex; align-items: center; gap: 0; width: max-content; min-width: 100%; padding: 0; }
+  html body #adv-pulse .adp2-hd { position: sticky; top: 0; z-index: 6; background: var(--surface-solid, var(--surface)); border-bottom: 1px solid var(--border-strong, var(--border)); min-height: 36px; }
+  html body #adv-pulse .adp2-row { width: max-content; min-width: 100%; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; margin: 0; background: var(--surface-solid, var(--surface)); overflow: visible; }
+  html body #adv-pulse .adp2-row:hover { background: var(--surface-solid, var(--surface)); }
+  html body #adv-pulse .adp2-head > .adp2-r { display: contents; }
+  html body #adv-pulse .adp2-head > .adp2-st, html body #adv-pulse .adp2-head > .adp2-cv { display: none; }
+  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { order: 1; flex: none; width: 96px; box-sizing: border-box; display: flex; justify-content: center; position: sticky; left: 0; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 8px 0; }
+  html body #adv-pulse .adp2-tc { order: 2; flex: none; width: 40px; position: sticky; left: 96px; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 8px 0 8px 4px; }
+  html body #adv-pulse .adp2-nm, html body #adv-pulse .adp2-hnm { order: 3; flex: none; width: 270px; box-sizing: border-box; position: sticky; left: 136px; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 8px 10px 8px 6px; }
+  html body #adv-pulse .adp2-hd .adp2-hnm { width: 310px; padding-left: 46px; }
+  html body #adv-pulse .adp2-ty { order: 4; flex: none; width: 112px; display: flex; justify-content: center; text-align: center; box-shadow: -1px 0 0 var(--border); align-self: stretch; align-items: center; background: var(--surface-solid, var(--surface)); }
+  html body #adv-pulse .adp2-head .adp2-bal, html body #adv-pulse .adp2-hd > .adp2-hbal { order: 5; flex: none; width: 100px; box-sizing: border-box; justify-content: center; }
+  html body #adv-pulse .adp2-head .adp2-bal { display: inline-flex; margin: 0 8px; width: 84px; flex: none; justify-content: center; }
+  html body #adv-pulse .adp2-mx, html body #adv-pulse .adp2-hd .adp2-mc { order: 6; }
+  html body #adv-pulse .adp2-mx { display: contents; }
+  html body #adv-pulse .adp2-mc { order: 6; flex: none; width: 100px; box-sizing: border-box; text-align: center; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; border-left: 1px solid var(--border); align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+  html body #adv-pulse .adp2-hd > .adp2-mc, html body #adv-pulse .adp2-hd > .adp2-hbal { align-self: stretch; }
+  html body #adv-pulse .adp2-ch { order: 9; flex: none; width: 220px; padding: 0 10px; }
+  html body #adv-pulse .adp2-hd > div { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 1.15; color: var(--text-muted); padding: 4px 6px; box-sizing: border-box; position: relative; cursor: help; }
+  html body #adv-pulse .adp2-hd > .adp2-hpos, html body #adv-pulse .adp2-hd > .adp2-hnm { position: sticky; }
+  html body #adv-pulse .adp2-hd > div > span { border-bottom: 1px dotted var(--border); }
+  html body #adv-pulse .adp2-hd > .adp2-hbal { margin: 0; display: flex; width: 100px; flex: none; }
+  html body #adv-pulse .adp2-tag2 { border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+  html body #adv-pulse .adp2-tip::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); width: 210px; background: var(--accent); color: var(--on-accent, #fff); font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1.35; text-align: left; padding: 8px 10px; border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 40; }
+  html body #adv-pulse .adp2-tip:hover::after { opacity: 1; }
+  html body #adv-pulse .adp2-ph .adp2-badge, html body #adv-pulse .adp2-ph > :not(.adp2-mph) { display: none; }
+  html body #adv-pulse .adp2-tc .adp2-mph { width: 28px; height: 28px; border-radius: 8px; }
+  html body #adv-pulse .adp2-nm b { font-size: 13px; font-weight: 700; }
+  html body #adv-pulse .adp2-nm small { font-size: 10px; }
+  html body #adv-pulse .adp2-body { position: sticky; left: 0; width: min(1120px, calc(100vw - 380px)); box-sizing: border-box; }
+}
+@media (max-width: 760px) { html body #adv-pulse .adp2-hd, html body #adv-pulse .adp2-ty, html body #adv-pulse .adp2-mx { display: none; } }
+html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value span:first-child { color: var(--on-accent, #fff); }
+html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-d { color: var(--on-accent, #fff); opacity: .8; }
+html body #adv-pulse .adp2-sl { background: transparent; border: 1px solid var(--border); padding: 2px; }
+html body #adv-pulse .adp2-sl button { min-width: 24px; height: 22px; display: grid; place-items: center; padding: 0; background: transparent; color: var(--text-muted); box-shadow: none; }
+html body #adv-pulse .adp2-sl button svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+html body #adv-pulse .adp2-sl button.on, html body #adv-pulse .adp2-sl.p1 button.on, html body #adv-pulse .adp2-sl.p2 button.on { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+
+html body .dashboard-app-shell > .main-rail, html body .main-rail > .main-content { min-width: 0; max-width: 100%; }

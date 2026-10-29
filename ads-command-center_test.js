@@ -465,27 +465,26 @@ global.document = {
     assert.match(els['ads-hq-tbody'].innerHTML, /ads-hq-camp-name/);
     assert.match(els['ads-hq-phone'].innerHTML, /ads-hq-thumb/);
     assert.match(els['ads-hq-tbody'].innerHTML, /CPM/);
-    assert.match(els['ads-hq-tbody'].innerHTML, /Единая/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /единая/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Активна/);
     assert.match(els['ads-hq-tbody'].innerHTML, /4.200/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Созданные заказы/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Заказы/);
+    assert.doesNotMatch(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
     assert.match(els['ads-hq-thead'].innerHTML, /Позиция в поиске/);
     assert.match(els['ads-hq-thead'].innerHTML, /Добавления в корзину/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Отмены технические/);
     assert.match(els['ads-hq-thead'].innerHTML, /ROAS/);
     assert.equal(AdsHQ.getColPreset(), 'all');
     assert.deepEqual(AdsHQ.COL_PRESETS.all.cols.map((c) => c.key), [
-        'budget', 'spend', 'views', 'ctr', 'orders', 'shks', 'drr', 'pos',
-        'clicks', 'atbs', 'revenue', 'cpc', 'cpo', 'cr', 'cpm', 'roas', 'cancels',
+        'budget', 'spend', 'views', 'ctr', 'orders', 'drr', 'pos',
+        'clicks', 'atbs', 'revenue', 'cpc', 'cpo', 'cr', 'cpm', 'roas',
     ]);
     assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/, 'WB list shows paused campaigns by default');
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Baza/);
     assert.match(els['ads-hq-phone'].innerHTML, /Пиджак/);
     assert.match(els['ads-hq-phone'].innerHTML, /Затраты/);
-    assert.match(els['ads-hq-kpis'].innerHTML, /Заказы/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Сумма заказов/);
     assert.match(els['ads-hq-kpis'].innerHTML, /Затраты/);
-    assert.match(els['ads-hq-kpis'].innerHTML, /ДРР/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Доля затрат/);
     assert.match(els['ads-hq-kpis'].innerHTML, /ROAS/);
     assert.match(els['ads-hq-kpis'].innerHTML, /CTR/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Подменный артикул/);
@@ -504,7 +503,7 @@ global.document = {
     assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Приостановлена/);
     assert.match(els['ads-hq-tbody'].innerHTML, /CPC/);
-    assert.match(els['ads-hq-tbody'].innerHTML, /Ручная/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /ручная/);
 
     AdsHQ.setColPreset('funnel');
     assert.match(els['ads-hq-thead'].innerHTML, /Доля затрат/);
@@ -513,14 +512,10 @@ global.document = {
     AdsHQ.setColPreset('unit');
     assert.match(els['ads-hq-thead'].innerHTML, /CPC/);
     assert.match(els['ads-hq-thead'].innerHTML, /ROAS/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Отмены технические/);
     AdsHQ.setColPreset('stats');
-    assert.match(els['ads-hq-thead'].innerHTML, /Созданные заказы/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
-    assert.doesNotMatch(els['ads-hq-thead'].innerHTML, /Отмены технические/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Заказы/);
+    assert.doesNotMatch(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
     AdsHQ.setColPreset('all');
-    assert.match(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Отмены технические/);
     assert.match(els['ads-hq-thead'].innerHTML, /Позиция в поиске/);
 
     AdsHQ.setSearch('пиджак');
