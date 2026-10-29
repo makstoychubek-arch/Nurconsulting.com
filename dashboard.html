@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.c0c19028f7.css">
+<link rel="stylesheet" href="/dist/nr-mono.b6886c4d36.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7464,10 +7464,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <div class="ab-wizard-card">
                         <h4>Карточка товара</h4>
                         <div id="ab-wizard-pick">
-                            <input type="text" id="ab-product-search" class="ab-product-search" placeholder="Название или артикул" oninput="debounceABProductSearch()" autocomplete="off">
-                            <div id="ab-product-list" class="ab-combo-list">
-                                <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка карточек из WB...</div>
-                            </div>
+                            <input type="text" id="ab-product-search" class="ab-product-search" inputmode="numeric" placeholder="Введите артикул WB" oninput="debounceABProductSearch()" autocomplete="off">
+                            <div id="ab-product-list" class="ab-pick-status" aria-live="polite"></div>
                         </div>
                         <div id="ab-selected-card" class="ab-selected-card hidden"></div>
                         <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
@@ -7994,7 +7992,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </script>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <span class="nr-fox-slot nr-hdr-fox" data-size="64" aria-hidden="false"></span>
                     <div class="nr-notify" id="nr-notify">
                         <button type="button" class="nr-notify-btn" id="nr-notify-btn" onclick="NrNotify.toggle(event)" title="Уведомления" aria-label="Уведомления">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -8119,10 +8116,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </div>
     </div>
 
-<script src="/dist/nr-win.1d62b15088.min.js"></script>
+<script src="/dist/nr-win.9a80ed5b42.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
-<script src="/dist/rnp-module.b92440f0df.min.js"></script>
+<script src="/dist/rnp-module.56fa72e27a.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -8164,13 +8161,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } catch (e) { if (onBlocked) onBlocked(); }
     }
 
-    function toast(text) {
-        var t = document.createElement('div');
-        t.textContent = text;
-        t.style.cssText = 'position:fixed;right:18px;top:86px;z-index:100000;background:var(--surface-solid);color:var(--text-primary);border:1px solid var(--border);border-radius:14px;padding:10px 14px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.18)';
-        document.body.appendChild(t);
-        setTimeout(function () { t.remove(); }, 4500);
-    }
+    function toast(text) { if (window.NrUi) window.NrUi.toast('info', text, '', { key: 'ord|' + text }); }
 
     function handle(row) {
         if (!row || row.silent) return;
@@ -8346,7 +8337,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         clearTimeout(hideTimer);
         if (!p || p.state === 'none' || p.state === 'forbidden' || p.state === 'no_token') { b.innerHTML = ''; return; }
         if (p.state === 'running') {
-            b.innerHTML = '<div class="nr-sync" style="display:flex;gap:12px;align-items:flex-start"><span class="nr-fox-slot" data-size="46"></span><div style="flex:1;min-width:0"><b>Загружаем данные из Wildberries</b> — ' + p.percent + '%, осталось ' + etaText(p.eta_minutes) +
+            b.innerHTML = '<div class="nr-sync" style="display:flex;gap:12px;align-items:flex-start"><div style="flex:1;min-width:0"><b>Загружаем данные из Wildberries</b> — ' + p.percent + '%, осталось ' + etaText(p.eta_minutes) +
                 '<div class="nr-sync-bar"><i style="width:' + Math.max(2, p.percent) + '%"></i></div>' +
                 '<small>Можно закрыть страницу: загрузка продолжится на сервере. Свежие дни появляются в таблице первыми.</small></div></div>';
         } else if (p.state === 'error') {
@@ -8414,9 +8405,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.87e041bc34.min.js"></script>
-<script src="/dist/ads-pulse.64dc97e7ce.min.js"></script>
+<script src="/dist/ads-pulse.48cf3354e7.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/giveaways.8825fbcab6.min.js"></script>
+<script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
 <script src="/dist/viewer-mode.911e0a7134.min.js"></script>
 <script src="/dist/space-admin-ext.7587daca0d.min.js"></script>
@@ -8425,11 +8416,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
-<script src="/dist/nr-admin.b8ad8082be.min.js"></script>
-<script src="/dist/ad-autopilot-ui.2ec2082149.min.js"></script>
+<script src="/dist/nr-admin.3b02277165.min.js"></script>
+<script src="/dist/ad-autopilot-ui.072c47d435.min.js"></script>
 <script src="/dist/ads-campaign-detail.40f4e1bf6d.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
-<script src="/dist/nr-skeleton.dcd7854646.min.js"></script>
+<script src="/dist/nr-skeleton.f6e83bed0b.min.js"></script>
 <script src="/dist/nr-themes.2fd4d06812.min.js"></script>
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.196452a689.min.js"></script>
@@ -8440,7 +8431,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.71654a6564.min.js"></script>
-<script src="/dist/nr-ui.44c7317afc.min.js"></script>
+<script src="/dist/nr-ui.832ba56fc5.min.js"></script>
 <script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
 <script src="/dist/nr-analytics.97794c8fd3.min.js"></script>
 <script src="/dist/nr-nav.6e337afae0.min.js"></script>
@@ -9669,9 +9660,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function showPremiumModal(type, title, text) {
         if (window.NrUi) {
             const h = window.NrUi.toast(type, title, text, { key: type + '|' + title + '|' + text });
-            if (type === 'success' && window.NrWow && h && h.el) {
-                requestAnimationFrame(() => { const r = h.el.getBoundingClientRect(); window.NrWow.burst({ x: r.left + r.width * 0.12, y: r.top + 8, count: 22 }); });
-            }
             return;
         }
         console.warn('[ui] nr-ui.js не загрузился:', type, title, text);
@@ -13600,7 +13588,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function hideOverlay() {
         window._nrInitDone = true;
         if (window._nrOverlayWatchdog) { clearTimeout(window._nrOverlayWatchdog); window._nrOverlayWatchdog = null; }
-        document.getElementById('nr-init-stall-banner')?.remove();
+        if (window._nrStallToast) { window._nrStallToast.close(); window._nrStallToast = null; }
         const overlay = document.getElementById('cabinet-overlay');
         if (!overlay || overlay.style.display === 'none') return;
         overlay.style.transition = 'opacity 0.15s ease';
@@ -15143,7 +15131,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const campSearch = document.getElementById('ab-campaign-search');
         if (campSearch) campSearch.value = '';
         openAbSheet(form);
-        loadABProductCards('');
+        setTimeout(() => document.getElementById('ab-product-search')?.focus(), 80);
     }
 
     function hideNewTestForm() {
@@ -15167,11 +15155,23 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
     }
 
+    // Артикул вводят целиком: как только он введён, ищем карточку и сразу открываем следующий шаг с галереей фото.
     function debounceABProductSearch() {
         clearTimeout(abSearchTimer);
-        abSearchTimer = setTimeout(() => {
-            loadABProductCards(document.getElementById('ab-product-search')?.value.trim() || '');
-        }, 350);
+        const status = document.getElementById('ab-product-list');
+        const q = (document.getElementById('ab-product-search')?.value || '').trim();
+        if (status) status.textContent = '';
+        if (q.length < 6) return;
+        abSearchTimer = setTimeout(() => abLookupArticle(q), 300);
+    }
+    async function abLookupArticle(q) {
+        const status = document.getElementById('ab-product-list');
+        if (status) status.innerHTML = '<span class="ab-pick-ring"></span> Ищем карточку…';
+        await loadABProductCards(q);
+        if ((document.getElementById('ab-product-search')?.value || '').trim() !== q) return; // уже печатают другое
+        const hit = abProductCards.find(c => String(c.nmID) === q) || (abProductCards.length === 1 ? abProductCards[0] : null);
+        if (hit) { selectABProduct(hit.nmID); return; }
+        if (status) status.textContent = abProductCards.length ? 'Найдено несколько карточек, введите артикул WB полностью.' : 'Такой артикул не найден. Проверьте номер.';
     }
 
     function parseWBCard(card) {
@@ -15186,24 +15186,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     async function loadABProductCards(search) {
-        const list = document.getElementById('ab-product-list');
-        if (!list) return;
-        list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)"><div class="nr-loader-ring"></div></div>';
         const data = await callWbProxy('content_cards', { limit: 50, textSearch: search, withPhoto: 1 });
-        const cards = (data?.cards || []).map(parseWBCard).filter(c => c.nmID);
-        abProductCards = cards;
-        if (!cards.length) {
-            list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Карточки не найдены. Проверьте токен Content API.</div>';
-            return;
-        }
-        list.innerHTML = cards.map(c => `
-            <div class="ab-product-item" onclick="selectABProduct(${c.nmID})">
-                <img src="${escapeHtml(c.thumb)}" onerror="this.style.opacity=0.3" alt="">
-                <div>
-                    <div class="ab-product-item-title">${escapeHtml(c.title)}</div>
-                    <div class="ab-product-item-id">${c.nmID}</div>
-                </div>
-            </div>`).join('');
+        abProductCards = (data?.cards || []).map(parseWBCard).filter(c => c.nmID);
     }
 
     function selectABProduct(nmID) {
@@ -15610,7 +15594,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     let abCreatingTest = false;
     async function createABTest() {
-        if (abCreatingTest) return; // защита от повторного клика — иначе создаётся 2 одинаковых теста
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет.'); return; }
         if (!abSelectedCard) { showPremiumModal('warning', 'Выберите товар', 'Сначала выберите карточку на шаге 1.'); abWizardGoStep(1); return; }
         const nmId = String(abSelectedCard.nmID);
@@ -15625,83 +15608,76 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const abFiles = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).map(i => abVariantFiles[i]).filter(Boolean);
         if (abFiles.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
 
-        abCreatingTest = true;
-        const submitBtn = document.getElementById('ab-create-test-btn');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; submitBtn.style.pointerEvents = 'none'; }
+        // Снимок настроек: окно закрываем сразу, всё остальное идёт в фоне.
+        const rotMode = document.getElementById('ab-rot-mode')?.value;
+        const minImp = parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 1000;
+        const snap = {
+            cabinetId: currentCabinetId, nmId, name, interval, maxRot, abFiles, rotMode, minImp,
+            settings: {
+                metric: document.getElementById('ab-metric')?.value || 'ctr',
+                sources: { ...abWizardSources },
+                platforms: [...abWizardPlatforms],
+                campaigns: [...abSelectedCampaigns],
+                campaignNames: Object.fromEntries(
+                    [...abSelectedCampaigns].map(id => {
+                        const c = (abCampaignCatalog || []).find(x => Number(x.id) === Number(id));
+                        return [String(id), c?.name || `РК ${id}`];
+                    })
+                ),
+                autoStop: !!document.getElementById('ab-auto-stop')?.checked,
+                finishOnCampaignOff: document.getElementById('ab-off-finish')?.checked !== false,
+                stopOnWinner: !!document.getElementById('ab-stop-on-winner')?.checked,
+                minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
+                stopCampaigns: true,
+                minImpressions: minImp,
+                rotateByImpressions: rotMode !== 'time' && abWizardSources.ads && abSelectedCampaigns.size > 0,
+            },
+        };
+        hideNewTestForm();
+        showPremiumModal('success', 'Тест создан', 'Загружаем фото и ставим первое на WB, это займёт до минуты.');
+        runABCreate(snap);
+    }
 
-        showPremiumModal('info', 'Создаём тест...', 'Загружаем фото, подождите.');
-
-        let released = false; // кнопку и флаг отпускаем раньше, чем кончится смена фото на WB
+    // Фоновое создание: тест, фото, варианты, первое фото на WB. Если не вышло, короткая ошибка и «Повторить».
+    async function runABCreate(snap) {
+        let testId = null;
         try {
-        const { data: test, error } = await supabase.from('ab_tests').insert({
-            cabinet_id: currentCabinetId,
-            nm_id: nmId,
-            product_name: name,
-            status: 'active',
-            rotation_interval_min: interval,
-            max_rotations: maxRot || null,
-            current_variant_index: 0,
-            rotation_count: 0,
-            started_at: new Date().toISOString()
-        }).select().single();
+            const { data: test, error } = await supabase.from('ab_tests').insert({
+                cabinet_id: snap.cabinetId,
+                nm_id: snap.nmId,
+                product_name: snap.name,
+                status: 'active',
+                rotation_interval_min: snap.interval,
+                max_rotations: snap.maxRot || null,
+                current_variant_index: 0,
+                rotation_count: 0,
+                started_at: new Date().toISOString()
+            }).select().single();
+            if (error || !test) throw new Error(error?.message || 'Тест не сохранился.');
+            testId = test.id;
+            saveABSettings(test.id, snap.settings);
+            loadABTests();
 
-        if (error || !test) { showPremiumModal('error', 'Ошибка создания', error?.message || 'Попробуйте ещё раз.'); return; }
-
-        saveABSettings(test.id, {
-            metric: document.getElementById('ab-metric')?.value || 'ctr',
-            sources: abWizardSources,
-            platforms: [...abWizardPlatforms],
-            campaigns: [...abSelectedCampaigns],
-            campaignNames: Object.fromEntries(
-                [...abSelectedCampaigns].map(id => {
-                    const c = (abCampaignCatalog || []).find(x => Number(x.id) === Number(id));
-                    return [String(id), c?.name || `РК ${id}`];
-                })
-            ),
-            autoStop: !!document.getElementById('ab-auto-stop')?.checked,
-            finishOnCampaignOff: document.getElementById('ab-off-finish')?.checked !== false,
-            stopOnWinner: !!document.getElementById('ab-stop-on-winner')?.checked,
-            minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
-            stopCampaigns: true,
-            minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 1000,
-            rotateByImpressions: document.getElementById('ab-rot-mode')?.value !== 'time' && abWizardSources.ads && abSelectedCampaigns.size > 0,
-        });
-
-        try {
             const variantRows = [];
-            for (let i = 0; i < abFiles.length; i++) {
-                const file = abFiles[i];
+            for (let i = 0; i < snap.abFiles.length; i++) {
                 const label = abVariantLabel(i);
-                const url = await uploadVariantPhoto(file, test.id, label);
+                const url = await uploadVariantPhoto(snap.abFiles[i], test.id, label);
                 variantRows.push({ test_id: test.id, variant_label: label, photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
             }
             const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
             if (vErr) throw new Error(vErr.message);
-
-            // Тест и варианты уже в базе — окно закрываем, не дожидаясь WB.
-            hideNewTestForm();
-            released = true;
-            abCreatingTest = false;
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
-            showPremiumModal('info', 'Тест создан', 'Ставим первое фото на WB, это может занять до минуты.');
             loadABTests();
 
-            const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId, variantRows[0].variant_label);
-            if (!ok) throw new Error('WB не принял первое фото. Попробуйте ещё раз.');
+            const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label);
+            if (!ok) throw new Error('WB не принял первое фото.');
+            showPremiumModal('success', 'Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
+            loadABTests();
         } catch (e) {
-            await supabase.from('ab_tests').delete().eq('id', test.id);
+            if (testId) { try { await supabase.from('ab_tests').delete().eq('id', testId); } catch (_) {} }
             loadABTests();
-            showPremiumModal('error', 'Ошибка загрузки', e.message);
-            return;
-        }
-
-        showPremiumModal('success', 'Тест запущен', 'Фото будет меняться каждые ' + (document.getElementById('ab-rot-mode').value == 'time' ? interval + ' мин.' : document.getElementById('ab-min-impressions').value + ' показов.'));
-        loadABTests();
-        } finally {
-            if (!released) {
-                abCreatingTest = false;
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
-            }
+            const msg = String(e && e.message || e || 'Попробуйте ещё раз.');
+            if (window.NrUi) window.NrUi.toast('error', 'Тест не создался', msg, { action: { label: 'Повторить', onClick: () => runABCreate(snap) } });
+            else showPremiumModal('error', 'Тест не создался', msg);
         }
     }
 
@@ -19156,13 +19132,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         // of hijacking the whole page. Cleared once real init finishes
         // (see `window._nrInitDone = true` in the `finally` block below).
         window._nrOverlayWatchdog = setTimeout(() => {
-            if (window._nrInitDone || document.getElementById('nr-init-stall-banner')) return;
-            const banner = document.createElement('div');
-            banner.id = 'nr-init-stall-banner';
-            banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:199999;background:#1a1a24;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,0.4);font-size:13px;color:#ccc';
-            banner.innerHTML = `<span class="nr-fox-slot" data-size="48" data-rest="sleepy"></span><span>Загрузка занимает больше времени, чем обычно — проверьте соединение.</span>
-                <button onclick="location.reload()" style="padding:6px 14px;border-radius:10px;background:var(--accent,#8b5cf6);color: var(--on-accent, #fff);border:none;font-weight:600;cursor:pointer;white-space:nowrap">Повторить</button>`;
-            document.body.appendChild(banner);
+            if (window._nrInitDone || window._nrStallToast) return;
+            // Зависшая загрузка: обычное уведомление справа вверху с кнопкой «Повторить».
+            if (window.NrUi) window._nrStallToast = window.NrUi.toast('error', 'Загрузка идёт дольше обычного', 'Проверьте соединение.', { sticky: true, key: 'init-stall', action: { label: 'Повторить', onClick: () => location.reload() } });
         }, 15000);
 
         const session = await window.NrAuth.recoverBrokenSession(supabase);

@@ -333,7 +333,7 @@
 
     function notifyError(msg) {
         console.warn('[giveaways]', msg);
-        if (root.NrNotify && root.NrNotify.show) root.NrNotify.show('Раздачи: ' + msg);
+        if (root.NrUi) root.NrUi.toast('error', 'Раздачи', String(msg)); else if (root.NrNotify && root.NrNotify.show) root.NrNotify.show('Раздачи: ' + msg);
     }
 
     function ensureSize(r) {

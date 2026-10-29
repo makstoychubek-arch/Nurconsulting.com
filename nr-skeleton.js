@@ -98,7 +98,7 @@
     function mount(c) {
         if (c.el || !c.active || !doc.body) return;
         var d = doc.createElement('div'); d.className = 'nrl-card'; d.setAttribute('role', 'status');
-        d.innerHTML = '<div class="nrl-hd"><div class="nrl-ring" style="display:none"><span class="nrl-pc">0%</span></div><span class="nr-fox-slot" data-size="60"></span><div><h3>' + esc(c.title) + '</h3><p>' +
+        d.innerHTML = '<div class="nrl-hd"><div class="nrl-ring" style="display:none"><span class="nrl-pc">0%</span></div><div><h3>' + esc(c.title) + '</h3><p>' +
             (c.est ? 'Обычно это занимает ' + Math.max(2, Math.round(c.est / 1000)) + ' с' : 'Это может занять несколько секунд') + '</p></div></div>' +
             '<div class="nrl-steps"></div><div class="nrl-foot"></div>';
         doc.body.appendChild(d); c.el = d;

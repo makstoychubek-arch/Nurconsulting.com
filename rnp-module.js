@@ -259,7 +259,7 @@ const RNP = (() => {
 
     function _nrDialog(title, text, type = 'warning') {
         if (typeof window.showNrDialog === 'function') window.showNrDialog(type, title, text);
-        else alert(text || title);
+        else if (window.NrUi) window.NrUi.toast(type === 'error' ? 'error' : 'info', title || text || '', title ? (text || '') : '');
     }
     // Диапазоны vol → номер basket-хоста WB. Таблица верна до vol 4997; дальше
     // WB давно нарезает хосты по-своему, а прежняя экстраполяция «по 216 vol»
@@ -4780,24 +4780,9 @@ const RNP = (() => {
         }
     }
 
-    /** Мини-кнопки копирования у артикула WB/продавца: копируем, показываем короткий тост с лисёнком. */
-    let _copyToastTimer = null;
-    function _copyToast(text) {
-        let t = document.getElementById('rnp-copy-toast');
-        if (!t) {
-            t = document.createElement('div');
-            t.id = 'rnp-copy-toast';
-            t.className = 'rnp-copy-toast';
-            document.body.appendChild(t);
-        }
-        t.innerHTML = '';
-        if (window.NrFox) t.appendChild(window.NrFox.mount(null, { size: 26, rest: 'delighted' }));
-        const span = document.createElement('span');
-        span.textContent = text;
-        t.appendChild(span);
-        t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');
-        clearTimeout(_copyToastTimer);
-        _copyToastTimer = setTimeout(() => t.classList.remove('on'), 1600);
+    /** Мини-кнопки копирования у артикула WB/продавца: копируем, показываем короткое уведомление. */
+        function _copyToast(text) {
+        if (window.NrUi && window.NrUi.toast) window.NrUi.toast('success', text, '', { key: 'copy', duration: 1800 });
     }
     async function _copyMini(text, label, btn) {
         const ok = window.copyTextToClipboard ? await window.copyTextToClipboard(String(text)) : false;

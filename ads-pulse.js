@@ -495,11 +495,8 @@
 
     /* ───────── всплывающее: сообщение, выбор товара, мастер ───────── */
     function toast(html, action) {
-        var t = $('adp2-toast'); if (!t) { t = doc.createElement('div'); t.id = 'adp2-toast'; t.className = 'adp2-toast'; t.setAttribute('role', 'status'); doc.body.appendChild(t); }
-        t.innerHTML = '<span>' + html + '</span>' + (action ? '<button type="button" id="adp2-toast-act">' + esc(action.label) + '</button>' : '');
-        t.classList.add('on');
-        if (action) $('adp2-toast-act').onclick = function () { t.classList.remove('on'); action.fn(); };
-        clearTimeout(S.toastTimer); S.toastTimer = setTimeout(function () { t.classList.remove('on'); }, action ? 6500 : 3500);
+        var tmp = doc.createElement('div'); tmp.innerHTML = html; var text = tmp.textContent || '';
+        if (root.NrUi) root.NrUi.toast('info', text, '', action ? { duration: 6500, action: { label: action.label, onClick: action.fn } } : { duration: 3500 });
     }
     function modal(inner, onClose) {
         var ov = doc.createElement('div'); ov.className = 'adp2-ov';

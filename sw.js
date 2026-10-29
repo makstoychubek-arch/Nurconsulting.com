@@ -1,5 +1,5 @@
 /* NR Space — network-first shell, offline fallback for navigations only. */
-const CACHE = 'nr-space-pwa-v4';
+const CACHE = 'nr-space-pwa-v5';
 // Фото карточек с WB: WB отдаёт их с кэшем всего на сутки. Храним у себя и показываем сразу, свежую копию подтягиваем в фоне.
 const PHOTOS = 'nr-photos-v1';
 const PHOTO_MAX = 900;
@@ -7,8 +7,6 @@ const isWbPhoto = (u) => /(^|\.)wbbasket\.ru$/.test(u.hostname) && u.pathname.in
 const PRECACHE = [
     '/offline.html',
     '/nr-fox.js',
-    '/img/fox-directions.webp',
-    '/img/fox-reactions.webp',
     '/manifest.json',
     '/favicon.ico',
     '/icons/logo-nr.svg',

@@ -80,6 +80,8 @@
 
     function paintBox(box, size) {
         if (!box || !box.style) return;
+        // Размеры окон задаёт CSS («Минимализм»: S, M, L), общий размер из localStorage не применяется.
+        if (!box.classList.contains('nr-win-photo') && !box.classList.contains('nw-modal')) { box.style.removeProperty('width'); box.style.removeProperty('height'); return; }
         if (box.classList.contains('nr-win-max') || box.classList.contains('nr-win-min')) return;
         // Лист план/факт широкий — размер задаёт его CSS, общий размер окон ему не подходит.
         // Окно нового А/Б теста тоже со своим размером из CSS («Минимализм»).
@@ -159,7 +161,8 @@
             + '<button type="button" class="nr-win-dot nr-win-min" aria-label="Свернуть"></button>'
             + '<button type="button" class="nr-win-dot nr-win-max" aria-label="На весь экран"></button>'
             + '</div>'
-            + '<div class="nr-win-title"></div>';
+            + '<div class="nr-win-title"></div>'
+            + '<button type="button" class="nr-win-dot nr-win-close nr-win-x" aria-label="Закрыть">×</button>';
         box.insertBefore(bar, box.firstChild);
         return bar;
     }
@@ -376,6 +379,8 @@
         ensureHandles(box);
         var title = box.querySelector(':scope > .nr-win-bar .nr-win-title');
         if (title) { var tt = titleOf(box); if (title.textContent !== tt) title.textContent = tt; }
+        // Заголовок окна уже в шапке: такой же заголовок внутри содержимого прячем.
+        if (title && title.textContent) { var dup = box.querySelector(':scope > .nr-win-scroll h3'); if (dup && dup.textContent.trim() === title.textContent.trim()) dup.classList.add('nr-win-dup'); }
         bindChrome(box);
         if (!box.classList.contains('nr-win-max') && !box.classList.contains('nr-win-min')) {
             paintBox(box, getSize());

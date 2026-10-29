@@ -1,24 +1,27 @@
-/**
- * А/Б-тест: окно «Новый А/Б тест» закрывается, как только тест и варианты сохранены,
- * а не после ответа WB на смену первого фото (раньше окно висело, хотя тест уже создан).
- */
+'use strict';
+// Окно «Новый А/Б тест» закрывается сразу после нажатия «Создать тест», а тест, фото и смена фото на WB идут в фоне.
+// Если фон не получился, пользователь видит короткую ошибку с кнопкой «Повторить», а недосозданный тест удаляется.
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
 const start = html.indexOf('async function createABTest()');
-const end = html.indexOf('async function rotateTestPhoto', start);
-assert.ok(start > 0 && end > start, 'createABTest found');
-const fn = html.slice(start, end);
+const mid = html.indexOf('async function runABCreate(snap)', start);
+const end = html.indexOf('async function rotateTestPhoto', mid);
+assert.ok(start > 0 && mid > start && end > mid, 'createABTest and runABCreate found');
+const ui = html.slice(start, mid);
+const bg = html.slice(mid, end);
 
-const variantsInsert = fn.indexOf("from('ab_test_variants').insert");
-const hide = fn.indexOf('hideNewTestForm()');
-const rotate = fn.indexOf('await rotateTestPhoto(');
-assert.ok(variantsInsert > 0 && hide > variantsInsert && rotate > hide,
-    'the form closes after variants are saved and before the WB photo swap');
-assert.ok(/released = true;\s*abCreatingTest = false;/.test(fn), 'submit lock is released together with the form');
-assert.ok(/if \(!released\) \{\s*abCreatingTest = false;/.test(fn), 'finally does not reset the lock of a newer creation');
-assert.ok(fn.indexOf("from('ab_tests').delete()") > rotate, 'a failed WB swap still removes the test');
+assert.ok(ui.indexOf('hideNewTestForm()') > 0 && ui.indexOf('runABCreate(snap)') > ui.indexOf('hideNewTestForm()'),
+    'the form closes first, then the background creation starts');
+assert.ok(!/await /.test(ui.slice(ui.indexOf('hideNewTestForm()'))), 'nothing is awaited before the form is closed');
+assert.ok(ui.includes("showPremiumModal('success', 'Тест создан'"), 'the user sees "Тест создан" immediately');
+
+const variantsInsert = bg.indexOf("from('ab_test_variants').insert");
+const rotate = bg.indexOf('await rotateTestPhoto(');
+assert.ok(variantsInsert > 0 && rotate > variantsInsert, 'WB photo swap runs after the variants are saved');
+assert.ok(bg.indexOf("from('ab_tests').delete()") > rotate, 'a failed WB swap still removes the test');
+assert.ok(bg.includes("label: 'Повторить'") && bg.includes('runABCreate(snap)'), 'a failure offers a retry with the same data');
 
 console.log('ab_create_close_test: ok');
