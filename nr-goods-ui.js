@@ -49,7 +49,7 @@
 
     function render() {
         if (S.busy) return;
-        adjustBtn(); adsTabs(); analyticsTabs();
+        adjustBtn(); adsTabs();
         var tab = doc.getElementById('tab-goods-groups'), host = doc.getElementById('gg-view-now');
         if (!tab || !host || host.hidden || tab.offsetParent === null) { doc.body.classList.remove('ggx-on'); return; }
         S.busy = true;
@@ -265,19 +265,6 @@
             var b = e.target.closest('[data-av]'); if (b) setAdsView(b.getAttribute('data-av'));
         });
     }
-    // Аналитика (только команда): разделы пока пустые.
-    function analyticsTabs() {
-        var bar = doc.getElementById('an-tabs'); if (!bar || bar.getAttribute('data-ready')) return;
-        bar.setAttribute('data-ready', '1');
-        bar.addEventListener('click', function (e) {
-            var b = e.target.closest('[data-an]'); if (!b) return;
-            Array.prototype.forEach.call(bar.children, function (x) {
-                var on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false');
-                var pane = doc.getElementById('an-' + x.getAttribute('data-an')); if (pane) pane.hidden = !on;
-            });
-        });
-    }
-
     function boot() {
         schedule();
         // переключение вкладок внутри «Товаров» и разделов сайта
