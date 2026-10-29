@@ -16235,13 +16235,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     window.armABWinnerStop = armABWinnerStop;
     window.finishABTest = finishABTest;
 
-    async function openABReportModal(testId, sourceOverride) {
+    // Отчёт открывается сразу из уже загруженных данных теста; журнал смен и статистика по источникам догружаются в фоне.
+    function _renderABReport(testId, sourceOverride, data) {
         const test = allABTests.find(t => String(t.id) === String(testId));
         if (!test) return;
         const variants = (test.variants || []).slice().sort((a, b) => String(a.variant_label).localeCompare(String(b.variant_label), 'ru', { numeric: true }));
         if (variants.length < 2) { showPremiumModal('warning', 'Мало вариантов', 'Для отчёта нужно минимум 2 варианта.'); return; }
 
-        const { data: log } = await supabase.from('ab_test_rotation_log').select('variant_label').eq('test_id', testId);
+        const log = data.log || [];
         const rotationsByLabel = {};
         (log || []).forEach(l => { rotationsByLabel[l.variant_label] = (rotationsByLabel[l.variant_label] || 0) + 1; });
 
@@ -16250,7 +16251,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         // теста. Если строк для источника нет (старый тест до миграции, или
         // источник не был включён) — красиво падаем обратно на ads-колонки
         // в ab_test_variants, чтобы отчёт не был пустым.
-        const { data: statsRows } = await supabase.from('ab_test_variant_stats').select('*').eq('test_id', testId);
+        const statsRows = data.statsRows || [];
         const bySource = { ads: new Map(), funnel: new Map() };
         (statsRows || []).forEach(r => {
             if (bySource[r.source]) bySource[r.source].set(r.variant_id, r);
@@ -16375,8 +16376,25 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>`;
         }).join('');
 
-        openAbSheet(document.getElementById('ab-report-modal'));
         if (timerOn) startReportTimer(test, source); else clearInterval(window._abReportTimerId);
+    }
+
+    async function openABReportModal(testId, sourceOverride) {
+        const cache = (window._abReportData = window._abReportData || {});
+        const modal = document.getElementById('ab-report-modal');
+        window._abReportOpenId = testId;
+        _renderABReport(testId, sourceOverride, cache[testId] || { log: [], statsRows: [] });
+        if (modal && !modal.classList.contains('is-open')) openAbSheet(modal);
+        try {
+            const [lg, st] = await Promise.all([
+                supabase.from('ab_test_rotation_log').select('variant_label').eq('test_id', testId),
+                supabase.from('ab_test_variant_stats').select('*').eq('test_id', testId),
+            ]);
+            cache[testId] = { log: lg.data || [], statsRows: st.data || [] };
+            if (modal && modal.classList.contains('is-open') && String(window._abReportOpenId) === String(testId)) {
+                _renderABReport(testId, window._abReportState && window._abReportState[testId], cache[testId]);
+            }
+        } catch (e) { console.warn('[AB] report data:', e); }
     }
     window.openABReportModal = openABReportModal;
 
