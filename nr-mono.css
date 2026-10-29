@@ -516,3 +516,24 @@ html body .rail-btn[data-tab="analytics"]::after,
 html body #nr-ads-tabs [data-av="content"]::after { content: 'BETA'; font-family: inherit; font-weight: 800; font-size: 8px; line-height: 1; letter-spacing: .06em; padding: 3px 5px; border-radius: 999px; background: var(--accent); color: var(--on-accent, #fff); }
 html body .rail-btn[data-tab="analytics"]::after { margin-left: auto; }
 html body #nr-ads-tabs [data-av="content"]::after { margin-left: 6px; vertical-align: 1px; }
+
+/* Аудит телефона: цели нажатия не меньше 40px, равные плитки, период тарифа в сетку */
+@media (max-width: 768px) {
+  html body .ads-hq-chip, html body .ggx-chip, html body .admin-spaces-subtab, html body .adp2-newbtn, html body #cbh-tabs button { min-height: 40px; }
+  html body .rnp-tool-icon, html body .rnp-settings-gear, html body #cbh-collapse, html body #cbh-refresh { min-width: 40px; min-height: 40px; }
+  html body #security-end-all-btn { min-height: 40px; }
+  html body .nrt-per { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  html body .nrt-per button { min-height: 40px; padding: 8px 6px; }
+  html body #adv-view-ads .ads-hq-kpi-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  html body #adv-view-ads .ads-hq-kpi { min-width: 0; }
+  html body .adp2-km, html body .rnp-cat-arrow { font-size: 10px; }
+  html body .rnp-plan-input { min-height: 28px; min-width: 40px; }
+}
+@media (max-width: 768px) {
+  html body .ads-hq-chip { min-height: 40px !important; }
+  html body .adp2-sl > * { min-width: 32px; min-height: 30px; }
+}
+@media (max-width: 768px) {
+  html body #adv-view-ads .ads-hq-bulk { flex-wrap: wrap !important; row-gap: 4px; }
+  html body #adv-view-ads #ads-hq-tools { flex-wrap: wrap; margin-left: auto; }
+}
