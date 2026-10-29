@@ -7317,7 +7317,7 @@ const RNP = (() => {
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
     // старый кэш показывал прежние элементы (три списка сверху) даже после выкладки новой версии: поднимаем
     // версию, и устаревший кэш один раз стирается.
-    const RNP_UI_VERSION = '5';
+    const RNP_UI_VERSION = '6';
     (function _purgeStaleRnpShell() {
         try {
             if (localStorage.getItem('rnp_ui_ver') === RNP_UI_VERSION) return;
@@ -7410,6 +7410,13 @@ const RNP = (() => {
         _saveRnpChrome();
         if (ws.querySelector('tr.rnp-lazy-sec')) return;
         if (!_rnpMainRendered()) return;
+        // В кэш попадает только таблица с настоящими цифрами. Раньше при обновлении страницы во время загрузки
+        // сохранялась таблица из одних нулей и потом показывалась первой («снова нули»).
+        if (window._rnpLoadedForCabinet !== _cab) return;
+        const cellsSample = ws.querySelectorAll('.rnp-sheet-table td');
+        let hasData = false;
+        for (let i = 0; i < cellsSample.length && i < 1500; i++) { if (/^\s*[1-9]/.test(cellsSample[i].textContent)) { hasData = true; break; } }
+        if (!hasData) return;
         _markPaintedCab(ws);
         const html = _compactRnpWorkspace(ws);
         if (!html) return;
