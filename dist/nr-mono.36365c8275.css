@@ -752,3 +752,8 @@ html body #tab-settings #nr-mcp-card.widget-card { border: 1px solid var(--text-
   html body #tab-settings .settings-section-tab { flex: 0 0 auto; padding: 11px 16px !important; }
   html body #tab-settings .nrs-prof { grid-template-columns: 1fr; }
 }
+
+/* РНП: мягкая подсветка строки и столбца под курсором */
+html body .rnp-xh { position: absolute; z-index: 5; pointer-events: none; display: none; background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
+/* Страница и каркас приложения не прокручиваются вбок сами (фокус, выделение мышью, scrollIntoView): clip, а не hidden */
+html body .dashboard-app-shell, html body .main-rail, html body #tab-rnp, html body .rnp-workspace { overflow: clip !important; }

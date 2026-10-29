@@ -165,6 +165,12 @@
 
     function boot() {
         buildFlyouts();
+        // Страница не должна уезжать вбок (фокус, выделение мышью, прокрутка к элементу): возвращаем на место.
+        doc.addEventListener('scroll', function (e) {
+            var t = e.target;
+            if (t && t !== doc && t.scrollLeft && t.matches && t.matches('.dashboard-app-shell, .main-rail, .main-content, .tab-content, .rnp-workspace')) t.scrollLeft = 0;
+            else if ((t === doc || t === doc.documentElement) && root.scrollX) root.scrollTo(0, root.scrollY);
+        }, true);
         // Подпись у кнопок меню уже видна, всплывающий ярлык браузера дублирует её.
         doc.querySelectorAll('#sidebar-app .rail-btn[title]').forEach(function (b) { b.removeAttribute('title'); });
         doc.addEventListener('click', function (e) {

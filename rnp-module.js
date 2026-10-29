@@ -201,6 +201,7 @@ const RNP = (() => {
             { key: 'ad_cpm',             label: 'CPM',                              type: 'som',  src: 'calc' },
             { key: 'ad_roas',            label: 'ROAS',                             type: 'dec2', src: 'calc' },
             { key: 'drr_pct',            label: 'ДРР %',                            type: 'pct',  src: 'calc',  hm: 'low' },
+            { key: 'drr_sales_pct',      label: 'ДРРп %',                           type: 'pct',  src: 'calc',  hm: 'low' },
             { key: 'plan_drr',           label: 'ДРР % План',                       type: 'pct',  src: 'manual', isPlan: true },
         ]},
         { id: 'buyout', label: 'Выкупы и возвраты', color: '#06b6d4', rows: [
@@ -2958,6 +2959,7 @@ const RNP = (() => {
         plan_ad_spend: ['Расход план', 'Вводится вручную.'],
         plan_drr: ['ДРР % план', 'Вводится вручную.'],
         drr_pct: ['ДРР %', 'Расход РК ÷ сумма заказов × 100.'],
+        drr_sales_pct: ['ДРРп %', 'Расход РК ÷ сумма продаж × 100. Доля рекламных расходов в выручке со всех продаж товара (реклама + органика).'],
         return_pct: ['Процент возврата', 'Возвраты ÷ (продажи + возвраты) × 100 по финотчёту WB.'],
         buyout_pct: ['Выкуп %', 'Продажи ÷ заказы × 100, как у WB. За один день может быть больше 100%: выкупают заказы прошлых дней.'],
         logistics_per_unit: ['Логистика на ед', 'Вся логистика из финотчёта ÷ проданные штуки, сом.'],
@@ -6166,7 +6168,7 @@ const RNP = (() => {
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
-                     'storage_pct','ctr_pct','basket_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
+                     'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
         const LAST = ['stock_warehouse','stock_transit','stock_total','plan_orders','plan_sales',
                       'plan_impressions','plan_clicks','plan_drr','plan_ad_spend','competitor_basket','competitor_orders',
@@ -6263,6 +6265,9 @@ const RNP = (() => {
         // ДРР от суммы заказов (всё в сомах).
         const ordersSomAll = parts.reduce((s, d) => s + (Number(d.orders_sum) || 0) * _rateFor(d.date, d), 0);
         a.drr_pct = ordersSomAll > 0 ? a.ad_spend / ordersSomAll * 100 : 0;
+        // ДРРп: тот же расход, но от суммы продаж (а не заказов).
+        const salesSomForDrr = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0) * _rateFor(d.date, d), 0);
+        a.drr_sales_pct = salesSomForDrr > 0 ? a.ad_spend / salesSomForDrr * 100 : 0;
         const revenue = parts.reduce((s, d) => {
             const er = _rateFor(d.date, d);
             return s + (Number(d.to_transfer) || 0) * er;
@@ -6325,6 +6330,7 @@ const RNP = (() => {
         m.logistics_pct = m.realization > 0 ? m.delivery_sum / m.realization * 100 : 0;
         m.storage_pct = m.realization > 0 ? m.storage_sum / m.realization * 100 : 0;
         m.drr_pct = m.orders_sum > 0 ? m.ad_spend / m.orders_sum * 100 : 0;
+        m.drr_sales_pct = m.sales_sum > 0 ? m.ad_spend / m.sales_sum * 100 : 0;
         m.ad_cpc = m.ad_clicks > 0 ? m.ad_spend / m.ad_clicks : 0;
         m.ad_cpm = m.ad_impressions > 0 ? m.ad_spend / m.ad_impressions * 1000 : 0;
         m.ad_roas = m.ad_spend > 0 ? (m.ad_revenue || 0) / m.ad_spend : 0;
@@ -6560,6 +6566,8 @@ const RNP = (() => {
         // ДРР как у WB: расход на рекламу от суммы заказов. Расход РК уже в сомах, заказы в рублях — переводим по курсу дня.
         const ordersSom = (d.orders_sum || 0) * er;
         d.drr_pct = ordersSom > 0 ? (d.ad_spend || 0) / ordersSom * 100 : 0;
+        const salesSomDrr = (d.sales_sum || 0) * er;
+        d.drr_sales_pct = salesSomDrr > 0 ? (d.ad_spend || 0) / salesSomDrr * 100 : 0;
         d.ad_cpo = d.ad_orders > 0 ? (d.ad_spend || 0) / d.ad_orders : 0;
         d.ad_cpm = d.ad_impressions > 0 ? (d.ad_spend || 0) / d.ad_impressions * 1000 : 0;
         d.ad_roas = d.ad_spend > 0 ? (d.ad_revenue || 0) / d.ad_spend : 0;
@@ -8566,7 +8574,7 @@ const RNP = (() => {
         ad_cpc: 'low', ad_cpm: 'low', log_to_pvz_avg: 'low', cancels_count: 'low', returns_count: 'low', buyout_fin_pct: 'high',
     };
     const HM_DIR = { low: 'low', cost: 'low', high: 'high', margin: 'high', profit: 'high' };
-    const AD_EFF_KEYS = new Set(['drr_pct', 'ad_cpo', 'ad_roas']);
+    const AD_EFF_KEYS = new Set(['drr_pct', 'drr_sales_pct', 'ad_cpo', 'ad_roas']);
     const AD_MIN_SPEND = 50;
     const _isSeriesCol = c => !c.isFuture && c.data && (c.type === 'day' || c.type === 'week' || c.type === 'month');
 

@@ -139,8 +139,46 @@
     }
     function onTouchEnd() { clearTimeout(touchTimer); touchOn = false; }
 
+    /* ───────── подсветка строки и столбца под курсором (мягкая, как перекрестие) ───────── */
+    var xh = { row: null, col: null, host: null, raf: 0, td: null };
+    function xhEnsure(host) {
+        if (xh.host === host && xh.row && xh.row.isConnected && xh.col && xh.col.isConnected) return true;
+        if (!host) return false;
+        xh.host = host;
+        xh.row = doc.createElement('div'); xh.row.className = 'rnp-xh rnp-xh-row'; xh.row.setAttribute('aria-hidden', 'true');
+        xh.col = doc.createElement('div'); xh.col.className = 'rnp-xh rnp-xh-col'; xh.col.setAttribute('aria-hidden', 'true');
+        host.appendChild(xh.row); host.appendChild(xh.col);
+        return true;
+    }
+    function xhHide() {
+        if (xh.row) xh.row.style.display = 'none';
+        if (xh.col) xh.col.style.display = 'none';
+    }
+    function xhPaint() {
+        xh.raf = 0;
+        var td = xh.td;
+        if (!td || !td.isConnected || dragging || cells.length > 1) { xhHide(); return; }
+        var tbl = td.closest('.rnp-sheet-table');
+        if (!tbl || !inScope(td)) { xhHide(); return; }
+        var host = tbl.parentElement;
+        if (!xhEnsure(host)) return;
+        var h = host.getBoundingClientRect(), t = tbl.getBoundingClientRect(), c = td.getBoundingClientRect(), r = td.parentElement.getBoundingClientRect();
+        xh.row.style.cssText = 'display:block;left:' + (t.left - h.left) + 'px;top:' + (r.top - h.top) + 'px;width:' + t.width + 'px;height:' + r.height + 'px';
+        if (td.cellIndex === 0) xh.col.style.display = 'none';
+        else xh.col.style.cssText = 'display:block;left:' + (c.left - h.left) + 'px;top:' + (t.top - h.top) + 'px;width:' + c.width + 'px;height:' + t.height + 'px';
+    }
+    function onHover(e) {
+        var td = e.target && e.target.closest ? e.target.closest('td') : null;
+        xh.td = td && td.closest('.rnp-sheet-table') ? td : null;
+        if (!xh.raf) xh.raf = root.requestAnimationFrame ? root.requestAnimationFrame(xhPaint) : (xhPaint(), 0);
+    }
+
     function init() {
         if (init.done) return; init.done = true;
+        if (root.matchMedia && root.matchMedia('(hover: hover)').matches) {
+            doc.addEventListener('mouseover', onHover, true);
+            doc.addEventListener('mouseleave', function () { xh.td = null; xhHide(); });
+        }
         doc.addEventListener('mousedown', onDown, true);
         doc.addEventListener('mousemove', onMove, true);
         doc.addEventListener('mouseup', onUp, true);
