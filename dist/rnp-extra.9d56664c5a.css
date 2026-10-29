@@ -601,13 +601,13 @@ html[data-bg="live"] { background: #f4f5f8; }
 html[data-bg] body { background: transparent !important; background-image: none !important; }
 /* Без filter: blur — размытие на движущихся слоях тормозило всю страницу. Мягкий край даёт radial-gradient. */
 #nr-bg i { filter: none; background-repeat: no-repeat; }
-html[data-bg="live"] #nr-bg i:nth-child(1) { width: 62vw; height: 62vw; left: -14vw; top: -22vw; background: radial-gradient(closest-side, rgba(142,197,255,.62), rgba(142,197,255,0)); animation: nrbg1 48s ease-in-out infinite alternate; }
-html[data-bg="live"] #nr-bg i:nth-child(2) { width: 54vw; height: 54vw; right: -16vw; top: 2vw; background: radial-gradient(closest-side, rgba(201,182,255,.62), rgba(201,182,255,0)); animation: nrbg2 58s ease-in-out infinite alternate; }
-html[data-bg="live"] #nr-bg i:nth-child(3) { width: 50vw; height: 50vw; left: 18vw; bottom: -24vw; background: radial-gradient(closest-side, rgba(255,215,176,.7), rgba(255,215,176,0)); animation: nrbg3 66s ease-in-out infinite alternate; }
+html[data-bg="live"] #nr-bg i:nth-child(1) { width: 62vw; height: 62vw; left: -14vw; top: -22vw; background: radial-gradient(closest-side, rgba(11,11,11,.07), rgba(11,11,11,0)); animation: nrbg1 48s ease-in-out infinite alternate; }
+html[data-bg="live"] #nr-bg i:nth-child(2) { width: 54vw; height: 54vw; right: -16vw; top: 2vw; background: radial-gradient(closest-side, rgba(11,11,11,.05), rgba(11,11,11,0)); animation: nrbg2 58s ease-in-out infinite alternate; }
+html[data-bg="live"] #nr-bg i:nth-child(3) { width: 50vw; height: 50vw; left: 18vw; bottom: -24vw; background: radial-gradient(closest-side, rgba(11,11,11,.06), rgba(11,11,11,0)); animation: nrbg3 66s ease-in-out infinite alternate; }
 html[data-bg="flow"] { background: #050506; }
-html[data-bg="flow"] #nr-bg i:nth-child(1) { width: 68vw; height: 50vw; left: -18vw; top: -16vw; background: radial-gradient(closest-side, rgba(122,74,30,.5), rgba(122,74,30,0)); animation: nrbg1 52s ease-in-out infinite alternate; }
-html[data-bg="flow"] #nr-bg i:nth-child(2) { width: 66vw; height: 54vw; right: -20vw; bottom: -22vw; background: radial-gradient(closest-side, rgba(28,58,102,.55), rgba(28,58,102,0)); animation: nrbg2 60s ease-in-out infinite alternate; }
-html[data-bg="flow"] #nr-bg i:nth-child(3) { width: 42vw; height: 36vw; left: 30vw; top: 16vw; background: radial-gradient(closest-side, rgba(74,47,94,.4), rgba(74,47,94,0)); animation: nrbg3 70s ease-in-out infinite alternate; }
+html[data-bg="flow"] #nr-bg i:nth-child(1) { width: 68vw; height: 50vw; left: -18vw; top: -16vw; background: radial-gradient(closest-side, rgba(255,255,255,.09), rgba(255,255,255,0)); animation: nrbg1 52s ease-in-out infinite alternate; }
+html[data-bg="flow"] #nr-bg i:nth-child(2) { width: 66vw; height: 54vw; right: -20vw; bottom: -22vw; background: radial-gradient(closest-side, rgba(255,255,255,.07), rgba(255,255,255,0)); animation: nrbg2 60s ease-in-out infinite alternate; }
+html[data-bg="flow"] #nr-bg i:nth-child(3) { width: 42vw; height: 36vw; left: 30vw; top: 16vw; background: radial-gradient(closest-side, rgba(255,255,255,.05), rgba(255,255,255,0)); animation: nrbg3 70s ease-in-out infinite alternate; }
 @keyframes nrbg1 { to { transform: translate(18vw, 14vw) scale(1.15); } }
 @keyframes nrbg2 { to { transform: translate(-22vw, 10vw) scale(.9); } }
 @keyframes nrbg3 { to { transform: translate(-16vw, -12vw) scale(1.2); } }

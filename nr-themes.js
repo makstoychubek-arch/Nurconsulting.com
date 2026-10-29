@@ -11,9 +11,9 @@
     var OPTS = [
         { id: 'light', label: 'Светлая', theme: 'ios', bg: '', sw: '#f4f5f8' },
         { id: 'dark', label: 'Тёмная', theme: 'neon', bg: '', sw: '#1c1c1e' },
-        { id: 'live', label: 'Живая светлая', theme: 'ios', bg: 'live', sw: 'linear-gradient(135deg,#bcd9ff,#e4d7ff,#ffe3c7)' },
-        { id: 'flow', label: 'Flow тёмная', theme: 'neon', bg: 'flow', sw: 'linear-gradient(135deg,#050506,#3a2a1a 60%,#12263f)' },
-        { id: 'tabler', label: 'Tabler', theme: 'tabler', bg: '', sw: '#066fd1' },
+        { id: 'live', label: 'Живая светлая', theme: 'ios', bg: 'live', sw: 'linear-gradient(135deg,#ffffff,#e4e4e7 60%,#bdbdc2)' },
+        { id: 'flow', label: 'Flow тёмная', theme: 'neon', bg: 'flow', sw: 'linear-gradient(135deg,#050506,#26262a 60%,#4a4a50)' },
+        { id: 'tabler', label: 'Tabler', theme: 'tabler', bg: '', sw: '#ffffff' },
     ];
     function lsGet(k) { try { return root.localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { root.localStorage.setItem(k, v); } catch (e) {} }
