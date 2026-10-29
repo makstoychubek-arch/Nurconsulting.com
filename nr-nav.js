@@ -86,6 +86,15 @@
         for (var i = 0; i < s.items.length; i++) if (doc.querySelector(s.items[i].on)) return s.items[i].id;
         return '';
     }
+    // Короткая карточка стоит на высоте своей кнопки (на телефоне панель устроена иначе и не двигается).
+    function placeFly(btn) {
+        try {
+            if (!root.matchMedia || !root.matchMedia('(min-width: 769px)').matches) return;
+            var fly = doc.getElementById(btn.getAttribute('data-flyout'));
+            if (!fly || !fly.offsetParent) return;
+            fly.style.top = Math.max(0, Math.round(btn.getBoundingClientRect().top - fly.offsetParent.getBoundingClientRect().top - 6)) + 'px';
+        } catch (_) {}
+    }
     function go(tab, id) {
         var s = SECTIONS[tab]; if (!s) return;
         var it = s.items.filter(function (x) { return x.id === id; })[0]; if (!it) return;
@@ -169,11 +178,13 @@
         });
         // Нажатие на затемнение вокруг меню или Esc закрывает панель; выбор пункта в любой панели тоже закрывает её.
         doc.addEventListener('click', function (e) {
+            var rb = e.target.closest && e.target.closest('#sidebar-app .rail-btn[data-flyout]');
+            if (rb) placeFly(rb);
             if ((e.target === doc.documentElement || (e.target.id === 'sidebar-app')) && doc.body.classList.contains('flyout-expanded') && root.closeSidebarMenus) root.closeSidebarMenus(true);
             else if (e.target.closest && e.target.closest('.sidebar-flyout .nav-item')) setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(true); }, 0);
         });
         // На компьютере панель выезжает при наведении на кнопку раздела (с короткой паузой, чтобы не мигала от случайного проезда),
-        // а уходит, когда курсор оказывается на затемнённой странице. Закреплённая и телефонная панели не трогаются.
+        // а уходит через секунду после того, как курсор оказался на затемнённой странице (закрытие плавное). Закреплённая и телефонная панели не трогаются.
         if (root.matchMedia && root.matchMedia('(min-width: 769px) and (hover: hover)').matches) {
             var inTimer = null, outTimer = null;
             doc.addEventListener('mouseover', function (e) {
@@ -181,6 +192,7 @@
                 if (btn) {
                     clearTimeout(outTimer); clearTimeout(inTimer);
                     var id = btn.getAttribute('data-flyout');
+                    placeFly(btn);
                     var cur = doc.querySelector('.sidebar-flyout.visible');
                     if (cur && cur.id === id) return;
                     inTimer = setTimeout(function () { if (root.openSidebarFlyout) root.openSidebarFlyout(id); }, cur ? 40 : 90);
@@ -188,12 +200,15 @@
                 }
                 if (t.closest && t.closest('#sidebar-app .sidebar-flyout, #sidebar-app .sidebar-rail')) { clearTimeout(outTimer); clearTimeout(inTimer); return; }
                 clearTimeout(inTimer);
-                if (!(t.closest && t.closest('#sidebar-app')) && doc.body.classList.contains('flyout-expanded')) {
+                if ((t.id === 'sidebar-app' || !(t.closest && t.closest('#sidebar-app'))) && doc.body.classList.contains('flyout-expanded')) {
                     clearTimeout(outTimer);
-                    outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 220);
+                    outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 1000);
                 }
             });
         }
+        doc.documentElement.addEventListener('mouseleave', function () {
+            if (doc.body.classList.contains('flyout-expanded')) { clearTimeout(outTimer); outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 1000); }
+        });
         doc.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && doc.body.classList.contains('flyout-expanded') && root.closeSidebarMenus) root.closeSidebarMenus(true);
         });

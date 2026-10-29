@@ -612,12 +612,20 @@ html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sid
   html body .sidebar-flyout {
     position: absolute; left: 200px; top: 0; width: 196px; min-width: 196px; flex-shrink: 0;
     transform: translateX(-14px); opacity: 0; visibility: hidden; pointer-events: none;
-    clip-path: inset(0 100% 0 0 round 0 22px 22px 0);
     transition: transform .34s cubic-bezier(.22,1,.36,1), opacity .24s ease, clip-path .34s cubic-bezier(.22,1,.36,1), visibility .34s;
   }
-  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; width: 196px; min-width: 196px; clip-path: inset(0 0 0 0 round 0 22px 22px 0); }
+  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; height: auto; bottom: auto; }
   html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(6) { transition-delay: .15s; }
   html body .flyout-pin { display: none !important; }
+  /* Вариант 3 «Жирный контур»: короткая карточка у кнопки, без шапки, заголовков и заливки; высота по содержимому, выбранный пункт подчёркнут */
+  html body .sidebar-flyout { bottom: auto; height: auto; min-height: 0; width: max-content; min-width: 176px; padding: 4px 6px; background: var(--surface-solid, #fff); border: 2px solid var(--text-primary) !important; border-radius: 18px; box-shadow: none; clip-path: inset(0 100% 0 0 round 18px); }
+  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { width: max-content; min-width: 176px; clip-path: inset(-2px -2px -2px -2px round 18px); }
+  html body .sidebar-flyout .flyout-header, html body .sidebar-flyout .flyout-sec { display: none !important; }
+  html body .sidebar-flyout .flyout-body { padding: 0; gap: 2px; overflow: visible; }
+  html body .sidebar-flyout .flyout-body .nav-item { font-weight: 800; white-space: nowrap; border-radius: 12px; }
+  html body .sidebar-flyout .flyout-body .nav-item.active { background: transparent !important; color: var(--text-primary) !important; }
+  html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sidebar-flyout .flyout-body .nav-item.active .nav-item-label { color: var(--text-primary) !important; }
+  html body .sidebar-flyout .flyout-body .nav-item.active .nav-item-label { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
   html body.flyout-expanded .main-rail { margin-left: 194px !important; }
   html body.flyout-expanded header.glass.app-header { left: 200px !important; }
   html body .sidebar-app::before { content: ""; position: fixed; inset: 0; z-index: -1; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
