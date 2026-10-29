@@ -22,7 +22,7 @@
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/(space|logistics|ab-testing|advertising|seo|marking|rnp|telegram-bots|ozon|agents|analytics|goods|content|reports)",
+      "source": "/(space|logistics|ab-testing|advertising|seo|marking|rnp|telegram-bots|ozon|agents|analytics|backups|goods|content|reports)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
@@ -66,6 +66,7 @@
     { "source": "/ozon", "destination": "/dashboard.html" },
     { "source": "/agents", "destination": "/dashboard.html" },
     { "source": "/analytics", "destination": "/dashboard.html" },
+    { "source": "/backups", "destination": "/dashboard.html" },
     { "source": "/rnp-app", "destination": "/rnp-app/index.html" },
     { "source": "/rnp-app/:path*", "destination": "/rnp-app/:path*" },
     { "source": "/marking-app/:path*", "destination": "/marking-app/:path*" },
