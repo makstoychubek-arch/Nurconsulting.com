@@ -610,9 +610,11 @@ html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sid
   html body .sidebar-flyout {
     position: absolute; left: 200px; top: 0; width: 196px; min-width: 196px; flex-shrink: 0;
     transform: translateX(-14px); opacity: 0; visibility: hidden; pointer-events: none;
-    transition: transform .26s cubic-bezier(.22,1,.36,1), opacity .2s cubic-bezier(.22,1,.36,1), visibility .26s;
+    clip-path: inset(0 100% 0 0 round 0 22px 22px 0);
+    transition: transform .34s cubic-bezier(.22,1,.36,1), opacity .24s ease, clip-path .34s cubic-bezier(.22,1,.36,1), visibility .34s;
   }
-  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; width: 196px; min-width: 196px; }
+  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; width: 196px; min-width: 196px; clip-path: inset(0 0 0 0 round 0 22px 22px 0); }
+  html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(6) { transition-delay: .15s; }
   html body .flyout-pin { display: none !important; }
   html body.flyout-expanded .main-rail { margin-left: 194px !important; }
   html body.flyout-expanded header.glass.app-header { left: 200px !important; }
