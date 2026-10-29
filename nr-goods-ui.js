@@ -49,7 +49,7 @@
 
     function render() {
         if (S.busy) return;
-        adjustBtn(); adsTabs();
+        adjustBtn(); adsTabs(); analyticsTabs();
         var tab = doc.getElementById('tab-goods-groups'), host = doc.getElementById('gg-view-now');
         if (!tab || !host || host.hidden || tab.offsetParent === null) { doc.body.classList.remove('ggx-on'); return; }
         S.busy = true;
@@ -235,22 +235,46 @@
         b.onclick = adjustOpen; tools.insertBefore(b, tools.firstChild);
     }
 
-    // «Раздачи» живут в «Продвижении» (только команда): полоска «Реклама | Раздачи» над списком кампаний.
+    // «Раздачи» и «Контент» живут в «Продвижении» (только команда): полоска «Реклама | Раздачи | Контент» над списком кампаний.
+    function setAdsView(which) {
+        var bar = doc.getElementById('nr-ads-tabs'), view = doc.getElementById('adv-view-ads');
+        var give = doc.getElementById('nr-ads-give'), content = doc.getElementById('nr-ads-content');
+        if (!bar || !view || !give || !content) return;
+        Array.prototype.forEach.call(bar.children, function (x) { x.classList.toggle('is-on', x.getAttribute('data-av') === which); });
+        give.hidden = which !== 'give'; content.hidden = which !== 'content';
+        view.style.display = which === 'ads' ? '' : 'none';
+        if (which === 'give' && root.NrGiveaways && cab()) root.NrGiveaways.show({ host: give, supabase: db(), cabinetId: cab() });
+        else if (root.NrGiveaways) root.NrGiveaways.hide();
+        if (which === 'content') {
+            // разметка контент-завода переезжает сюда один раз, дальше он рисует в тот же #cf-root
+            var src = doc.getElementById('tab-content-factory');
+            if (src) Array.prototype.slice.call(src.children).forEach(function (n) { content.appendChild(n); });
+            if (root.bootContentFactory) root.bootContentFactory();
+        }
+    }
     function adsTabs() {
         if (!staff() || doc.getElementById('nr-ads-tabs')) return;
         var tab = doc.getElementById('tab-advertising'), view = doc.getElementById('adv-view-ads');
         if (!tab || !view) return;
         var bar = doc.createElement('div'); bar.id = 'nr-ads-tabs';
-        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" data-av="ads">Реклама</button><button type="button" class="gg-view-btn" data-av="give">Раздачи</button>';
+        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" data-av="ads">Реклама</button><button type="button" class="gg-view-btn" data-av="give">Раздачи</button><button type="button" class="gg-view-btn" data-av="content">Контент</button>';
         var host = doc.createElement('div'); host.id = 'nr-ads-give'; host.className = 'gg-give'; host.hidden = true;
-        tab.insertBefore(bar, tab.firstChild); tab.appendChild(host);
+        var cont = doc.createElement('div'); cont.id = 'nr-ads-content'; cont.hidden = true;
+        tab.insertBefore(bar, tab.firstChild); tab.appendChild(host); tab.appendChild(cont);
         bar.addEventListener('click', function (e) {
-            var b = e.target.closest('[data-av]'); if (!b) return;
-            var give = b.getAttribute('data-av') === 'give';
-            Array.prototype.forEach.call(bar.children, function (x) { x.classList.toggle('is-on', x === b); });
-            host.hidden = !give; view.style.display = give ? 'none' : '';
-            if (give && root.NrGiveaways && cab()) root.NrGiveaways.show({ host: host, supabase: db(), cabinetId: cab() });
-            else if (root.NrGiveaways) root.NrGiveaways.hide();
+            var b = e.target.closest('[data-av]'); if (b) setAdsView(b.getAttribute('data-av'));
+        });
+    }
+    // Аналитика (только команда): разделы пока пустые.
+    function analyticsTabs() {
+        var bar = doc.getElementById('an-tabs'); if (!bar || bar.getAttribute('data-ready')) return;
+        bar.setAttribute('data-ready', '1');
+        bar.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-an]'); if (!b) return;
+            Array.prototype.forEach.call(bar.children, function (x) {
+                var on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false');
+                var pane = doc.getElementById('an-' + x.getAttribute('data-an')); if (pane) pane.hidden = !on;
+            });
         });
     }
 
@@ -260,5 +284,5 @@
         doc.addEventListener('click', function () { setTimeout(schedule, 250); }, true);
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
-    root.NrGoodsUi = { refresh: schedule };
+    root.NrGoodsUi = { refresh: schedule, openAdsView: function (w) { adsTabs(); setAdsView(w); } };
 })(typeof window !== 'undefined' ? window : globalThis);

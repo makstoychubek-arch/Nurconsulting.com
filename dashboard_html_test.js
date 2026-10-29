@@ -58,10 +58,10 @@ assert.ok(
     );
     assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-tab="ab-testing"') &&
         rail.indexOf('data-tab="ab-testing"') < rail.indexOf('data-tab="goods-groups"') &&
-        rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-tab="content-factory"') &&
-        rail.indexOf('data-tab="content-factory"') < rail.indexOf('data-tab="agents"') &&
+        rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-tab="analytics"') &&
+        rail.indexOf('data-tab="analytics"') < rail.indexOf('data-tab="agents"') &&
         rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-flyout="fly-beta"'),
-        'Контент sits on the rail between Товары and Агенты');
+        'Аналитика sits on the rail between Товары and Агенты (Контент ушёл в Продвижение)');
 }
 assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
     'РНП rail button opens the module, not a second column');
@@ -71,7 +71,7 @@ assert.ok(/data-tab="tariffs" title="Тарифы"/.test(html) && /data-flyout="
     'Тарифы sit on the rail for clients; the BETA column is team-only');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])"),
+assert.ok(html.includes("const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])"),
     'Кабинеты, dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
@@ -1832,7 +1832,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])") &&
+    html.includes("LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&
@@ -1982,7 +1982,7 @@ assert.ok(
         'the bot registry and bot tokens must not be readable by clients'
     );
     assert.ok(
-        html.includes("const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots'])") &&
+        html.includes("const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots', 'analytics'])") &&
         html.includes("if (STAFF_ONLY_TABS.has(name) && !isStaff)") &&
         html.includes("supabase.rpc('is_staff')") &&
         html.includes('html:not([data-staff="1"]) [data-staff-only] { display: none !important; }') &&
@@ -2495,8 +2495,8 @@ assert.ok(
     const igPub = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/content-ig-publish.ts'), 'utf8');
     const igFn = fs.readFileSync(path.join(__dirname, 'supabase/functions/content-ig-publish/index.ts'), 'utf8');
     const tick = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/content-publish-tick.ts'), 'utf8');
-    assert.ok(html.includes('id="tab-content-factory"') && html.includes('id="cf-root"') && html.includes("data-tab=\"content-factory\""),
-        'Контент-завод is a live tab with a root mount');
+    assert.ok(html.includes('id="tab-content-factory"') && html.includes('id="cf-root"') && html.includes("if (name === 'content-factory') {"),
+        'Контент-завод держит корень разметки, а старые ссылки ведут в Продвижение');
     assert.ok(html.includes('function bootContentFactory') && html.includes("'content-factory': '/content'"),
         'Контент-завод boots on /content and cabinet switch');
     assert.ok(!betaFly.includes("showTab('content-factory'"),

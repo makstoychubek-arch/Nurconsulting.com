@@ -6059,11 +6059,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
+            var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/analytics': 'analytics', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
             // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
             var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs'];
-            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
+            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, analytics: 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -6123,7 +6123,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.36b5752019.css">
-<link rel="stylesheet" href="/dist/rnp-extra.d54b39933c.css">
+<link rel="stylesheet" href="/dist/rnp-extra.fd4f865b96.css">
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -6183,9 +6183,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2L12 3z"/><path d="M4.3 7.4L12 11.5l7.7-4.1M12 11.5V21"/></svg></span>
                     <span class="rail-btn-lbl">Логистика</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="content-factory" title="Контент-завод" data-staff-only="1">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.7"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17"/></svg></span>
-                    <span class="rail-btn-lbl">Контент</span>
+                <button type="button" class="rail-btn" data-tab="analytics" title="Аналитика" data-staff-only="1">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/><path d="M8 12.5l2-2.5 1.5 1.5L14 9"/></svg></span>
+                    <span class="rail-btn-lbl">Аналитика</span>
                 </button>
                 <button type="button" class="rail-btn" data-tab="agents" title="Агенты" data-staff-only="1">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.3"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M16 5.4a3 3 0 0 1 0 6M17.5 14.6c2 .6 3.2 2.4 3.2 5.4"/></svg></span>
@@ -7738,6 +7738,17 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
         </div>
 
+        <div id="tab-analytics" class="tab-content" data-staff-only="1">
+            <div class="gg-viewbar" id="an-tabs" role="tablist">
+                <button type="button" class="gg-view-btn is-on" role="tab" aria-selected="true" data-an="niches">Подбор ниш</button>
+                <button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-an="content">Сравнение контента</button>
+                <button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-an="card">Сравнение карточки</button>
+            </div>
+            <div class="an-empty" id="an-niches">Подбор ниш: раздел готовится.</div>
+            <div class="an-empty" id="an-content" hidden>Сравнение контента: раздел готовится.</div>
+            <div class="an-empty" id="an-card" hidden>Сравнение карточки: раздел готовится.</div>
+        </div>
+
         <div id="tab-content-factory" class="tab-content">
             <div id="cf-ig-bar" style="display:none;margin:0 0 12px">
                 <button type="button" id="cf-ig-btn" class="btn" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-solid);color:var(--text-primary);font-weight:600;cursor:pointer">Instagram NR Space: настройки</button>
@@ -8441,7 +8452,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.71654a6564.min.js"></script>
 <script src="/dist/nr-ui.44c7317afc.min.js"></script>
-<script src="/dist/nr-goods-ui.cab356fde1.min.js"></script>
+<script src="/dist/nr-goods-ui.a1369a5d5f.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.443f469247.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
@@ -8489,7 +8500,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents', 'akylai']);
-    const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
+    const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots', 'analytics']);
     /* Бесплатно доступны только Акылай, настройки и тарифы. Остальные открытые клиенту
        разделы (PUBLIC_TABS) видны с замком и открываются по платному тарифу.
        Решение принимает база (has_paid_access), здесь — только отображение. */
@@ -8534,7 +8545,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
         });
     }
-    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
+    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
     // До загрузки кабинетов из БД не показываем экран «подключите кабинет» (иначе мигает у активных).
     let cabinetsLoaded = false;
@@ -9692,7 +9703,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         'cabinets-hub': '/cabinets', 'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
         'telegram-bots': '/telegram-bots', ozon: '/ozon', agents: '/agents',
-        'goods-groups': '/goods', 'content-factory': '/content', summary: '/reports',
+        'goods-groups': '/goods', 'content-factory': '/content', analytics: '/analytics', summary: '/reports',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -9704,7 +9715,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         'ab-testing':'А/Б Тесты', advertising:'Продвижение', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
         'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты', akylai:'Агенты',
-        'content-factory':'Контент-завод',
+        'content-factory':'Контент-завод', analytics:'Аналитика',
         'cabinets-hub':'Кабинеты',
     };
 
@@ -9718,7 +9729,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'agents', ozon:'beta', agents:'agents',
         cost:'beta', 'goods-groups':'goods', warehouse:'beta',
-        'content-factory':'content',
+        'content-factory':'content', analytics:'content',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
         tariffs:'beta',
     };
@@ -10009,6 +10020,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (window.NrViewer?.on && !window.NrViewer.allows(name)) {
             const t = window.NrViewer.firstTab();
             if (t !== name) { showTab(t, el); return; }
+        }
+        // «Контент» теперь живёт в «Продвижении» рядом с «Раздачами»: старые ссылки ведут туда.
+        if (name === 'content-factory') {
+            showTab('advertising');
+            setTimeout(() => window.NrGoodsUi?.openAdsView?.('content'), 0);
+            return;
         }
         // Внутренняя страница агентов — только команде. Клиент по «Агентам»
         // попадает на свою страницу с Акылай, по остальным служебным — на дашборд.
