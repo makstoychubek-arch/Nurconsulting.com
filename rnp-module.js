@@ -7518,7 +7518,11 @@ const RNP = (() => {
     function _startFirstBusy() {
         if (window._rnpBusyEnd || window._rnpLoadedForCabinet === _cab || !window.NrBusy) return;
         // Свежие цифры на экране из кэша уже есть: показываем их сразу, догрузка идёт в фоне без размытия.
-        try { if (_cab && /<td[^>]*>\s*[1-9]/.test(String(_readRnpKey(_rnpShellKey(_cab)) || ''))) return; } catch (e) {}
+        try {
+            const ws = document.querySelector('#tab-rnp .rnp-workspace');
+            if (ws && _cab && (!_paintedCab || _paintedCab === _cab)) { const tds = ws.querySelectorAll('.rnp-sheet-table td'); for (let i = 0; i < tds.length && i < 1500; i++) if (/^\s*[1-9]/.test(tds[i].textContent)) return; }
+            if (_cab && /<td[^>]*>(?:<[^>]+>)*\s*[1-9]/.test(String(_readRnpKey(_rnpShellKey(_cab)) || ''))) return;
+        } catch (e) {}
         window._rnpBusyLate = false;
         window.NrBusy.run(new Promise((r) => { window._rnpBusyEnd = r; }));
     }
