@@ -56,8 +56,8 @@ assert.ok(
         /class="rail-btn"[^>]*data-tab="goods-groups"/.test(rail) && /<span class="rail-btn-lbl">Логистика<\/span>/.test(rail),
         'Товары must sit on the main rail as a live tab'
     );
-    assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-tab="ab-testing"') &&
-        rail.indexOf('data-tab="ab-testing"') < rail.indexOf('data-tab="goods-groups"') &&
+    assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-flyout="fly-tools"') &&
+        rail.indexOf('data-flyout="fly-tools"') < rail.indexOf('data-tab="goods-groups"') &&
         rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-tab="analytics"') &&
         rail.indexOf('data-tab="analytics"') < rail.indexOf('data-tab="agents"') &&
         rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-flyout="fly-beta"'),
@@ -65,7 +65,7 @@ assert.ok(
 }
 assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
     'РНП rail button opens the module, not a second column');
-assert.ok(/<span class="rail-btn-lbl">А\/Б<\/span>/.test(html) && /data-tab="ab-testing"/.test(html),
+assert.ok(/<span class="rail-btn-lbl">Инструменты<\/span>/.test(html) && /id="fly-tools"/.test(html) && /id="fly-tools"[\s\S]*?showTab\('ab-testing'/.test(html),
     'А/Б Тесты sit on the main rail as a live tab');
 assert.ok(/data-tab="tariffs" title="Тарифы"/.test(html) && /data-flyout="fly-beta" data-staff-only="1"/.test(html),
     'Тарифы sit on the rail for clients; the BETA column is team-only');
