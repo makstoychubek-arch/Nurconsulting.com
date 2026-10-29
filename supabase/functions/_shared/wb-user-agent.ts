@@ -8,10 +8,11 @@ const g = globalThis as any;
 
 if (!g.__nrWbUa) {
     g.__nrWbUa = true;
-    const ua = (Deno.env.get('WB_SERVICE_UA') ?? '').trim() || 'NRSpace/1.0 (+https://nurcon.kg)';
-    const secret = (Deno.env.get('WB_SERVICE_SECRET') ?? '').trim();
-    const original = g.fetch.bind(g);
-    g.fetch = (input: any, init?: any) => {
+    const env = (k: string): string => String(g.Deno?.env?.get?.(k) ?? '').trim();
+    const ua = env('WB_SERVICE_UA') || 'NRSpace/1.0 (+https://nurcon.kg)';
+    const secret = env('WB_SERVICE_SECRET');
+    const original = typeof g.fetch === 'function' ? g.fetch.bind(g) : null;
+    if (original) g.fetch = (input: any, init?: any) => {
         try {
             const url = typeof input === 'string' ? input : input instanceof URL ? input.href : String(input?.url ?? '');
             if (/^https:\/\/[a-z0-9-]+\.wildberries\.ru\//i.test(url)) {
