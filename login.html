@@ -767,6 +767,12 @@
             } else if (authError === 'access_check_failed') {
                 showAuthScreen();
                 showError('login-error', 'Не удалось проверить доступ. Попробуйте войти снова через несколько минут.');
+            } else if (authError) {
+                // Google или сервер вернули ошибку при обмене кода (server_error и т.п.): раньше экран вечно висел на «Входим в ваш кабинет…».
+                clearLocalAuth();
+                showAuthScreen();
+                showError('login-error', 'Не получилось войти через Google. Нажмите «Войти» ещё раз. Если ошибка повторится, откройте сайт в новой вкладке и закройте остальные вкладки NR Space.');
+                try { history.replaceState(null, '', '/login'); } catch (_) {}
             } else if (justLoggedOut) {
                 showAuthScreen();
             }
