@@ -7516,7 +7516,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                                     <div class="text-xs mb-1">Менять фото</div>
                                     <select id="ab-rot-mode" class="ab-product-search" onchange="abWInt.hidden=this.value=='imp';abWImp.hidden=this.value!='imp'"><option value="imp">по показам</option><option value="time">по времени</option></select>
                                 </div>
-                                <div id="abWInt" hidden>
+                                <div id="abWInt">
                                     <div class="text-xs mb-1">Интервал, мин</div>
                                     <input type="number" id="abt-interval" value="30" min="15" max="1440" step="5" class="ab-product-search">
                                 </div>
@@ -8435,6 +8435,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ui.832ba56fc5.min.js"></script>
 <script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
 <script src="/dist/nr-analytics.97794c8fd3.min.js"></script>
+<script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
 <script src="/dist/nr-nav.9e96ea37dc.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.443f469247.min.js"></script>
@@ -15616,6 +15617,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 stopCampaigns: true,
                 minImpressions: minImp,
                 rotateByImpressions: rotMode !== 'time' && abWizardSources.ads && abSelectedCampaigns.size > 0,
+                ...(window.NrAbRot ? window.NrAbRot.extra() : {}),
             },
         };
         hideNewTestForm();
