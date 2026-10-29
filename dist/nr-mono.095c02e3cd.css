@@ -584,14 +584,12 @@ html body .an-note { margin: 0; font-size: 13px; font-weight: 600; color: var(--
 html body .an-tab:not(.on) { border-bottom: 2px solid transparent !important; }
 
 /* Меню с подразделами: подпись под логотипом, цепочка «Раздел › Подраздел», плавные панели */
-html body .nr-logo-sub { text-align: center; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin: -8px 0 12px; }
 html body .nr-crumbs { display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
 html body .nr-crumbs.on { display: flex; }
 html body .nr-crumb { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: color .2s; }
 html body .nr-crumb:hover { color: var(--text-primary); text-decoration: underline; }
 html body .nr-crumb-cur { color: var(--text-primary); font-weight: 700; }
 html body .sidebar-flyout.nr-one { display: none !important; }
-html body .sidebar-flyout { transition: width .26s cubic-bezier(.22,1,.36,1), min-width .26s cubic-bezier(.22,1,.36,1), opacity .2s cubic-bezier(.22,1,.36,1), visibility .2s, border-color .1s ease, box-shadow .2s ease; }
 html body .sidebar-flyout .flyout-body .nav-item { opacity: 0; transform: translateX(-8px) !important; transition: opacity .22s cubic-bezier(.22,1,.36,1), transform .26s cubic-bezier(.22,1,.36,1), background .2s; }
 html body .sidebar-flyout.visible .flyout-body .nav-item, html body .sidebar-flyout.pinned .flyout-body .nav-item { opacity: 1; transform: none !important; }
 html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(2) { transition-delay: .03s; }
@@ -606,3 +604,25 @@ html body .sidebar-flyout .flyout-body .nav-item.active { background: var(--acce
   html body #gg-view-now-btn, html body #gg-view-fbs-btn, html body #gg-view-ship-btn, html body #gg-view-give-btn { display: none !important; }
 }
 html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sidebar-flyout .flyout-body .nav-item.active .nav-item-label { color: var(--on-accent, #fff) !important; opacity: 1; }
+
+/* Панели меню: выезжают поверх страницы (без сдвига), одинаковая анимация у всех, остальной сайт чуть темнеет */
+@media (min-width: 769px) {
+  html body .sidebar-flyout {
+    position: absolute; left: 200px; top: 0; width: 196px; min-width: 196px; flex-shrink: 0;
+    transform: translateX(-14px); opacity: 0; visibility: hidden; pointer-events: none;
+    transition: transform .26s cubic-bezier(.22,1,.36,1), opacity .2s cubic-bezier(.22,1,.36,1), visibility .26s;
+  }
+  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; width: 196px; min-width: 196px; }
+  html body .flyout-pin { display: none !important; }
+  html body.flyout-expanded .main-rail { margin-left: 194px !important; }
+  html body.flyout-expanded header.glass.app-header { left: 200px !important; }
+  html body .sidebar-app::before { content: ""; position: fixed; inset: 0; z-index: -1; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  html[data-theme="neon"] body .sidebar-app::before { background: rgba(0,0,0,.5); }
+  html body.flyout-expanded .sidebar-app::before { opacity: 1; pointer-events: auto; }
+  html body header.glass.app-header { transition: filter .2s ease; }
+  html body.flyout-expanded header.glass.app-header { filter: brightness(.72); clip-path: inset(-24px -24px -24px 198px); }
+  html[data-theme="neon"] body.flyout-expanded header.glass.app-header { filter: brightness(.5); }
+}
+@media (min-width: 1761px) {
+  html body.flyout-expanded header.glass.app-header { left: calc((100vw - 1760px) / 2 + 232px) !important; clip-path: inset(-24px -24px -24px 166px); }
+}

@@ -54,7 +54,6 @@
     function buildFlyouts() {
         var app = doc.getElementById('sidebar-app');
         if (!app) return;
-        var pinSrc = doc.querySelector('#fly-beta .flyout-pin');
         Object.keys(SECTIONS).forEach(function (tab) {
             var s = SECTIONS[tab];
             if (doc.getElementById(s.fly)) return;
@@ -65,7 +64,6 @@
                     return '<div class="nav-item" role="button" tabindex="0" data-nrn="' + tab + ':' + it.id + '"' + (it.staff ? ' data-nrn-staff="1"' : '') + '>' +
                         SVG + ICO[it.ico] + '</svg><span class="nav-item-label">' + esc(it.label) + '</span>' + (it.badge ? '<span class="nav-beta-badge">' + it.badge + '</span>' : '') + '</div>';
                 }).join('') + '</div>';
-            if (pinSrc) f.querySelector('.flyout-header').appendChild(pinSrc.cloneNode(true));
             var after = doc.getElementById('fly-tools') || doc.getElementById('fly-beta');
             if (after && after.parentNode === app) app.insertBefore(f, after); else app.appendChild(f);
             var btn = doc.querySelector('.rail-btn[data-tab="' + tab + '"]');
@@ -80,13 +78,6 @@
             ag.innerHTML = SVG + '<circle cx="9" cy="8.5" r="3.3"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M16 5.4a3 3 0 0 1 0 6M17.5 14.6c2 .6 3.2 2.4 3.2 5.4"/></svg><span class="nav-item-label">Агенты</span>';
             var sec = doc.createElement('div'); sec.className = 'flyout-sec'; sec.setAttribute('data-staff-only', '1'); sec.textContent = 'Помощники';
             tools.appendChild(sec); tools.appendChild(ag);
-        }
-        // подпись под логотипом
-        var logo = doc.getElementById('sidebar-home-btn');
-        if (logo && !doc.getElementById('nr-logo-sub')) {
-            var sub = doc.createElement('div');
-            sub.id = 'nr-logo-sub'; sub.className = 'nr-logo-sub'; sub.textContent = 'Nur Consulting';
-            logo.parentNode.insertBefore(sub, logo.nextSibling);
         }
     }
 
@@ -176,6 +167,14 @@
                 var q = v.split(':'); go(q[0], q[1]); return;
             }
             setTimeout(refresh, 80);
+        });
+        // Нажатие на затемнение вокруг меню или Esc закрывает панель; выбор пункта в любой панели тоже закрывает её.
+        doc.addEventListener('click', function (e) {
+            if ((e.target === doc.documentElement || (e.target.id === 'sidebar-app')) && doc.body.classList.contains('flyout-expanded') && root.closeSidebarMenus) root.closeSidebarMenus(true);
+            else if (e.target.closest && e.target.closest('.sidebar-flyout .nav-item')) setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(true); }, 0);
+        });
+        doc.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && doc.body.classList.contains('flyout-expanded') && root.closeSidebarMenus) root.closeSidebarMenus(true);
         });
         doc.addEventListener('keydown', function (e) {
             if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('[data-nrn]')) { e.preventDefault(); e.target.click(); }
