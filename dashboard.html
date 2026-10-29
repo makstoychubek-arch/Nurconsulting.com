@@ -6059,11 +6059,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/analytics': 'analytics', '/backups': 'backups', '/reports': 'summary' };
+            var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/analytics': 'analytics', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
             // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
             var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs'];
-            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, analytics: 1, backups: 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
+            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, analytics: 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -8458,7 +8458,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ui.44c7317afc.min.js"></script>
 <script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
 <script src="/dist/nr-analytics.97794c8fd3.min.js"></script>
-<script src="/dist/nr-backups.065c6d4d9f.min.js"></script>
+<script src="/dist/nr-backups.9e60811b8e.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.443f469247.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
@@ -8506,7 +8506,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents', 'akylai']);
-    const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots', 'analytics', 'backups']);
+    const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots', 'analytics']);
     /* Бесплатно доступны только Акылай, настройки и тарифы. Остальные открытые клиенту
        разделы (PUBLIC_TABS) видны с замком и открываются по платному тарифу.
        Решение принимает база (has_paid_access), здесь — только отображение. */
@@ -8551,7 +8551,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
         });
     }
-    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'backups', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
+    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
     // До загрузки кабинетов из БД не показываем экран «подключите кабинет» (иначе мигает у активных).
     let cabinetsLoaded = false;
@@ -9709,7 +9709,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         'cabinets-hub': '/cabinets', 'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
         'telegram-bots': '/telegram-bots', ozon: '/ozon', agents: '/agents',
-        'goods-groups': '/goods', 'content-factory': '/content', analytics: '/analytics', backups: '/backups', summary: '/reports',
+        'goods-groups': '/goods', 'content-factory': '/content', analytics: '/analytics', summary: '/reports',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -9721,7 +9721,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         'ab-testing':'А/Б Тесты', advertising:'Продвижение', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
         'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты', akylai:'Агенты',
-        'content-factory':'Контент-завод', analytics:'Аналитика', backups:'Копии',
+        'content-factory':'Контент-завод', analytics:'Аналитика',
         'cabinets-hub':'Кабинеты',
     };
 
@@ -9735,7 +9735,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'agents', ozon:'beta', agents:'agents',
         cost:'beta', 'goods-groups':'goods', warehouse:'beta',
-        'content-factory':'content', analytics:'content', backups:'content',
+        'content-factory':'content', analytics:'content',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
         tariffs:'beta',
     };

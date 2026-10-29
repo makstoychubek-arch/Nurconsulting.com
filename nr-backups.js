@@ -1,6 +1,6 @@
-/* Копии (Инструменты, только команда, BETA): чтение файлов копии базы прямо в браузере.
+/* Копии (Настройки, только суперадмин): чтение файлов копии базы прямо в браузере.
  * Принимает CSV и CSV.GZ (по файлу на таблицу), ничего никуда не отправляет, поэтому работает и без базы.
- * Страница и пункт меню создаются здесь, чтобы не раздувать dashboard.html. */
+ * Вкладка и панель создаются здесь, чтобы не раздувать dashboard.html. */
 (function (root) {
     'use strict';
     var doc = root.document;
@@ -162,13 +162,32 @@
         if (t.closest && t.closest('[data-bk-dl]')) { download(S.cur.name + '.csv', csvOut(S.cur.cols, filtered())); }
     }
 
+    function isSuper() { try { return typeof isSuperAdmin !== 'undefined' && !!isSuperAdmin; } catch (e) { return false; } }
+
+    // Раздел «Копии» в Настройках, только для суперадмина (вкладка и панель создаются здесь).
     function mount() {
-        if (doc.getElementById('tab-backups')) return;
-        var anchor = doc.getElementById('tab-analytics');
-        if (!anchor) return;
+        if (tab || !isSuper()) return !!tab;
+        var tabs = doc.getElementById('settings-section-tabs'), sec = doc.getElementById('settings-security');
+        if (!tabs || !sec) return false;
+        var btn = doc.createElement('div');
+        btn.className = 'settings-section-tab'; btn.id = 'settings-tab-btn-backups'; btn.textContent = 'Копии';
+        var anchor = doc.getElementById('settings-tab-btn-features') || tabs.lastElementChild;
+        tabs.insertBefore(btn, anchor ? anchor.nextSibling : null);
         tab = doc.createElement('div');
-        tab.id = 'tab-backups'; tab.className = 'tab-content'; tab.setAttribute('data-staff-only', '1');
-        anchor.parentNode.insertBefore(tab, anchor.nextSibling);
+        tab.id = 'settings-backups'; tab.className = 'hidden';
+        sec.parentNode.insertBefore(tab, sec.nextSibling);
+        btn.addEventListener('click', function () {
+            Array.prototype.forEach.call(tabs.querySelectorAll('.settings-section-tab'), function (t) { t.classList.remove('active'); });
+            ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(function (n) {
+                var p = doc.getElementById('settings-' + n); if (p) p.classList.add('hidden');
+            });
+            btn.classList.add('active'); tab.classList.remove('hidden');
+        });
+        // любая другая вкладка Настроек прячет «Копии»
+        tabs.addEventListener('click', function (e) {
+            var t = e.target.closest && e.target.closest('.settings-section-tab');
+            if (t && t !== btn) { tab.classList.add('hidden'); btn.classList.remove('active'); }
+        }, true);
         tab.addEventListener('click', onClick);
         tab.addEventListener('change', function (e) { if (e.target && e.target.id === 'bk-file') load(e.target.files); });
         var timer = null;
@@ -178,17 +197,12 @@
             timer = setTimeout(function () { S.q = e.target.value; S.shown = PAGE; draw(); }, 200);
         });
         draw();
-        var fly = doc.querySelector('#fly-tools .flyout-body');
-        if (fly && !fly.querySelector('[data-bk-nav]')) {
-            var item = doc.createElement('div');
-            item.className = 'nav-item'; item.setAttribute('data-bk-nav', '1'); item.setAttribute('data-staff-only', '1');
-            item.setAttribute('onclick', "showTab('backups', this)");
-            item.innerHTML = '<svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></svg>' +
-                '<span class="nav-item-label">Копии</span><span class="nav-beta-badge">BETA</span>';
-            var sec = doc.createElement('div'); sec.className = 'flyout-sec'; sec.setAttribute('data-staff-only', '1'); sec.textContent = 'Данные';
-            fly.appendChild(sec); fly.appendChild(item);
-        }
+        return true;
     }
-    if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
+    // Роль приходит с сервера чуть позже загрузки страницы: проверяем, пока не определится.
+    function boot() {
+        var tries = 0, t = setInterval(function () { if (mount() || ++tries > 60) clearInterval(t); }, 500);
+    }
+    if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
     root.NrBackups = { parseCsv: parseCsv, mount: mount };
 })(typeof window !== 'undefined' ? window : globalThis);
