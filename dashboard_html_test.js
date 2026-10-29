@@ -59,16 +59,16 @@ assert.ok(
     assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-flyout="fly-tools"') &&
         rail.indexOf('data-flyout="fly-tools"') < rail.indexOf('data-tab="goods-groups"') &&
         rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-tab="analytics"') &&
-        rail.indexOf('data-tab="analytics"') < rail.indexOf('data-tab="agents"') &&
-        rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-flyout="fly-beta"'),
-        'Аналитика sits on the rail between Товары and Агенты (Контент ушёл в Продвижение)');
+        rail.indexOf('data-tab="analytics"') < rail.indexOf('data-flyout="fly-beta"') &&
+        !rail.includes('data-tab="agents"') && !rail.includes('data-tab="tariffs"'),
+        'Аналитика на панели, Агенты ушли в «Инструменты», Тарифы в Настройки');
 }
 assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
     'РНП rail button opens the module, not a second column');
 assert.ok(/<span class="rail-btn-lbl">Инструменты<\/span>/.test(html) && /id="fly-tools"/.test(html) && /id="fly-tools"[\s\S]*?showTab\('ab-testing'/.test(html),
     'А/Б Тесты sit on the main rail as a live tab');
-assert.ok(/data-tab="tariffs" title="Тарифы"/.test(html) && /data-flyout="fly-beta" data-staff-only="1"/.test(html),
-    'Тарифы sit on the rail for clients; the BETA column is team-only');
+assert.ok(/id="settings-tab-btn-tariffs"/.test(html) && /data-flyout="fly-beta" data-staff-only="1"/.test(html),
+    'Тарифы живут в Настройках; колонка BETA только для команды');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
 assert.ok(html.includes("const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])"),
@@ -1833,7 +1833,7 @@ assert.ok(
 );
 assert.ok(
     html.includes("LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])") &&
-    html.includes('data-tab="agents"') &&
+    html.includes("tab-agents") &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&
     html.includes('function submitTelegramBotHub') &&
