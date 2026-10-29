@@ -76,8 +76,7 @@
             ag.className = 'nav-item'; ag.setAttribute('data-nr-agents', '1'); ag.setAttribute('data-staff-only', '1');
             ag.setAttribute('onclick', "showTab('agents', this)");
             ag.innerHTML = SVG + '<circle cx="9" cy="8.5" r="3.3"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M16 5.4a3 3 0 0 1 0 6M17.5 14.6c2 .6 3.2 2.4 3.2 5.4"/></svg><span class="nav-item-label">Агенты</span>';
-            var sec = doc.createElement('div'); sec.className = 'flyout-sec'; sec.setAttribute('data-staff-only', '1'); sec.textContent = 'Помощники';
-            tools.appendChild(sec); tools.appendChild(ag);
+            tools.appendChild(ag);
         }
     }
 
