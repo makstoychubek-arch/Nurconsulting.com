@@ -436,9 +436,9 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         });
     }
 
-    // У хозяина кабинета (обычные настройки) карточка с кнопкой в «Безопасности».
+    // У хозяина кабинета (обычные настройки): «Пользователи» в Профиле, «Интеграции» в своём разделе.
     function card() {
-        const host = document.getElementById('settings-security');
+        const host = document.getElementById('nrs-users-slot');
         if (!host || document.getElementById('nr-acc-card') || (window.NrViewer && window.NrViewer.on)) return;
         let id = ''; try { id = typeof hasUserCabinets !== 'undefined' && hasUserCabinets ? currentCabinetId : ''; } catch (_) {}
         if (!id) return;
@@ -446,16 +446,16 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         c.id = 'nr-acc-card'; c.className = 'widget-card p-6';
         c.innerHTML = '<h3 class="font-semibold mb-1" style="color:var(--text-primary)">Пользователи</h3><p class="text-xs mb-3" style="color:var(--text-muted)">До 5 человек смогут смотреть кабинет, менять данные они не смогут.</p><button type="button" class="ui-btn ui-btn-secondary">Управлять пользователями</button>';
         c.querySelector('button').onclick = () => { let n = ''; try { n = (nrCabinetList().find((x) => x.id === currentCabinetId) || {}).name || ''; } catch (_) {} open(currentCabinetId, n); };
-        host.prepend(c);
-        if (!document.getElementById('nr-mcp-card')) {
+        host.appendChild(c);
+        if (!document.getElementById('nr-mcp-card') && document.getElementById('nrs-mcp-slot')) {
             const m = document.createElement('div');
             m.id = 'nr-mcp-card'; m.className = 'widget-card p-6';
             m.innerHTML = '<h3 class="font-semibold mb-1" style="color:var(--text-primary)">Интеграции</h3><div id="nr-set-mcp-c" class="nr-mcp-c"></div>';
-            c.after(m);
+            document.getElementById('nrs-mcp-slot').appendChild(m);
             mcpLoad(m.querySelector('#nr-set-mcp-c'));
         }
     }
     document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#rail-settings-btn')) setTimeout(card, 150); });
 
-    window.NrAccess = { open, mount, mode };
+    window.NrAccess = { open, mount, mode, card };
 })();
