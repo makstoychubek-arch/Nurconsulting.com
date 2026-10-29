@@ -165,6 +165,8 @@
 
     function boot() {
         buildFlyouts();
+        // Подпись у кнопок меню уже видна, всплывающий ярлык браузера дублирует её.
+        doc.querySelectorAll('#sidebar-app .rail-btn[title]').forEach(function (b) { b.removeAttribute('title'); });
         doc.addEventListener('click', function (e) {
             var n = e.target.closest && e.target.closest('[data-nrn]');
             if (n) { var p = n.getAttribute('data-nrn').split(':'); go(p[0], p[1]); return; }
