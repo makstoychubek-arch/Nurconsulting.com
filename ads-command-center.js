@@ -81,68 +81,29 @@
     }
 
     const WB_METRIC_COLS = [
-        { key: 'budget', title: 'Остаток бюджета' },
-        { key: 'spend', title: 'Затраты' },
-        { key: 'views', title: 'Показы' },
-        { key: 'ctr', title: 'CTR' },
-        { key: 'orders', title: 'Созданные заказы' },
-        { key: 'shks', title: 'Принятые заказы' },
-        { key: 'drr', title: 'Доля затрат' },
-        { key: 'pos', title: 'Позиция в поиске' },
-        { key: 'clicks', title: 'Клики' },
-        { key: 'atbs', title: 'Добавления в корзину' },
-        { key: 'revenue', title: 'Сумма заказов' },
-        { key: 'cpc', title: 'CPC' },
-        { key: 'cpo', title: 'CPO' },
-        { key: 'cr', title: 'CR' },
-        { key: 'cpm', title: 'CPM' },
-        { key: 'roas', title: 'ROAS' },
-        { key: 'cancels', title: 'Отмены технические' },
+        { key: 'budget', title: 'Баланс', tip: 'Сколько денег осталось на счёте кампании.' },
+        { key: 'spend', title: 'Затраты', tip: 'Сколько потрачено на рекламу за выбранный период.' },
+        { key: 'views', title: 'Показы', tip: 'Сколько раз реклама была показана покупателям.' },
+        { key: 'ctr', title: 'CTR', tip: 'Доля кликов от показов: клики ÷ показы × 100.' },
+        { key: 'orders', title: 'Заказы', tip: 'Сколько заказов принесла кампания.' },
+        { key: 'drr', title: 'Доля затрат', tip: 'Расход на рекламу ÷ сумма заказов × 100. Чем меньше, тем выгоднее.' },
+        { key: 'pos', title: 'Позиция в поиске', tip: 'Средняя позиция товара в выдаче поиска WB.' },
+        { key: 'clicks', title: 'Клики', tip: 'Сколько раз покупатели нажали на рекламу.' },
+        { key: 'atbs', title: 'Добавления в корзину', tip: 'Сколько раз товар добавили в корзину после рекламы.' },
+        { key: 'revenue', title: 'Сумма заказов', tip: 'На какую сумму оформлено заказов с рекламы.' },
+        { key: 'cpc', title: 'CPC', tip: 'Цена клика: расход ÷ клики.' },
+        { key: 'cpo', title: 'CPO', tip: 'Цена заказа: расход ÷ заказы.' },
+        { key: 'cr', title: 'CR', tip: 'Доля заказов от кликов: заказы ÷ клики × 100.' },
+        { key: 'cpm', title: 'CPM', tip: 'Цена за 1000 показов: расход ÷ показы × 1000.' },
+        { key: 'roas', title: 'ROAS', tip: 'Отдача рекламы: сумма заказов ÷ расход.' },
     ];
+    const byKey = (...keys) => keys.map((k) => WB_METRIC_COLS.find((c) => c.key === k));
 
     const COL_PRESETS = {
-        all: {
-            id: 'all',
-            label: 'Все',
-            cols: WB_METRIC_COLS,
-        },
-        stats: {
-            id: 'stats',
-            label: 'Затраты',
-            cols: [
-                { key: 'budget', title: 'Остаток бюджета' },
-                { key: 'spend', title: 'Затраты' },
-                { key: 'views', title: 'Показы' },
-                { key: 'ctr', title: 'CTR' },
-                { key: 'orders', title: 'Созданные заказы' },
-                { key: 'shks', title: 'Принятые заказы' },
-            ],
-        },
-        funnel: {
-            id: 'funnel',
-            label: 'Воронка',
-            cols: [
-                { key: 'budget', title: 'Остаток бюджета' },
-                { key: 'drr', title: 'Доля затрат' },
-                { key: 'pos', title: 'Позиция в поиске' },
-                { key: 'clicks', title: 'Клики' },
-                { key: 'atbs', title: 'Добавления в корзину' },
-                { key: 'revenue', title: 'Сумма заказов' },
-            ],
-        },
-        unit: {
-            id: 'unit',
-            label: 'Эффективность',
-            cols: [
-                { key: 'budget', title: 'Остаток бюджета' },
-                { key: 'cpc', title: 'CPC' },
-                { key: 'cpo', title: 'CPO' },
-                { key: 'cr', title: 'CR' },
-                { key: 'cpm', title: 'CPM' },
-                { key: 'roas', title: 'ROAS' },
-                { key: 'cancels', title: 'Отмены технические' },
-            ],
-        },
+        all: { id: 'all', label: 'Все', cols: WB_METRIC_COLS },
+        stats: { id: 'stats', label: 'Затраты', cols: byKey('budget', 'spend', 'views', 'ctr', 'orders') },
+        funnel: { id: 'funnel', label: 'Воронка', cols: byKey('budget', 'drr', 'pos', 'clicks', 'atbs', 'revenue') },
+        unit: { id: 'unit', label: 'Эффективность', cols: byKey('budget', 'cpc', 'cpo', 'cr', 'cpm', 'roas') },
     };
 
     function campHasStats(camp) {
@@ -1066,7 +1027,7 @@
     }
 
     function tableColspan() {
-        return 4 + currentCols().length;
+        return 3 + currentCols().length;
     }
 
     function rangeLabel(range) {
@@ -1293,30 +1254,89 @@
         return '—';
     }
 
+    /* Динамика к прошлому периоду той же длины. up: рост это хорошо (заказы, ROAS, CTR); для затрат и доли затрат наоборот. */
+    const KPI_DEFS = [
+        { id: 'revenue', label: 'Сумма заказов', goodUp: true },
+        { id: 'spend', label: 'Затраты', goodUp: false },
+        { id: 'drr', label: 'Доля затрат', goodUp: false, main: true },
+        { id: 'roas', label: 'ROAS', goodUp: true },
+        { id: 'ctr', label: 'CTR', goodUp: true },
+    ];
+    function kpiDynHtml(def) {
+        const d = state.kpiDyn && state.kpiDyn[def.id];
+        if (d == null || !Number.isFinite(d) || Math.abs(d) < 0.5) return '';
+        const up = d > 0;
+        const good = up === def.goodUp;
+        return (up ? '\u25B2 ' : '\u25BC ') + Math.round(Math.abs(d)) + ' %' + (good ? '|g' : '|b');
+    }
+    function paintKpiDyn() {
+        KPI_DEFS.forEach((def) => {
+            const node = document.getElementById('ads-hq-kpi-d-' + def.id);
+            if (!node) return;
+            const t = kpiDynHtml(def);
+            const parts = t.split('|');
+            node.textContent = parts[0] || '';
+            node.classList.toggle('up', parts[1] === 'g');
+        });
+    }
+    function sumStatRows(legacy, v2, from, to) {
+        const t = { spend: 0, rev: 0, views: 0, clicks: 0 };
+        const inRange = (d) => { const day = String(d || '').slice(0, 10); return (!from || day >= from) && (!to || day <= to); };
+        (legacy || []).forEach((r) => { if (!inRange(r.stat_date)) return; t.spend += num(r.spend); t.rev += num(r.sum_price || r.revenue); t.views += num(r.views); t.clicks += num(r.clicks); });
+        (v2 || []).forEach((r) => { if (!inRange(r.date)) return; t.spend += num(r.spend); t.rev += num(r.revenue); t.views += num(r.views); t.clicks += num(r.clicks); });
+        return t;
+    }
+    function dynOf(cur, prev) { return prev > 0 && Number.isFinite(cur) ? (cur - prev) / prev * 100 : null; }
+    function kpiMetrics(t) {
+        return {
+            revenue: t.rev, spend: t.spend,
+            drr: t.rev > 0 ? t.spend / t.rev * 100 : null,
+            roas: t.spend > 0 ? t.rev / t.spend : null,
+            ctr: t.views > 0 ? t.clicks / t.views * 100 : null,
+        };
+    }
+    async function loadKpiDynamics(cab, ids, v2Ids, legacyStats, v2Stats, range, gen) {
+        if (!range.from || !range.to) return;
+        const day = 86400000;
+        const f = new Date(range.from + 'T00:00:00Z').getTime();
+        const t = new Date(range.to + 'T00:00:00Z').getTime();
+        if (!Number.isFinite(f) || !Number.isFinite(t) || t < f) return;
+        const len = Math.round((t - f) / day) + 1;
+        const pTo = ymd(new Date(f - day));
+        const pFrom = ymd(new Date(f - len * day));
+        const [pl, pv] = await Promise.all([
+            ids.length ? safeRows('advertising_daily_stats', [
+                { op: 'in', column: 'cabinet_id', value: ids },
+                { op: 'gte', column: 'stat_date', value: pFrom },
+                { op: 'lte', column: 'stat_date', value: pTo },
+            ], 'cabinet_id,stat_date,spend,sum_price,revenue,views,clicks') : [],
+            v2Ids.length ? safeRows('adv_daily_stats', [
+                { op: 'in', column: 'campaign_id', value: v2Ids },
+                { op: 'gte', column: 'date', value: pFrom },
+                { op: 'lte', column: 'date', value: pTo },
+            ], 'campaign_id,date,spend,revenue,views,clicks') : [],
+        ]);
+        if (gen !== state.dynGen || cab !== state.filterCabinetId) return;
+        const cur = kpiMetrics(sumStatRows(legacyStats, v2Stats, range.from, range.to));
+        const prev = kpiMetrics(sumStatRows(pl, pv, pFrom, pTo));
+        const dyn = {};
+        KPI_DEFS.forEach((d) => { dyn[d.id] = dynOf(cur[d.id], prev[d.id]); });
+        state.kpiDyn = dyn;
+        paintKpiDyn();
+    }
+
     function renderKpis(totals, pending) {
         const el = document.getElementById('ads-hq-kpis');
         if (!el) return;
         const one = state.filterCabinetId ? (cabinetRows()[0] || null) : null;
         const useTotals = !state.filterCabinetId && totals;
         const src = pending ? null : (one || (useTotals ? totals : null));
-        const revenue = pending ? '—' : formatInt(src && src.revenue7);
-        const spend = pending ? '—' : formatMoney2(src && src.spendToday);
-        const drr = pending ? '—' : kpiRatio(src, 'drr');
-        const roas = pending ? '—' : kpiRatio(src, 'roas');
-        const ctr = pending ? '—' : kpiRatio(src, 'ctr');
-        let bal = '—';
-        if (!pending) {
-            let sum = 0, any = false;
-            cabinetRows().forEach((r) => (r.campaigns || []).forEach((c) => { if (c.live && c.budget != null && Number.isFinite(c.budget)) { sum += c.budget; any = true; } }));
-            if (any) bal = formatInt(sum);
-        }
         const values = {
-            'ads-hq-kpi-balance': bal,
-            'ads-hq-kpi-revenue': revenue,
-            'ads-hq-kpi-spend': spend,
-            'ads-hq-kpi-drr': drr,
-            'ads-hq-kpi-roas': roas,
-            'ads-hq-kpi-ctr': ctr,
+            'ads-hq-kpi-revenue': pending ? '—' : formatInt(src && src.revenue7),
+            'ads-hq-kpi-spend': pending ? '—' : formatMoney2(src && src.spendToday),
+            'ads-hq-kpi-drr': pending ? '—' : kpiRatio(src, 'drr'),
+            'ads-hq-kpi-roas': pending ? '—' : kpiRatio(src, 'roas'),
+            'ads-hq-kpi-ctr': pending ? '—' : kpiRatio(src, 'ctr'),
         };
         const live = Object.keys(values).every((id) => document.getElementById(id));
         if (live) {
@@ -1327,21 +1347,14 @@
                 if (window.NrWow) window.NrWow.tickText(node, next);
                 else node.textContent = next;
             });
+            paintKpiDyn();
             return;
         }
-        el.innerHTML =
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Баланс</div>' +
-            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-balance">' + esc(bal) + '</div></div>' +
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Заказы</div>' +
-            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-revenue">' + esc(revenue) + '</div></div>' +
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Затраты</div>' +
-            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-spend">' + esc(spend) + '</div></div>' +
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ДРР</div>' +
-            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-drr">' + esc(drr) + '</div></div>' +
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ROAS</div>' +
-            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-roas">' + esc(roas) + '</div></div>' +
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">CTR</div>' +
-            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-ctr">' + esc(ctr) + '</div></div>';
+        el.innerHTML = KPI_DEFS.map((def) =>
+            '<div class="ads-hq-kpi' + (def.main ? ' main' : '') + '"><div class="ads-hq-kpi-label">' + def.label + '</div>' +
+            '<div class="ads-hq-kpi-value"><span id="ads-hq-kpi-' + def.id + '">' + esc(values['ads-hq-kpi-' + def.id]) + '</span>' +
+            '<span class="ads-hq-kpi-d" id="ads-hq-kpi-d-' + def.id + '"></span></div></div>').join('');
+        paintKpiDyn();
     }
 
     function emptyShelvesHtml(pausedCount, totalCount) {
@@ -1364,11 +1377,12 @@
     /* Ползунок из трёх положений: 0 — выключена, 1 — включена, A — автопилот ведёт ставки. */
     function toggleHtml(cab, camp) {
         const pos = !camp.live ? 0 : ((camp.auto || shelvesOn(cab.id, camp.wbId)) ? 2 : 1);
-        const btn = (n, label, title) => '<button type="button" class="ads-sl-b' + (pos === n ? ' on' : '') + '" data-pos="' + n +
-            '" aria-pressed="' + (pos === n ? 'true' : 'false') + '" title="' + title + '">' + label + '</button>';
+        const ic = { 0: '<path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/>', 1: '<path d="M8 5.5v13l11-6.5z"/>', 2: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>' };
+        const btn = (n, title) => '<button type="button" class="ads-sl-b' + (pos === n ? ' on' : '') + '" data-pos="' + n +
+            '" aria-pressed="' + (pos === n ? 'true' : 'false') + '" aria-label="' + title + '" title="' + title + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + ic[n] + '</svg></button>';
         return '<div class="ads-sl p' + pos + '" role="group" aria-label="Режим кампании" data-cabinet="' + esc(cab.id) +
             '" data-wb="' + esc(camp.wbId) + '">' +
-            btn(0, '0', 'Выключена') + btn(1, '1', 'Включена') + btn(2, 'A', 'Автопилот сам ведёт ставки') + '</div>';
+            btn(0, 'Выключена') + btn(1, 'Включена') + btn(2, 'Автопилот сам ведёт ставки') + '</div>';
     }
 
     function mainLineHtml(camp) {
@@ -1390,8 +1404,7 @@
         const payment = paymentTypeLabel(camp.paymentType);
         const bid = bidTypeLabel(camp.bidType);
         if (payment) {
-            return '<div class="ads-hq-type"><b>' + esc(payment) + '</b>' +
-                (bid ? '<span>' + esc(bid) + '</span>' : '') + '</div>';
+            return '<span class="ads-hq-type"><b>' + esc(payment) + '</b>' + (bid ? ' · <span>' + esc(String(bid).toLowerCase()) + '</span>' : '') + '</span>';
         }
         return esc(camp.typeLabel || campaignTypeLabel(camp.type));
     }
@@ -1429,12 +1442,12 @@
         const el = document.getElementById('ads-hq-thead');
         if (!el) return;
         const cols = currentCols();
+        const tip = (t) => t ? ' data-tip="' + esc(t) + '"' : '';
         el.innerHTML = '<tr>' +
-            '<th class="ads-hq-pin ads-hq-pin-tg"></th>' +
-            '<th class="ads-hq-pin ads-hq-pin-camp">Кампания</th>' +
-            '<th class="ads-hq-pin ads-hq-pin-sku">Товар</th>' +
-            '<th class="ads-hq-pin ads-hq-pin-type">Тип кампании</th>' +
-            cols.map((c) => '<th class="ads-hq-metric">' + esc(c.title) + '</th>').join('') +
+            '<th class="ads-hq-pin ads-hq-pin-tg ads-hq-tip"' + tip('Выключена, включена или автопилот сам ведёт ставки.') + '><span>Режим</span></th>' +
+            '<th class="ads-hq-pin ads-hq-pin-camp ads-hq-tip"' + tip('Название, номер и статус кампании.') + '><span>Кампания</span></th>' +
+            '<th class="ads-hq-pin ads-hq-pin-type ads-hq-tip"' + tip('Как оплачивается реклама (CPM за показы, CPC за клики) и как ведётся ставка.') + '><span>Тип</span></th>' +
+            cols.map((c) => '<th class="ads-hq-metric ads-hq-tip"' + tip(c.tip) + '><span>' + esc(c.title) + '</span></th>').join('') +
             '</tr>';
     }
 
@@ -1444,7 +1457,6 @@
         return '<tr class="ads-hq-camp ads-hq-camp-top ads-hq-wb-row" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
             '<td class="ads-hq-pin ads-hq-pin-tg">' + toggleHtml(cab, camp) + '</td>' +
             '<td class="ads-hq-pin ads-hq-pin-camp"' + (pad ? ' style="padding-left:28px"' : '') + '>' + campIdentityHtml(cab, camp) + '</td>' +
-            '<td class="ads-hq-pin ads-hq-pin-sku">' + productCellHtml(camp) + '</td>' +
             '<td class="ads-hq-pin ads-hq-pin-type">' + typeCellHtml(camp) + '</td>' +
             cols.map((col) => '<td class="ads-hq-metric">' + formatMetric(camp, col.key) + '</td>').join('') +
             '</tr>';
@@ -2413,6 +2425,8 @@
         if (state.cache.size > 8) state.cache.delete(state.cache.keys().next().value);
         paintModel();
         if (note) note.textContent = '';
+        const dynGen = state.dynGen = (state.dynGen || 0) + 1;
+        loadKpiDynamics(cab, ids, v2Ids, legacyStats, v2Stats, range, dynGen).catch(() => {});
         return state.model;
     }
 
