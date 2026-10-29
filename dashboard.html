@@ -8127,13 +8127,20 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         toast('Новый заказ: ' + label);
     }
 
+    // Подписка только при включённом звуке и после трёх неудач не повторяется: цикл переподключений при ошибке JWT грузил базу (сбой 29.10).
+    var fails = 0;
     function start() {
-        if (started || typeof supabase === 'undefined' || !supabase.channel) return;
+        var st = load();
+        if (started || fails >= 3 || !st.enabled || !st.nms.length || typeof supabase === 'undefined' || !supabase.channel) return;
         started = true;
         try {
             channel = supabase.channel('nr-order-events')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_events' }, function (payload) { handle(payload && payload.new); })
-                .subscribe();
+                .subscribe(function (status) {
+                    if (status === 'SUBSCRIBED') { fails = 0; return; }
+                    if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
+                    if (++fails >= 3) { try { supabase.removeChannel(channel); } catch (e) {} channel = null; started = false; }
+                });
         } catch (e) { started = false; }
     }
 
