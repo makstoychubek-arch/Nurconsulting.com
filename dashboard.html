@@ -6175,9 +6175,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4a1 1 0 0 0 1 1h2.5l7 4.5V5.5L7.5 10H5a1 1 0 0 0-1 0z"/><path d="M18.5 9.5a4 4 0 0 1 0 5"/><path d="M7.5 15l1 4.5"/></svg></span>
                     <span class="rail-btn-lbl">Продвижение</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="ab-testing" title="А/Б Тесты">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M12 4v16"/><path d="M6.5 14.5l1.5-5 1.5 5M7 13h2"/><path d="M15 9.5v5M15 9.5h1.3a1.2 1.2 0 0 1 0 2.4H15M15 11.9h1.5a1.3 1.3 0 0 1 0 2.6H15"/></svg></span>
-                    <span class="rail-btn-lbl">А/Б</span>
+                <button type="button" class="rail-btn" data-flyout="fly-tools" title="Инструменты">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.6 17.2a1.7 1.7 0 0 0 2.4 2.4l5.7-5.7a4 4 0 0 0 5.2-5.4l-2.5 2.5-2.2-.5-.5-2.2z"/></svg></span>
+                    <span class="rail-btn-lbl">Инструменты</span>
                 </button>
                 <button type="button" class="rail-btn" data-tab="goods-groups" title="Логистика">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2L12 3z"/><path d="M4.3 7.4L12 11.5l7.7-4.1M12 11.5V21"/></svg></span>
@@ -6221,6 +6221,19 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 </div>
             </div>
         </aside>
+
+        <div class="sidebar-flyout" id="fly-tools" data-group="tools">
+            <div class="flyout-header">
+                <span class="flyout-title">Инструменты</span>
+            </div>
+            <div class="flyout-body">
+                <div class="flyout-sec">Тесты</div>
+                <div class="nav-item" onclick="showTab('ab-testing', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M12 4v16"/><path d="M6.5 14.5l1.5-5 1.5 5M7 13h2"/><path d="M15 9.5v5M15 9.5h1.3a1.2 1.2 0 0 1 0 2.4H15M15 11.9h1.5a1.3 1.3 0 0 1 0 2.6H15"/></svg>
+                    <span class="nav-item-label">А/Б тесты</span>
+                </div>
+            </div>
+        </div>
 
         <div class="sidebar-flyout" id="fly-beta" data-group="beta">
             <div class="flyout-header">
@@ -9763,6 +9776,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         document.querySelectorAll('.rail-btn').forEach(b => {
             if (b.dataset.flyout === 'fly-beta') {
                 b.classList.toggle('active', !live);
+            } else if (b.dataset.flyout === 'fly-tools') {
+                b.classList.toggle('active', tabName === 'ab-testing');
             } else if (b.dataset.tab) {
                 const match = live && (b.dataset.tab === tabName
                     || (b.dataset.tab === 'rnp' && tabName === 'rnp-settings')
