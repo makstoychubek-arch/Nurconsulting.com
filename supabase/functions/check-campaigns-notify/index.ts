@@ -137,12 +137,11 @@ Deno.serve(async (req) => {
                         let text: string | null = null;
                         if (oldStatus === 9 && (newStatus === 11 || newStatus === 7)) {
                             eventType = newStatus === 7 ? 'campaign_finished' : 'campaign_paused';
-                            const icon = newStatus === 7 ? '⛔' : '⏸';
-                            const verb = newStatus === 7 ? 'завершена' : 'поставлена на паузу';
-                            text = `${icon} Кампания ${id} «${name}» (кабинет ${cabinet.name}) ${verb}`;
+                            const verb = newStatus === 7 ? 'ЗАВЕРШЕНА' : 'НА ПАУЗЕ';
+                            text = `РК ${verb} · ${String(cabinet.name).toLocaleUpperCase('ru-RU')}\n«${name}», номер ${id}`;
                         } else if (oldStatus === 11 && newStatus === 9) {
                             eventType = 'campaign_resumed';
-                            text = `▶ Кампания ${id} «${name}» (кабинет ${cabinet.name}) снова активна`;
+                            text = `РК СНОВА РАБОТАЕТ · ${String(cabinet.name).toLocaleUpperCase('ru-RU')}\n«${name}», номер ${id}`;
                         }
                         if (eventType && text) {
                             const sent = await notifyOnce(admin, tgToken, tgChatId, cabinet.id, id, eventType, text);
@@ -189,8 +188,8 @@ Deno.serve(async (req) => {
                         const suggested = await suggestTopUp(admin, cabinet.id);
                         const suggestLine = suggested ? `\nПри среднем расходе последней недели хватит примерно на 3 дня — можно пополнить на ~${suggested} ₽.` : '';
                         const text = balance <= 0
-                            ? `⚠ Кабинет «${cabinet.name}»: баланс на рекламу закончился (0 ₽)${suggestLine}`
-                            : `⚠ Кабинет «${cabinet.name}»: бюджет заканчивается, остаток ${Math.round(balance)} ₽${suggestLine}`;
+                            ? `БАЛАНС РК · ${String(cabinet.name).toLocaleUpperCase('ru-RU')}\nБаланс на рекламу закончился (0 ₽).${suggestLine}`
+                            : `БАЛАНС РК · ${String(cabinet.name).toLocaleUpperCase('ru-RU')}\nБюджет заканчивается, остаток ${Math.round(balance)} ₽.${suggestLine}`;
                         const sent = await notifyOnce(admin, tgToken, tgChatId, cabinet.id, null, 'low_balance', text);
                         events.push(`low_balance${sent ? '' : ' (dedup/skip)'}`);
                     }

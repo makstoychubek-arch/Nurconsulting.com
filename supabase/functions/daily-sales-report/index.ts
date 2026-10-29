@@ -1,4 +1,5 @@
 import '../_shared/wb-user-agent.ts';
+import { tgHead, tgRows } from '../_shared/tg-style.ts';
 // Supabase Edge Function: daily-sales-report
 // Ежедневный отчёт в Telegram-группу по каждому кабинету: таблица по артикулам
 // продавца — заказы шт/руб, выкупы шт/руб, остаток товара + строка "Итого".
@@ -275,12 +276,12 @@ function formatReportMessages(cabinetName: string, date: string, rows: ArticleRo
         st: acc.st + r.stock,
     }), { oc: 0, os: 0, bc: 0, bs: 0, st: 0 });
 
-    const title = `📊 <b>${escapeHtml(cabinetName)}</b> — отчёт за ${prettyDate}`;
-    const summary = [
-        `🛒 Заказы: <b>${t.oc} шт · ${fmtNum(t.os)} сом</b>`,
-        `✅ Выкупы: <b>${t.bc} шт · ${fmtNum(t.bs)} сом</b>`,
-        `📦 Остаток: <b>${fmtNum(t.st)} шт</b>`,
-    ].join('\n');
+    const title = tgHead(cabinetName, `отчёт за ${prettyDate}`);
+    const summary = tgRows([
+        ['Заказы', `${t.oc} шт  ${fmtNum(t.os)} сом`],
+        ['Выкупы', `${t.bc} шт  ${fmtNum(t.bs)} сом`],
+        ['Остаток', `${fmtNum(t.st)} шт`],
+    ]);
 
     const legend = 'Заказы шт·сом │ Выкупы шт·сом │ Ост';
     const sep = '─'.repeat(34);
@@ -557,9 +558,11 @@ function buildCaption(cabinetName: string, date: string, rows: ArticleRow[]): st
         bc: acc.bc + r.buyoutCount, bs: acc.bs + r.buyoutSum,
     }), { oc: 0, os: 0, bc: 0, bs: 0 });
     return [
-        `📊 <b>${escapeHtml(cabinetName)}</b> — отчёт за ${d[2]}.${d[1]}.${d[0]}`,
-        `🛒 Заказы: <b>${t.oc} шт · ${fmtNum(t.os)} сом</b>`,
-        `✅ Выкупы: <b>${t.bc} шт · ${fmtNum(t.bs)} сом</b>`,
+        tgHead(cabinetName, `отчёт за ${d[2]}.${d[1]}.${d[0]}`),
+        tgRows([
+            ['Заказы', `${t.oc} шт  ${fmtNum(t.os)} сом`],
+            ['Выкупы', `${t.bc} шт  ${fmtNum(t.bs)} сом`],
+        ]),
     ].join('\n');
 }
 

@@ -192,9 +192,9 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
                 const result = await applyEditedReply(admin, editing.id, text, userId);
                 if (result.ok) {
                     await resendReviewCard(admin, token, String(chatId), editing.id, footerPending(''), moderationKeyboard(editing.id));
-                    await sendReply(token, chatId, '✏️ Текст обновлён — нажмите ✅', message.message_id);
+                    await sendReply(token, chatId, 'Текст обновлён. Нажмите кнопку публикации под карточкой.', message.message_id);
                 } else {
-                    await sendReply(token, chatId, `❌ ${escapeHtml(result.error || 'ошибка')}`, message.message_id);
+                    await sendReply(token, chatId, `<b>НЕ ПОЛУЧИЛОСЬ</b>\n${escapeHtml(result.error || 'ошибка')}`, message.message_id);
                 }
                 return;
             }
@@ -225,7 +225,7 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
             const snapshots = await fetchAllCabinetSales(admin, query.date, query.cabinet);
             await sendReply(token, chatId, formatSalesReply(query.date, snapshots), message.message_id);
         } catch (e) {
-            await sendReply(token, chatId, `❌ ${escapeHtml(String(e).slice(0, 200))}`, message.message_id);
+            await sendReply(token, chatId, `<b>НЕ ПОЛУЧИЛОСЬ</b>\nПопробуйте ещё раз чуть позже. Если повторится, напишите команде.`, message.message_id);
         }
         return;
     }
@@ -253,7 +253,7 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
             const alert = snapshots.some((s) => s.total > 0) ? PENALTIES_ALERT : undefined;
             await sendReply(token, chatId, formatPenaltiesReply(query.date, snapshots, alert), message.message_id);
         } catch (e) {
-            await sendReply(token, chatId, `❌ ${escapeHtml(String(e).slice(0, 200))}`, message.message_id);
+            await sendReply(token, chatId, `<b>НЕ ПОЛУЧИЛОСЬ</b>\nПопробуйте ещё раз чуть позже. Если повторится, напишите команде.`, message.message_id);
         }
         return;
     }
@@ -280,7 +280,7 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
             const rows = await fetchAdsDayRows(admin, query.date, query.cabinet);
             await sendReply(token, chatId, formatAdsReply(query.date, rows), message.message_id);
         } catch (e) {
-            await sendReply(token, chatId, `❌ ${escapeHtml(String(e).slice(0, 200))}`, message.message_id);
+            await sendReply(token, chatId, `<b>НЕ ПОЛУЧИЛОСЬ</b>\nПопробуйте ещё раз чуть позже. Если повторится, напишите команде.`, message.message_id);
         }
         return;
     }
@@ -411,7 +411,7 @@ async function handleReviewCallback(token: string, cq: Record<string, unknown>):
         await dismiss('Неизвестная команда');
     } catch (e) {
         console.error('[telegram-webhook] review callback error:', e);
-        await dismiss('❌ Ошибка сервера');
+        await dismiss('Ошибка сервера, попробуйте ещё раз');
     }
 }
 
@@ -489,7 +489,7 @@ async function answerCallback(token: string, callbackQueryId: string, text: stri
             body: JSON.stringify({
                 callback_query_id: callbackQueryId,
                 text: text.slice(0, 200),
-                show_alert: text.startsWith('❌'),
+                show_alert: /^(Ошибка|Не получилось)/.test(text),
             }),
         });
     } catch (e) {

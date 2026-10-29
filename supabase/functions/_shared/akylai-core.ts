@@ -88,12 +88,12 @@ export function parseStartCode(text: unknown): string {
 }
 
 export const BOT_TEXT = {
-    connected: 'Здравствуйте! Я Акылай 😊 Кабинет подключён. Первые 20 ответов я пришлю вам на проверку. Когда убедитесь, что я пишу как надо, предложу включить автопубликацию.',
+    connected: 'Здравствуйте! Я Акылай. Кабинет подключён. Первые 20 ответов я пришлю вам на проверку. Когда убедитесь, что я пишу как надо, предложу включить автопубликацию.',
     alreadyConnected: 'Мы уже на связи — ответы на отзывы будут приходить сюда.',
     linkBad: 'Эта ссылка уже не работает. Нажмите «Получить новую ссылку» на сайте NR Space и откройте её снова.',
     noCode: 'Здравствуйте! Я Акылай. Чтобы подключиться, откройте ссылку со страницы «Агенты» на сайте NR Space.',
     editPrompt: 'Напишите новый текст ответа ответом на это сообщение — я опубликую его на WB.',
-    published: 'Опубликовано на WB ✅',
+    published: 'Опубликовано на WB.',
     publishFailed: 'Не получилось опубликовать. Я попробую ещё раз позже.',
     autoOffer: `Вы проверили ${AKYLAI_AUTO_OFFER_AFTER} ответов. Хотите, я буду публиковать ответы сразу, без проверки?`,
     autoOn: 'Автопубликация включена. Я буду публиковать ответы сразу и присылать их сюда для истории.',
@@ -185,7 +185,7 @@ export function finalizeReply(body: string, cabinetName: string, maxLen = 1000):
 
 function stars(n: number): string {
     const k = Math.max(0, Math.min(5, Math.round(n)));
-    return k ? '⭐'.repeat(k) : 'без оценки';
+    return k ? '★'.repeat(k) + '☆'.repeat(Math.max(0, 5 - k)) : 'без оценки';
 }
 
 function esc(s: string): string {
@@ -194,7 +194,7 @@ function esc(s: string): string {
 
 export function formatReplyCard(fb: FeedbackForReply, reply: string, mode: 'review' | 'auto'): string {
     const quote = [fb.text, fb.pros && `+ ${fb.pros}`, fb.cons && `− ${fb.cons}`].filter(Boolean).join('\n') || '(без текста)';
-    const head = mode === 'auto' ? '✅ Опубликовала ответ' : '📝 Новый отзыв — ответ на проверку';
+    const head = mode === 'auto' ? 'ОТВЕТ ОПУБЛИКОВАН' : 'НОВЫЙ ОТЗЫВ, ОТВЕТ НА ПРОВЕРКУ';
     return [
         `<b>${head}</b>`,
         `${stars(fb.rating)}${fb.productName ? ` · ${esc(fb.productName)}` : ''}`,

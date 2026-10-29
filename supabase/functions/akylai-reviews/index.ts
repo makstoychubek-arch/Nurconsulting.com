@@ -56,7 +56,7 @@ async function processCabinet(admin: any, cab: any): Promise<Record<string, unkn
     if (!secret || secret.token_broken) return { cabinetId, skipped: 'token_broken' };
     if (secret.token_exp && new Date(secret.token_exp).getTime() <= Date.now()) {
         await admin.from('cabinet_secrets').update({ token_broken: true, updated_at: new Date().toISOString() }).eq('cabinet_id', cabinetId);
-        await notifyNr(`⚠️ Акылай: у кабинета «${name}» истёк срок токена WB.`);
+        await notifyNr(`Акылай: у кабинета «${name}» истёк срок токена WB.`);
         await tg('sendMessage', { chat_id: chatId, text: 'Срок действия токена Wildberries закончился. Зайдите на страницу «Агенты» на сайте NR Space и вставьте новый — я продолжу отвечать.' });
         await agentLog(admin, cabinetId, 'token_expired', { token_exp: secret.token_exp });
         return { cabinetId, skipped: 'token_expired' };
@@ -89,7 +89,7 @@ async function processCabinet(admin: any, cab: any): Promise<Record<string, unkn
         const { data: sec } = await admin.from('cabinet_secrets').select('token_broken').eq('cabinet_id', cabinetId).maybeSingle();
         if (!sec?.token_broken) {
             await admin.from('cabinet_secrets').update({ token_broken: true, updated_at: new Date().toISOString() }).eq('cabinet_id', cabinetId);
-            await notifyNr(`⚠️ Акылай: токен WB кабинета «${name}» перестал работать.`);
+            await notifyNr(`Акылай: токен WB кабинета «${name}» перестал работать.`);
             await tg('sendMessage', { chat_id: chatId, text: 'Токен Wildberries перестал работать. Зайдите на страницу «Агенты» на сайте NR Space и вставьте новый — я продолжу отвечать.' });
         }
         await agentLog(admin, cabinetId, 'token_broken', { status: 401, wb: list.text });
@@ -99,7 +99,7 @@ async function processCabinet(admin: any, cab: any): Promise<Record<string, unkn
         await agentLog(admin, cabinetId, 'sync_error', { status: list.status, wb: list.text });
         if (!(await loggedRecently(admin, cabinetId, 'sync_error_notified', 6))) {
             await agentLog(admin, cabinetId, 'sync_error_notified', {});
-            await notifyNr(`⚠️ Акылай: не получилось загрузить отзывы кабинета «${name}» (WB ${list.status}).`);
+            await notifyNr(`Акылай: не получилось загрузить отзывы кабинета «${name}» (WB ${list.status}).`);
         }
         return { cabinetId, skipped: 'sync_error' };
     }
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
         } catch (e) {
             await recordFeatureRun(admin, r.cabinet_id, 'reviews', 'error', String((e as Error)?.message || e));
             await agentLog(admin, r.cabinet_id, 'sync_error', { error: String((e as Error)?.message || e).slice(0, 300) });
-            await notifyNr(`⚠️ Акылай: ошибка обработки отзывов кабинета «${r.cabinets?.name || r.cabinet_id}».`);
+            await notifyNr(`Акылай: ошибка обработки отзывов кабинета «${r.cabinets?.name || r.cabinet_id}».`);
         }
     }
     return json({ ok: true, cabinets: results.length, results });

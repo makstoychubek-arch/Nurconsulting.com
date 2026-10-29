@@ -6116,7 +6116,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     </script>
 <link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
 <link rel="stylesheet" href="/dist/nr-motion.36b5752019.css">
-<link rel="stylesheet" href="/dist/rnp-extra.9d56664c5a.css">
+<link rel="stylesheet" href="/dist/rnp-extra.23b8bda613.css">
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
@@ -8120,7 +8120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-win.9a80ed5b42.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
-<script src="/dist/rnp-module.17ddd79b94.min.js"></script>
+<script src="/dist/rnp-module.ae0d4dd9ae.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -13066,7 +13066,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     const NrBusy = (function () {
         let t = 0, n = 0;
         function end(id) { if (id !== n) return; clearTimeout(t); document.documentElement.classList.remove('nr-period-busy'); }
-        function run(promise) {
+        function run(promise, onlyTab) {
+            // фоновая догрузка дашборда не должна размывать другой раздел (например РНП), где данные уже на экране
+            if (onlyTab) { const a = document.querySelector('.tab-content.active'); if (!a || a.id !== 'tab-' + onlyTab) { Promise.resolve(promise).catch(() => {}); return; } }
             const id = ++n;
             document.documentElement.classList.add('nr-period-busy');
             clearTimeout(t); t = setTimeout(() => end(id), 12000);
@@ -13369,7 +13371,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         updateEmptyCabinetState();
         // Данные дашборда грузятся в фоне: запуск страницы (и открытая вкладка, например РНП) не ждёт их,
         // иначе холодные запросы дашборда держали «загрузка идёт дольше обычного» на любой вкладке.
-        { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); lp.catch(() => {}).then(() => { updateEmptyCabinetState(); return loadLastSyncTime(); }).catch(() => {}); }
+        { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp, 'dashboard'); lp.catch(() => {}).then(() => { updateEmptyCabinetState(); return loadLastSyncTime(); }).catch(() => {}); }
         bootRnpTab(true);
         bootRnpSettings(true);
     }
@@ -13561,7 +13563,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 loadLastSyncTime();
                 return;
             }
-            { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp); await lp; }
+            { const lp = loadFromDB(); if (window.NrBusy) window.NrBusy.run(lp, 'dashboard'); await lp; }
             await loadLastSyncTime();
             const rnpMod = getRnp();
             if (rnpMod && !isBetaStubOpen()) {

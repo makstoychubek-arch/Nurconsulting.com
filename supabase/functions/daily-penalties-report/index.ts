@@ -15,6 +15,7 @@
 // test: true — отправить и сразу удалить (не оставляем мусор).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { tgHead } from '../_shared/tg-style.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
@@ -124,7 +125,7 @@ Deno.serve(async (req) => {
                 if (!bundle.ready) {
                     cabResult.skipped = 'report_not_ready';
                     if (body?.final === true && !isTest) {
-                        const text = `🕓 <b>${esc(cabinetLegalName(cabinet.name))}</b> — штрафы за ${prettyRuDate(reportDate)}\nWB так и не выдал дневной отчёт. Проверим завтра.`;
+                        const text = `${tgHead(cabinetLegalName(cabinet.name), `штрафы за ${prettyRuDate(reportDate)}`)}\nWB так и не выдал дневной отчёт. Проверим завтра.`;
                         const tg = await sendTelegramMessage(tgToken, tgChatId, text);
                         if (!tg.error) {
                             await admin.from('notification_log').insert({
