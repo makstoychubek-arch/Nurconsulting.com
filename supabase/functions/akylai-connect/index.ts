@@ -7,6 +7,7 @@
 //  4. Только после этого: кабинет с названием из WB + зашифрованный токен.
 // Клиенту уходит только код и фраза Акылай. Тексты WB и базы — в agent_logs.
 // deno-lint-ignore-file no-explicit-any
+import '../_shared/wb-user-agent.ts';
 
 import { akylaiErrorMessage, type AkylaiErrorCode } from '../_shared/akylai-core.ts';
 import { parseAkylaiToken, tokenSellerId } from '../_shared/akylai-token.ts';

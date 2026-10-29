@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: check-campaigns-notify
 // Фоновая проверка статусов РК и баланса рекламного кабинета + уведомления в
 // Telegram-группу. Не трогает существующие таблицы/функции раздела "РК" —

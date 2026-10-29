@@ -1,3 +1,4 @@
+import './wb-user-agent.ts';
 /**
  * Штрафы из отчёта реализации WB: daily list → detailed/{reportId},
  * иначе последний закрытый weekly. reportId daily — строка (BigInt).

@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: auto-sync
 // Syncs WB stocks/orders for all cabinets with tokens (or one cabinet).
 // Auth: service_role key (pg_cron) or user JWT (dashboard manual sync).

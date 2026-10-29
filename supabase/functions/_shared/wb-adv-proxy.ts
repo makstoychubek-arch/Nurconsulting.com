@@ -1,6 +1,7 @@
 // Неймспейс /adv/* для рекламного API WB (docs/autobidder.md §2, §11.3).
 // Хост только advert-api.wildberries.ru. Токен из Vault, на фронт не возвращается.
 // deno-lint-ignore-file no-explicit-any
+import './wb-user-agent.ts';
 
 export const ADVERT_API_HOST = 'https://advert-api.wildberries.ru';
 

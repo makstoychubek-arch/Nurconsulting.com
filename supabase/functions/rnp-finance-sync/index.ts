@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: rnp-finance-sync
 // Серверный конвейер РНП: финансовый отчёт WB + платное хранение → raw_* →
 // rnp_recompute_finance() → rnp_daily_data. Фронт РНП читает только БД;

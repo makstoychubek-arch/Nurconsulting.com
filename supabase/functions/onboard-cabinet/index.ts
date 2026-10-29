@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: onboard-cabinet
 //
 // Первый шаг нового клиента: он вставляет персональный API-токен WB, мы

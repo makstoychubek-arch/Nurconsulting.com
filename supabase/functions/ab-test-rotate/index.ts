@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: ab-test-rotate
 // Server-side cron job that actually performs A/B test photo rotations on WB,
 // independent of whether the dashboard tab is open in any browser.

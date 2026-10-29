@@ -7,6 +7,7 @@
 //   AKYLAI_WEBHOOK_SECRET — секрет вебхука бота;
 //   OPENAI_API_KEY, OPENAI_MODEL.
 // deno-lint-ignore-file no-explicit-any
+import './wb-user-agent.ts';
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasAllCabinetsAccess } from './cabinet-access.ts';

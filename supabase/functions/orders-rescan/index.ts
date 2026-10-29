@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: orders-rescan
 // pg_cron раз в 10 минут (только service role). На каждый кабинет — один запрос заказов WB за день из окна
 // последних 30 дней: недостающие заказы добавляются (upsert по srid), ничего не удаляется.

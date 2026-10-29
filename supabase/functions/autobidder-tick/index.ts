@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // autobidder_tick — */5 мин. Способ B, стратегии min_sufficient/max_visibility/
 // fixed_position (target_drr пока не читается — нет per-cluster CTR/CR,
 // см. maxBidFromTargetDrr в _shared/autobidder-tick-decide.ts).

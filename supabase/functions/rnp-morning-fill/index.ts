@@ -1,3 +1,4 @@
+import '../_shared/wb-user-agent.ts';
 // Supabase Edge Function: rnp-morning-fill
 // Утром по Бишкеку заливает вчера+сегодня в wb_orders → rnp_daily_data
 // и обновляет остатки wb_stocks по размерам (FBO+FBS) по группе кабинетов.
