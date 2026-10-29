@@ -19146,14 +19146,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             window._nrInitDone = true;
             return;
         }
-        // Watchdog: page init (session check, RNP init, etc.) no longer shows
-        // any full-page splash on a plain refresh — the dashboard shell is
-        // visible immediately and fills in as data arrives. But if init
-        // genuinely hangs (dead network, unexpected exception) the user
-        // should still get *some* signal instead of silently-empty widgets
-        // forever — show a small, unobtrusive retry banner after 15s instead
-        // of hijacking the whole page. Cleared once real init finishes
-        // (see `window._nrInitDone = true` in the `finally` block below).
+        // Если запуск страницы завис (нет сети), через 15 с показываем уведомление с «Повторить»; снимается в hideOverlay.
         window._nrOverlayWatchdog = setTimeout(() => {
             if (window._nrInitDone || window._nrStallToast) return;
             // Зависшая загрузка: обычное уведомление справа вверху с кнопкой «Повторить».
@@ -19199,14 +19192,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         applyModuleVisibility();
         resolveStaffRole().then(() => resolvePaidAccess()).then(() => { if (isStaff && window.NrOrderSound) window.NrOrderSound.start(); }).catch(e => console.warn('[role] init:', e));
 
-        // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
-        // может идти 5-8с на большом кабинете) — иначе пользователь всё это время
-        // видит дефолтную вкладку «Дашборд», что выглядит как редирект/дёрганье
-        // при каждом обновлении страницы. hasUserCabinets ещё false в этот момент,
-        // так что все guarded on-tab-open загрузчики (RNP.openMain, openAdvertisingTab,
-        // initLogisticsSupplies и т.п.) внутри showTab() безопасно no-op'нутся —
-        // мы дозапускаем нужный загрузчик ниже, уже после того как кабинеты и данные
-        // готовы.
+        // Сохранённую вкладку восстанавливаем сразу, до любых await (загрузка кабинетов может идти секунды); её загрузчики дозапускаются ниже.
         let savedTab = null;
         try {
             savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
