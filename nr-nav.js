@@ -218,7 +218,7 @@
         // каждая смена вкладки сайта обновляет цепочку
         var orig = root.showTab;
         if (typeof orig === 'function' && !orig.__nrNav) {
-            var wrapped = function () { var r = orig.apply(this, arguments); setTimeout(refresh, 120); return r; };
+            var wrapped = function () { var r = orig.apply(this, arguments); refresh(); setTimeout(refresh, 120); return r; };
             wrapped.__nrNav = true; root.showTab = wrapped;
         }
         setTimeout(refresh, 600);
