@@ -681,20 +681,20 @@ html body .ab-new-dialog .ab-selected-card.hidden { display: none !important; }
 /* ===== Единые окна «Минимализма»: все .nr-win выглядят как «Новый А/Б тест» =====
    Белый лист с контуром, без светофора macOS, без затемнения и размытия под окном, размеры S/M/L задаёт CSS. */
 html body :is(.rnp-settings-overlay, .rnp-plan-fact-overlay, #premium-modal, #add-cabinet-modal, #autobidder-modal, #supply-detail-modal, .nru-ov) { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-html body .nr-win:not(.nr-win-photo) { --w: 560px; width: min(var(--w), calc(100vw - 24px)) !important; height: auto !important; max-height: calc(100dvh - 32px) !important; background: var(--surface-solid, #fff) !important; border: 1.5px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important; }
+html body .nr-win:not(.nr-win-photo):not(.nw-modal) { --w: 560px; width: min(var(--w), calc(100vw - 24px)) !important; height: auto !important; max-height: calc(100dvh - 32px) !important; background: var(--surface-solid, #fff) !important; border: 1.5px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important; }
 html body .nr-win.rnp-settings-dialog:not(.ab-edit-dialog) { --w: 720px; height: min(820px, calc(100dvh - 32px)) !important; }
 html body .nr-win.ab-report-dialog, html body .nr-win.gg-settings-dialog { --w: 900px; height: min(860px, calc(100dvh - 32px)) !important; }
 html body .nr-win.cl-dialog { --w: 1000px; height: min(860px, calc(100dvh - 32px)) !important; }
 html body .nr-win.nr-glass-dialog { --w: 720px; height: min(760px, calc(100dvh - 32px)) !important; }
 html body .nr-win.rnp-plan-fact-dialog { width: min(1240px, calc(100vw - 24px)) !important; height: min(900px, calc(100dvh - 24px)) !important; }
-html body .nr-win:not(.nr-win-photo) > .nr-win-bar { background: transparent !important; border: 0 !important; height: auto; min-height: 0; padding: 20px 22px 0 26px; cursor: default; }
-html body .nr-win:not(.nr-win-photo) .nr-win-lights, html body .nr-win:not(.nr-win-photo) > .nr-win-resize { display: none !important; }
-html body .nr-win:not(.nr-win-photo) .nr-win-title { font-size: 24px; font-weight: 900; letter-spacing: -.02em; color: var(--text-primary); white-space: normal; text-align: left; }
+html body .nr-win:not(.nr-win-photo):not(.nw-modal) > .nr-win-bar { background: transparent !important; border: 0 !important; height: auto; min-height: 0; padding: 20px 22px 0 26px; cursor: default; }
+html body .nr-win:not(.nr-win-photo):not(.nw-modal) .nr-win-lights, html body .nr-win:not(.nr-win-photo):not(.nw-modal) > .nr-win-resize { display: none !important; }
+html body .nr-win:not(.nr-win-photo):not(.nw-modal) .nr-win-title { font-size: 24px; font-weight: 900; letter-spacing: -.02em; color: var(--text-primary); white-space: normal; text-align: left; }
 html body .nr-win .nr-win-x { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); font-size: 18px; font-weight: 800; line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; }
 html body .nr-win .nr-win-x::after { content: none !important; }
 html body .nr-win .nr-win-x:hover { background: var(--text-primary); color: var(--surface-solid, #fff); }
-html body .nr-win-photo .nr-win-x { display: none; }
-html body .nr-win:not(.nr-win-photo) > .nr-win-scroll { padding: 14px 26px 20px; }
+html body :is(.nr-win-photo, .nw-modal) .nr-win-x { display: none; }
+html body .nr-win:not(.nr-win-photo):not(.nw-modal) > .nr-win-scroll { padding: 14px 26px 20px; }
 html body .nr-win .nr-win-dup { display: none !important; }
 html body .nr-win :is(input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color]), select, textarea) { background: transparent !important; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; color: var(--text-primary); font-weight: 700; box-shadow: none; }
 html body .nr-win textarea { border-radius: 18px !important; }
@@ -703,3 +703,8 @@ html body .nr-win :is(.ui-btn-secondary, .ab-btn-ghost) { background: transparen
 html body .nr-win :is(.ui-btn-primary, .ab-btn-primary) { background: var(--text-primary) !important; color: var(--surface-solid, #fff) !important; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; font-weight: 800; box-shadow: none; }
 html body .nr-win button.rounded-xl, html body .nr-win button.rounded-lg { border-radius: 999px !important; font-weight: 800; }
 html body .nru-toast.sticky .nru-bar { display: none; }
+
+/* окна, собранные скриптами: тот же вид (прозрачная подложка, контур 1,5px, радиус 26px) */
+html body :is(.ffm-ov, .adx-gp-ov, .adp2-ov, .shv-ov, #nrdb-modal, .tg-overlay, .nw-ov, .nx-ov, .gc-overlay) { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp, .rnp-plan-panel.rnp-modal-panel, #nrdb-modal > *) { background: var(--surface-solid, #fff) !important; border: 1.5px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important; }
+html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp) h3, html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp) h4 { font-weight: 900; letter-spacing: -.02em; }

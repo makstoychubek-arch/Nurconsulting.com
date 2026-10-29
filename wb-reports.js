@@ -647,7 +647,7 @@
     async function removeUpload(type, slot) {
         const up = S.uploads.find(u => u.report_type === type && u.slot === slot && u.report_date === S.day);
         if (!up) return;
-        if (!confirm(`Удалить «${TYPE_TITLE[type]}${type === 'stock_fbs' ? ' · склад ' + slot : ''}» за ${ruDay(S.day)}?`)) return;
+        if (!(window.NrUi ? await window.NrUi.confirm({ title: 'Удалить загрузку?', text: `«${TYPE_TITLE[type]}${type === 'stock_fbs' ? ' · склад ' + slot : ''}» за ${ruDay(S.day)}`, danger: true, confirmLabel: 'Удалить' }) : confirm('Удалить загрузку?'))) return;
         const { error } = await sb().from('report_uploads').delete().eq('id', up.id);
         if (error) return say('err', 'Не удалось удалить: ' + error.message);
         await reload();

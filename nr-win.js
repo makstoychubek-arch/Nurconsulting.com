@@ -81,7 +81,7 @@
     function paintBox(box, size) {
         if (!box || !box.style) return;
         // Размеры окон задаёт CSS («Минимализм»: S, M, L), общий размер из localStorage не применяется.
-        if (!box.classList.contains('nr-win-photo')) { box.style.removeProperty('width'); box.style.removeProperty('height'); return; }
+        if (!box.classList.contains('nr-win-photo') && !box.classList.contains('nw-modal')) { box.style.removeProperty('width'); box.style.removeProperty('height'); return; }
         if (box.classList.contains('nr-win-max') || box.classList.contains('nr-win-min')) return;
         // Лист план/факт широкий — размер задаёт его CSS, общий размер окон ему не подходит.
         // Окно нового А/Б теста тоже со своим размером из CSS («Минимализм»).

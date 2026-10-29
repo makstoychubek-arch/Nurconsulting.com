@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.567afd8034.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.7a597208c3.css">
+<link rel="stylesheet" href="/dist/nr-mono.4cbb513301.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7994,7 +7994,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </script>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <span class="nr-fox-slot nr-hdr-fox" data-size="64" aria-hidden="false"></span>
                     <div class="nr-notify" id="nr-notify">
                         <button type="button" class="nr-notify-btn" id="nr-notify-btn" onclick="NrNotify.toggle(event)" title="Уведомления" aria-label="Уведомления">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -8119,10 +8118,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </div>
     </div>
 
-<script src="/dist/nr-win.dfd07388f4.min.js"></script>
+<script src="/dist/nr-win.9a80ed5b42.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
-<script src="/dist/rnp-module.b92440f0df.min.js"></script>
+<script src="/dist/rnp-module.56fa72e27a.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -8164,13 +8163,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } catch (e) { if (onBlocked) onBlocked(); }
     }
 
-    function toast(text) {
-        var t = document.createElement('div');
-        t.textContent = text;
-        t.style.cssText = 'position:fixed;right:18px;top:86px;z-index:100000;background:var(--surface-solid);color:var(--text-primary);border:1px solid var(--border);border-radius:14px;padding:10px 14px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.18)';
-        document.body.appendChild(t);
-        setTimeout(function () { t.remove(); }, 4500);
-    }
+    function toast(text) { if (window.NrUi) window.NrUi.toast('info', text, '', { key: 'ord|' + text }); }
 
     function handle(row) {
         if (!row || row.silent) return;
@@ -8346,7 +8339,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         clearTimeout(hideTimer);
         if (!p || p.state === 'none' || p.state === 'forbidden' || p.state === 'no_token') { b.innerHTML = ''; return; }
         if (p.state === 'running') {
-            b.innerHTML = '<div class="nr-sync" style="display:flex;gap:12px;align-items:flex-start"><span class="nr-fox-slot" data-size="46"></span><div style="flex:1;min-width:0"><b>Загружаем данные из Wildberries</b> — ' + p.percent + '%, осталось ' + etaText(p.eta_minutes) +
+            b.innerHTML = '<div class="nr-sync" style="display:flex;gap:12px;align-items:flex-start"><div style="flex:1;min-width:0"><b>Загружаем данные из Wildberries</b> — ' + p.percent + '%, осталось ' + etaText(p.eta_minutes) +
                 '<div class="nr-sync-bar"><i style="width:' + Math.max(2, p.percent) + '%"></i></div>' +
                 '<small>Можно закрыть страницу: загрузка продолжится на сервере. Свежие дни появляются в таблице первыми.</small></div></div>';
         } else if (p.state === 'error') {
@@ -8414,9 +8407,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.87e041bc34.min.js"></script>
-<script src="/dist/ads-pulse.64dc97e7ce.min.js"></script>
+<script src="/dist/ads-pulse.48cf3354e7.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/giveaways.8825fbcab6.min.js"></script>
+<script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
 <script src="/dist/viewer-mode.911e0a7134.min.js"></script>
 <script src="/dist/space-admin-ext.7587daca0d.min.js"></script>
@@ -8425,11 +8418,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
-<script src="/dist/nr-admin.b8ad8082be.min.js"></script>
-<script src="/dist/ad-autopilot-ui.2ec2082149.min.js"></script>
+<script src="/dist/nr-admin.3b02277165.min.js"></script>
+<script src="/dist/ad-autopilot-ui.072c47d435.min.js"></script>
 <script src="/dist/ads-campaign-detail.40f4e1bf6d.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
-<script src="/dist/nr-skeleton.dcd7854646.min.js"></script>
+<script src="/dist/nr-skeleton.f6e83bed0b.min.js"></script>
 <script src="/dist/nr-themes.2fd4d06812.min.js"></script>
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.196452a689.min.js"></script>
@@ -9669,9 +9662,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function showPremiumModal(type, title, text) {
         if (window.NrUi) {
             const h = window.NrUi.toast(type, title, text, { key: type + '|' + title + '|' + text });
-            if (type === 'success' && window.NrWow && h && h.el) {
-                requestAnimationFrame(() => { const r = h.el.getBoundingClientRect(); window.NrWow.burst({ x: r.left + r.width * 0.12, y: r.top + 8, count: 22 }); });
-            }
             return;
         }
         console.warn('[ui] nr-ui.js не загрузился:', type, title, text);
@@ -13600,7 +13590,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function hideOverlay() {
         window._nrInitDone = true;
         if (window._nrOverlayWatchdog) { clearTimeout(window._nrOverlayWatchdog); window._nrOverlayWatchdog = null; }
-        document.getElementById('nr-init-stall-banner')?.remove();
+        if (window._nrStallToast) { window._nrStallToast.close(); window._nrStallToast = null; }
         const overlay = document.getElementById('cabinet-overlay');
         if (!overlay || overlay.style.display === 'none') return;
         overlay.style.transition = 'opacity 0.15s ease';
@@ -19156,13 +19146,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         // of hijacking the whole page. Cleared once real init finishes
         // (see `window._nrInitDone = true` in the `finally` block below).
         window._nrOverlayWatchdog = setTimeout(() => {
-            if (window._nrInitDone || document.getElementById('nr-init-stall-banner')) return;
-            const banner = document.createElement('div');
-            banner.id = 'nr-init-stall-banner';
-            banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:199999;background:#1a1a24;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,0.4);font-size:13px;color:#ccc';
-            banner.innerHTML = `<span class="nr-fox-slot" data-size="48" data-rest="sleepy"></span><span>Загрузка занимает больше времени, чем обычно — проверьте соединение.</span>
-                <button onclick="location.reload()" style="padding:6px 14px;border-radius:10px;background:var(--accent,#8b5cf6);color: var(--on-accent, #fff);border:none;font-weight:600;cursor:pointer;white-space:nowrap">Повторить</button>`;
-            document.body.appendChild(banner);
+            if (window._nrInitDone || window._nrStallToast) return;
+            // Зависшая загрузка: обычное уведомление справа вверху с кнопкой «Повторить».
+            if (window.NrUi) window._nrStallToast = window.NrUi.toast('error', 'Загрузка идёт дольше обычного', 'Проверьте соединение.', { sticky: true, key: 'init-stall', action: { label: 'Повторить', onClick: () => location.reload() } });
         }, 15000);
 
         const session = await window.NrAuth.recoverBrokenSession(supabase);

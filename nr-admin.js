@@ -139,7 +139,7 @@
         if (action === 'off') { body.action = 'set'; body.enabled = false; } else { body.action = action; if (minutes) body.minutes = minutes; }
         sb.functions.invoke('cabinet-features', { body: body }).then(function (r) {
             S.busy['f' + id + feature] = false;
-            if (r.error || !(r.data && r.data.ok)) { Object.assign(f, prev); S.toast = 'Не получилось изменить. Попробуй ещё раз.'; setTimeout(function () { S.toast = ''; render(); }, 4000); }
+            if (r.error || !(r.data && r.data.ok)) { Object.assign(f, prev); toast('Не получилось изменить. Попробуй ещё раз.'); }
             else {
                 S.feat[id] = r.data.features;
                 var cab = S.ov && S.ov.cabinets.filter(function (x) { return x.id === id; })[0];
@@ -168,7 +168,7 @@
         if (owners.length === 1) h += '<h5>Консалтинг</h5><button type="button" class="nra-btn" data-retc="' + c.id + '">' + (S.confirm === 'r' + c.id ? 'Подтвердить возврат' : 'Вернуть клиенту') + '</button><p class="m" style="margin:6px 0 0">Кабинет вернётся к ' + esc(owners[0].email) + ', и вы больше не будете его вести.</p>';
         return h;
     }
-    function toast(t) { S.toast = t; render(); setTimeout(function () { S.toast = ''; render(); }, 4500); }
+    function toast(t) { if (root.NrUi) root.NrUi.toast(/^(Не|Введи)/.test(t) ? 'error' : 'info', t); else { S.toast = t; render(); setTimeout(function () { S.toast = ''; render(); }, 4500); } }
     function assignOwner(id) {
         var inp = el.querySelector('#nra-own-' + id), mail = inp ? String(inp.value).trim().toLowerCase() : '';
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { toast('Введи почту целиком, например name@gmail.com'); return; }
@@ -382,7 +382,7 @@
         var rec = { key: key, enabled: !!row.enabled, threshold: row.threshold === '' ? null : row.threshold, value: row.value === '' ? null : row.value, updated_at: new Date().toISOString() };
         if (fields.value !== undefined) { row.value_at = rec.value_at = new Date().toISOString(); }
         sb.from('admin_alert_settings').upsert(rec).then(function (r) {
-            if (r.error) { S.toast = 'Не сохранилось: ' + (r.error.message || 'ошибка'); render(); setTimeout(function () { S.toast = ''; render(); }, 4000); }
+            if (r.error) { toast('Не сохранилось: ' + (r.error.message || 'ошибка')); }
         });
     }
     function soon(title, text) { return '<div class="nra-h">' + title + '</div><p class="nra-sub">' + text + '</p><div class="nra-card"><p class="m" style="padding:18px 16px">Этот раздел подключим на следующем шаге.</p></div>'; }
@@ -414,7 +414,7 @@
     function writeCache() { try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ov: S.ov, jobs: S.jobs })); } catch (e) { /* ок */ } }
     function load() {
         sb.rpc('admin_overview').then(function (r) {
-            if (r.error) { S.toast = 'Не удалось получить сводку: ' + (r.error.message || 'ошибка'); render(); return; }
+            if (r.error) { toast('Не удалось получить сводку: ' + (r.error.message || 'ошибка')); render(); return; }
             S.ov = r.data; writeCache(); render();
         });
         sb.from('admin_map_nodes').select('title,subtitle,status,meta').eq('kind', 'cron').eq('hidden', false).order('title').then(function (r) {
@@ -445,10 +445,9 @@
         sb.functions.invoke('telegram-admin', { body: { action: 'set_webhook', bot_id: id } }).then(function (r) {
             S.busy[id] = false;
             var okRe = !r.error && r.data && r.data.ok;
-            S.toast = okRe ? 'Бот переподключён.' : 'Не получилось переподключить бота. Попробуй ещё раз.';
+            if (root.NrUi) root.NrUi.toast(okRe ? 'success' : 'error', okRe ? 'Бот переподключён' : 'Не получилось переподключить бота. Попробуй ещё раз.'); else S.toast = okRe ? 'Бот переподключён.' : 'Не получилось переподключить бота. Попробуй ещё раз.';
             if (okRe) sb.rpc('admin_log', { p_action: 'bot_reconnect', p_target: id, p_detail: null }).then(function () {});
             render(); loadBots();
-            setTimeout(function () { S.toast = ''; render(); }, 4000);
         });
     }
 

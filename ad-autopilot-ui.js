@@ -66,7 +66,7 @@
                 if (del.error) throw del.error;
                 if (auto.camps[cab]) auto.camps[cab].delete(String(camp));
             }
-        } catch (e) { alert('Автопилот не переключился: ' + (e.message || e)); }
+        } catch (e) { if (window.NrUi) window.NrUi.toast('error', 'Автопилот не переключился', String(e.message || e)); }
         el.classList.remove('busy');
         paint();
         if (root && state.loaded) { state.loaded = false; tick(); }
