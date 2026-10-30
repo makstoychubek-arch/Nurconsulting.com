@@ -993,3 +993,7 @@ html body :is(#autobidder-modal, #supply-detail-modal, .rnp-plan-fact-overlay, .
 @media (hover: none) {
   html body :is(.supply-card, #month-grid button, #modal-btn, .ab-variant-remove-btn, .ui-btn-secondary, .pricing-btn--accent, .ak-agent):hover { transform: none !important; }
 }
+
+/* Мгновенный отклик на нажатие: кнопка видимо «нажимается» сразу, не дожидаясь работы скрипта; быстрые нажатия на сенсорных экранах без задержки */
+html body :is(button, [role="button"], .nav-item, .rail-btn, summary, a.btn):not(:disabled, [disabled], [aria-disabled="true"]):active { opacity: .72; transition: opacity .04s linear; }
+html body :is(button, [role="button"], a, .nav-item, .rail-btn, summary, label, select) { touch-action: manipulation; }
