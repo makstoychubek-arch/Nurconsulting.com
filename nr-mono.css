@@ -997,3 +997,11 @@ html body :is(#autobidder-modal, #supply-detail-modal, .rnp-plan-fact-overlay, .
 /* Мгновенный отклик на нажатие: кнопка видимо «нажимается» сразу, не дожидаясь работы скрипта; быстрые нажатия на сенсорных экранах без задержки */
 html body :is(button, [role="button"], .nav-item, .rail-btn, summary, a.btn):not(:disabled, [disabled], [aria-disabled="true"]):active { opacity: .72; transition: opacity .04s linear; }
 html body :is(button, [role="button"], a, .nav-item, .rail-btn, summary, label, select) { touch-action: manipulation; }
+
+/* Заглушка раздела BETA в «Минимализме»: контур без размытых пятен и лиловой заливки */
+html body .beta-module-hero .beta-orb { display: none !important; }
+html body .beta-module-hero { background: transparent !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 26px !important; box-shadow: none !important; }
+html body .beta-module-hero .beta-pill, html body #beta-stub-pill.beta-pill { background: transparent !important; color: var(--text-primary) !important; border: 1px solid var(--border-strong, var(--border)) !important; font-weight: 800; letter-spacing: .08em; }
+
+/* Заголовки групп в таблицах склада: чёрный текст на сером, без фиолетового */
+html body .gg-sec-row td, html body #gg-daily-table .gg-sec-row td { color: var(--text-primary) !important; background: var(--sel, rgba(0,0,0,.04)) !important; border-color: var(--border) !important; }
