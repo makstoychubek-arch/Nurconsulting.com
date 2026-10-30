@@ -71,12 +71,14 @@ Deno.serve(async (req) => {
     }
 
     // 4. Привязать: текущие ярлыки карточки + новый
-    const results: { nm_id: number; ok: boolean; status?: number }[] = [];
+    const results: { nm_id: number; ok: boolean; status?: number; body?: string }[] = [];
     for (const p of plan) {
         if (!p.found) { results.push({ nm_id: p.nm_id, ok: false, status: 404 }); continue; }
         const next = [...new Set([...p.current_tag_ids, tagId])];
+        if (p.current_tag_ids.includes(tagId)) { results.push({ nm_id: p.nm_id, ok: true, status: 0, body: 'уже привязан' }); continue; }
         const r = await fetch(API + '/content/v2/tag/nomenclature/link', { method: 'POST', headers: H, body: JSON.stringify({ nmID: p.nm_id, tagsIDs: next }) });
-        results.push({ nm_id: p.nm_id, ok: r.ok, status: r.status });
+        results.push({ nm_id: p.nm_id, ok: r.ok, status: r.status, body: r.ok ? undefined : (await r.text()).slice(0, 300) });
+        await new Promise((res) => setTimeout(res, 1200));
     }
     return json({ ok: true, mode: 'apply', cabinet: cab.name, tag: tagName, tag_id: tagId, results });
 });
