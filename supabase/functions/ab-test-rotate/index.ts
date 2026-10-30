@@ -96,12 +96,19 @@ Deno.serve(async (req) => {
         // окна показа фото из ab_test_rotation_log (лог хранит created_at
         // каждой ротации, а data->>'date' в wb_orders — точное время заказа).
         const statsResults: Array<Record<string, unknown>> = [];
-        const { data: liveTests } = await admin
+        // Активные тесты считаем первыми, завершённые только в первые сутки после остановки (WB отдаёт
+        // рекламу с задержкой). Раньше перебирались все завершённые за всё время, и функция не успевала
+        // дойти до активного теста: у него оставались нули.
+        const { data: liveRaw } = await admin
             .from('ab_tests')
             .select('*')
             .in('status', ['active', 'finished']);
+        const finishedSince = Date.now() - 24 * 60 * 60 * 1000;
+        const liveTests = (liveRaw || [])
+            .filter((t) => t.status === 'active' || (t.finished_at && new Date(t.finished_at).getTime() >= finishedSince))
+            .sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active'));
 
-        for (const test of liveTests || []) {
+        for (const test of liveTests) {
             try {
                 // ВАЖНО: в таблице ab_test_rotation_log столбец времени называется
                 // rotated_at (НЕ created_at) — раньше здесь была опечатка, из-за
