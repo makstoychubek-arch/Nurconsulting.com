@@ -414,9 +414,13 @@
         var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
         return all.filter(function (c) { return c.key !== 'budget'; });
     }
+    var SHORT = { spend: 'Затраты', views: 'Показы', ctr: 'CTR', orders: 'Заказы', drr: 'Доля', pos: 'Позиция', clicks: 'Клики', atbs: 'Корзина', revenue: 'Сумма', cpc: 'CPC', cpo: 'CPO', cr: 'CR', cpm: 'CPM', roas: 'ROAS' };
     function metricCellsHtml(camp) {
         var A = root.AdsHQ;
-        return '<div class="adp2-mx">' + tableCols().map(function (c) { return '<div class="adp2-mc">' + esc(A && A.formatMetric ? A.formatMetric(camp, c.key) : '—') + '</div>'; }).join('') + '</div>';
+        var cell = function (c) { return '<div class="adp2-mc" data-l="' + esc(SHORT[c.key] || c.title) + '">' + esc(A && A.formatMetric ? A.formatMetric(camp, c.key) : '—') + '</div>'; };
+        var cols = tableCols();
+        /* На телефоне первые пять цифр сеткой, остальные в строке со свайпом; на ПК обе обёртки прозрачны */
+        return '<div class="adp2-mx"><div class="adp2-m5">' + cols.slice(0, 5).map(cell).join('') + '</div><div class="adp2-mmore">' + cols.slice(5).map(cell).join('') + '</div></div>';
     }
     function headerHtml() {
         var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
@@ -995,12 +999,49 @@
         if ($('adp2-switch')) return;
         var bar = doc.querySelector('#adv-view-ads .ads-hq-filters'); if (!bar) return;
         var sw = doc.createElement('div'); sw.id = 'adp2-switch'; sw.className = 'adp2-switch';
-        sw.innerHTML = '<button type="button" class="adp2-newbtn" data-pact="new" id="adp2-new">＋ Новая РК</button>';
+        sw.innerHTML = '<button type="button" class="adp2-newbtn" data-pact="new" id="adp2-new">＋ Новая РК</button>' +
+            '<button type="button" class="adp2-tab on" data-list-view="campaigns">Кампании</button><button type="button" class="adp2-tab" data-list-view="products">Товары</button>';
         bar.appendChild(sw);
         sw.addEventListener('click', function (e) {
             var b = e.target.closest('[data-pulse-view]'); if (b) { setView(b.dataset.pulseView); return; }
+            var t = e.target.closest('.adp2-tab'); if (t) { sw.querySelectorAll('.adp2-tab').forEach(function (x) { x.classList.toggle('on', x === t); }); return; }
             if (e.target.closest('[data-pact="new"]')) createFlow();
         });
+        // Вкладок «Активные» и «Все» больше нет: список всегда показывает все кампании.
+        try { if (root.AdsHQ && root.AdsHQ.setCampFilter) root.AdsHQ.setCampFilter('all'); } catch (e) { /* список остаётся как был */ }
+        mountGear();
+    }
+    /* Шестерёнка: значки списка (автопилот, поиск, обновить, колонки) выпадают списком, страница затемняется как при выборе даты и кабинета. */
+    function mountGear() {
+        var bulk = doc.querySelector('#adv-view-ads .ads-hq-bulk'), tools = $('ads-hq-tools'), view = $('adv-view-ads');
+        if (!bulk || !tools || !view || $('adp2-gear')) return;
+        var g = doc.createElement('button'); g.type = 'button'; g.id = 'adp2-gear'; g.className = 'adp2-gear';
+        g.setAttribute('aria-label', 'Настройки списка'); g.setAttribute('aria-expanded', 'false');
+        g.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+        bulk.insertBefore(g, tools);
+        // Подписи пунктов выпадающего списка берём из title значков и держим в актуальном виде
+        function label(b) {
+            var l = b.querySelector('.adp2-lbl'); if (!l) { l = doc.createElement('span'); l.className = 'adp2-lbl'; b.appendChild(l); }
+            var t = b.getAttribute('title') || b.getAttribute('aria-label') || ''; if (l.textContent !== t) l.textContent = t;
+        }
+        function labels() { tools.querySelectorAll('.rnp-tool-icon, .ads-hq-search-btn').forEach(label); }
+        labels();
+        if (root.MutationObserver) new root.MutationObserver(function () { labels(); }).observe(tools, { subtree: true, attributes: true, attributeFilter: ['title'] });
+        function set(open) { view.classList.toggle('ads-gear-open', open); g.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        g.addEventListener('click', function (e) { e.stopPropagation(); set(!view.classList.contains('ads-gear-open')); });
+        doc.addEventListener('click', function (e) {
+            if (!view.classList.contains('ads-gear-open')) return;
+            if (e.target.closest('#ads-hq-reload')) { set(false); return; }
+            if (!e.target.closest('#ads-hq-tools, #adp2-gear')) set(false);
+        });
+        doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+        // На широком экране поле поиска стоит прямо в панели, на телефоне остаётся в списке
+        var wrap = $('ads-hq-search-wrap');
+        if (wrap && root.matchMedia) {
+            var mq = root.matchMedia('(min-width: 761px)');
+            var place = function () { if (mq.matches) bulk.insertBefore(wrap, g); else tools.insertBefore(wrap, tools.firstChild); wrap.classList.toggle('adp2-inline', mq.matches); };
+            place(); if (mq.addEventListener) mq.addEventListener('change', place);
+        }
     }
     function init(deps) {
         if (S.inited) { S.deps = deps || S.deps; return; }

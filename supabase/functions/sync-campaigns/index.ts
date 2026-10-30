@@ -84,72 +84,90 @@ async function syncOneCabinet(
     }
 
     const adverts = flattenAdverts(advertsRes.data);
-    let campaigns = 0;
-    let clusters = 0;
 
+    // Запись в базу пакетами на кабинет, а не по запросу на каждую кампанию: раньше это были сотни одиночных вставок и чтений за запуск (нагрузка на базу).
+    const campRows = new Map<number, Record<string, unknown>>();
+    const syncedAt = new Date().toISOString();
     for (const advert of adverts) {
         const wbId = Number(advert.advertId ?? advert.id ?? advert.advert_id ?? 0);
         const nmId = firstNmId(advert);
         if (!wbId || !nmId) continue;
-
-        const row = {
+        campRows.set(wbId, {
             cabinet_id: cab.id,
             wb_campaign_id: wbId,
             nm_id: nmId,
             campaign_type: campaignTypeFromWb(advert),
             name: advertName(advert),
             status: campaignStatus(advert),
-            synced_at: new Date().toISOString(),
-        };
+            synced_at: syncedAt,
+        });
+    }
+
+    const idByWb = new Map<number, string>();
+    for (const part of chunk([...campRows.values()], 200)) {
         const { data: saved, error: upErr } = await admin
             .from('adv_campaigns')
-            .upsert(row, { onConflict: 'cabinet_id,wb_campaign_id' })
-            .select('id')
-            .maybeSingle();
-        if (upErr || !saved?.id) {
-            console.error('[sync-campaigns] upsert campaign', cab.name, wbId, upErr?.message);
-            continue;
+            .upsert(part, { onConflict: 'cabinet_id,wb_campaign_id' })
+            .select('id, wb_campaign_id');
+        if (upErr) {
+            console.error('[sync-campaigns] upsert campaigns', cab.name, upErr.message);
+            return { ok: false, error: upErr.message, campaigns: idByWb.size, clusters: 0 };
         }
-        campaigns += 1;
+        for (const r of (saved || []) as { id: string; wb_campaign_id: number }[]) idByWb.set(Number(r.wb_campaign_id), r.id);
+    }
+    const campaigns = idByWb.size;
 
+    const clusterRows = new Map<string, { campaign_id: string; cluster_key: string; is_active: boolean }>();
+    const keysByCampaign = new Map<string, Set<string>>();
+    for (const wbId of campRows.keys()) {
+        const campaignId = idByWb.get(wbId);
+        if (!campaignId) continue;
         const listRes = await listClusters(ctx, { advertId: wbId, advert_id: wbId });
         if (listRes.status >= 400) {
             console.error('[sync-campaigns] listClusters', cab.name, wbId, errorText(listRes.data));
             continue;
         }
         const keys = collectClusterKeys(listRes.data);
-        if (keys.length) {
-            const clusterRows = keys.map((cluster_key) => ({
-                campaign_id: saved.id,
-                cluster_key,
-                is_active: true,
-            }));
-            const { error: clErr } = await admin
-                .from('adv_clusters')
-                .upsert(clusterRows, { onConflict: 'campaign_id,cluster_key' });
-            if (clErr) {
-                console.error('[sync-campaigns] upsert clusters', cab.name, wbId, clErr.message);
-            } else {
-                clusters += keys.length;
-            }
-        }
+        keysByCampaign.set(campaignId, new Set(keys));
+        for (const cluster_key of keys) clusterRows.set(campaignId + '\0' + cluster_key, { campaign_id: campaignId, cluster_key, is_active: true });
+    }
 
-        const { data: existing } = await admin
-            .from('adv_clusters')
-            .select('id, cluster_key')
-            .eq('campaign_id', saved.id);
-        const seen = new Set(keys);
-        const gone = (existing || []).filter((c) => !seen.has(c.cluster_key)).map((c) => c.id);
-        if (gone.length) {
-            const { error: deactErr } = await admin
+    let clusters = 0;
+    for (const part of chunk([...clusterRows.values()], 500)) {
+        const { error: clErr } = await admin.from('adv_clusters').upsert(part, { onConflict: 'campaign_id,cluster_key' });
+        if (clErr) console.error('[sync-campaigns] upsert clusters', cab.name, clErr.message);
+        else clusters += part.length;
+    }
+
+    // Пропавшие у WB ключи гасим одним проходом по кампаниям, у которых список ключей получили.
+    const gone: string[] = [];
+    for (const idsPart of chunk([...keysByCampaign.keys()], 100)) {
+        for (let from = 0; ; from += 1000) {
+            const { data: existing, error: exErr } = await admin
                 .from('adv_clusters')
-                .update({ is_active: false })
-                .in('id', gone);
-            if (deactErr) console.error('[sync-campaigns] deactivate', cab.name, wbId, deactErr.message);
+                .select('id, campaign_id, cluster_key')
+                .in('campaign_id', idsPart)
+                .order('id')
+                .range(from, from + 999);
+            if (exErr) { console.error('[sync-campaigns] read clusters', cab.name, exErr.message); break; }
+            for (const c of (existing || []) as { id: string; campaign_id: string; cluster_key: string }[]) {
+                if (!keysByCampaign.get(c.campaign_id)?.has(c.cluster_key)) gone.push(c.id);
+            }
+            if (!existing || existing.length < 1000) break;
         }
+    }
+    for (const part of chunk(gone, 200)) {
+        const { error: deactErr } = await admin.from('adv_clusters').update({ is_active: false }).in('id', part);
+        if (deactErr) console.error('[sync-campaigns] deactivate', cab.name, deactErr.message);
     }
 
     return { ok: true, campaigns, clusters };
+}
+
+function chunk<T>(list: T[], size: number): T[][] {
+    const out: T[][] = [];
+    for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+    return out;
 }
 
 function makeCtx(admin: Admin, cabinetId: string, token: string, tokenKey: string): AdvCallContext {

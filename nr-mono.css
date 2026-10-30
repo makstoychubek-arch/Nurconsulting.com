@@ -783,8 +783,6 @@ html body .ads-hq-tip:hover::after { opacity: 1; }
 /* Полоса метрик: пять показателей с динамикой к прошлому периоду, «Доля затрат» чёрная */
 html body #adv-view-ads .ads-hq-kpi-bar { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-end; }
 html body #adv-view-ads .ads-hq-kpi { background: transparent; border: 0; border-radius: 12px; padding: 4px 6px; }
-html body #adv-view-ads .ads-hq-kpi.main { background: var(--accent); color: var(--on-accent, #fff); padding: 6px 12px; }
-html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-label { color: var(--on-accent, #fff); opacity: .65; }
 html body #adv-view-ads .ads-hq-kpi-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 html body #adv-view-ads .ads-hq-kpi-d { margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--red); }
 html body #adv-view-ads .ads-hq-kpi-d.up { color: var(--green); }
@@ -826,11 +824,84 @@ html body #adv-view-ads .ads-hq-kpi-d:empty { display: none; }
   html body #adv-pulse .adp2-body { position: sticky; left: 0; width: min(1120px, calc(100vw - 380px)); box-sizing: border-box; }
 }
 @media (max-width: 760px) { html body #adv-pulse .adp2-hd, html body #adv-pulse .adp2-ty, html body #adv-pulse .adp2-mx { display: none; } }
-html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value span:first-child { color: var(--on-accent, #fff); }
-html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-d { color: var(--on-accent, #fff); opacity: .8; }
 html body #adv-pulse .adp2-sl { background: transparent; border: 1px solid var(--border); padding: 2px; }
 html body #adv-pulse .adp2-sl button { min-width: 24px; height: 22px; display: grid; place-items: center; padding: 0; background: transparent; color: var(--text-muted); box-shadow: none; }
 html body #adv-pulse .adp2-sl button svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 html body #adv-pulse .adp2-sl button.on, html body #adv-pulse .adp2-sl.p1 button.on, html body #adv-pulse .adp2-sl.p2 button.on { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
 
 html body .dashboard-app-shell > .main-rail, html body .main-rail > .main-content { min-width: 0; max-width: 100%; }
+
+/* «Кампании», телефон: карточка (вариант А): сверху фото, название и режим; ниже тип и баланс; пять главных цифр и строка остальных со свайпом */
+html body #adv-pulse .adp2-m5, html body #adv-pulse .adp2-mmore { display: contents; }
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-row { border: 1px solid var(--border-strong, var(--border)); border-radius: 18px; background: var(--surface-solid, var(--surface)); margin-bottom: 8px; }
+  html body #adv-pulse .adp2-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "tc nm ps" "ty ty bl" "m5 m5 m5" "mm mm mm" "ch ch ch"; gap: 8px 10px; padding: 10px 12px; align-items: center; }
+  html body #adv-pulse .adp2-head > .adp2-r { display: contents; }
+  html body #adv-pulse .adp2-head > .adp2-st, html body #adv-pulse .adp2-head > .adp2-cv { display: none; }
+  html body #adv-pulse .adp2-head .adp2-pos { grid-area: ps; justify-self: end; }
+  html body #adv-pulse .adp2-head .adp2-tc { grid-area: tc; }
+  html body #adv-pulse .adp2-head .adp2-nm { grid-area: nm; }
+  html body #adv-pulse .adp2-head .adp2-ty { display: flex; grid-area: ty; justify-content: flex-start; }
+  html body #adv-pulse .adp2-head .adp2-bal { grid-area: bl; justify-self: end; }
+  html body #adv-pulse .adp2-head .adp2-mx { display: contents; }
+  html body #adv-pulse .adp2-head .adp2-m5 { display: grid; grid-area: m5; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  html body #adv-pulse .adp2-head .adp2-mmore { display: flex; grid-area: mm; gap: 14px; overflow-x: auto; border-top: 1px solid var(--border); padding-top: 7px; }
+  html body #adv-pulse .adp2-head .adp2-mc { display: block; flex: none; text-align: left; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  html body #adv-pulse .adp2-head .adp2-mc::before { content: attr(data-l); display: block; font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1px; }
+  html body #adv-pulse .adp2-head .adp2-ch { grid-area: ch; }
+  html body #adv-pulse .adp2-tc .adp2-mph { width: 34px; height: 34px; border-radius: 9px; }
+  html body #adv-view-ads .ads-hq-kpi-bar { flex-wrap: nowrap; overflow-x: auto; gap: 14px; }
+  html body #adv-view-ads .ads-hq-kpi { flex: none; }
+}
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-ph > :not(.adp2-mph) { display: none; }
+  html body #adv-pulse .adp2-tag2 { border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+  html body #adv-pulse .adp2-head .adp2-bal { background: transparent; border: 1px solid var(--border-strong, var(--border)); padding: 3px 10px; align-self: center; height: auto; min-height: 0; }
+}
+
+/* «Кампании»: панель кнопок в один ряд (+ Новая РК, Кампании, Товары, поле поиска, шестерёнка), значки списка в выпадающем блоке, затемнение страницы */
+html body #adv-view-ads .ads-hq-filters [data-camp-filter] { display: none; }
+html body #adv-view-ads .ads-hq-bulk { flex-wrap: nowrap !important; align-items: center; gap: 6px; position: relative; }
+html body #adv-view-ads .adp2-switch { margin-left: 0; display: flex; gap: 4px; align-items: center; }
+html body #adv-view-ads .adp2-tab { padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; background: transparent; font-size: 12px; font-weight: 700; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+html body #adv-view-ads .adp2-tab.on { border-color: var(--accent); color: var(--text-primary); }
+html body #adv-view-ads .adp2-gear { margin-left: auto; width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 0; background: transparent; color: var(--text-primary); cursor: pointer; position: relative; }
+html body #adv-view-ads .adp2-gear svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+html body #adv-view-ads .ads-hq-search-wrap.adp2-inline { flex: 1; min-width: 120px; width: auto; max-width: none; margin: 0 6px; }
+html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .ads-hq-search-btn { display: none; }
+html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .ads-hq-search { position: static !important; transform: none !important; display: block !important; width: 100% !important; height: 30px !important; opacity: 1 !important; pointer-events: auto !important; padding: 0 14px !important; border: 1px solid var(--border) !important; border-radius: 999px !important; background: transparent; color: var(--text-primary); }
+html body #adv-view-ads #ads-hq-tools { display: none; position: absolute; right: 8px; top: calc(100% + 6px); z-index: 9999; flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 0; width: 220px; padding: 6px; margin: 0; background: var(--surface-solid, #fff); border: 1px solid var(--accent); border-radius: 16px; }
+html body #adv-view-ads.ads-gear-open #ads-hq-tools { display: flex; }
+html body #adv-view-ads #ads-hq-tools .adx-pills { display: flex; flex-direction: column; align-items: stretch; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .rnp-settings-gear { width: 100%; height: auto; flex: none; justify-content: flex-start; gap: 10px; padding: 7px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+html body .adp2-lbl { display: none; }
+html body #adv-view-ads #ads-hq-tools .adp2-lbl { display: inline; font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; letter-spacing: 0; text-transform: none; }
+html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .adp2-lbl { display: none; }
+html body #adv-view-ads #ads-hq-tools .ads-hq-freshness, html body #adv-view-ads #ads-hq-tools #ads-hq-freshness { padding: 4px 8px; }
+html:has(#adv-view-ads.ads-gear-open) #tab-advertising { contain: none; }
+html body #adv-view-ads.ads-gear-open { z-index: 9000; }
+html body #adv-view-ads.ads-gear-open::before { content: ""; position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.28); }
+html[data-theme="neon"] body #adv-view-ads.ads-gear-open::before { background: rgba(0,0,0,.5); }
+html body #adv-view-ads.ads-gear-open .ads-hq-bulk { z-index: 30; background: var(--surface-solid, #fff); }
+html body #adv-view-ads.ads-gear-open .adp2-gear { background: #fff; color: #0a0a0a; box-shadow: 0 0 0 1px #0a0a0a; }
+html body #adv-pulse .adp2-head .adp2-mmore { display: none; }
+@media (max-width: 760px) {
+  html body #adv-view-ads .ads-hq-kpi-value { font-size: 12px; }
+  html body #adv-view-ads .ads-hq-kpi-label { font-size: 8px; }
+  html body #adv-view-ads .ads-hq-kpi-d { font-size: 9px; }
+  html body #adv-view-ads .ads-hq-bulk { padding: 6px 8px; }
+  html body #adv-view-ads .adp2-newbtn { padding: 0 10px; }
+}
+html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap { width: 100%; flex: none; height: auto; flex-wrap: wrap; justify-content: flex-start; }
+html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap .ads-hq-search-btn { width: 100%; justify-content: flex-start; gap: 10px; border-bottom: 1px solid var(--border); }
+html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.is-open .ads-hq-search, html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.has-query .ads-hq-search { position: static; transform: none; width: 100% !important; height: 30px; margin: 4px 0; }
+html:has(#adv-view-ads.ads-gear-open) header.glass.app-header { background: transparent !important; box-shadow: none !important; border-color: transparent !important; }
+html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-title, button, .module-date-label) { opacity: .4; transition: opacity .15s ease; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { color: var(--text-primary); }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon svg, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn svg { width: 16px; height: 16px; flex: none; stroke: currentColor; }
+html body #adv-view-ads #ads-hq-tools .adp2-lbl { flex: 1 1 auto; width: auto !important; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { background: transparent !important; box-shadow: none !important; color: var(--text-primary) !important; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon svg, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn svg { stroke: var(--text-primary) !important; color: var(--text-primary); opacity: 1; display: block; }
+html body #adv-view-ads #ads-hq-tools .adp2-lbl { white-space: normal; line-height: 1.2; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { width: 100% !important; height: auto !important; min-width: 0 !important; border-radius: 0 !important; justify-content: flex-start !important; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::before, html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::after { background: transparent; }
