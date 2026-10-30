@@ -1258,7 +1258,7 @@
     const KPI_DEFS = [
         { id: 'revenue', label: 'Сумма заказов', goodUp: true },
         { id: 'spend', label: 'Затраты', goodUp: false },
-        { id: 'drr', label: 'Доля затрат', goodUp: false, main: true },
+        { id: 'drr', label: 'Доля затрат', goodUp: false },
         { id: 'roas', label: 'ROAS', goodUp: true },
         { id: 'ctr', label: 'CTR', goodUp: true },
     ];
