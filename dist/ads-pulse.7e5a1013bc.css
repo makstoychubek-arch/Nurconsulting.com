@@ -27,7 +27,7 @@
 .adp2-row { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; margin-bottom: 8px; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
 .adp2-row:hover { border-color: var(--border-strong); }
 .adp2-row.open { border-color: var(--border-strong); }
-.adp2-row.off .adp2-nm b, .adp2-row.off .adp2-tc { opacity: .6; }
+.adp2-row.off .adp2-nm b, .adp2-row.off .adp2-mph { opacity: .6; }
 .adp2-row.virt { border-style: dashed; }
 .adp2-row.skel .adp2-head { cursor: default; }
 
