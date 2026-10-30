@@ -339,13 +339,6 @@
         return '<button type="button" class="adp2-bal' + (low ? ' low' : '') + '" data-pact="topup" data-key="' + esc(key) + '" title="Баланс кампании. Нажмите, чтобы пополнить">' +
             '<b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : '<span class="adp2-bn">' + fmtInt(b) + '</span><span class="adp2-cur"> ₽</span>') + '</b><i>+</i></button>';
     }
-    function metricsHtml(camp, key) {
-        var d = drrOf(camp), has = (Number(camp.spendToday) || 0) > 0 || (Number(camp.orders) || 0) > 0;
-        var cl = d == null ? '' : (d < 8 ? 'ok' : d < 12 ? 'wa' : 'bad');
-        return '<div class="adp2-m"><small>Расход</small><b>' + (has ? fmtInt(camp.spendToday) + ' ₽' : '—') + '</b></div>' +
-            '<div class="adp2-m"><small>Заказы</small><b>' + (has ? fmtInt(camp.orders) : '—') + '</b></div>' +
-            '<div class="adp2-m"><small>ДРР</small><b class="' + cl + '">' + (d == null ? '—' : d.toFixed(1).replace('.', ',') + '%') + '</b></div>';
-    }
     function bidControlHtml(key, camp, kind) {
         var inf = S.info[key], list = entriesOf(key, camp);
         if (String(camp.bidType).toLowerCase() === 'unified' && !list.length && !(inf && inf.loaded)) {
@@ -441,13 +434,12 @@
             '<div class="adp2-head" data-pact="open" data-key="' + esc(key) + '">' +
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
             '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small><span class="adp2-stt">' + (live ? 'Активна' : 'Приостановлена') + ' · </span>' + esc(camp.wbId) + (nmCount ? '<span class="adp2-nmc"> · ' + nmCount + ' тов.</span>' : '') + '</small>' + mainLine(cab, camp, nmCount) + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
-            '<div class="adp2-st">' + metricsHtml(c) + '</div>' +
             typeCellHtml(camp, kind) +
             '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + '</div></div>' +
             metricCellsHtml(c) +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<div class="adp2-shl">' + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
-            '<span class="adp2-cv">⌄</span></div>' +
+            '</div>' +
             (open ? '<div class="adp2-body"><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
                 '<button type="button" data-pact="toggle" data-key="' + esc(key) + '" class="adp2-tg ' + (live ? 'on' : '') + '">' + (live ? 'Поставить на паузу' : 'Запустить') + '</button>' +
                 '<span class="adp2-bw" data-nostop="1">' + bidControlHtml(key, camp, kind) + '</span>' + '<span class="adp2-mut">Показы ' + fmtSom(camp.views) + ' · клики ' + fmtSom(camp.clicks) + ' · заказы ' + fmtSom(camp.orders) + ' · расход ' + fmtSom(camp.spendToday) + '</span></div>' +
@@ -472,9 +464,7 @@
             '<div class="adp2-pos">' + bar(84, 30, ';border-radius:10px') + '</div>' +
             '<div class="adp2-tc">' + bar(40, 40, ';border-radius:50%') + '</div>' +
             '<div class="adp2-nm">' + bar(150, 14, ';margin-bottom:6px') + bar(90, 11, '') + '</div>' +
-            '<div class="adp2-st">' + bar(46, 20, '') + bar(46, 20, '') + bar(46, 20, '') + '</div>' +
             '<div class="adp2-ch">' + bar(74, 22, ';border-radius:999px') + '</div>' +
-            '<span class="adp2-cv"></span>' +
             '</div></article>';
     }
     function render() {

@@ -788,170 +788,108 @@ html body #adv-view-ads .ads-hq-kpi-d { margin-left: 6px; font-size: 10px; font-
 html body #adv-view-ads .ads-hq-kpi-d.up { color: var(--green); }
 html body #adv-view-ads .ads-hq-kpi-d:empty { display: none; }
 
-/* «Кампании» (Пульт РК), широкий экран: плотная таблица как у WB. Режим и название закреплены слева, колонки метрик прокручиваются вправо, заголовок закреплён сверху. */
-@media (min-width: 761px) {
-  html body #adv-pulse { overflow-x: auto; overflow-y: visible; position: relative; padding-bottom: 6px; max-width: 100%; min-width: 0; }
-  html body #adv-view-ads, html body #adv-view-ads .ads-hq-list-card, html body #tab-advertising { min-width: 0; max-width: 100%; }
-  html body #adv-pulse .adp2-hd, html body #adv-pulse .adp2-head { display: flex; align-items: center; gap: 0; width: max-content; min-width: 100%; padding: 0; }
-  html body #adv-pulse .adp2-hd { position: sticky; top: 0; z-index: 6; background: var(--surface-solid, var(--surface)); border-bottom: 1px solid var(--border-strong, var(--border)); min-height: 36px; }
-  html body #adv-pulse .adp2-row { width: max-content; min-width: 100%; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; margin: 0; background: var(--surface-solid, var(--surface)); overflow: visible; }
-  html body #adv-pulse .adp2-row:hover { background: var(--surface-solid, var(--surface)); }
-  html body #adv-pulse .adp2-head > .adp2-r { display: contents; }
-  html body #adv-pulse .adp2-head > .adp2-st, html body #adv-pulse .adp2-head > .adp2-cv { display: none; }
-  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { order: 1; flex: none; width: 96px; box-sizing: border-box; display: flex; justify-content: center; position: sticky; left: 0; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 8px 0; }
-  html body #adv-pulse .adp2-tc { order: 2; flex: none; width: 40px; position: sticky; left: 96px; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 8px 0 8px 4px; }
-  html body #adv-pulse .adp2-nm, html body #adv-pulse .adp2-hnm { order: 3; flex: none; width: 270px; box-sizing: border-box; position: sticky; left: 136px; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 8px 10px 8px 6px; }
-  html body #adv-pulse .adp2-hd .adp2-hnm { width: 310px; padding-left: 46px; }
-  html body #adv-pulse .adp2-ty { order: 4; flex: none; width: 112px; display: flex; justify-content: center; text-align: center; box-shadow: -1px 0 0 var(--border); align-self: stretch; align-items: center; background: var(--surface-solid, var(--surface)); }
-  html body #adv-pulse .adp2-head .adp2-bal, html body #adv-pulse .adp2-hd > .adp2-hbal { order: 5; flex: none; width: 100px; box-sizing: border-box; justify-content: center; }
-  html body #adv-pulse .adp2-head .adp2-bal { display: inline-flex; margin: 0 8px; width: 84px; flex: none; justify-content: center; }
-  html body #adv-pulse .adp2-mx, html body #adv-pulse .adp2-hd .adp2-mc { order: 6; }
-  html body #adv-pulse .adp2-mx { display: contents; }
-  html body #adv-pulse .adp2-mc { order: 6; flex: none; width: 100px; box-sizing: border-box; text-align: center; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; border-left: 1px solid var(--border); align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0 6px; }
-  html body #adv-pulse .adp2-hd > .adp2-mc, html body #adv-pulse .adp2-hd > .adp2-hbal { align-self: stretch; }
-  html body #adv-pulse .adp2-ch { order: 9; flex: none; width: 220px; padding: 0 10px; }
-  html body #adv-pulse .adp2-hd > div { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 1.15; color: var(--text-muted); padding: 4px 6px; box-sizing: border-box; position: relative; cursor: help; }
-  html body #adv-pulse .adp2-hd > .adp2-hpos, html body #adv-pulse .adp2-hd > .adp2-hnm { position: sticky; }
-  html body #adv-pulse .adp2-hd > div > span { border-bottom: 1px dotted var(--border); }
-  html body #adv-pulse .adp2-hd > .adp2-hbal { margin: 0; display: flex; width: 100px; flex: none; }
-  html body #adv-pulse .adp2-tag2 { border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
-  html body #adv-pulse .adp2-tip::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); width: 210px; background: var(--accent); color: var(--on-accent, #fff); font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1.35; text-align: left; padding: 8px 10px; border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 40; }
-  html body #adv-pulse .adp2-tip:hover::after { opacity: 1; }
-  html body #adv-pulse .adp2-ph .adp2-badge, html body #adv-pulse .adp2-ph > :not(.adp2-mph) { display: none; }
-  html body #adv-pulse .adp2-tc .adp2-mph { width: 28px; height: 28px; border-radius: 8px; }
-  html body #adv-pulse .adp2-nm b { font-size: 13px; font-weight: 700; }
-  html body #adv-pulse .adp2-nm small { font-size: 10px; }
-  html body #adv-pulse .adp2-body { position: sticky; left: 0; width: min(1120px, calc(100vw - 380px)); box-sizing: border-box; }
-}
-@media (max-width: 760px) { html body #adv-pulse .adp2-hd, html body #adv-pulse .adp2-ty, html body #adv-pulse .adp2-mx { display: none; } }
-html body #adv-pulse .adp2-sl { background: transparent; border: 1px solid var(--border); padding: 2px; }
-html body #adv-pulse .adp2-sl button { min-width: 24px; height: 22px; display: grid; place-items: center; padding: 0; background: transparent; color: var(--text-muted); box-shadow: none; }
-html body #adv-pulse .adp2-sl button svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-html body #adv-pulse .adp2-sl button.on, html body #adv-pulse .adp2-sl.p1 button.on, html body #adv-pulse .adp2-sl.p2 button.on { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
 
 html body .dashboard-app-shell > .main-rail, html body .main-rail > .main-content { min-width: 0; max-width: 100%; }
 
-/* «Кампании», телефон: карточка (вариант А): сверху фото, название и режим; ниже тип и баланс; пять главных цифр и строка остальных со свайпом */
-html body #adv-pulse .adp2-m5, html body #adv-pulse .adp2-mmore { display: contents; }
-@media (max-width: 760px) {
-  html body #adv-pulse .adp2-row { border: 1px solid var(--border-strong, var(--border)); border-radius: 18px; background: var(--surface-solid, var(--surface)); margin-bottom: 8px; }
-  html body #adv-pulse .adp2-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "tc nm ps" "ty ty bl" "m5 m5 m5"; gap: 8px 10px; padding: 10px 12px; align-items: center; }
-  html body #adv-pulse .adp2-head > .adp2-r { display: contents; }
-  html body #adv-pulse .adp2-head > .adp2-st, html body #adv-pulse .adp2-head > .adp2-cv { display: none; }
-  html body #adv-pulse .adp2-head .adp2-pos { grid-area: ps; justify-self: end; }
-  html body #adv-pulse .adp2-head .adp2-tc { grid-area: tc; }
-  html body #adv-pulse .adp2-head .adp2-nm { grid-area: nm; }
-  html body #adv-pulse .adp2-head .adp2-ty { display: flex; grid-area: ty; justify-content: flex-start; }
-  html body #adv-pulse .adp2-head .adp2-bal { grid-area: bl; justify-self: end; }
-  html body #adv-pulse .adp2-head .adp2-mx { display: contents; }
-  html body #adv-pulse .adp2-head .adp2-m5 { display: grid; grid-area: m5; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
-  html body #adv-pulse .adp2-head .adp2-mmore { display: flex; grid-area: mm; gap: 14px; overflow-x: auto; border-top: 1px solid var(--border); padding-top: 7px; }
-  html body #adv-pulse .adp2-head .adp2-mc { display: block; flex: none; text-align: left; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  html body #adv-pulse .adp2-head .adp2-mc::before { content: attr(data-l); display: block; font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1px; }
-  html body #adv-pulse .adp2-head .adp2-ch { grid-area: ch; }
-  html body #adv-pulse .adp2-tc .adp2-mph { width: 34px; height: 34px; border-radius: 9px; }
-  html body #adv-view-ads .ads-hq-kpi-bar { flex-wrap: nowrap; overflow-x: auto; gap: 14px; }
-  html body #adv-view-ads .ads-hq-kpi { flex: none; }
-}
-@media (max-width: 760px) {
-  html body #adv-pulse .adp2-ph > :not(.adp2-mph) { display: none; }
-  html body #adv-pulse .adp2-tag2 { border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
-  html body #adv-pulse .adp2-head .adp2-bal { background: transparent; border: 1px solid var(--border-strong, var(--border)); padding: 3px 10px; align-self: center; height: auto; min-height: 0; }
-}
+/* ===== «Кампании» («Минимализм»): один чистый слой по макетам «Кампании плотный вид» (ПК) и «Кампании телефон» ===== */
+html body #adv-pulse .adp2-sl { display: inline-flex; background: transparent; border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; padding: 2px; flex: none; }
+html body #adv-pulse .adp2-sl button { min-width: 22px; min-height: 0; height: 20px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--text-muted); box-shadow: none; cursor: pointer; }
+html body #adv-pulse .adp2-sl button svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+html body #adv-pulse .adp2-sl button.on, html body #adv-pulse .adp2-sl.p1 button.on, html body #adv-pulse .adp2-sl.p2 button.on { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+html body #adv-pulse .adp2-auto { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: transparent; border: 1px solid var(--border); color: var(--text-primary); font-size: 10px; font-weight: 700; }
+html body #adv-pulse .adp2-tag2 { border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+html body #adv-pulse .adp2-ph { position: relative; display: block; flex: none; }
+html body #adv-pulse .adp2-ph > :not(.adp2-mph) { display: none; }
+html body #adv-pulse .adp2-mph { display: block; object-fit: cover; object-position: center top; background: var(--sel); border: 1px solid var(--border); }
+html body #adv-pulse .adp2-nm b { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body #adv-pulse .adp2-nm small { display: block; font-size: 10px; color: var(--text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body #adv-pulse .adp2-bal { border: 1px solid var(--border-strong, var(--border)); background: transparent; color: var(--text-primary); font: inherit; font-weight: 800; font-size: 11px; border-radius: 999px; padding: 3px 9px; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 4px; align-items: baseline; }
+html body #adv-pulse .adp2-bal b { font-weight: inherit; font-size: inherit; }
+html body #adv-pulse .adp2-bal i { font-style: normal; }
+html body #adv-pulse .adp2-bal.low, html body #adv-pulse .adp2-bal b.bad { color: var(--red); border-color: var(--red); }
+html body #adv-pulse .adp2-r { display: contents; }
+html body #adv-pulse .adp2-m5, html body #adv-pulse .adp2-mmore, html body #adv-pulse .adp2-mx { display: contents; }
+html body #adv-pulse .adp2-shl { display: none; }
+html body #adv-pulse .adp2-pos { cursor: default; }
+html body #adv-pulse .adp2-tip::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); width: 210px; background: var(--accent); color: var(--on-accent, #fff); font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1.35; text-align: left; padding: 8px 10px; border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 40; }
+html body #adv-pulse .adp2-tip:hover::after { opacity: 1; }
+html body .ads-hq-tip { position: relative; cursor: help; }
+html body .ads-hq-tip::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); width: 210px; background: var(--accent); color: var(--on-accent, #fff); font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1.35; text-align: left; padding: 8px 10px; border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 30; }
+html body .ads-hq-tip:hover::after { opacity: 1; }
 
-/* «Кампании»: панель кнопок в один ряд (+ Новая РК, Кампании, Товары, поле поиска, шестерёнка), значки списка в выпадающем блоке, затемнение страницы */
+/* полоса метрик */
+html body #adv-view-ads .ads-hq-kpi-bar { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-end; padding: 0 !important; }
+html body #adv-view-ads .ads-hq-kpi { display: flex; flex-direction: column; gap: 2px; background: transparent !important; border: 0 !important; padding: 0 !important; }
+html body #adv-view-ads .ads-hq-kpi-label { margin: 0; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+html body #adv-view-ads .ads-hq-kpi-value { font-size: 15px !important; font-weight: 800; font-variant-numeric: tabular-nums; }
+html body #adv-view-ads .ads-hq-kpi-d { margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--red); }
+html body #adv-view-ads .ads-hq-kpi-d.up { color: var(--green); }
+html body #adv-view-ads .ads-hq-kpi-d:empty { display: none; }
+
+/* панель кнопок: + Новая РК, Кампании, Товары, поиск, шестерёнка */
 html body #adv-view-ads .ads-hq-filters [data-camp-filter] { display: none; }
-html body #adv-view-ads .ads-hq-bulk { flex-wrap: nowrap !important; align-items: center; gap: 6px; position: relative; }
+html body #adv-view-ads .ads-hq-bulk { display: flex; flex-wrap: nowrap !important; align-items: center; gap: 6px; position: relative; border: 0 !important; background: transparent !important; padding: 0 !important; border-radius: 0 !important; }
 html body #adv-view-ads .adp2-switch { margin-left: 0; display: flex; gap: 4px; align-items: center; }
+html body #adv-view-ads .adp2-newbtn { height: auto; padding: 7px 12px; font-size: 12px; font-weight: 700; border-radius: 999px; }
 html body #adv-view-ads .adp2-tab { padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; background: transparent; font-size: 12px; font-weight: 700; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
 html body #adv-view-ads .adp2-tab.on { border-color: var(--accent); color: var(--text-primary); }
 html body #adv-view-ads .adp2-gear { margin-left: auto; width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 0; background: transparent; color: var(--text-primary); cursor: pointer; position: relative; }
 html body #adv-view-ads .adp2-gear svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 html body #adv-view-ads .ads-hq-search-wrap.adp2-inline { flex: 1; min-width: 120px; width: auto; max-width: none; margin: 0 6px; }
-html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .ads-hq-search-btn { display: none; }
-html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .ads-hq-search { position: static !important; transform: none !important; display: block !important; width: 100% !important; height: 30px !important; opacity: 1 !important; pointer-events: auto !important; padding: 0 14px !important; border: 1px solid var(--border) !important; border-radius: 999px !important; background: transparent; color: var(--text-primary); }
+html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .ads-hq-search-btn, html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .adp2-lbl { display: none; }
+html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .ads-hq-search { position: static !important; transform: none !important; display: block !important; width: 100% !important; height: 30px !important; opacity: 1 !important; pointer-events: auto !important; padding: 0 14px !important; font-size: 12px; border: 1px solid var(--border) !important; border-radius: 999px !important; background: transparent; color: var(--text-primary); }
+html body .adp2-lbl { display: none; }
 html body #adv-view-ads #ads-hq-tools { display: none; position: absolute; right: 8px; top: calc(100% + 6px); z-index: 9999; flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 0; width: 220px; padding: 6px; margin: 0; background: var(--surface-solid, #fff); border: 1px solid var(--accent); border-radius: 16px; }
 html body #adv-view-ads.ads-gear-open #ads-hq-tools { display: flex; }
 html body #adv-view-ads #ads-hq-tools .adx-pills { display: flex; flex-direction: column; align-items: stretch; }
-html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .rnp-settings-gear { width: 100%; height: auto; flex: none; justify-content: flex-start; gap: 10px; padding: 7px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
-html body .adp2-lbl { display: none; }
-html body #adv-view-ads #ads-hq-tools .adp2-lbl { display: inline; font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; letter-spacing: 0; text-transform: none; }
-html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .adp2-lbl { display: none; }
-html body #adv-view-ads #ads-hq-tools .ads-hq-freshness, html body #adv-view-ads #ads-hq-tools #ads-hq-freshness { padding: 4px 8px; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .rnp-settings-gear, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { width: 100% !important; height: auto !important; min-width: 0 !important; flex: none; display: flex; align-items: center; justify-content: flex-start !important; gap: 10px; padding: 7px 8px; font-size: 12px; font-weight: 700; border: 0; border-bottom: 1px solid var(--border); border-radius: 0 !important; background: transparent !important; box-shadow: none !important; color: var(--text-primary) !important; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon svg, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn svg { display: block; width: 16px; height: 16px; flex: none; stroke: var(--text-primary) !important; opacity: 1; }
+html body #adv-view-ads #ads-hq-tools .adp2-lbl { display: inline; flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 700; line-height: 1.2; color: var(--text-primary); text-align: left; letter-spacing: 0; text-transform: none; white-space: normal; }
+html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap { width: 100%; flex: none; height: auto; flex-wrap: wrap; justify-content: flex-start; }
+html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.is-open .ads-hq-search, html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.has-query .ads-hq-search { position: static; transform: none; width: 100% !important; height: 30px; margin: 4px 0; }
+html body #adv-view-ads #ads-hq-tools .ads-hq-freshness { padding: 4px 8px; }
+/* затемнение страницы при открытой шестерёнке (как у календаря и кабинета) */
 html:has(#adv-view-ads.ads-gear-open) #tab-advertising { contain: none; }
 html body #adv-view-ads.ads-gear-open { z-index: 9000; }
 html body #adv-view-ads.ads-gear-open::before { content: ""; position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.28); }
 html[data-theme="neon"] body #adv-view-ads.ads-gear-open::before { background: rgba(0,0,0,.5); }
-html body #adv-view-ads.ads-gear-open .ads-hq-bulk { z-index: 30; background: var(--surface-solid, #fff); }
+html body #adv-view-ads.ads-gear-open .ads-hq-bulk { z-index: 30; background: var(--surface-solid, #fff) !important; }
 html body #adv-view-ads.ads-gear-open .adp2-gear { background: #fff; color: #0a0a0a; box-shadow: 0 0 0 1px #0a0a0a; }
-html body #adv-pulse .adp2-head .adp2-mmore { display: none; }
-@media (max-width: 760px) {
-  html body #adv-view-ads .ads-hq-kpi-value { font-size: 12px; }
-  html body #adv-view-ads .ads-hq-kpi-label { font-size: 8px; }
-  html body #adv-view-ads .ads-hq-kpi-d { font-size: 9px; }
-  html body #adv-view-ads .ads-hq-bulk { padding: 6px 8px; }
-  html body #adv-view-ads .adp2-newbtn { padding: 0 10px; }
-}
-html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap { width: 100%; flex: none; height: auto; flex-wrap: wrap; justify-content: flex-start; }
-html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap .ads-hq-search-btn { width: 100%; justify-content: flex-start; gap: 10px; border-bottom: 1px solid var(--border); }
-html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.is-open .ads-hq-search, html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.has-query .ads-hq-search { position: static; transform: none; width: 100% !important; height: 30px; margin: 4px 0; }
 html:has(#adv-view-ads.ads-gear-open) header.glass.app-header { background: transparent !important; box-shadow: none !important; border-color: transparent !important; }
 html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-title, button, .module-date-label) { opacity: .4; transition: opacity .15s ease; }
-html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { color: var(--text-primary); }
-html body #adv-view-ads #ads-hq-tools .rnp-tool-icon svg, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn svg { width: 16px; height: 16px; flex: none; stroke: currentColor; }
-html body #adv-view-ads #ads-hq-tools .adp2-lbl { flex: 1 1 auto; width: auto !important; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
-html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { background: transparent !important; box-shadow: none !important; color: var(--text-primary) !important; }
-html body #adv-view-ads #ads-hq-tools .rnp-tool-icon svg, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn svg { stroke: var(--text-primary) !important; color: var(--text-primary); opacity: 1; display: block; }
-html body #adv-view-ads #ads-hq-tools .adp2-lbl { white-space: normal; line-height: 1.2; }
-html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { width: 100% !important; height: auto !important; min-width: 0 !important; border-radius: 0 !important; justify-content: flex-start !important; }
-html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::before, html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::after { background: transparent; }
 
-/* «Кампании», ПК: плотность, шрифты и блоки один в один как в макете «Кампании плотный вид» */
+/* ПК: общий контур, таблица как у WB (режим и название закреплены, колонки метрик со свайпом вправо) */
 @media (min-width: 761px) {
-  /* один общий контур: метрики, панель кнопок и таблица внутри одной рамки, метрики сверху */
-  html body #adv-view-ads { display: flex !important; flex-direction: column; gap: 12px; border: 1px solid var(--border-strong, var(--border)); border-radius: 20px; padding: 14px 16px; }
+  html body #adv-view-ads { display: flex !important; flex-direction: column; gap: 12px; border: 1px solid var(--border-strong, var(--border)); border-radius: 20px; padding: 14px 16px; min-width: 0; max-width: 100%; }
+  html body #tab-advertising { min-width: 0; max-width: 100%; }
   html body #adv-view-ads > * { margin-top: 0 !important; }
   html body #adv-view-ads > #ads-hq-kpis { order: 1; }
   html body #adv-view-ads > .ads-hq-bulk { order: 2; }
-  html body #adv-view-ads > .ads-hq-list-card { order: 3; }
+  html body #adv-view-ads > .ads-hq-list-card { order: 3; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
   html body #adv-view-ads > #ad-autopilot-card { order: 4; }
-  html body #adv-view-ads .ads-hq-bulk { border: 0 !important; background: transparent !important; padding: 0 !important; border-radius: 0 !important; }
-  html body #adv-view-ads .ads-hq-list-card { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
-  html body #adv-view-ads .ads-hq-kpi-bar { padding: 0 !important; gap: 26px; align-items: flex-end; }
-  html body #adv-view-ads .ads-hq-kpi { padding: 0 !important; background: transparent !important; border: 0 !important; display: flex; flex-direction: column; gap: 2px; }
-  html body #adv-view-ads .ads-hq-kpi-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 0; }
-  html body #adv-view-ads .ads-hq-kpi-value { font-size: 15px !important; font-weight: 800; font-variant-numeric: tabular-nums; }
-  html body #adv-view-ads .ads-hq-kpi-d { font-size: 10px; font-weight: 700; margin-left: 6px; }
-  /* кнопки панели как в макете */
-  html body #adv-view-ads .adp2-newbtn { height: auto; padding: 7px 12px; font-size: 12px; font-weight: 700; border-radius: 999px; }
-  html body #adv-view-ads .adp2-tab { padding: 6px 12px; border: 1px solid var(--border); font-size: 12px; }
-  html body #adv-view-ads .adp2-tab.on { border-color: var(--accent); }
-  html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .ads-hq-search { height: 30px !important; font-size: 12px; }
-  /* таблица: строка 36px в одну линию */
-  html body #adv-pulse .adp2-hd { min-height: 28px; border-bottom: 1px solid var(--border-strong, var(--border)); }
-  html body #adv-pulse .adp2-hd > div { padding: 0 6px; font-size: 9px; }
-  html body #adv-pulse .adp2-row { border-bottom: 1px solid var(--border); }
-  html body #adv-pulse .adp2-head { min-height: 36px; }
-  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { width: 84px; padding: 0; }
-  html body #adv-pulse .adp2-tc { width: 34px; padding: 0 0 0 10px; display: flex; align-items: center; }
-  html body #adv-pulse .adp2-tc .adp2-mph { width: 22px; height: 22px; border-radius: 6px; }
-  html body #adv-pulse .adp2-nm, html body #adv-pulse .adp2-hnm { width: 286px; padding: 0 8px 0 8px; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; }
-  html body #adv-pulse .adp2-hd .adp2-hnm { width: 320px; padding-left: 44px; justify-content: flex-start; }
-  html body #adv-pulse .adp2-nm b { font-size: 12px; font-weight: 700; flex: none; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
-  html body #adv-pulse .adp2-nm small { display: inline !important; margin: 0 !important; font-size: 10px; color: var(--text-muted); }
-  html body #adv-pulse .adp2-stt, html body #adv-pulse .adp2-nmc { display: none; }
-  html body #adv-pulse .adp2-nm .adp2-main { display: none; }
-  html body #adv-pulse .adp2-nm .shv-slot { display: none; }
-  html body #adv-pulse .adp2-ty { width: 76px; }
-  html body #adv-pulse .adp2-hd > .adp2-hbal, html body #adv-pulse .adp2-head .adp2-bal { width: 70px; margin: 0; }
-  html body #adv-pulse .adp2-head .adp2-bal { background: transparent; border: 0; padding: 0; justify-content: center; }
+  html body #adv-pulse { overflow-x: auto; overflow-y: visible; position: relative; padding-bottom: 6px; max-width: 100%; min-width: 0; }
+  html body #adv-pulse .adp2-hd, html body #adv-pulse .adp2-head { display: flex; align-items: center; width: max-content; min-width: 100%; padding: 0; gap: 0; }
+  html body #adv-pulse .adp2-hd { position: sticky; top: 0; z-index: 6; min-height: 28px; background: var(--surface-solid, var(--surface)); border-bottom: 1px solid var(--border-strong, var(--border)); }
+  html body #adv-pulse .adp2-row { width: max-content; min-width: 100%; margin: 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface-solid, var(--surface)); overflow: visible; }
+  html body #adv-pulse .adp2-head { height: 36px; min-height: 36px; }
+  html body #adv-pulse .adp2-head > * { align-self: center; }
+  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { order: 1; flex: none; width: 84px; box-sizing: border-box; display: flex; justify-content: center; position: sticky; left: 0; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 0; }
+  html body #adv-pulse .adp2-tc { order: 2; flex: none; width: 34px; position: sticky; left: 84px; z-index: 4; display: flex; align-items: center; padding-left: 10px; background: var(--surface-solid, var(--surface)); }
+  html body #adv-pulse .adp2-mph, html body #adv-pulse .adp2-ph { width: 22px; height: 22px; border-radius: 6px; }
+  html body #adv-pulse .adp2-nm, html body #adv-pulse .adp2-hnm { order: 3; flex: none; width: 286px; box-sizing: border-box; position: sticky; left: 118px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 0 8px; overflow: hidden; white-space: nowrap; background: var(--surface-solid, var(--surface)); }
+  html body #adv-pulse .adp2-hd .adp2-hnm { width: 320px; padding-left: 44px; justify-content: flex-start; left: 84px; }
+  html body #adv-pulse .adp2-nm b { flex: none; max-width: 190px; font-size: 12px; }
+  html body #adv-pulse .adp2-nm small { display: inline; margin: 0; }
+  html body #adv-pulse .adp2-stt, html body #adv-pulse .adp2-nmc, html body #adv-pulse .adp2-nm .adp2-main, html body #adv-pulse .adp2-nm .shv-slot, html body #adv-pulse .adp2-ch, html body #adv-pulse .adp2-cur, html body #adv-pulse .adp2-bal i { display: none; }
+  html body #adv-pulse .adp2-ty { order: 4; flex: none; width: 76px; display: flex; justify-content: center; align-items: center; text-align: center; align-self: stretch; box-shadow: -1px 0 0 var(--border); background: var(--surface-solid, var(--surface)); }
+  html body #adv-pulse .adp2-head .adp2-bal, html body #adv-pulse .adp2-hd > .adp2-hbal { order: 5; flex: none; width: 70px; margin: 0; box-sizing: border-box; justify-content: center; }
+  html body #adv-pulse .adp2-head .adp2-bal { border: 0; padding: 0; background: transparent; }
   html body #adv-pulse .adp2-head .adp2-bal b { font-size: 13px; font-weight: 600; }
-  html body #adv-pulse .adp2-head .adp2-bal i, html body #adv-pulse .adp2-cur { display: none; }
-  html body #adv-pulse .adp2-head .adp2-bal b.bad { color: var(--red); }
-  html body #adv-pulse .adp2-mc { font-size: 13px; font-weight: 600; padding: 0 6px; }
-  html body #adv-pulse .adp2-sl { padding: 2px; }
-  html body #adv-pulse .adp2-sl button { min-width: 22px; height: 20px; }
-  /* ширины колонок метрик как в макете */
+  html body #adv-pulse .adp2-mc { order: 6; flex: none; box-sizing: border-box; align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0 6px; text-align: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; border-left: 1px solid var(--border); }
+  html body #adv-pulse .adp2-hd > div { display: flex; align-items: center; justify-content: center; position: relative; padding: 0 6px; box-sizing: border-box; text-align: center; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 1.15; color: var(--text-muted); cursor: help; }
+  html body #adv-pulse .adp2-hd > .adp2-hpos, html body #adv-pulse .adp2-hd > .adp2-hnm { position: sticky; }
+  html body #adv-pulse .adp2-hd > .adp2-ty { z-index: 6; box-shadow: none; }
+  html body #adv-pulse .adp2-hd > div > span { border-bottom: 1px dotted var(--border); }
   html body #adv-pulse .adp2-m5 > :nth-child(1), html body #adv-pulse .adp2-hd > :nth-child(5) { width: 88px; }
   html body #adv-pulse .adp2-m5 > :nth-child(2), html body #adv-pulse .adp2-hd > :nth-child(6) { width: 78px; }
   html body #adv-pulse .adp2-m5 > :nth-child(3), html body #adv-pulse .adp2-hd > :nth-child(7) { width: 66px; }
@@ -966,54 +904,48 @@ html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::before, html body #adv-vie
   html body #adv-pulse .adp2-mmore > :nth-child(7), html body #adv-pulse .adp2-hd > :nth-child(16) { width: 66px; }
   html body #adv-pulse .adp2-mmore > :nth-child(8), html body #adv-pulse .adp2-hd > :nth-child(17) { width: 76px; }
   html body #adv-pulse .adp2-mmore > :nth-child(9), html body #adv-pulse .adp2-hd > :nth-child(18) { width: 76px; }
-  html body #adv-pulse .adp2-ch { display: none; }
+  html body #adv-pulse .adp2-body { position: sticky; left: 0; width: min(1120px, calc(100vw - 380px)); box-sizing: border-box; }
 }
-@media (max-width: 760px) { html body #adv-pulse .adp2-stt { display: inline; } }
-@media (min-width: 761px) {
-  html body #adv-pulse .adp2-head { align-items: center; min-height: 36px; height: 36px; }
-  html body #adv-pulse .adp2-head > *, html body #adv-pulse .adp2-head .adp2-pos { align-self: center !important; }
-  html body #adv-pulse .adp2-head .adp2-nm { align-self: center !important; height: auto; }
-  html body #adv-pulse .adp2-head .adp2-tc, html body #adv-pulse .adp2-head .adp2-ty { height: 36px; align-self: center !important; }
-  html body #adv-pulse .adp2-head .adp2-pos { padding: 0; height: auto; }
-  html body #adv-pulse .adp2-ph { width: 22px; height: 22px; display: block; }
-  html body #adv-pulse .adp2-hd > .adp2-ty { color: var(--text-muted); }
-  html body #adv-pulse .adp2-head .adp2-mc { align-self: stretch !important; }
-}
-@media (min-width: 761px) { html body #adv-pulse .adp2-hd > .adp2-ty { position: relative; z-index: 6; box-shadow: none; } html body #adv-pulse .adp2-hd > .adp2-ty > span { color: var(--text-muted); } }
 
-/* «Кампании», телефон: без лишней рамки списка и пустых отступов, шапка страницы без наложения (кабинет над датой справа, как в макете) */
+/* Телефон: карточка (макет «Кампании телефон»): фото, название и режим; тип и баланс; пять главных цифр */
 @media (max-width: 760px) {
   html body #adv-view-ads .ads-hq-list-card { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
-  html body #adv-pulse .adp2-head .adp2-ch { grid-column: 1 / -1; grid-area: auto; }
+  html body #adv-view-ads .ads-hq-bulk { padding: 6px 8px !important; border: 1px solid var(--border-strong, var(--border)) !important; border-radius: 18px !important; }
+  html body #adv-view-ads .adp2-newbtn { padding: 0 10px; }
+  html body #adv-view-ads .ads-hq-kpi-bar { flex-wrap: nowrap; overflow-x: auto; gap: 12px; padding: 0 !important; }
+  html body #adv-view-ads .ads-hq-kpi { flex: none; }
+  html body #adv-view-ads .ads-hq-kpi-value { font-size: 12px !important; }
+  html body #adv-view-ads .ads-hq-kpi-label { font-size: 8px; }
+  html body #adv-view-ads .ads-hq-kpi-d { font-size: 9px; }
+  html body #adv-pulse .adp2-hd, html body #adv-pulse .adp2-mmore { display: none; }
+  html body #adv-pulse .adp2-row { margin-bottom: 8px; border: 1px solid var(--border-strong, var(--border)); border-radius: 18px; background: var(--surface-solid, var(--surface)); overflow: hidden; }
+  html body #adv-pulse .adp2-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "tc nm ps" "ty ty bl" "m5 m5 m5"; gap: 8px 10px; padding: 10px 12px; align-items: center; }
+  html body #adv-pulse .adp2-tc { grid-area: tc; }
+  html body #adv-pulse .adp2-mph, html body #adv-pulse .adp2-ph { width: 34px; height: 34px; border-radius: 9px; }
+  html body #adv-pulse .adp2-nm { grid-area: nm; min-width: 0; align-self: center; }
+  html body #adv-pulse .adp2-nm .shv-slot { display: none; }
+  html body #adv-pulse .adp2-head .adp2-pos { grid-area: ps; justify-self: end; }
+  html body #adv-pulse .adp2-head .adp2-ty { grid-area: ty; display: flex; justify-content: flex-start; }
+  html body #adv-pulse .adp2-head .adp2-bal { grid-area: bl; justify-self: end; }
+  html body #adv-pulse .adp2-head .adp2-m5 { grid-area: m5; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  html body #adv-pulse .adp2-head .adp2-mc { display: block; text-align: left; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  html body #adv-pulse .adp2-head .adp2-mc::before { content: attr(data-l); display: block; font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1px; }
+  html body #adv-pulse .adp2-head .adp2-ph .adp2-ty { display: none; }
+  html body #adv-pulse .adp2-head .adp2-bal { min-height: 0; height: auto; padding: 3px 10px; }
+  html body #adv-pulse .adp2-sl button { min-height: 0; height: 22px; min-width: 24px; }
+  html body #adv-pulse .adp2-head .adp2-shl { display: block; grid-column: 1 / -1; }
+  html body #adv-pulse .adp2-head .adp2-shl:not(:has(*)) { display: none; }
+  html body #adv-pulse .adp2-head .adp2-ch { grid-column: 1 / -1; }
   html body #adv-pulse .adp2-head .adp2-ch:not(:has(*)) { display: none; }
-  html body #adv-pulse .adp2-row { margin-bottom: 8px; }
-  html:has(#tab-advertising.active) header.glass.app-header .app-header-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; row-gap: 4px; height: auto; min-height: 28px; }
+  /* шапка страницы: кабинет над датой справа (как в макете) */
+  html:has(#tab-advertising.active) header.glass.app-header .app-header-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; row-gap: 4px; height: auto; min-height: 0; }
   html:has(#tab-advertising.active) header.glass.app-header .app-header-main > div:first-child, html:has(#tab-advertising.active) header.glass.app-header .app-header-main > div:last-child { display: contents; }
   html:has(#tab-advertising.active) header.glass.app-header .mobile-menu-btn { grid-column: 1; grid-row: 1 / 3; }
   html:has(#tab-advertising.active) header.glass.app-header .header-page-title { grid-column: 2; grid-row: 1 / 3; min-width: 0; overflow: hidden; }
   html:has(#tab-advertising.active) header.glass.app-header .nr-crumbs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   html:has(#tab-advertising.active) header.glass.app-header .cabinet-picker-wrap { grid-column: 3; grid-row: 1; justify-self: end; }
-  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap { grid-column: 3; grid-row: 2; justify-self: end; height: 24px; }
-}
-@media (max-width: 760px) {
-  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap { height: 22px !important; padding: 0 9px !important; }
+  html:has(#tab-advertising.active) body header.glass.app-header #header-date-chip-wrap { grid-column: 3; grid-row: 2; justify-self: end; height: 22px !important; min-height: 0 !important; max-height: 22px !important; padding: 0 9px !important; }
   html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap #date-range { font-size: 10px; }
   html:has(#tab-advertising.active) header.glass.app-header .cabinet-picker-btn { height: 22px !important; padding: 0 9px !important; }
-}
-@media (max-width: 760px) {
-  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap .module-date-label, html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap button { height: 22px !important; min-height: 0 !important; padding-block: 0 !important; line-height: 20px; }
-}
-@media (max-width: 760px) {
-  html:has(#tab-advertising.active) body header.glass.app-header #header-date-chip-wrap { height: 22px !important; min-height: 0 !important; max-height: 22px !important; }
-  html:has(#tab-advertising.active) body header.glass.app-header .app-header-main { min-height: 0; }
-}
-@media (max-width: 760px) {
-  html body #adv-pulse .adp2-head .adp2-nm { align-self: start; min-height: 34px; overflow: visible; }
-  html body #adv-pulse .adp2-head .adp2-nm .shv-slot { display: block; margin-top: 6px; }
-}
-html body #adv-pulse .adp2-shl { display: none; }
-@media (max-width: 760px) {
-  html body #adv-pulse .adp2-head .adp2-nm .shv-slot { display: none; }
-  html body #adv-pulse .adp2-head .adp2-shl { display: block; grid-column: 1 / -1; }
-  html body #adv-pulse .adp2-head .adp2-shl:not(:has(*)) { display: none; }
+  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap :is(.module-date-label, button) { height: 22px !important; min-height: 0 !important; padding-block: 0 !important; line-height: 20px; }
 }
