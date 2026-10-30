@@ -79,9 +79,10 @@
             var f = doc.getElementById('nr-foot');
             if (list.every(function (m) { return f && (m.target === f || f.contains(m.target)); })) return;
             var urgent = list.some(function (m) { return m.type === 'attributes' && m.target.classList && m.target.classList.contains('tab-content'); });
-            var wait = urgent ? 0 : Math.max(0, 250 - (Date.now() - last));
-            if (wait === 0) { raf = (root.requestAnimationFrame || root.setTimeout)(run); }
-            else if (!timer) timer = root.setTimeout(function () { timer = 0; if (!raf) raf = (root.requestAnimationFrame || root.setTimeout)(run); }, wait);
+            if (urgent) { raf = (root.requestAnimationFrame || root.setTimeout)(run); return; }
+            if (timer) return;
+            // остальная дорисовка: после отрисовки, в простое, и не чаще раза в 250 мс
+            timer = root.setTimeout(function () { timer = 0; if (raf) return; raf = 1; (root.requestIdleCallback || root.setTimeout)(run, root.requestIdleCallback ? { timeout: 400 } : 50); }, Math.max(0, 250 - (Date.now() - last)));
         }).observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
     }
     function init() { mount(); watch(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(function () { if (!doc.hidden) fit(); }, 700); root.addEventListener('resize', fit); }
