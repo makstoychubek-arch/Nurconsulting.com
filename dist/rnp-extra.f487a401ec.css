@@ -660,7 +660,7 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 /* ───── Загрузка: полоса прогресса сверху и карточка с шагами (nr-skeleton.js → NrLoader) ───── */
 #nr-topbar { position: fixed; left: 0; right: 0; top: 0; height: 3px; z-index: 100001; pointer-events: none; opacity: 0; transition: opacity .25s; }
 #nr-topbar.on { opacity: 1; }
-#nr-topbar b { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #60a5fa, #2563eb, #8b5cf6); border-radius: 0 3px 3px 0; box-shadow: 0 0 10px rgba(59,130,246,.5); transition: width .28s ease-out; }
+#nr-topbar b { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #60a5fa, #2563eb, #8b5cf6); border-radius: 0 3px 3px 0; box-shadow: 0 0 10px rgba(59,130,246,.5); transition: width .2s ease-out; }
 #nr-topbar.end b { transition: width .2s ease-out; }
 .nrl-card { position: fixed; z-index: 100000; left: calc(50% + 110px); top: 46%; width: min(430px, calc(100vw - 32px)); transform: translate(-50%, -46%) scale(.97); opacity: 0; padding: 24px 26px; border-radius: 26px;
   background: var(--surface-solid, #fff); color: var(--text-primary, #111); border: 1px solid var(--border-strong, rgba(0,0,0,.1)); box-shadow: 0 24px 70px rgba(31,41,55,.2); transition: opacity .22s, transform .22s; pointer-events: none; }
@@ -1270,7 +1270,7 @@ html[data-theme="neon"] .ax-danger:hover:not(:disabled) { background: rgba(248,1
 .pnl-card--tax { position: relative; }
 .pnl-ff-sw { position: absolute; top: 14px; right: 14px; width: 26px; height: 15px; border-radius: 99px; border: 0; padding: 0; cursor: pointer; background: color-mix(in srgb, var(--text-primary) 16%, transparent); opacity: .55; transition: background .25s ease, opacity .2s ease; }
 .pnl-ff-sw:hover, .pnl-ff-sw[aria-checked="true"] { opacity: 1; }
-.pnl-ff-sw i { position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .3s cubic-bezier(.34,1.56,.64,1); }
+.pnl-ff-sw i { position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s cubic-bezier(.22,1,.36,1); }
 .pnl-ff-sw[aria-checked="true"] { background: var(--accent); }
 .pnl-ff-sw[aria-checked="true"] i { transform: translateX(11px); }
 .pnl-ff-sw[hidden] { display: none; }

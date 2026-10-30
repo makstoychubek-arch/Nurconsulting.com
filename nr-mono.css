@@ -593,12 +593,8 @@ html body .nr-crumb { background: none; border: 0; padding: 0; font: inherit; fo
 html body .nr-crumb:hover { color: var(--text-primary); text-decoration: underline; }
 html body .nr-crumb-cur { color: var(--text-primary); font-weight: 700; }
 html body .sidebar-flyout.nr-one { display: none !important; }
-html body .sidebar-flyout .flyout-body .nav-item { opacity: 0; transform: translateX(-8px) !important; transition: opacity .22s cubic-bezier(.22,1,.36,1), transform .26s cubic-bezier(.22,1,.36,1), background .2s; }
+html body .sidebar-flyout .flyout-body .nav-item { opacity: 0; transform: translateX(-8px) !important; transition: opacity .12s ease, transform .14s cubic-bezier(.22,1,.36,1), background .12s; }
 html body .sidebar-flyout.visible .flyout-body .nav-item, html body .sidebar-flyout.pinned .flyout-body .nav-item { opacity: 1; transform: none !important; }
-html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(2) { transition-delay: .03s; }
-html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(3) { transition-delay: .06s; }
-html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(4) { transition-delay: .09s; }
-html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(5) { transition-delay: .12s; }
 html body .sidebar-flyout .flyout-body .nav-item.active { background: var(--accent); color: var(--on-accent, #fff); }
 @media (prefers-reduced-motion: reduce) { html body .sidebar-flyout, html body .sidebar-flyout .flyout-body .nav-item { transition: none !important; } }
 /* на компьютере подразделы живут в панели, а полоски на страницах скрыты; на телефоне полоски остаются */
@@ -615,8 +611,7 @@ html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sid
     transform: translateX(-14px); opacity: 0; visibility: hidden; pointer-events: none;
     transition: transform .12s ease, opacity .1s ease, clip-path .12s ease, visibility .12s;
   }
-  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; height: auto; bottom: auto; transition: transform .34s cubic-bezier(.22,1,.36,1), opacity .24s ease, clip-path .34s cubic-bezier(.22,1,.36,1), visibility 0s; }
-  html body .sidebar-flyout.visible .flyout-body .nav-item:nth-child(6) { transition-delay: .15s; }
+  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { transform: none; opacity: 1; visibility: visible; pointer-events: auto; height: auto; bottom: auto; transition: transform .16s cubic-bezier(.22,1,.36,1), opacity .12s ease, clip-path .16s cubic-bezier(.22,1,.36,1), visibility 0s; }
   html body .flyout-pin { display: none !important; }
   /* Вариант 3 «Жирный контур»: короткая карточка у кнопки, без шапки, заголовков и заливки; высота по содержимому, выбранный пункт подчёркнут */
   html body .sidebar-flyout { bottom: auto; height: auto; min-height: 0; width: max-content; min-width: 176px; padding: 4px 6px; background: var(--surface-solid, #fff); border: 2px solid var(--text-primary) !important; border-radius: 18px; box-shadow: none; clip-path: inset(0 100% 0 0 round 18px); }
@@ -953,7 +948,7 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
 /* Телефон: подразделы раскрываются в меню под кнопкой раздела, нижние пункты плавно сдвигаются */
 @media (max-width: 768px) {
   html body .sidebar-flyout { display: none !important; }
-  html body .nr-acc { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .34s cubic-bezier(.32,.72,0,1), opacity .26s ease; }
+  html body .nr-acc { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .22s cubic-bezier(.32,.72,0,1), opacity .16s ease; }
   html body .nr-acc.open { grid-template-rows: 1fr; opacity: 1; }
   html body .nr-acc > div { overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 2px; padding-left: 40px; }
   html body .nr-acc .nav-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
@@ -998,3 +993,7 @@ html body :is(#autobidder-modal, #supply-detail-modal, .rnp-plan-fact-overlay, .
 @media (hover: none) {
   html body :is(.supply-card, #month-grid button, #modal-btn, .ab-variant-remove-btn, .ui-btn-secondary, .pricing-btn--accent, .ak-agent):hover { transform: none !important; }
 }
+
+/* Мгновенный отклик на нажатие: кнопка видимо «нажимается» сразу, не дожидаясь работы скрипта; быстрые нажатия на сенсорных экранах без задержки */
+html body :is(button, [role="button"], .nav-item, .rail-btn, summary, a.btn):not(:disabled, [disabled], [aria-disabled="true"]):active { opacity: .72; transition: opacity .04s linear; }
+html body :is(button, [role="button"], a, .nav-item, .rail-btn, summary, label, select) { touch-action: manipulation; }

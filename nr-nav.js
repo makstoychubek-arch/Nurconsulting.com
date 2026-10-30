@@ -110,6 +110,7 @@
             });
             a.appendChild(inner);
             btn.insertAdjacentElement('afterend', a);
+            void a.offsetHeight; // без этого при первом раскрытии браузер не видит исходного состояния и анимации нет
         }
         var src = fly.querySelectorAll('.flyout-body > .nav-item'), dst = a.querySelectorAll('.nav-item');
         Array.prototype.forEach.call(dst, function (d, i) {
@@ -241,7 +242,7 @@
                     placeFly(btn);
                     var cur = doc.querySelector('.sidebar-flyout.visible');
                     if (cur && cur.id === id) return;
-                    inTimer = setTimeout(function () { if (root.openSidebarFlyout) root.openSidebarFlyout(id); }, cur ? 40 : 90);
+                    inTimer = setTimeout(function () { if (root.openSidebarFlyout) root.openSidebarFlyout(id); }, cur ? 0 : 40);
                     return;
                 }
                 if (t.closest && t.closest('#sidebar-app .sidebar-flyout, #sidebar-app .sidebar-rail')) { clearTimeout(outTimer); clearTimeout(inTimer); return; }

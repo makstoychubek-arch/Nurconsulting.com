@@ -11,7 +11,7 @@
         var fmt = o.format || function (v) { return Math.round(v).toLocaleString('ru-RU'); };
         el.setAttribute('data-v', to);
         if (reduce || from === to) { el.textContent = fmt(to); return; }
-        var t0 = null, dur = o.duration || 900;
+        var t0 = null, dur = o.duration || 450;
         el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth;
         if (o.flash !== false && from !== to && el.__nrmSeen) el.classList.add(to > from ? 'nrm-up' : 'nrm-down');
         el.__nrmSeen = true;
@@ -25,7 +25,7 @@
         var old = el.getAttribute('data-slot'); if (old == null) old = el.textContent || '';
         el.setAttribute('data-slot', text);
         if (reduce || old === text || !el.offsetParent) { el.textContent = text; return; }
-        var a = old.split(''), b = text.split(''), n = b.length, dur = o.duration || 900, gap = 70;
+        var a = old.split(''), b = text.split(''), n = b.length, dur = o.duration || 450, gap = 35;
         el.textContent = '';
         el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth;
         if (o.flash) el.classList.add(o.flash === 'down' ? 'nrm-down' : 'nrm-up');
@@ -101,7 +101,7 @@
                 if (was == null || was === now) return;
                 var a = parseNum(was), b = parseNum(now);
                 if (!a || !b || a.pre !== b.pre || a.suf !== b.suf || a.v === b.v || el.offsetParent === null) return;
-                busy = true; var t0 = null, dur = 700;
+                busy = true; var t0 = null, dur = 400;
                 el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth; el.classList.add(b.v > a.v ? 'nrm-up' : 'nrm-down');
                 (function step(ts) { if (t0 == null) t0 = ts; var p = Math.min(1, (ts - t0) / dur); busy = true; el.textContent = fmtNum(b, a.v + (b.v - a.v) * easeOut(p)); setTimeout(function () { busy = false; }, 0); if (p < 1) root.requestAnimationFrame(step); else { el.textContent = now; prev.set(el, now); } })(performance.now());
             });
