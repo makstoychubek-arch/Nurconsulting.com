@@ -33,11 +33,11 @@
 /* 9. Кольцо прогресса */
 .nrm-ring{width:84px;height:84px;position:relative}.nrm-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .nrm-ring circle{fill:none;stroke-width:8;stroke-linecap:round}.nrm-ring .bg{stroke:color-mix(in srgb,var(--text-primary) 10%,transparent)}
-.nrm-ring .fg{stroke:var(--accent);stroke-dasharray:226;stroke-dashoffset:226;transition:stroke-dashoffset 1s var(--nrm-out)}
+.nrm-ring .fg{stroke:var(--accent);stroke-dasharray:226;stroke-dashoffset:226;transition:stroke-dashoffset .5s var(--nrm-out)}
 .nrm-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px}
 /* 10. Эластичная полоса */
 .nrm-bar{height:10px;border-radius:99px;background:color-mix(in srgb,var(--text-primary) 10%,transparent);overflow:hidden}
-.nrm-bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--accent);transition:width .9s var(--nrm-spring)}
+.nrm-bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--accent);transition:width .45s var(--nrm-spring)}
 /* 11. Плашка вкладок скользит */
 .nrm-tabs{position:relative;display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--text-primary) 7%,transparent);gap:2px}
 .nrm-tabs button{position:relative;z-index:1;border:0;background:none;color:var(--text-secondary);font:600 12.5px var(--font-ui,inherit);padding:8px 11px;border-radius:10px;cursor:pointer;transition:color var(--nrm-base) ease}
@@ -55,7 +55,7 @@
 .nrm-beam{position:relative;border-radius:18px;background:var(--surface-solid)}.nrm-beam::before{content:'';position:absolute;inset:-1.5px;border-radius:inherit;padding:1.5px;background:conic-gradient(from var(--nrm-a),transparent 0 45%,var(--accent) 78%,transparent);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:nrm-spin 3s linear infinite;pointer-events:none}
 @keyframes nrm-spin{to{--nrm-a:360deg}}
 /* 16. Блик по карточке */
-.nrm-shine{position:relative;overflow:hidden}.nrm-shine::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);transition:left .7s var(--nrm-out)}.nrm-shine:hover::after{left:130%}
+.nrm-shine{position:relative;overflow:hidden}.nrm-shine::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);transition:left .4s var(--nrm-out)}.nrm-shine:hover::after{left:130%}
 /* 17. Подчёркивание рисуется */
 .nrm-ul{position:relative;text-decoration:none;color:var(--text-primary)}.nrm-ul::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:right;transition:transform var(--nrm-base) var(--nrm-out)}.nrm-ul:hover::after{transform:scaleX(1);transform-origin:left}
 /* 18. Удержать для подтверждения */
@@ -78,7 +78,7 @@
 .tg-switch:active span{width:22px}.tg-switch.on:active span{left:12px}
 /* Главные кнопки: блик при наведении */
 .ui-btn-primary{position:relative;overflow:hidden}
-.ui-btn-primary::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);transition:left .7s var(--nrm-out);pointer-events:none}
+.ui-btn-primary::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);transition:left .4s var(--nrm-out);pointer-events:none}
 .ui-btn-primary:hover::after{left:130%}
 @media (hover:none){.ui-btn-primary::after{display:none}}
 .nru-b.d.nrm-hold{position:relative;overflow:hidden}.nru-b.d.nrm-hold i{background:rgba(0,0,0,.3)}

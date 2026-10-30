@@ -66,7 +66,7 @@ function pick(rules, name) {
 const AGENTS = {
     akylai: { title: 'Акылай', role: 'ответы на отзывы', fns: ['akylai-reviews', 'akylai-bot', 'akylai-connect', 'akylai-status', 'akylai-admin', 'wb-review-auto-reply'] },
     amina:  { title: 'Амина',  role: 'РК и автоставки', fns: ['autobidder-tick', 'autobidder-run', 'advertising-sync', 'check-campaigns-notify', 'agent-ad-schedule-runner', 'sync-campaigns', 'drr-autopilot'] },
-    anton:  { title: 'Антон',  role: 'заказы и склады', fns: ['orders-watch', 'orders-rescan', 'daily-fbs-report', 'warehouse-watch', 'warehouse-storage-fetch', 'wb-restock-poll'] },
+    anton:  { title: 'Антон',  role: 'заказы и склады', fns: ['orders-rescan', 'daily-fbs-report', 'warehouse-watch', 'warehouse-storage-fetch', 'wb-restock-poll'] },
     karina: { title: 'Карина', role: 'система и координация', fns: ['auto-sync', 'rnp-morning-fill', 'rnp-finance-sync', 'ab-test-rotate', 'sync-daily-stats', 'sync-queue-tick', 'agent-morning-greeting-runner', 'morning-digest'] },
 };
 

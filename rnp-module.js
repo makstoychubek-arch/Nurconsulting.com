@@ -1806,14 +1806,6 @@ const RNP = (() => {
     }
 
     /** Активные артикулы текущего кабинета для настроек звука заказов. */
-    function _listArticlesForSound() {
-        return _articles.filter(a => a.is_active).map(a => ({
-            nm_id: Number(a.nm_id),
-            name: String(a.name || ''),
-            article: _sellerArticle(a),
-            category: String(a.category || '').trim(),
-        }));
-    }
 
     /** Период из общего выбора дат в шапке. opts.noReload — только запомнить (перед первой отрисовкой). */
     async function setDateRange(from, to, opts) {
@@ -4138,12 +4130,6 @@ const RNP = (() => {
         </svg>`;
     }
 
-    function _bellSvg() {
-        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"></path>
-            <path d="M13.7 21a2 2 0 01-3.4 0"></path>
-        </svg>`;
-    }
 
     function _compareSvg() {
         return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -4203,7 +4189,6 @@ const RNP = (() => {
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
-            <button type="button" class="rnp-tool-icon rnp-order-sound-btn" data-staff-only="1" title="Звук при новом заказе" aria-label="Звук при новом заказе" onclick="window.NrOrderSound && NrOrderSound.openSettings()">${_bellSvg()}</button>
             <button type="button" class="rnp-settings-gear" title="Настройки РНП" aria-label="Настройки РНП" onclick="RNP.openSettings()">${_settingsGearSvg()}</button>
         </div>`;
     }
@@ -4883,7 +4868,6 @@ const RNP = (() => {
         return `<div class="rnp-ph2-tools">
           <button type="button" class="rnp-ph2-tile is-main" onclick="RNP.openPlanFact()">${_planFactSvg()}<span>План/факт</span></button>
           <button type="button" class="rnp-ph2-tile" onclick="RNP.openSettings()">${_settingsGearSvg()}<span>Настройки</span></button>
-          <button type="button" class="rnp-ph2-tile" data-staff-only="1" onclick="window.NrOrderSound && NrOrderSound.openSettings()">${_bellSvg()}<span>Звук</span></button>
           <button type="button" class="rnp-ph2-tile rnp-ph2-edit${editOn}" onclick="RNP.toggleEditMode()">${_editSvg()}<span>Правка</span></button>
         </div>`;
     }
@@ -9943,7 +9927,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
 })();
