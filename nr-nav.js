@@ -112,7 +112,11 @@
             btn.insertAdjacentElement('afterend', a);
         }
         var src = fly.querySelectorAll('.flyout-body > .nav-item'), dst = a.querySelectorAll('.nav-item');
-        Array.prototype.forEach.call(dst, function (d, i) { d.classList.toggle('active', !!(src[i] && src[i].classList.contains('active'))); });
+        Array.prototype.forEach.call(dst, function (d, i) {
+            d.classList.toggle('active', !!(src[i] && src[i].classList.contains('active')));
+            // «Раздачи» и «Контент» только для команды; полоска на странице создаётся позже, поэтому смотрим на статус, а не на неё
+            d.style.display = d.hasAttribute('data-nrn-staff') && !isStaffUser() ? 'none' : '';
+        });
         return a;
     }
     function go(tab, id) {
