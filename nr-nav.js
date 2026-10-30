@@ -193,20 +193,28 @@
     // (до 0,5 с пересчёта стилей при открытии «Продвижения» на слабом телефоне).
     function initFlags() {
         var h = doc.documentElement; if (!h.id) h.id = 'nr-root';
-        var OV = '.rnp-settings-overlay.is-open, .rnp-plan-fact-overlay.is-open, .rnp-photo-lightbox.is-open, #premium-modal.is-open, #add-cabinet-modal:not(.hidden), #autobidder-modal:not(.hidden), #supply-detail-modal:not(.hidden)';
+        // живые коллекции по классу: браузер ведёт их сам, обращение почти бесплатно (querySelector по всему дереву на каждом кадре был заметен)
+        var cOpen = doc.getElementsByClassName('open'), rowOpen = doc.getElementsByClassName('adp2-row open'), isOpen = doc.getElementsByClassName('is-open');
+        var OPEN_IS = ['rnp-settings-overlay', 'rnp-plan-fact-overlay', 'rnp-photo-lightbox'], MODALS = ['add-cabinet-modal', 'autobidder-modal', 'supply-detail-modal'];
         function put(c, on) { if (h.classList.contains(c) !== on) h.classList.toggle(c, on); }
         function has(id, cls) { var e = doc.getElementById(id); return !!e && e.classList.contains(cls); }
+        function anyCab() { for (var i = 0; i < cOpen.length; i++) if (cOpen[i].classList.contains('cabinet-picker')) return true; return false; }
+        function anyOverlay() {
+            for (var i = 0; i < isOpen.length; i++) { var e = isOpen[i]; if (e.id === 'premium-modal') return true; for (var j = 0; j < OPEN_IS.length; j++) if (e.classList.contains(OPEN_IS[j])) return true; }
+            for (var k = 0; k < MODALS.length; k++) { var m = doc.getElementById(MODALS[k]); if (m && !m.classList.contains('hidden')) return true; }
+            return false;
+        }
         function sync() {
             var dp = doc.getElementById('date-picker'), pu = doc.getElementById('adv-pulse');
             put('nr-f-dp', !!dp && !dp.classList.contains('hidden'));
-            put('nr-f-cab', !!doc.querySelector('.cabinet-picker.open'));
+            put('nr-f-cab', anyCab());
             put('nr-f-adv', has('tab-advertising', 'active'));
             put('nr-f-gear', has('adv-view-ads', 'ads-gear-open'));
-            put('nr-f-row', !!doc.querySelector('.adp2-row.open'));
+            put('nr-f-row', rowOpen.length > 0);
             put('nr-f-dash', has('tab-dashboard', 'active'));
             put('nr-f-pulse', !!pu && pu.childElementCount > 0);
             put('nr-f-drawer', has('sidebar-app', 'mobile-open'));
-            put('nr-f-ov', !!doc.querySelector(OV));
+            put('nr-f-ov', anyOverlay());
         }
         var raf = 0;
         function later() { if (raf) return; raf = (root.requestAnimationFrame || root.setTimeout)(function () { raf = 0; sync(); }); }
