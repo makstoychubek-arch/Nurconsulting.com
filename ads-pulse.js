@@ -440,7 +440,7 @@
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<div class="adp2-shl">' + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
             '</div>' +
-            (open ? '<div class="adp2-body"><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
+            (open ? '<div class="adp2-body" role="dialog" aria-modal="true"><div class="adp2-mh"><b>' + esc(camp.name) + '</b><small>' + esc(camp.wbId) + '</small><button type="button" class="adp2-mclose" data-pact="open" data-key="' + esc(key) + '" aria-label="Закрыть">✕</button></div><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
                 '<button type="button" data-pact="toggle" data-key="' + esc(key) + '" class="adp2-tg ' + (live ? 'on' : '') + '">' + (live ? 'Поставить на паузу' : 'Запустить') + '</button>' +
                 '<span class="adp2-bw" data-nostop="1">' + bidControlHtml(key, camp, kind) + '</span>' + '<span class="adp2-mut">Показы ' + fmtSom(camp.views) + ' · клики ' + fmtSom(camp.clicks) + ' · заказы ' + fmtSom(camp.orders) + ' · расход ' + fmtSom(camp.spendToday) + '</span></div>' +
                 (tabOf(key) === 'keys' ? '<div class="adp2-kwp" data-key="' + esc(key) + '">' + kwHtml(key, cab, camp) + '</div>' : productsHtml(key, cab, camp)) + '</div>' : '') +
@@ -903,11 +903,15 @@
 
     /* ───────── события ───────── */
     function onClick(e) {
+        // клик по затемнению вокруг окна кампании закрывает его
+        if (e.target.classList && e.target.classList.contains('adp2-row') && e.target.classList.contains('open')) { var ck = e.target.dataset.key; S.open[ck] = false; patchRow(ck); return; }
         var t = e.target.closest('[data-pact]'); if (!t) return;
         var key = t.dataset.key, act = t.dataset.pact;
         if (act === 'open') {
             if (e.target.closest('.adp2-bw') && !e.target.closest('.adp2-range,.adp2-load')) return;
-            S.open[key] = !S.open[key];
+            var wasOpen = !!S.open[key];
+            Object.keys(S.open).forEach(function (k) { if (S.open[k] && k !== key) { S.open[k] = false; patchRow(k); } });
+            S.open[key] = !wasOpen;
             if (S.open[key]) { var f = findCamp(key); if (f) artsOf(f.cab.id).then(function () { patchRow(key); }); ensureInfo(key); }
             patchRow(key);
         } else if (act === 'load') { ensureInfo(key); patchRow(key); }
@@ -1043,6 +1047,7 @@
         var host = $('adv-pulse'); if (!host) return;
         S.inited = true;
         S.view = 'pulse'; // таблица убрана: один вид, список как в макете
+        doc.addEventListener('keydown', function (e) { if (e.key !== 'Escape' || doc.querySelector('.adp2-ov')) return; Object.keys(S.open).forEach(function (k) { if (S.open[k]) { S.open[k] = false; patchRow(k); } }); });
         host.addEventListener('click', onClick); host.addEventListener('input', onInput); host.addEventListener('change', onChange); host.addEventListener('keydown', onKey);
         mountSwitch();
         if (root.AdsHQ && root.AdsHQ.onRendered) root.AdsHQ.onRendered(function () { if (S.view === 'pulse') render(); });

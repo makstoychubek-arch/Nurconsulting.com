@@ -904,7 +904,6 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
   html body #adv-pulse .adp2-mmore > :nth-child(7), html body #adv-pulse .adp2-hd > :nth-child(16) { width: 66px; }
   html body #adv-pulse .adp2-mmore > :nth-child(8), html body #adv-pulse .adp2-hd > :nth-child(17) { width: 76px; }
   html body #adv-pulse .adp2-mmore > :nth-child(9), html body #adv-pulse .adp2-hd > :nth-child(18) { width: 76px; }
-  html body #adv-pulse .adp2-body { position: sticky; left: 0; width: min(1120px, calc(100vw - 380px)); box-sizing: border-box; }
 }
 
 /* Телефон: карточка (макет «Кампании телефон»): фото, название и режим; тип и баланс; пять главных цифр */
@@ -969,3 +968,15 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
 }
 /* Страница не уезжает вбок при прокрутке таблицы «Кампаний» (меню и шапка остаются на месте) */
 @media (min-width: 761px) { html, html body { overflow-x: clip; } }
+
+/* Кампания открывается окном почти на всю ширину (вместо выпадающего блока в таблице) */
+html:has(.adp2-row.open) #tab-advertising { contain: none; }
+html body #adv-view-ads:has(.adp2-row.open) { z-index: 9000; }
+html body #adv-pulse .adp2-row.open::after { content: ""; position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.28); cursor: pointer; }
+html[data-theme="neon"] body #adv-pulse .adp2-row.open::after { background: rgba(0,0,0,.5); }
+html body #adv-pulse .adp2-row.open > .adp2-body { position: fixed; z-index: 30; inset: 40px 40px 40px; margin: auto; width: auto; max-width: 1560px; height: fit-content; max-height: calc(100vh - 80px); overflow: auto; box-sizing: border-box; padding: 22px 26px; background: var(--surface-solid, #fff); border: 1.5px solid var(--accent); border-radius: 26px; }
+html body #adv-pulse .adp2-mh { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+html body #adv-pulse .adp2-mh b { font-size: 20px; font-weight: 900; letter-spacing: -.02em; color: var(--text-primary); }
+html body #adv-pulse .adp2-mh small { font-size: 12px; color: var(--text-muted); }
+html body #adv-pulse .adp2-mclose { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border-strong, var(--border)); background: transparent; color: var(--text-primary); font-size: 14px; cursor: pointer; }
+@media (max-width: 760px) { html body #adv-pulse .adp2-row.open > .adp2-body { inset: 12px; padding: 16px; border-radius: 22px; max-height: calc(100vh - 24px); } }
