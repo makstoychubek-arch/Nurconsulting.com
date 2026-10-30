@@ -268,7 +268,7 @@
             wrapped.__nrNav = true; root.showTab = wrapped;
         }
         setTimeout(refresh, 600);
-        setInterval(refresh, 2500);
+        setInterval(function () { if (!doc.hidden) refresh(); }, 2500);
     }
     // Панели строим сразу (до инициализации боковых панелей), остальное когда страница готова.
     buildFlyouts();

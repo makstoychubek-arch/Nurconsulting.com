@@ -320,7 +320,7 @@
         function later() { clearTimeout(tmr); tmr = setTimeout(function () { paint(); loadMoney(); loadAdBalance(); }, 160); }
         // Пока держим скелет — больше ничего в DOM может и не измениться (нет данных на этот период),
         // а наблюдатель ниже молчит без мутаций. Перепроверяем сами, чтобы таймаут выше вообще сработал.
-        setInterval(function () { if (S.emptySince != null) paint(); }, 2000);
+        setInterval(function () { if (S.emptySince != null && !document.hidden) paint(); }, 2000);
         doc.addEventListener('click', function (e) {
             var a = e.target.closest && e.target.closest('#nr-md [data-nmd]'); if (!a) return;
             var p = a.getAttribute('data-nmd').split(':');

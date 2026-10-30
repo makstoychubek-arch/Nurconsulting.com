@@ -545,8 +545,9 @@ html body .rnp-fs-pills i { width: 96px; height: 30px; border-radius: 999px; }
 html body .rnp-fs-row { display: grid; grid-template-columns: 180px repeat(12, minmax(0, 1fr)); gap: 12px; align-items: center; }
 html body .rnp-fs-l { height: 14px; border-radius: 999px; width: 70%; }
 html body .rnp-fs-c { height: 22px; border-radius: 8px; }
-html body .rnp-first-skel i { display: block; background: linear-gradient(90deg, var(--border) 0%, var(--sel) 50%, var(--border) 100%); background-size: 200% 100%; animation: rnp-fs-shine 1.4s ease-in-out infinite; opacity: .7; }
-@keyframes rnp-fs-shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+html body .rnp-first-skel i { display: block; background: var(--border); opacity: .7; }
+html body .rnp-first-skel { animation: rnp-fs-pulse 1.4s ease-in-out infinite; will-change: opacity; }
+@keyframes rnp-fs-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { html body .rnp-first-skel i { animation: none; } }
 @media (max-width: 768px) { html body .rnp-fs-row { grid-template-columns: 90px repeat(5, minmax(0, 1fr)); } html body .rnp-fs-c:nth-child(n+7) { display: none; } }
 
@@ -980,3 +981,20 @@ html body #adv-pulse .adp2-mh b { font-size: 20px; font-weight: 900; letter-spac
 html body #adv-pulse .adp2-mh small { font-size: 12px; color: var(--text-muted); }
 html body #adv-pulse .adp2-mclose { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border-strong, var(--border)); background: transparent; color: var(--text-primary); font-size: 14px; cursor: pointer; }
 @media (max-width: 760px) { html body #adv-pulse .adp2-row.open > .adp2-body { inset: 12px; padding: 16px; border-radius: 22px; max-height: calc(100vh - 24px); } }
+
+/* Общие правила анимаций: у тех, кто просит меньше движения, переходы отключены */
+@media (prefers-reduced-motion: reduce) { html body *, html body *::before, html body *::after { transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Окна и подложки: размытие заднего плана на весь экран дорого рисуется на каждом кадре (особенно на телефоне), поэтому на телефоне его нет, на ПК лёгкое */
+html body :is(#autobidder-modal, #supply-detail-modal, .rnp-plan-fact-overlay, .rnp-settings-overlay, .gc-overlay, .rnp-photo-lightbox, #premium-modal, #add-cabinet-modal, .bottom-beta-overlay, .mobile-overlay, .rnp-plan-overlay, .rnp-lightbox, .rnp-ded-overlay, .tg-overlay) { -webkit-backdrop-filter: blur(6px) !important; backdrop-filter: blur(6px) !important; }
+@media (max-width: 768px) {
+  html body :is(#autobidder-modal, #supply-detail-modal, .rnp-plan-fact-overlay, .rnp-settings-overlay, .gc-overlay, .rnp-photo-lightbox, #premium-modal, #add-cabinet-modal, .bottom-beta-overlay, .mobile-overlay, .rnp-plan-overlay, .rnp-lightbox, .rnp-ded-overlay, .tg-overlay) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  /* высота экрана на телефоне без прыжков при появлении и скрытии адресной строки */
+  html body #tab-logistics.tab-content.active { height: calc(100dvh - 132px); }
+  html body .gg-table-scroll { max-height: calc(100dvh - 168px); }
+  html body .gv-scroll { max-height: calc(100dvh - 290px); }
+}
+/* На сенсорных экранах «наведение» залипает после нажатия: карточки и кнопки не должны оставаться приподнятыми */
+@media (hover: none) {
+  html body :is(.supply-card, #month-grid button, #modal-btn, .ab-variant-remove-btn, .ui-btn-secondary, .pricing-btn--accent, .ak-agent):hover { transform: none !important; }
+}

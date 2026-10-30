@@ -174,7 +174,7 @@
 .adp2-kn { width: 62px; height: 30px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-primary); text-align: center; font-weight: 700; font-size: 14px; }
 .adp2-kn.ch { border-color: var(--accent); }
 .adp2-sw { width: 38px; height: 22px; border-radius: 99px; border: 0; background: var(--green); position: relative; cursor: pointer; padding: 0; }
-.adp2-sw:after { content: ""; position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: all .15s; }
+.adp2-sw:after { content: ""; position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
 .adp2-sw.o { background: var(--sel); }
 .adp2-sw.o:after { right: auto; left: 2px; }
 .adp2-kfoot { min-height: 28px; padding-top: 8px; }
