@@ -834,3 +834,31 @@ html body #adv-pulse .adp2-sl button svg { width: 13px; height: 13px; stroke: cu
 html body #adv-pulse .adp2-sl button.on, html body #adv-pulse .adp2-sl.p1 button.on, html body #adv-pulse .adp2-sl.p2 button.on { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
 
 html body .dashboard-app-shell > .main-rail, html body .main-rail > .main-content { min-width: 0; max-width: 100%; }
+
+/* «Кампании», телефон: карточка (вариант А): сверху фото, название и режим; ниже тип и баланс; пять главных цифр и строка остальных со свайпом */
+html body #adv-pulse .adp2-m5, html body #adv-pulse .adp2-mmore { display: contents; }
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-row { border: 1px solid var(--border-strong, var(--border)); border-radius: 18px; background: var(--surface-solid, var(--surface)); margin-bottom: 8px; }
+  html body #adv-pulse .adp2-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "tc nm ps" "ty ty bl" "m5 m5 m5" "mm mm mm" "ch ch ch"; gap: 8px 10px; padding: 10px 12px; align-items: center; }
+  html body #adv-pulse .adp2-head > .adp2-r { display: contents; }
+  html body #adv-pulse .adp2-head > .adp2-st, html body #adv-pulse .adp2-head > .adp2-cv { display: none; }
+  html body #adv-pulse .adp2-head .adp2-pos { grid-area: ps; justify-self: end; }
+  html body #adv-pulse .adp2-head .adp2-tc { grid-area: tc; }
+  html body #adv-pulse .adp2-head .adp2-nm { grid-area: nm; }
+  html body #adv-pulse .adp2-head .adp2-ty { display: flex; grid-area: ty; justify-content: flex-start; }
+  html body #adv-pulse .adp2-head .adp2-bal { grid-area: bl; justify-self: end; }
+  html body #adv-pulse .adp2-head .adp2-mx { display: contents; }
+  html body #adv-pulse .adp2-head .adp2-m5 { display: grid; grid-area: m5; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  html body #adv-pulse .adp2-head .adp2-mmore { display: flex; grid-area: mm; gap: 14px; overflow-x: auto; border-top: 1px solid var(--border); padding-top: 7px; }
+  html body #adv-pulse .adp2-head .adp2-mc { display: block; flex: none; text-align: left; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  html body #adv-pulse .adp2-head .adp2-mc::before { content: attr(data-l); display: block; font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1px; }
+  html body #adv-pulse .adp2-head .adp2-ch { grid-area: ch; }
+  html body #adv-pulse .adp2-tc .adp2-mph { width: 34px; height: 34px; border-radius: 9px; }
+  html body #adv-view-ads .ads-hq-kpi-bar { flex-wrap: nowrap; overflow-x: auto; gap: 14px; }
+  html body #adv-view-ads .ads-hq-kpi { flex: none; }
+}
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-ph > :not(.adp2-mph) { display: none; }
+  html body #adv-pulse .adp2-tag2 { border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+  html body #adv-pulse .adp2-head .adp2-bal { background: transparent; border: 1px solid var(--border-strong, var(--border)); padding: 3px 10px; align-self: center; height: auto; min-height: 0; }
+}

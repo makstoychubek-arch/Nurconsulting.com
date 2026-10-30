@@ -414,9 +414,13 @@
         var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
         return all.filter(function (c) { return c.key !== 'budget'; });
     }
+    var SHORT = { spend: 'Затраты', views: 'Показы', ctr: 'CTR', orders: 'Заказы', drr: 'Доля', pos: 'Позиция', clicks: 'Клики', atbs: 'Корзина', revenue: 'Сумма', cpc: 'CPC', cpo: 'CPO', cr: 'CR', cpm: 'CPM', roas: 'ROAS' };
     function metricCellsHtml(camp) {
         var A = root.AdsHQ;
-        return '<div class="adp2-mx">' + tableCols().map(function (c) { return '<div class="adp2-mc">' + esc(A && A.formatMetric ? A.formatMetric(camp, c.key) : '—') + '</div>'; }).join('') + '</div>';
+        var cell = function (c) { return '<div class="adp2-mc" data-l="' + esc(SHORT[c.key] || c.title) + '">' + esc(A && A.formatMetric ? A.formatMetric(camp, c.key) : '—') + '</div>'; };
+        var cols = tableCols();
+        /* На телефоне первые пять цифр сеткой, остальные в строке со свайпом; на ПК обе обёртки прозрачны */
+        return '<div class="adp2-mx"><div class="adp2-m5">' + cols.slice(0, 5).map(cell).join('') + '</div><div class="adp2-mmore">' + cols.slice(5).map(cell).join('') + '</div></div>';
     }
     function headerHtml() {
         var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
