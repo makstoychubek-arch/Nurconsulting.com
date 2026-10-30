@@ -1283,7 +1283,7 @@
         const t = { spend: 0, rev: 0, views: 0, clicks: 0 };
         const inRange = (d) => { const day = String(d || '').slice(0, 10); return (!from || day >= from) && (!to || day <= to); };
         (legacy || []).forEach((r) => { if (!inRange(r.stat_date)) return; t.spend += num(r.spend); t.rev += num(r.sum_price || r.revenue); t.views += num(r.views); t.clicks += num(r.clicks); });
-        (v2 || []).forEach((r) => { if (!inRange(r.date)) return; t.spend += num(r.spend); t.rev += num(r.revenue); t.views += num(r.views); t.clicks += num(r.clicks); });
+        (v2 || []).forEach((r) => { if (!inRange(r.date)) return; t.spend += num(r.spend); t.rev += num(r.revenue); t.views += num(r.views != null ? r.views : r.impressions); t.clicks += num(r.clicks); });
         return t;
     }
     function dynOf(cur, prev) { return prev > 0 && Number.isFinite(cur) ? (cur - prev) / prev * 100 : null; }
@@ -1309,12 +1309,12 @@
                 { op: 'in', column: 'cabinet_id', value: ids },
                 { op: 'gte', column: 'stat_date', value: pFrom },
                 { op: 'lte', column: 'stat_date', value: pTo },
-            ], 'cabinet_id,stat_date,spend,sum_price,revenue,views,clicks', 25000) : [],
+            ], 'cabinet_id,stat_date,spend,sum_price,views,clicks', 25000) : [],
             v2Ids.length ? safeRows('adv_daily_stats', [
                 { op: 'in', column: 'campaign_id', value: v2Ids },
                 { op: 'gte', column: 'date', value: pFrom },
                 { op: 'lte', column: 'date', value: pTo },
-            ], 'campaign_id,date,spend,revenue,views,clicks', 25000) : [],
+            ], 'campaign_id,date,spend,revenue,impressions,clicks', 25000) : [],
         ]);
         if (gen !== state.dynGen || cab !== state.filterCabinetId) return;
         const cur = kpiMetrics(sumStatRows(legacyStats, v2Stats, range.from, range.to));

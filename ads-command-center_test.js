@@ -3,6 +3,12 @@ const assert = require('node:assert/strict');
 const AdsHQ = require('./ads-command-center.js');
 
 assert.equal(typeof AdsHQ.buildHqModel, 'function');
+// Динамика метрик берёт прошлый период только по существующим колонкам (иначе база отвечает ошибкой и стрелок нет)
+{
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, 'ads-command-center.js'), 'utf8');
+    assert.ok(src.includes("'cabinet_id,stat_date,spend,sum_price,views,clicks'"), 'advertising_daily_stats: only real columns');
+    assert.ok(src.includes("'campaign_id,date,spend,revenue,impressions,clicks'"), 'adv_daily_stats: only real columns');
+}
 assert.match(AdsHQ.formatMoney(4200), /4.200/);
 assert.equal(AdsHQ.formatDrrLabel(AdsHQ.formatDrr(4200, 20000)), '21.0%');
 assert.equal(AdsHQ.tokenState({ adv_token_valid: false }), 'bad');
