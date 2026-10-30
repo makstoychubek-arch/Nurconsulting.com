@@ -76,7 +76,7 @@ async function syncOneCabinet(
     }
 
     const ctx = makeCtx(admin, cab.id, token, cab.adv_token_secret_id);
-    const advertsRes = await getAdverts(ctx, { statuses: '-1,4,7,8,9,11' });
+    const advertsRes = await getAdverts(ctx, { statuses: '4,9,11' });
     if (advertsRes.status >= 400) {
         const err = errorText(advertsRes.data);
         console.error('[sync-campaigns] getAdverts', cab.name, err);
@@ -216,6 +216,15 @@ function firstNmId(a: Record<string, unknown>): number {
         : {};
     const nms = a.nms ?? settings.nms ?? a.nmIds ?? settings.nmIds;
     if (Array.isArray(nms) && nms.length) return Number(nms[0]) || 0;
+    // /api/advert/v2/adverts отдаёт артикулы в nm_settings[].nm_id
+    for (const list of [a.nm_settings, a.nmSettings, settings.nm_settings]) {
+        if (Array.isArray(list)) {
+            for (const n of list as Record<string, unknown>[]) {
+                const id = Number(n?.nm_id ?? n?.nmId ?? 0);
+                if (id) return id;
+            }
+        }
+    }
     return Number(a.nmId ?? a.nm_id ?? settings.nmId ?? settings.nm_id ?? 0);
 }
 

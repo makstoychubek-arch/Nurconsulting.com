@@ -166,7 +166,7 @@
                 if (root.toggleBetaSheet) root.toggleBetaSheet();
                 return;
             }
-            if (sb.classList.contains('mobile-open') && t.closest('#sidebar-app .rail-btn')) setTimeout(function () { if (root.closeMobileMenu) root.closeMobileMenu(); }, 60);
+            if (sb.classList.contains('mobile-open') && t.closest('#sidebar-app .rail-btn') && !t.closest('#sidebar-app .rail-btn[data-flyout]')) setTimeout(function () { if (root.closeMobileMenu) root.closeMobileMenu(); }, 60);
         }, true);
     })();
     /* Дашборд на телефоне: компактный вид (как в WB). Числа берём из уже посчитанных блоков дашборда,
