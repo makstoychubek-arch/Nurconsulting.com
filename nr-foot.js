@@ -70,15 +70,20 @@
     function watch() {
         var host = doc.querySelector('.main-content');
         if (!host || !root.MutationObserver) return;
-        var busy = false;
+        var raf = 0, timer = 0, last = 0;
+        // Изменений страницы бывает десятки за кадр (карточки и таблицы дорисовываются), а пересчёт заставляет браузер заново мерить вёрстку.
+        // Смена раздела пересчитывается сразу (до отрисовки, чтобы низ не мелькал), остальная дорисовка не чаще раза в 250 мс.
+        function run() { raf = 0; last = Date.now(); fit(); }
         new MutationObserver(function (list) {
-            if (busy) return;
+            if (raf) return;
             var f = doc.getElementById('nr-foot');
             if (list.every(function (m) { return f && (m.target === f || f.contains(m.target)); })) return;
-            busy = true;
-            try { fit(); } finally { busy = false; }
+            var urgent = list.some(function (m) { return m.type === 'attributes' && m.target.classList && m.target.classList.contains('tab-content'); });
+            var wait = urgent ? 0 : Math.max(0, 250 - (Date.now() - last));
+            if (wait === 0) { raf = (root.requestAnimationFrame || root.setTimeout)(run); }
+            else if (!timer) timer = root.setTimeout(function () { timer = 0; if (!raf) raf = (root.requestAnimationFrame || root.setTimeout)(run); }, wait);
         }).observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
     }
-    function init() { mount(); watch(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(fit, 700); root.addEventListener('resize', fit); }
+    function init() { mount(); watch(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(function () { if (!doc.hidden) fit(); }, 700); root.addEventListener('resize', fit); }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
 })(typeof window !== 'undefined' ? window : this);
