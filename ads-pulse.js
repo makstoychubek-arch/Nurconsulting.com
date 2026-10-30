@@ -337,7 +337,7 @@
     function balHtml(key, camp) {
         var b = balOf(key, camp), low = b != null && b < 300;
         return '<button type="button" class="adp2-bal' + (low ? ' low' : '') + '" data-pact="topup" data-key="' + esc(key) + '" title="Баланс кампании. Нажмите, чтобы пополнить">' +
-            '<b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : fmtInt(b) + ' ₽') + '</b><i>+</i></button>';
+            '<b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : '<span class="adp2-bn">' + fmtInt(b) + '</span><span class="adp2-cur"> ₽</span>') + '</b><i>+</i></button>';
     }
     function metricsHtml(camp, key) {
         var d = drrOf(camp), has = (Number(camp.spendToday) || 0) > 0 || (Number(camp.orders) || 0) > 0;
@@ -440,7 +440,7 @@
         return '<article class="adp2-row' + (open ? ' open' : '') + (live ? '' : ' off') + '" data-key="' + esc(key) + '">' +
             '<div class="adp2-head" data-pact="open" data-key="' + esc(key) + '">' +
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
-            '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small>№ ' + esc(camp.wbId) + (nmCount ? ' · ' + nmCount + ' тов.' : '') + '</small>' + mainLine(cab, camp, nmCount) + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
+            '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small><span class="adp2-stt">' + (live ? 'Активна' : 'Приостановлена') + ' · </span>' + esc(camp.wbId) + (nmCount ? '<span class="adp2-nmc"> · ' + nmCount + ' тов.</span>' : '') + '</small>' + mainLine(cab, camp, nmCount) + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
             '<div class="adp2-st">' + metricsHtml(c) + '</div>' +
             typeCellHtml(camp, kind) +
             '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + '</div></div>' +
