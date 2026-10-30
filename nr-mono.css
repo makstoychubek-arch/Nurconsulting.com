@@ -880,9 +880,9 @@ html body #adv-view-ads .ads-hq-search-wrap.adp2-inline .adp2-lbl { display: non
 html body #adv-view-ads #ads-hq-tools .ads-hq-freshness, html body #adv-view-ads #ads-hq-tools #ads-hq-freshness { padding: 4px 8px; }
 html:has(#adv-view-ads.ads-gear-open) #tab-advertising { contain: none; }
 html body #adv-view-ads.ads-gear-open { z-index: 9000; }
-html body #adv-view-ads.ads-gear-open::before { content: ""; position: fixed; inset: 0; z-index: 1; background: rgba(0,0,0,.28); }
+html body #adv-view-ads.ads-gear-open::before { content: ""; position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.28); }
 html[data-theme="neon"] body #adv-view-ads.ads-gear-open::before { background: rgba(0,0,0,.5); }
-html body #adv-view-ads.ads-gear-open .ads-hq-bulk { z-index: 5; background: var(--surface-solid, #fff); }
+html body #adv-view-ads.ads-gear-open .ads-hq-bulk { z-index: 30; background: var(--surface-solid, #fff); }
 html body #adv-view-ads.ads-gear-open .adp2-gear { background: #fff; color: #0a0a0a; box-shadow: 0 0 0 1px #0a0a0a; }
 html body #adv-pulse .adp2-head .adp2-mmore { display: none; }
 @media (max-width: 760px) {
@@ -895,3 +895,13 @@ html body #adv-pulse .adp2-head .adp2-mmore { display: none; }
 html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap { width: 100%; flex: none; height: auto; flex-wrap: wrap; justify-content: flex-start; }
 html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap .ads-hq-search-btn { width: 100%; justify-content: flex-start; gap: 10px; border-bottom: 1px solid var(--border); }
 html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.is-open .ads-hq-search, html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.has-query .ads-hq-search { position: static; transform: none; width: 100% !important; height: 30px; margin: 4px 0; }
+html:has(#adv-view-ads.ads-gear-open) header.glass.app-header { background: transparent !important; box-shadow: none !important; border-color: transparent !important; }
+html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-title, button, .module-date-label) { opacity: .4; transition: opacity .15s ease; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { color: var(--text-primary); }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon svg, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn svg { width: 16px; height: 16px; flex: none; stroke: currentColor; }
+html body #adv-view-ads #ads-hq-tools .adp2-lbl { flex: 1 1 auto; width: auto !important; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { background: transparent !important; box-shadow: none !important; color: var(--text-primary) !important; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon svg, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn svg { stroke: var(--text-primary) !important; color: var(--text-primary); opacity: 1; display: block; }
+html body #adv-view-ads #ads-hq-tools .adp2-lbl { white-space: normal; line-height: 1.2; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon, html body #adv-view-ads #ads-hq-tools .ads-hq-search-btn { width: 100% !important; height: auto !important; min-width: 0 !important; border-radius: 0 !important; justify-content: flex-start !important; }
+html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::before, html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::after { background: transparent; }

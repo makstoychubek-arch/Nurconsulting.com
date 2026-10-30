@@ -1022,11 +1022,11 @@
         // Подписи пунктов выпадающего списка берём из title значков и держим в актуальном виде
         function label(b) {
             var l = b.querySelector('.adp2-lbl'); if (!l) { l = doc.createElement('span'); l.className = 'adp2-lbl'; b.appendChild(l); }
-            l.textContent = b.getAttribute('title') || b.getAttribute('aria-label') || '';
+            var t = b.getAttribute('title') || b.getAttribute('aria-label') || ''; if (l.textContent !== t) l.textContent = t;
         }
         function labels() { tools.querySelectorAll('.rnp-tool-icon, .ads-hq-search-btn').forEach(label); }
         labels();
-        if (root.MutationObserver) new root.MutationObserver(function () { labels(); }).observe(tools, { subtree: true, attributes: true, attributeFilter: ['title'], childList: true });
+        if (root.MutationObserver) new root.MutationObserver(function () { labels(); }).observe(tools, { subtree: true, attributes: true, attributeFilter: ['title'] });
         function set(open) { view.classList.toggle('ads-gear-open', open); g.setAttribute('aria-expanded', open ? 'true' : 'false'); }
         g.addEventListener('click', function (e) { e.stopPropagation(); set(!view.classList.contains('ads-gear-open')); });
         doc.addEventListener('click', function (e) {
