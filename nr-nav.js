@@ -95,6 +95,26 @@
             fly.style.top = Math.max(0, Math.round(btn.getBoundingClientRect().top - fly.offsetParent.getBoundingClientRect().top - 6)) + 'px';
         } catch (_) {}
     }
+    // Телефон: список подразделов под кнопкой раздела (копия пунктов панели, панель на телефоне скрыта).
+    function accFor(btn) {
+        var fly = doc.getElementById(btn.getAttribute('data-flyout'));
+        if (!fly) return null;
+        var id = 'nr-acc-' + fly.id, a = doc.getElementById(id);
+        if (!a) {
+            a = doc.createElement('div'); a.className = 'nr-acc'; a.id = id;
+            var inner = doc.createElement('div');
+            Array.prototype.forEach.call(fly.querySelectorAll('.flyout-body > .nav-item'), function (n) {
+                var c = n.cloneNode(true);
+                Array.prototype.forEach.call(c.querySelectorAll('svg'), function (v) { v.remove(); });
+                inner.appendChild(c);
+            });
+            a.appendChild(inner);
+            btn.insertAdjacentElement('afterend', a);
+        }
+        var src = fly.querySelectorAll('.flyout-body > .nav-item'), dst = a.querySelectorAll('.nav-item');
+        Array.prototype.forEach.call(dst, function (d, i) { d.classList.toggle('active', !!(src[i] && src[i].classList.contains('active'))); });
+        return a;
+    }
     function go(tab, id) {
         var s = SECTIONS[tab]; if (!s) return;
         var it = s.items.filter(function (x) { return x.id === id; })[0]; if (!it) return;
@@ -184,6 +204,20 @@
             }
             setTimeout(refresh, 80);
         });
+        // Телефон: подразделы раскрываются прямо под кнопкой раздела (по одному за раз), пункты ниже плавно сдвигаются.
+        doc.addEventListener('click', function (e) {
+            if (!root.matchMedia || !root.matchMedia('(max-width: 768px)').matches) return;
+            var sub = e.target.closest && e.target.closest('.nr-acc .nav-item');
+            if (sub) { setTimeout(function () { if (root.closeMobileMenu) root.closeMobileMenu(); }, 0); return; }
+            var rb = e.target.closest && e.target.closest('#sidebar-app .rail-btn[data-flyout]');
+            Array.prototype.forEach.call(doc.querySelectorAll('.nr-acc.open'), function (o) { if (!rb || o.previousElementSibling !== rb) o.classList.remove('open'); });
+            if (!rb) return;
+            // Нажатие на раздел с подразделами только раскрывает список (страница и меню остаются на месте)
+            e.stopPropagation();
+            var a = accFor(rb); if (!a) return;
+            a.classList.toggle('open');
+            rb.classList.toggle('nr-acc-on', a.classList.contains('open'));
+        }, true);
         // Нажатие на затемнение вокруг меню или Esc закрывает панель; выбор пункта в любой панели тоже закрывает её.
         doc.addEventListener('click', function (e) {
             var rb = e.target.closest && e.target.closest('#sidebar-app .rail-btn[data-flyout]');

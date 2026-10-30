@@ -949,3 +949,21 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
   html:has(#tab-advertising.active) header.glass.app-header .cabinet-picker-btn { height: 22px !important; padding: 0 9px !important; }
   html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap :is(.module-date-label, button) { height: 22px !important; min-height: 0 !important; padding-block: 0 !important; line-height: 20px; }
 }
+
+/* Телефон: подразделы раскрываются в меню под кнопкой раздела, нижние пункты плавно сдвигаются */
+@media (max-width: 768px) {
+  html body .sidebar-flyout { display: none !important; }
+  html body .nr-acc { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .34s cubic-bezier(.32,.72,0,1), opacity .26s ease; }
+  html body .nr-acc.open { grid-template-rows: 1fr; opacity: 1; }
+  html body .nr-acc > div { overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 2px; padding-left: 40px; }
+  html body .nr-acc .nav-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
+  html body .nr-acc .nav-item.active { color: var(--text-primary); background: var(--sel, rgba(0,0,0,.05)); }
+  html body .nr-acc .nav-item-label { color: inherit; }
+  html body .nr-acc.open > div { padding-block: 2px 6px; }
+}
+@media (prefers-reduced-motion: reduce) { html body .nr-acc { transition: none; } }
+/* Кампании, телефон: высота шапки по содержимому (кабинет над датой не выпирает из полосы) */
+@media (max-width: 760px) {
+  html:has(#tab-advertising.active) header.glass.app-header .app-header-main { max-height: none !important; height: auto !important; padding: 0 !important; }
+  html:has(#tab-advertising.active) header.glass.app-header { padding-bottom: 8px !important; }
+}
