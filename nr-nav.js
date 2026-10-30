@@ -188,8 +188,38 @@
         mo.observe(title, { childList: true, characterData: true, subtree: true });
     }
 
+    // Состояния страницы (календарь, список кабинетов, окна, раздел) выставляются классами на <html>.
+    // Раньше стили ждали их через html:has(...): браузер перепроверял весь документ на каждое изменение страницы
+    // (до 0,5 с пересчёта стилей при открытии «Продвижения» на слабом телефоне).
+    function initFlags() {
+        var h = doc.documentElement; if (!h.id) h.id = 'nr-root';
+        var OV = '.rnp-settings-overlay.is-open, .rnp-plan-fact-overlay.is-open, .rnp-photo-lightbox.is-open, #premium-modal.is-open, #add-cabinet-modal:not(.hidden), #autobidder-modal:not(.hidden), #supply-detail-modal:not(.hidden)';
+        function put(c, on) { if (h.classList.contains(c) !== on) h.classList.toggle(c, on); }
+        function has(id, cls) { var e = doc.getElementById(id); return !!e && e.classList.contains(cls); }
+        function sync() {
+            var dp = doc.getElementById('date-picker'), pu = doc.getElementById('adv-pulse');
+            put('nr-f-dp', !!dp && !dp.classList.contains('hidden'));
+            put('nr-f-cab', !!doc.querySelector('.cabinet-picker.open'));
+            put('nr-f-adv', has('tab-advertising', 'active'));
+            put('nr-f-gear', has('adv-view-ads', 'ads-gear-open'));
+            put('nr-f-row', !!doc.querySelector('.adp2-row.open'));
+            put('nr-f-dash', has('tab-dashboard', 'active'));
+            put('nr-f-pulse', !!pu && pu.childElementCount > 0);
+            put('nr-f-drawer', has('sidebar-app', 'mobile-open'));
+            put('nr-f-ov', !!doc.querySelector(OV));
+        }
+        var raf = 0;
+        function later() { if (raf) return; raf = (root.requestAnimationFrame || root.setTimeout)(function () { raf = 0; sync(); }); }
+        sync();
+        if (!root.MutationObserver) return;
+        new MutationObserver(later).observe(doc.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+        function watchPulse() { var pu = doc.getElementById('adv-pulse'); if (pu) { new MutationObserver(later).observe(pu, { childList: true }); return true; } return false; }
+        if (!watchPulse()) setTimeout(watchPulse, 1500);
+        root.NrFlags = { sync: sync };
+    }
     function boot() {
         buildFlyouts();
+        initFlags();
         // Страница не должна уезжать вбок (фокус, выделение мышью, прокрутка к элементу): возвращаем на место.
         doc.addEventListener('scroll', function (e) {
             var t = e.target;

@@ -3,9 +3,9 @@
    не по факту успешной JS-инициализации (на части аккаунтов она почему-то не срабатывает, и раньше
    пользователь на ровном месте получал полностью пустой экран). Пока Пульт пуст — старая таблица
    остаётся видимой как рабочий запасной вариант. */
-#adv-view-ads:has(#adv-pulse:not(:empty)) #ads-hq-camps-wrap,
-#adv-view-ads:has(#adv-pulse:not(:empty)) #ads-hq-phone,
-#adv-view-ads:has(#adv-pulse:not(:empty)) #ads-hq-schedule { display: none !important; }
+html#nr-root.nr-f-pulse #adv-view-ads #ads-hq-camps-wrap,
+html#nr-root.nr-f-pulse #adv-view-ads #ads-hq-phone,
+html#nr-root.nr-f-pulse #adv-view-ads #ads-hq-schedule { display: none !important; }
 
 .adp2-switch { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; flex-shrink: 0; }
 .adp2-newbtn { height: 32px; padding: 0 12px; border-radius: 10px; border: 0; background: var(--accent); color: var(--on-accent, #fff); font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }

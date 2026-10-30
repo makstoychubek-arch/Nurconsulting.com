@@ -329,7 +329,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             align-items: stretch; padding: 18px 12px 14px;
         }
         .main-rail { margin-left: 220px; padding-top: 76px; transition: margin-left 0.12s ease, padding-top 0.12s ease; }
-        .main-rail:has(#tab-dashboard.active) { padding-top: 66px; }
+        html#nr-root.nr-f-dash .main-rail { padding-top: 66px; }
         body.flyout-expanded .main-rail { margin-left: 440px; }
         .rail-logo {
             width: auto; height: auto; border: none; border-radius: 14px;
@@ -2538,20 +2538,20 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .rnp-settings-overlay > * { position: relative; z-index: 1; }
         body.rnp-settings-open header.glass.app-header,
         body.rnp-settings-open .bottom-nav { z-index: 1; }
-        body:has(.rnp-settings-overlay.is-open) header.glass.app-header,
-        body:has(.rnp-plan-fact-overlay.is-open) header.glass.app-header,
-        body:has(.rnp-photo-lightbox.is-open) header.glass.app-header,
-        body:has(#premium-modal.is-open) header.glass.app-header,
-        body:has(#add-cabinet-modal:not(.hidden)) header.glass.app-header,
-        body:has(#autobidder-modal:not(.hidden)) header.glass.app-header,
-        body:has(#supply-detail-modal:not(.hidden)) header.glass.app-header,
-        body:has(.rnp-settings-overlay.is-open) .bottom-nav,
-        body:has(.rnp-plan-fact-overlay.is-open) .bottom-nav,
-        body:has(.rnp-photo-lightbox.is-open) .bottom-nav,
-        body:has(#premium-modal.is-open) .bottom-nav,
-        body:has(#add-cabinet-modal:not(.hidden)) .bottom-nav,
-        body:has(#autobidder-modal:not(.hidden)) .bottom-nav,
-        body:has(#supply-detail-modal:not(.hidden)) .bottom-nav { z-index: 1; }
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav { z-index: 1; }
         .rnp-group-vis-list { display: grid; gap: 6px; }
         .rnp-group-vis {
             display: flex; align-items: center; gap: 10px;
@@ -5107,7 +5107,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             .rail-btn-lbl { line-height: 1; display: flex; align-items: center; }
             .rail-user { padding: 2px 4px 6px; }
             .rail-bottom-icons { justify-content: space-evenly; padding: 0; }
-            .main-rail:has(#tab-dashboard.active) { padding-top: 76px; }
+            html#nr-root.nr-f-dash .main-rail { padding-top: 76px; }
         }
 
         /* A/B тест карточки */
@@ -5912,7 +5912,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 max-width: none;
             }
             body.is-dash-phone .cabinet-picker-label { max-width: 128px; }
-            .main-content:has(#tab-dashboard.active) {
+            html#nr-root.nr-f-dash .main-content {
                 padding: 10px 8px 12px !important;
             }
             #tab-dashboard.space-y-4 > :not([hidden]) ~ :not([hidden]) {
@@ -6082,6 +6082,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 __nrTab = 'tariffs';
             }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
+            // Флаги раздела на <html> с первого кадра (их же потом ведёт nr-nav.js), чтобы поля страницы не прыгали при загрузке
+            document.documentElement.id = 'nr-root';
+            if (!__nrPane || __nrPane === 'dashboard') document.documentElement.classList.add('nr-f-dash');
+            else if (__nrPane === 'advertising') document.documentElement.classList.add('nr-f-adv');
             if (__nrPane && __nrPane !== 'dashboard') {
                 document.documentElement.setAttribute('data-nr-early', __nrPane);
                 var __nrStyle = document.createElement('style');
@@ -6115,12 +6119,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } catch (e) {}
     </script>
 <link rel="stylesheet" href="/dist/content-factory.e90044b6a6.css">
-<link rel="stylesheet" href="/dist/nr-motion.58195505bf.css">
-<link rel="stylesheet" href="/dist/rnp-extra.f487a401ec.css">
-<link rel="stylesheet" href="/dist/ads-pulse.1f61d07305.css">
+<link rel="stylesheet" href="/dist/nr-motion.297cd30ada.css">
+<link rel="stylesheet" href="/dist/rnp-extra.04ae434621.css">
+<link rel="stylesheet" href="/dist/ads-pulse.a532ab96c0.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.189919450a.css">
+<link rel="stylesheet" href="/dist/nr-mono.4c1fd11eb8.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8218,7 +8222,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
 <script src="/dist/nr-analytics.97794c8fd3.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
-<script src="/dist/nr-nav.40ce038ab8.min.js"></script>
+<script src="/dist/nr-nav.6030d675d5.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.443f469247.min.js"></script>
 <script src="/dist/nr-foot.d23a3e9a01.min.js"></script>

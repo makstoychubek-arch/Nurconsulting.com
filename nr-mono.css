@@ -217,7 +217,7 @@ html body header.glass .app-header-main > div:first-child { flex: 1; min-width: 
 .nr-notify--rail .nr-notify-dot { right: 5px; top: 5px; }
 
 /* Шапка и основной блок в одной общей рамке: рамка начинается сверху, шапка лежит внутри неё */
-html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 10px !important; }
+html body .main-rail, html#nr-root.nr-f-dash body .main-rail { padding-top: 10px !important; }
 html body .main-rail .main-content:not(#nr-x) { padding-top: 70px !important; }
 html body header.glass.app-header { background: var(--surface-solid) !important; border-radius: 18px 18px 0 0 !important; clip-path: inset(1px 1px 0 1px round 17px 17px 0 0); }
 
@@ -244,7 +244,7 @@ html body #tab-dashboard #dash-pnl .pnl-dpill { margin-bottom: 14px; }
 
 /* Телефон: шапка узкая и прижата к верху, общая рамка без верхнего отступа */
 @media (max-width: 768px) {
-  html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 0 !important; }
+  html body .main-rail, html#nr-root.nr-f-dash body .main-rail { padding-top: 0 !important; }
   html body .main-rail .main-content:not(#nr-x) { padding-top: calc(var(--nr-hdr-h, 40px) + 8px) !important; }
   html body header.glass.app-header { border-radius: 0 !important; clip-path: none; }
 }
@@ -309,31 +309,31 @@ html.nr-period-busy body #tab-dashboard :is(#nrdb-bal, #nrdb-transit, #nrdb-prod
 /* Открыт календарь или список кабинетов: остальной сайт чуть темнее и не мешает */
 html::after { content: ""; position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .15s ease; }
 html[data-theme="neon"]::after { background: rgba(0,0,0,.5); }
-html:has(#date-picker:not(.hidden))::after, html:has(.cabinet-picker.open)::after { opacity: 1; pointer-events: auto; }
+html#nr-root.nr-f-dp::after, html#nr-root.nr-f-cab::after { opacity: 1; pointer-events: auto; }
 /* выбранный объект (кнопка даты / кабинета) остаётся белым и ярким над затемнением */
-html:has(#date-picker:not(.hidden)) header.glass.app-header { z-index: 9999 !important; }
-html:has(#date-picker:not(.hidden)) header.glass.app-header :is(.header-page-title, button:not(.nr-keep)) { opacity: .4; transition: opacity .15s ease; }
-html:has(#date-picker:not(.hidden)) #header-date-chip-wrap { background: var(--surface-solid, #fff) !important; position: relative; z-index: 1; }
-html:has(#date-picker:not(.hidden)) .module-date-label { position: relative; z-index: 9999; background: var(--surface-solid, #fff); border-radius: 999px; }
-html:has(#date-picker:not(.hidden)) header.glass.app-header { background: transparent !important; border-color: transparent !important; box-shadow: none !important; clip-path: none !important; pointer-events: none; }
-html:has(#date-picker:not(.hidden)) header.glass.app-header #header-date-chip-wrap { pointer-events: auto; }
+html#nr-root.nr-f-dp header.glass.app-header { z-index: 9999 !important; }
+html#nr-root.nr-f-dp header.glass.app-header :is(.header-page-title, button:not(.nr-keep)) { opacity: .4; transition: opacity .15s ease; }
+html#nr-root.nr-f-dp #header-date-chip-wrap { background: var(--surface-solid, #fff) !important; position: relative; z-index: 1; }
+html#nr-root.nr-f-dp .module-date-label { position: relative; z-index: 9999; background: var(--surface-solid, #fff); border-radius: 999px; }
+html#nr-root.nr-f-dp header.glass.app-header { background: transparent !important; border-color: transparent !important; box-shadow: none !important; clip-path: none !important; pointer-events: none; }
+html#nr-root.nr-f-dp header.glass.app-header #header-date-chip-wrap { pointer-events: auto; }
 html body .cabinet-picker--rail { margin: 0 12px 8px; }
-html:has(.cabinet-picker.open) .cabinet-picker--rail .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
-html:has(.cabinet-picker.open) .cabinet-picker--rail .cabinet-picker-label { color: #000; }
-html:has(#date-picker:not(.hidden)) #header-date-chip-wrap { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); border-radius: 999px; }
-html:has(#date-picker:not(.hidden)) #header-date-chip-wrap #date-range { color: #000; }
+html#nr-root.nr-f-cab .cabinet-picker--rail .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
+html#nr-root.nr-f-cab .cabinet-picker--rail .cabinet-picker-label { color: #000; }
+html#nr-root.nr-f-dp #header-date-chip-wrap { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); border-radius: 999px; }
+html#nr-root.nr-f-dp #header-date-chip-wrap #date-range { color: #000; }
 html::after { background: rgba(0,0,0,.4); }
-html[data-theme="neon"]:has(.cabinet-picker.open) .cabinet-picker--rail .cabinet-picker-btn, html[data-theme="neon"]:has(#date-picker:not(.hidden)) #header-date-chip-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.5); }
+html#nr-root[data-theme="neon"].nr-f-cab .cabinet-picker--rail .cabinet-picker-btn, html#nr-root[data-theme="neon"].nr-f-dp #header-date-chip-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.5); }
 html body #date-picker, html body .cabinet-picker--rail .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; opacity: 1; }
 
 /* выбор кабинета вверху справа, рядом с датой */
 html body header.glass.app-header .cabinet-picker-btn { border: 1px solid var(--accent) !important; border-radius: 999px !important; background: transparent !important; }
 html body header.glass.app-header .cabinet-picker-label { font-weight: 800; color: var(--text-primary); }
-html:has(.cabinet-picker.open) header.glass.app-header { z-index: 9999 !important; background: transparent !important; border-color: transparent !important; box-shadow: none !important; clip-path: none !important; pointer-events: none; }
-html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker { pointer-events: auto; }
-html:has(.cabinet-picker.open) header.glass.app-header :is(.header-page-title, #header-date-chip-wrap) { opacity: .4; }
-html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
-html:has(.cabinet-picker.open) header.glass.app-header .cabinet-picker-label { color: #000; }
+html#nr-root.nr-f-cab header.glass.app-header { z-index: 9999 !important; background: transparent !important; border-color: transparent !important; box-shadow: none !important; clip-path: none !important; pointer-events: none; }
+html#nr-root.nr-f-cab header.glass.app-header .cabinet-picker { pointer-events: auto; }
+html#nr-root.nr-f-cab header.glass.app-header :is(.header-page-title, #header-date-chip-wrap) { opacity: .4; }
+html#nr-root.nr-f-cab header.glass.app-header .cabinet-picker-btn { background: #fff !important; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 8px 24px rgba(0,0,0,.25); }
+html#nr-root.nr-f-cab header.glass.app-header .cabinet-picker-label { color: #000; }
 html body header.glass.app-header .cabinet-dropdown-menu { background: var(--surface-solid, #fff) !important; }
 
 /* ===== «Минимализм»: приветствие нового клиента ===== */
@@ -845,14 +845,14 @@ html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap { width: 100%; flex: n
 html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.is-open .ads-hq-search, html body #adv-view-ads #ads-hq-tools .ads-hq-search-wrap.has-query .ads-hq-search { position: static; transform: none; width: 100% !important; height: 30px; margin: 4px 0; }
 html body #adv-view-ads #ads-hq-tools .ads-hq-freshness { padding: 4px 8px; }
 /* затемнение страницы при открытой шестерёнке (как у календаря и кабинета) */
-html:has(#adv-view-ads.ads-gear-open) #tab-advertising { contain: none; }
+html#nr-root.nr-f-gear #tab-advertising { contain: none; }
 html body #adv-view-ads.ads-gear-open { z-index: 9000; }
 html body #adv-view-ads.ads-gear-open::before { content: ""; position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.28); }
 html[data-theme="neon"] body #adv-view-ads.ads-gear-open::before { background: rgba(0,0,0,.5); }
 html body #adv-view-ads.ads-gear-open .ads-hq-bulk { z-index: 30; background: var(--surface-solid, #fff) !important; }
 html body #adv-view-ads.ads-gear-open .adp2-gear { background: #fff; color: #0a0a0a; box-shadow: 0 0 0 1px #0a0a0a; }
-html:has(#adv-view-ads.ads-gear-open) header.glass.app-header { background: transparent !important; box-shadow: none !important; border-color: transparent !important; }
-html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-title, button, .module-date-label) { opacity: .4; transition: opacity .15s ease; }
+html#nr-root.nr-f-gear header.glass.app-header { background: transparent !important; box-shadow: none !important; border-color: transparent !important; }
+html#nr-root.nr-f-gear header.glass.app-header :is(.header-page-title, button, .module-date-label) { opacity: .4; transition: opacity .15s ease; }
 
 /* ПК: общий контур, таблица как у WB (режим и название закреплены, колонки метрик со свайпом вправо) */
 @media (min-width: 761px) {
@@ -933,16 +933,16 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
   html body #adv-pulse .adp2-head .adp2-ch { grid-column: 1 / -1; }
   html body #adv-pulse .adp2-head .adp2-ch:not(:has(*)) { display: none; }
   /* шапка страницы: кабинет над датой справа (как в макете) */
-  html:has(#tab-advertising.active) header.glass.app-header .app-header-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; row-gap: 4px; height: auto; min-height: 0; }
-  html:has(#tab-advertising.active) header.glass.app-header .app-header-main > div:first-child, html:has(#tab-advertising.active) header.glass.app-header .app-header-main > div:last-child { display: contents; }
-  html:has(#tab-advertising.active) header.glass.app-header .mobile-menu-btn { grid-column: 1; grid-row: 1 / 3; }
-  html:has(#tab-advertising.active) header.glass.app-header .header-page-title { grid-column: 2; grid-row: 1 / 3; min-width: 0; overflow: hidden; }
-  html:has(#tab-advertising.active) header.glass.app-header .nr-crumbs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  html:has(#tab-advertising.active) header.glass.app-header .cabinet-picker-wrap { grid-column: 3; grid-row: 1; justify-self: end; }
-  html:has(#tab-advertising.active) body header.glass.app-header #header-date-chip-wrap { grid-column: 3; grid-row: 2; justify-self: end; height: 22px !important; min-height: 0 !important; max-height: 22px !important; padding: 0 9px !important; }
-  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap #date-range { font-size: 10px; }
-  html:has(#tab-advertising.active) header.glass.app-header .cabinet-picker-btn { height: 22px !important; padding: 0 9px !important; }
-  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap :is(.module-date-label, button) { height: 22px !important; min-height: 0 !important; padding-block: 0 !important; line-height: 20px; }
+  html#nr-root.nr-f-adv header.glass.app-header .app-header-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; row-gap: 4px; height: auto; min-height: 0; }
+  html#nr-root.nr-f-adv header.glass.app-header .app-header-main > div:first-child, html#nr-root.nr-f-adv header.glass.app-header .app-header-main > div:last-child { display: contents; }
+  html#nr-root.nr-f-adv header.glass.app-header .mobile-menu-btn { grid-column: 1; grid-row: 1 / 3; }
+  html#nr-root.nr-f-adv header.glass.app-header .header-page-title { grid-column: 2; grid-row: 1 / 3; min-width: 0; overflow: hidden; }
+  html#nr-root.nr-f-adv header.glass.app-header .nr-crumbs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html#nr-root.nr-f-adv header.glass.app-header .cabinet-picker-wrap { grid-column: 3; grid-row: 1; justify-self: end; }
+  html#nr-root.nr-f-adv body header.glass.app-header #header-date-chip-wrap { grid-column: 3; grid-row: 2; justify-self: end; height: 22px !important; min-height: 0 !important; max-height: 22px !important; padding: 0 9px !important; }
+  html#nr-root.nr-f-adv header.glass.app-header #header-date-chip-wrap #date-range { font-size: 10px; }
+  html#nr-root.nr-f-adv header.glass.app-header .cabinet-picker-btn { height: 22px !important; padding: 0 9px !important; }
+  html#nr-root.nr-f-adv header.glass.app-header #header-date-chip-wrap :is(.module-date-label, button) { height: 22px !important; min-height: 0 !important; padding-block: 0 !important; line-height: 20px; }
 }
 
 /* Телефон: подразделы раскрываются в меню под кнопкой раздела, нижние пункты плавно сдвигаются */
@@ -959,15 +959,15 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
 @media (prefers-reduced-motion: reduce) { html body .nr-acc { transition: none; } }
 /* Кампании, телефон: высота шапки по содержимому (кабинет над датой не выпирает из полосы) */
 @media (max-width: 760px) {
-  html:has(#tab-advertising.active) header.glass.app-header .app-header-main { max-height: none !important; height: auto !important; padding: 0 !important; }
-  html:has(#tab-advertising.active) header.glass.app-header { padding-bottom: 8px !important; }
+  html#nr-root.nr-f-adv header.glass.app-header .app-header-main { max-height: none !important; height: auto !important; padding: 0 !important; }
+  html#nr-root.nr-f-adv header.glass.app-header { padding-bottom: 8px !important; }
 }
 /* Страница не уезжает вбок при прокрутке таблицы «Кампаний» (меню и шапка остаются на месте) */
 @media (min-width: 761px) { html, html body { overflow-x: clip; } }
 
 /* Кампания открывается окном почти на всю ширину (вместо выпадающего блока в таблице) */
-html:has(.adp2-row.open) #tab-advertising { contain: none; }
-html body #adv-view-ads:has(.adp2-row.open) { z-index: 9000; }
+html#nr-root.nr-f-row #tab-advertising { contain: none; }
+html#nr-root.nr-f-row body #adv-view-ads { z-index: 9000; }
 html body #adv-pulse .adp2-row.open::after { content: ""; position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.28); cursor: pointer; }
 html[data-theme="neon"] body #adv-pulse .adp2-row.open::after { background: rgba(0,0,0,.5); }
 html body #adv-pulse .adp2-row.open > .adp2-body { position: fixed; z-index: 30; inset: 40px 40px 40px; margin: auto; width: auto; max-width: 1560px; height: fit-content; max-height: calc(100vh - 80px); overflow: auto; box-sizing: border-box; padding: 22px 26px; background: var(--surface-solid, #fff); border: 1.5px solid var(--accent); border-radius: 26px; }
