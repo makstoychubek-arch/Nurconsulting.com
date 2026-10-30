@@ -8074,14 +8074,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-module.1055f67e20.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
-   и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
+   и пишет их в order_events; страница раз в 20 секунд проверяет новые записи и играет звук для выбранных артикулов.
    Работает, пока сайт открыт: браузер сначала требует любой клик по странице. Выбор артикулов хранится на этом устройстве. */
 (function () {
     var KEY = 'nr_order_sound_v1';
     var SOUNDS = [
         {id:'dolphin',name:'Дельфин',src:'/sounds/order-dolphin.m4a'},{id:'faaah',name:'Faaah',src:'/sounds/order-faaah.mp3'}
     ];
-    var audio = null, audioSrc = '', channel = null, started = false;
+    var audio = null, audioSrc = '', started = false;
 
     function soundOf(id) { return SOUNDS.filter(function (x) { return x.id === id; })[0] || SOUNDS[0]; }
     function clamp(v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8; }
@@ -8127,22 +8127,34 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         toast('Новый заказ: ' + label);
     }
 
-    // Подписка только при включённом звуке и после трёх неудач не повторяется: цикл переподключений при ошибке JWT грузил базу (сбой 29.10).
-    var fails = 0;
+    // Опрос вместо Realtime: раз в 20 секунд, только пока вкладка открыта и звук включён (постоянная подписка нагружала базу).
+    // После трёх ошибок подряд опрос останавливается, чтобы не долбить базу при сбое.
+    var fails = 0, timer = 0, lastId = null, polling = false;
+    function poll() {
+        var st = load();
+        if (document.hidden || polling) return;
+        if (!st.enabled || !st.nms.length) { stop(); return; }
+        polling = true;
+        var q = supabase.from('order_events').select('id,nm_id,article,silent').order('id', { ascending: false }).limit(lastId == null ? 1 : 30);
+        if (lastId != null) q = q.gt('id', lastId);
+        q.then(function (r) {
+            polling = false;
+            if (!r || r.error) { if (++fails >= 3) stop(); return; }
+            fails = 0;
+            var rows = r.data || [];
+            if (lastId == null) { lastId = rows.length ? rows[0].id : 0; return; }
+            rows.sort(function (x, y) { return x.id - y.id; }).forEach(function (row) { lastId = Math.max(lastId, row.id); handle(row); });
+        }, function () { polling = false; if (++fails >= 3) stop(); });
+    }
+    function stop() { clearInterval(timer); timer = 0; started = false; }
     function start() {
         var st = load();
-        if (started || fails >= 3 || !st.enabled || !st.nms.length || typeof supabase === 'undefined' || !supabase.channel) return;
+        if (started || fails >= 3 || !st.enabled || !st.nms.length || typeof supabase === 'undefined' || !supabase.from) return;
         started = true;
-        try {
-            channel = supabase.channel('nr-order-events')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_events' }, function (payload) { handle(payload && payload.new); })
-                .subscribe(function (status) {
-                    if (status === 'SUBSCRIBED') { fails = 0; return; }
-                    if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
-                    if (++fails >= 3) { try { supabase.removeChannel(channel); } catch (e) {} channel = null; started = false; }
-                });
-        } catch (e) { started = false; }
+        poll();
+        timer = setInterval(poll, 20000);
     }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && started) poll(); });
 
     // ── окно мини-настроек ─────────────────────────────────────────────
     function articles() {
@@ -8363,7 +8375,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-plan-fact.68223e16a0.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.95b69c9ba7.min.js"></script>
+<script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.6fcc6cf1a6.min.js"></script>
 <script src="/dist/ads-pulse.fcc79e09b4.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ed0f3c55fa.min.js"></script>

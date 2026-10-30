@@ -2401,8 +2401,9 @@
         const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks, schedules, autoRows] = core;
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
-        const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
-            safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
+        // Ключи (adv_clusters) нужны модели только у кампаний с правилами автоставок: у остальных диапазон позиции не считается.
+        // Раньше читались все ключи всех кампаний (десятки тысяч строк на каждую загрузку), список ключей открытой кампании грузит Пульт РК.
+        const [rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
             safeRows('autobidder_rules', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('serp_position_snapshots', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('adv_daily_stats', [
@@ -2410,7 +2411,9 @@
                 { op: 'gte', column: 'date', value: rank.from },
                 { op: 'lte', column: 'date', value: rank.to },
             ]),
-        ]) : [[], [], [], []];
+        ]) : [[], [], []];
+        const ruleCampIds = [...new Set((rules || []).map((r) => r.campaign_id).filter(Boolean))];
+        const clusters = ruleCampIds.length ? await safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: ruleCampIds }]) : [];
         if (cab !== state.filterCabinetId) return null;
         state.schedules = schedules || [];
         state.model = buildHqModel({

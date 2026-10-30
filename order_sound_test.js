@@ -30,7 +30,7 @@ assert.ok(fn.includes('EdgeRuntime.waitUntil(work)') && fn.includes('/api/v3/ord
 assert.ok(cron.includes("'orders-watch-1m'") && cron.includes('REPLACE_ME_SERVICE_ROLE_KEY') && !/eyJ[A-Za-z0-9_-]{20,}/.test(cron), 'cron every minute, no real key committed');
 
 // Страница: подписка, фильтр по выбранным артикулам, «тихие» события без звука, окно настроек.
-assert.ok(html.includes("table: 'order_events'") && html.includes("event: 'INSERT'"), 'the page subscribes to inserts');
+assert.ok(html.includes("from('order_events')") && html.includes('setInterval(poll, 20000)') && !html.includes("supabase.channel('nr-order-events')"), 'the page polls new events, no Realtime subscription');
 assert.ok(html.includes('if (!row || row.silent) return;') && html.includes('st.nms.indexOf(Number(row.nm_id)) === -1'), 'silent rows and unselected articles make no sound');
 assert.ok(html.includes("if (isStaff && window.NrOrderSound) window.NrOrderSound.start();"), 'only the team subscribes');
 assert.ok(html.includes('id="nros-enabled"') && html.includes('data-nros-group') && html.includes('data-nros-nm') && html.includes('id="nros-test"'), 'settings: master switch, groups, articles, test button');
