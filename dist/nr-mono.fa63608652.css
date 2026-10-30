@@ -873,7 +873,7 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
   html body #adv-pulse .adp2-row { width: max-content; min-width: 100%; margin: 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface-solid, var(--surface)); overflow: visible; }
   html body #adv-pulse .adp2-head { height: 36px; min-height: 36px; }
   html body #adv-pulse .adp2-head > * { align-self: center; }
-  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { order: 1; flex: none; width: 84px; box-sizing: border-box; display: flex; justify-content: center; position: sticky; left: 0; z-index: 4; background: var(--surface-solid, var(--surface)); padding: 0; }
+  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { order: 1; flex: none; width: 84px; box-sizing: border-box; display: flex; justify-content: center; position: sticky; left: 0; z-index: 5; background: var(--surface-solid, var(--surface)); padding: 0; }
   html body #adv-pulse .adp2-tc { order: 2; flex: none; width: 34px; position: sticky; left: 84px; z-index: 4; display: flex; align-items: center; padding-left: 10px; background: var(--surface-solid, var(--surface)); }
   html body #adv-pulse .adp2-mph, html body #adv-pulse .adp2-ph { width: 22px; height: 22px; border-radius: 6px; }
   html body #adv-pulse .adp2-nm, html body #adv-pulse .adp2-hnm { order: 3; flex: none; width: 286px; box-sizing: border-box; position: sticky; left: 118px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 0 8px; overflow: hidden; white-space: nowrap; background: var(--surface-solid, var(--surface)); }
@@ -888,7 +888,7 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
   html body #adv-pulse .adp2-mc { order: 6; flex: none; box-sizing: border-box; align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0 6px; text-align: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; border-left: 1px solid var(--border); }
   html body #adv-pulse .adp2-hd > div { display: flex; align-items: center; justify-content: center; position: relative; padding: 0 6px; box-sizing: border-box; text-align: center; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 1.15; color: var(--text-muted); cursor: help; }
   html body #adv-pulse .adp2-hd > .adp2-hpos, html body #adv-pulse .adp2-hd > .adp2-hnm { position: sticky; }
-  html body #adv-pulse .adp2-hd > .adp2-ty { z-index: 6; box-shadow: none; }
+  html body #adv-pulse .adp2-hd > .adp2-ty { z-index: 1; box-shadow: none; }
   html body #adv-pulse .adp2-hd > div > span { border-bottom: 1px dotted var(--border); }
   html body #adv-pulse .adp2-m5 > :nth-child(1), html body #adv-pulse .adp2-hd > :nth-child(5) { width: 88px; }
   html body #adv-pulse .adp2-m5 > :nth-child(2), html body #adv-pulse .adp2-hd > :nth-child(6) { width: 78px; }
