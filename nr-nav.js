@@ -248,12 +248,12 @@
                 clearTimeout(inTimer);
                 if ((t.id === 'sidebar-app' || !(t.closest && t.closest('#sidebar-app'))) && doc.body.classList.contains('flyout-expanded')) {
                     clearTimeout(outTimer);
-                    outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 1000);
+                    outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 200);
                 }
             });
         }
         doc.documentElement.addEventListener('mouseleave', function () {
-            if (doc.body.classList.contains('flyout-expanded')) { clearTimeout(outTimer); outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 1000); }
+            if (doc.body.classList.contains('flyout-expanded')) { clearTimeout(outTimer); outTimer = setTimeout(function () { if (root.closeSidebarMenus) root.closeSidebarMenus(false); }, 200); }
         });
         doc.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && doc.body.classList.contains('flyout-expanded') && root.closeSidebarMenus) root.closeSidebarMenus(true);
