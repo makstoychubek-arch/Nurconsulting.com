@@ -967,3 +967,5 @@ html:has(#adv-view-ads.ads-gear-open) header.glass.app-header :is(.header-page-t
   html:has(#tab-advertising.active) header.glass.app-header .app-header-main { max-height: none !important; height: auto !important; padding: 0 !important; }
   html:has(#tab-advertising.active) header.glass.app-header { padding-bottom: 8px !important; }
 }
+/* Страница не уезжает вбок при прокрутке таблицы «Кампаний» (меню и шапка остаются на месте) */
+@media (min-width: 761px) { html, html body { overflow-x: clip; } }
