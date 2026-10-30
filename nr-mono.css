@@ -835,7 +835,7 @@ html body .dashboard-app-shell > .main-rail, html body .main-rail > .main-conten
 html body #adv-pulse .adp2-m5, html body #adv-pulse .adp2-mmore { display: contents; }
 @media (max-width: 760px) {
   html body #adv-pulse .adp2-row { border: 1px solid var(--border-strong, var(--border)); border-radius: 18px; background: var(--surface-solid, var(--surface)); margin-bottom: 8px; }
-  html body #adv-pulse .adp2-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "tc nm ps" "ty ty bl" "m5 m5 m5" "mm mm mm" "ch ch ch"; gap: 8px 10px; padding: 10px 12px; align-items: center; }
+  html body #adv-pulse .adp2-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "tc nm ps" "ty ty bl" "m5 m5 m5"; gap: 8px 10px; padding: 10px 12px; align-items: center; }
   html body #adv-pulse .adp2-head > .adp2-r { display: contents; }
   html body #adv-pulse .adp2-head > .adp2-st, html body #adv-pulse .adp2-head > .adp2-cv { display: none; }
   html body #adv-pulse .adp2-head .adp2-pos { grid-area: ps; justify-self: end; }
@@ -980,3 +980,40 @@ html body #adv-view-ads #ads-hq-tools .rnp-tool-icon::before, html body #adv-vie
   html body #adv-pulse .adp2-head .adp2-mc { align-self: stretch !important; }
 }
 @media (min-width: 761px) { html body #adv-pulse .adp2-hd > .adp2-ty { position: relative; z-index: 6; box-shadow: none; } html body #adv-pulse .adp2-hd > .adp2-ty > span { color: var(--text-muted); } }
+
+/* «Кампании», телефон: без лишней рамки списка и пустых отступов, шапка страницы без наложения (кабинет над датой справа, как в макете) */
+@media (max-width: 760px) {
+  html body #adv-view-ads .ads-hq-list-card { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+  html body #adv-pulse .adp2-head .adp2-ch { grid-column: 1 / -1; grid-area: auto; }
+  html body #adv-pulse .adp2-head .adp2-ch:not(:has(*)) { display: none; }
+  html body #adv-pulse .adp2-row { margin-bottom: 8px; }
+  html:has(#tab-advertising.active) header.glass.app-header .app-header-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; row-gap: 4px; height: auto; min-height: 28px; }
+  html:has(#tab-advertising.active) header.glass.app-header .app-header-main > div:first-child, html:has(#tab-advertising.active) header.glass.app-header .app-header-main > div:last-child { display: contents; }
+  html:has(#tab-advertising.active) header.glass.app-header .mobile-menu-btn { grid-column: 1; grid-row: 1 / 3; }
+  html:has(#tab-advertising.active) header.glass.app-header .header-page-title { grid-column: 2; grid-row: 1 / 3; min-width: 0; overflow: hidden; }
+  html:has(#tab-advertising.active) header.glass.app-header .nr-crumbs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html:has(#tab-advertising.active) header.glass.app-header .cabinet-picker-wrap { grid-column: 3; grid-row: 1; justify-self: end; }
+  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap { grid-column: 3; grid-row: 2; justify-self: end; height: 24px; }
+}
+@media (max-width: 760px) {
+  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap { height: 22px !important; padding: 0 9px !important; }
+  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap #date-range { font-size: 10px; }
+  html:has(#tab-advertising.active) header.glass.app-header .cabinet-picker-btn { height: 22px !important; padding: 0 9px !important; }
+}
+@media (max-width: 760px) {
+  html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap .module-date-label, html:has(#tab-advertising.active) header.glass.app-header #header-date-chip-wrap button { height: 22px !important; min-height: 0 !important; padding-block: 0 !important; line-height: 20px; }
+}
+@media (max-width: 760px) {
+  html:has(#tab-advertising.active) body header.glass.app-header #header-date-chip-wrap { height: 22px !important; min-height: 0 !important; max-height: 22px !important; }
+  html:has(#tab-advertising.active) body header.glass.app-header .app-header-main { min-height: 0; }
+}
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-head .adp2-nm { align-self: start; min-height: 34px; overflow: visible; }
+  html body #adv-pulse .adp2-head .adp2-nm .shv-slot { display: block; margin-top: 6px; }
+}
+html body #adv-pulse .adp2-shl { display: none; }
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-head .adp2-nm .shv-slot { display: none; }
+  html body #adv-pulse .adp2-head .adp2-shl { display: block; grid-column: 1 / -1; }
+  html body #adv-pulse .adp2-head .adp2-shl:not(:has(*)) { display: none; }
+}

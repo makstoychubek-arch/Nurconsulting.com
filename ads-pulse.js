@@ -446,6 +446,7 @@
             '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + '</div></div>' +
             metricCellsHtml(c) +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
+            '<div class="adp2-shl">' + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
             '<span class="adp2-cv">⌄</span></div>' +
             (open ? '<div class="adp2-body"><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
                 '<button type="button" data-pact="toggle" data-key="' + esc(key) + '" class="adp2-tg ' + (live ? 'on' : '') + '">' + (live ? 'Поставить на паузу' : 'Запустить') + '</button>' +
