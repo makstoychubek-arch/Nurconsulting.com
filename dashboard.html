@@ -1572,7 +1572,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         #add-cabinet-modal:not(.hidden),
         #autobidder-modal:not(.hidden),
         #supply-detail-modal:not(.hidden) {
-            animation: nr-overlay-in 0.22s ease-out both;
+            animation: nr-overlay-in 0.14s ease-out both;
         }
         .rnp-settings-overlay.is-open > .rnp-settings-dialog,
         .rnp-plan-fact-overlay.is-open > .rnp-plan-fact-dialog,
@@ -1581,7 +1581,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         #add-cabinet-modal:not(.hidden) > .add-cabinet-modal-box,
         #autobidder-modal:not(.hidden) > .nr-glass-dialog,
         #supply-detail-modal:not(.hidden) > .nr-glass-dialog {
-            animation: nr-dialog-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+            animation: nr-dialog-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         @media (prefers-reduced-motion: reduce) {
             .rnp-settings-overlay.is-open,
@@ -6115,7 +6115,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } catch (e) {}
     </script>
 <link rel="stylesheet" href="/dist/content-factory.e90044b6a6.css">
-<link rel="stylesheet" href="/dist/nr-motion.7fa859ca42.css">
+<link rel="stylesheet" href="/dist/nr-motion.58195505bf.css">
 <link rel="stylesheet" href="/dist/rnp-extra.f487a401ec.css">
 <link rel="stylesheet" href="/dist/ads-pulse.1f61d07305.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
@@ -13084,6 +13084,20 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             ).join('');
         }
     }
+
+    // Esc закрывает календарь и список кабинетов (раньше они закрывались только кликом мимо, затемнение страницы оставалось)
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        const p = document.getElementById('date-picker');
+        if (p && !p.classList.contains('hidden')) p.classList.add('hidden');
+        const w = document.getElementById('cabinet-picker-wrap');
+        if (w) w.classList.remove('open');
+        // окна «Добавить кабинет», автобиддер и поставка закрываются по Esc, как остальные окна
+        [['add-cabinet-modal', 'closeAddCabinetModal'], ['autobidder-modal', 'closeAutobidderModal'], ['supply-detail-modal', 'closeSupplyDetail']].forEach(function (m) {
+            const el = document.getElementById(m[0]);
+            if (el && !el.classList.contains('hidden') && typeof window[m[1]] === 'function') window[m[1]]();
+        });
+    });
 
     function toggleCabinetDropdown(e) {
         e.stopPropagation();
