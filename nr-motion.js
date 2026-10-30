@@ -400,5 +400,34 @@
         doc.addEventListener('touchcancel', function () { touching = false; restore(); }, { passive: true, capture: true });
         doc.addEventListener('scroll', function () { if (saved && !touching) { clearTimeout(timer); timer = setTimeout(restore, 160); } }, { passive: true, capture: true });
     })();
+    /* Таблица РНП: горизонтальная прокрутка колесом или тачпадом плавная и неторопливая. Даже сильный рывок вправо или влево
+       двигает таблицу не быстрее ~1700 пикс/с: цель сдвигается на долю рывка, а сама таблица догоняет её плавно. Вертикаль и телефон не трогаем. */
+    (function () {
+        var doc = root.document; if (!doc || !root.requestAnimationFrame) return;
+        var SEL = '.rnp-sheet-body', SCALE = 0.35, MAX_EVENT = 70, EASE = 0.1, MAX_FRAME = 28;
+        var el = null, target = 0, raf = 0;
+        function tick() {
+            raf = 0; if (!el) return;
+            var d = target - el.scrollLeft;
+            if (Math.abs(d) < 0.5) { el.scrollLeft = target; el = null; return; }
+            var step = d * EASE; if (step > MAX_FRAME) step = MAX_FRAME; else if (step < -MAX_FRAME) step = -MAX_FRAME;
+            if (Math.abs(step) < 0.6) step = d > 0 ? 0.6 : -0.6;
+            el.scrollLeft += step;
+            raf = root.requestAnimationFrame(tick);
+        }
+        doc.addEventListener('wheel', function (e) {
+            if (e.ctrlKey || e.defaultPrevented) return;
+            var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
+            var dx = e.deltaX, horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+            if (e.shiftKey && !horizontal) { dx = e.deltaY; horizontal = true; }
+            if (!horizontal || !dx) return;
+            if (e.deltaMode === 1) dx *= 16; else if (e.deltaMode === 2) dx *= t.clientWidth;
+            e.preventDefault();
+            if (el !== t) { el = t; target = t.scrollLeft; }
+            var inc = dx * SCALE; if (inc > MAX_EVENT) inc = MAX_EVENT; else if (inc < -MAX_EVENT) inc = -MAX_EVENT;
+            target = Math.max(0, Math.min(t.scrollWidth - t.clientWidth, target + inc));
+            if (!raf) raf = root.requestAnimationFrame(tick);
+        }, { passive: false });
+    })();
     root.NrMotion = { shake: shake, count: count, slot: slot, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);

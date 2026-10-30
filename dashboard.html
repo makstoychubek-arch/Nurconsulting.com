@@ -1209,7 +1209,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         .nr-wow-col {
             display: inline-block; overflow: hidden; height: 1.15em;
-            vertical-align: -0.05em; line-height: 1.15;
+            vertical-align: -0.21em; line-height: 1.15;
         }
         .nr-wow-strip {
             display: flex; flex-direction: column;
@@ -6120,7 +6120,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/ads-pulse.7e5a1013bc.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.b25d315ec8.css">
+<link rel="stylesheet" href="/dist/nr-mono.b6336069fc.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8074,14 +8074,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-module.1055f67e20.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
-   и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
+   и пишет их в order_events; страница раз в 20 секунд проверяет новые записи и играет звук для выбранных артикулов.
    Работает, пока сайт открыт: браузер сначала требует любой клик по странице. Выбор артикулов хранится на этом устройстве. */
 (function () {
     var KEY = 'nr_order_sound_v1';
     var SOUNDS = [
         {id:'dolphin',name:'Дельфин',src:'/sounds/order-dolphin.m4a'},{id:'faaah',name:'Faaah',src:'/sounds/order-faaah.mp3'}
     ];
-    var audio = null, audioSrc = '', channel = null, started = false;
+    var audio = null, audioSrc = '', started = false;
 
     function soundOf(id) { return SOUNDS.filter(function (x) { return x.id === id; })[0] || SOUNDS[0]; }
     function clamp(v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8; }
@@ -8127,22 +8127,34 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         toast('Новый заказ: ' + label);
     }
 
-    // Подписка только при включённом звуке и после трёх неудач не повторяется: цикл переподключений при ошибке JWT грузил базу (сбой 29.10).
-    var fails = 0;
+    // Опрос вместо Realtime: раз в 20 секунд, только пока вкладка открыта и звук включён (постоянная подписка нагружала базу).
+    // После трёх ошибок подряд опрос останавливается, чтобы не долбить базу при сбое.
+    var fails = 0, timer = 0, lastId = null, polling = false;
+    function poll() {
+        var st = load();
+        if (document.hidden || polling) return;
+        if (!st.enabled || !st.nms.length) { stop(); return; }
+        polling = true;
+        var q = supabase.from('order_events').select('id,nm_id,article,silent').order('id', { ascending: false }).limit(lastId == null ? 1 : 30);
+        if (lastId != null) q = q.gt('id', lastId);
+        q.then(function (r) {
+            polling = false;
+            if (!r || r.error) { if (++fails >= 3) stop(); return; }
+            fails = 0;
+            var rows = r.data || [];
+            if (lastId == null) { lastId = rows.length ? rows[0].id : 0; return; }
+            rows.sort(function (x, y) { return x.id - y.id; }).forEach(function (row) { lastId = Math.max(lastId, row.id); handle(row); });
+        }, function () { polling = false; if (++fails >= 3) stop(); });
+    }
+    function stop() { clearInterval(timer); timer = 0; started = false; }
     function start() {
         var st = load();
-        if (started || fails >= 3 || !st.enabled || !st.nms.length || typeof supabase === 'undefined' || !supabase.channel) return;
+        if (started || fails >= 3 || !st.enabled || !st.nms.length || typeof supabase === 'undefined' || !supabase.from) return;
         started = true;
-        try {
-            channel = supabase.channel('nr-order-events')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_events' }, function (payload) { handle(payload && payload.new); })
-                .subscribe(function (status) {
-                    if (status === 'SUBSCRIBED') { fails = 0; return; }
-                    if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
-                    if (++fails >= 3) { try { supabase.removeChannel(channel); } catch (e) {} channel = null; started = false; }
-                });
-        } catch (e) { started = false; }
+        poll();
+        timer = setInterval(poll, 20000);
     }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && started) poll(); });
 
     // ── окно мини-настроек ─────────────────────────────────────────────
     function articles() {
@@ -8363,8 +8375,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-plan-fact.68223e16a0.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.4fa45b794b.min.js"></script>
-<script src="/dist/ads-pulse.fcc79e09b4.min.js"></script>
+<script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.6fcc6cf1a6.min.js"></script>
+<script src="/dist/ads-pulse.3d9dffc88a.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
@@ -8389,12 +8401,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ff.3d0e875323.min.js"></script>
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
-<script src="/dist/nr-motion.e61346e87a.min.js"></script>
+<script src="/dist/nr-motion.fe2de517ca.min.js"></script>
 <script src="/dist/nr-ui.832ba56fc5.min.js"></script>
 <script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
 <script src="/dist/nr-analytics.97794c8fd3.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
-<script src="/dist/nr-nav.82278de5be.min.js"></script>
+<script src="/dist/nr-nav.463cb1d975.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.443f469247.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>

@@ -1309,12 +1309,12 @@
                 { op: 'in', column: 'cabinet_id', value: ids },
                 { op: 'gte', column: 'stat_date', value: pFrom },
                 { op: 'lte', column: 'stat_date', value: pTo },
-            ], 'cabinet_id,stat_date,spend,sum_price,revenue,views,clicks') : [],
+            ], 'cabinet_id,stat_date,spend,sum_price,revenue,views,clicks', 25000) : [],
             v2Ids.length ? safeRows('adv_daily_stats', [
                 { op: 'in', column: 'campaign_id', value: v2Ids },
                 { op: 'gte', column: 'date', value: pFrom },
                 { op: 'lte', column: 'date', value: pTo },
-            ], 'campaign_id,date,spend,revenue,views,clicks') : [],
+            ], 'campaign_id,date,spend,revenue,views,clicks', 25000) : [],
         ]);
         if (gen !== state.dynGen || cab !== state.filterCabinetId) return;
         const cur = kpiMetrics(sumStatRows(legacyStats, v2Stats, range.from, range.to));
@@ -2295,7 +2295,7 @@
         if (atEl && !atEl.value) atEl.value = defaultScheduleLocal();
     }
 
-    async function safeRows(table, filters, columns) {
+    async function safeRows(table, filters, columns, timeoutMs) {
         const fetchAll = dep().fetchAllRows;
         if (!fetchAll) return [];
         let timer = 0;
@@ -2303,7 +2303,7 @@
             const work = Promise.resolve(fetchAll(table, filters, columns) || []);
             const rows = await Promise.race([
                 work,
-                new Promise((resolve) => { timer = setTimeout(() => resolve(null), 5000); }),
+                new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs || 5000); }),
             ]);
             if (rows == null) {
                 console.warn('[ads-hq] timeout', table);
@@ -2401,8 +2401,9 @@
         const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks, schedules, autoRows] = core;
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
-        const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
-            safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
+        // Ключи (adv_clusters) нужны модели только у кампаний с правилами автоставок: у остальных диапазон позиции не считается.
+        // Раньше читались все ключи всех кампаний (десятки тысяч строк на каждую загрузку), список ключей открытой кампании грузит Пульт РК.
+        const [rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
             safeRows('autobidder_rules', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('serp_position_snapshots', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('adv_daily_stats', [
@@ -2410,7 +2411,9 @@
                 { op: 'gte', column: 'date', value: rank.from },
                 { op: 'lte', column: 'date', value: rank.to },
             ]),
-        ]) : [[], [], [], []];
+        ]) : [[], [], []];
+        const ruleCampIds = [...new Set((rules || []).map((r) => r.campaign_id).filter(Boolean))];
+        const clusters = ruleCampIds.length ? await safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: ruleCampIds }]) : [];
         if (cab !== state.filterCabinetId) return null;
         state.schedules = schedules || [];
         state.model = buildHqModel({
