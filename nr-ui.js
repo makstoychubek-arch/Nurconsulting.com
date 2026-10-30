@@ -34,7 +34,7 @@
         '.nru-ov{position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;padding:16px;background:transparent;opacity:0;transition:opacity .2s ease}' +
         '.nru-ov.on{opacity:1}.nru-ov.on .nru-dlg,.nru-ov.on .nru-win{transform:none;opacity:1}' +
         '.nru-dlg,.nru-win{background:var(--surface-solid,#fff);border:1.5px solid var(--text-primary,#0b0b0b);border-radius:26px;box-shadow:none;' +
-        'transform:translateY(10px) scale(.97);opacity:0;transition:opacity .22s ease,transform .26s cubic-bezier(.2,.8,.2,1);max-width:100%}' +
+        'transform:translateY(10px) scale(.97);opacity:0;transition:opacity .16s ease,transform .18s cubic-bezier(.2,.8,.2,1);max-width:100%}' +
         '.nru-dlg{width:400px;padding:22px 24px;text-align:left}.nru-dlg.static,.nru-win.static{transform:none;opacity:1}' +
         '.nru-dlg .fx{display:flex;justify-content:center;margin:-6px 0 4px}' +
         '.nru-dlg h3{margin:0 0 8px;font-size:22px;font-weight:900;letter-spacing:-.01em}.nru-dlg p{margin:0;color:var(--text-secondary,#3f3f46);font-size:14px;line-height:1.5}' +

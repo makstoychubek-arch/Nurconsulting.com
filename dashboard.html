@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <script id="nr-splash-js">
 (function(){try{if(document.getElementById('nr-splash'))return;var d=0,r=0;try{d=localStorage.getItem('nr_theme')==='neon'}catch(e){}try{r=matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
-var st=document.createElement('style');st.textContent='#nr-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;background:'+(d?'#1C1C1E':'#f5f4f0')+';color:'+(d?'#f1f0f8':'#121212')+';transition:opacity .2s ease}#nr-splash.o{opacity:0;pointer-events:none}#nr-splash .h{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6}#nr-splash .u{width:46px;height:3px;border-radius:3px;background:#f97316;margin:22px 0}#nr-splash .b{display:flex;align-items:center;gap:12px}#nr-splash svg{width:64px;height:64px;border-radius:18px}#nr-splash>svg{width:84px;height:84px;border-radius:24px;opacity:0;transform:scale(.86);animation:nrSpIn .5s cubic-bezier(.22,1,.36,1) .05s forwards}@keyframes nrSpIn{to{opacity:1;transform:none}}#nr-splash .s{border:2px solid #f97316;color:#f97316;border-radius:99px;padding:4px 18px;font-size:27px;font-weight:800;line-height:1.1}#nr-splash .d{display:flex;gap:9px;margin-top:26px}#nr-splash .d i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.4;animation:nrSp 1.2s infinite}#nr-splash .d i:nth-child(2){animation-delay:.2s;opacity:.7}#nr-splash .d i:nth-child(3){animation-delay:.4s;opacity:1}@keyframes nrSp{50%{transform:translateY(-4px)}}@media(max-width:480px){#nr-splash svg{width:50px;height:50px;border-radius:14px}#nr-splash .s{font-size:20px;padding:3px 13px}}'+(r?'#nr-splash .d i,#nr-splash>svg{animation:none;opacity:1;transform:none}':'');
+var st=document.createElement('style');st.textContent='#nr-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;background:'+(d?'#1C1C1E':'#f5f4f0')+';color:'+(d?'#f1f0f8':'#121212')+';transition:opacity .2s ease}#nr-splash.o{opacity:0;pointer-events:none}#nr-splash .h{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6}#nr-splash .u{width:46px;height:3px;border-radius:3px;background:#f97316;margin:22px 0}#nr-splash .b{display:flex;align-items:center;gap:12px}#nr-splash svg{width:64px;height:64px;border-radius:18px}#nr-splash>svg{width:84px;height:84px;border-radius:24px;opacity:0;transform:scale(.86);animation:nrSpIn .3s cubic-bezier(.22,1,.36,1) .02s forwards}@keyframes nrSpIn{to{opacity:1;transform:none}}#nr-splash .s{border:2px solid #f97316;color:#f97316;border-radius:99px;padding:4px 18px;font-size:27px;font-weight:800;line-height:1.1}#nr-splash .d{display:flex;gap:9px;margin-top:26px}#nr-splash .d i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.4;animation:nrSp 1.2s infinite}#nr-splash .d i:nth-child(2){animation-delay:.2s;opacity:.7}#nr-splash .d i:nth-child(3){animation-delay:.4s;opacity:1}@keyframes nrSp{50%{transform:translateY(-4px)}}@media(max-width:480px){#nr-splash svg{width:50px;height:50px;border-radius:14px}#nr-splash .s{font-size:20px;padding:3px 13px}}'+(r?'#nr-splash .d i,#nr-splash>svg{animation:none;opacity:1;transform:none}':'');
 var el=document.createElement('div');el.id='nr-splash';el.setAttribute('aria-hidden','true');var seen=0;try{seen=sessionStorage.getItem('nr_splash_seen')==='1';sessionStorage.setItem('nr_splash_seen','1')}catch(e){}
 el.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="120" fill="#fff"/><path d="M45.1 355.1V144.9h58.2l79.9 95.5v-95.5h69v210.2h-58.2l-79.9-95.5v95.5zM277.5 355.1V144.9h98.2q48.3 0 73.5 21.3t25.2 58q0 22.8-10.4 39.6t-29.2 26.4l44.1 64.9h-75.6l-35.7-52.8h-19.2v52.8zM348.3 248.8h25.8q14.7 0 21.8-6.6t7-18q0-11.4-7-18t-21.8-6.6h-25.8z"/></svg>';
 (document.head||document.documentElement).appendChild(st);document.documentElement.appendChild(el);
@@ -942,7 +942,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         /* Плавная смена темы (toggleTheme). */
         ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .38s; animation-timing-function: ease; }
         html.theme-fading, html.theme-fading *, html.theme-fading *::before, html.theme-fading *::after {
-            transition: background-color .38s ease, color .38s ease, border-color .38s ease, fill .38s ease, stroke .38s ease, box-shadow .38s ease !important;
+            transition: background-color .2s ease, color .2s ease, border-color .2s ease, fill .2s ease, stroke .2s ease, box-shadow .2s ease !important;
         }
         .beta-theme-row {
             display: flex; align-items: center; gap: 10px;
@@ -1236,7 +1236,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             0% { box-shadow: 0 0 0 0 rgba(22,163,74,0.38); }
             100% { box-shadow: 0 0 0 18px rgba(22,163,74,0); }
         }
-        .nr-wow-pulse { animation: nr-wow-pulse 0.7s ease-out; }
+        .nr-wow-pulse { animation: nr-wow-pulse 0.4s ease-out; }
         @media (prefers-reduced-motion: reduce) {
             .nr-wow-strip { transition: none !important; }
             .nr-wow-spot, .nr-wow-burst { display: none !important; }
@@ -5403,7 +5403,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 inset: 0 auto 0 0;
                 z-index: 50;
                 transform: translateX(-100%);
-                transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+                transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
                 pointer-events: auto;
                 height: 100vh;
                 height: 100dvh;
@@ -5535,7 +5535,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 background: var(--surface-solid);
                 border-radius: 20px 20px 0 0;
                 transform: translateY(110%);
-                transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+                transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
                 padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
                 box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
                 pointer-events: none;
@@ -6114,13 +6114,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
         } catch (e) {}
     </script>
-<link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
-<link rel="stylesheet" href="/dist/nr-motion.93e5224d9b.css">
-<link rel="stylesheet" href="/dist/rnp-extra.23b8bda613.css">
+<link rel="stylesheet" href="/dist/content-factory.1a082a6f16.css">
+<link rel="stylesheet" href="/dist/nr-motion.82f05f2a76.css">
+<link rel="stylesheet" href="/dist/rnp-extra.e7241533e3.css">
 <link rel="stylesheet" href="/dist/ads-pulse.1f61d07305.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.d129a8348f.css">
+<link rel="stylesheet" href="/dist/nr-mono.25cf866b0c.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8213,12 +8213,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ff.3d0e875323.min.js"></script>
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
-<script src="/dist/nr-motion.24a670f1e0.min.js"></script>
-<script src="/dist/nr-ui.832ba56fc5.min.js"></script>
+<script src="/dist/nr-motion.6ef8097fdd.min.js"></script>
+<script src="/dist/nr-ui.666d72b975.min.js"></script>
 <script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
 <script src="/dist/nr-analytics.97794c8fd3.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
-<script src="/dist/nr-nav.64fb155e0d.min.js"></script>
+<script src="/dist/nr-nav.40ce038ab8.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.443f469247.min.js"></script>
 <script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>

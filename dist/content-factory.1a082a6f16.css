@@ -17,7 +17,7 @@
 .cf-tabs { position: relative; display: inline-flex; padding: 3px; gap: 1px; border-radius: 12px; background: color-mix(in srgb, var(--text-primary) 6%, transparent); max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .cf-tabs button { position: relative; z-index: 1; border: 0; background: none; color: var(--text-secondary); font: 600 12.5px var(--font-ui, inherit); padding: 6px 11px; border-radius: 9px; cursor: pointer; white-space: nowrap; transition: color .2s; }
 .cf-tabs button.on { color: var(--text-primary); }
-.cf-pill { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; border-radius: 9px; background: var(--surface-solid); box-shadow: 0 1px 5px rgba(0,0,0,.12); transition: transform .28s cubic-bezier(.34,1.56,.64,1), width .28s cubic-bezier(.34,1.56,.64,1), opacity .2s; }
+.cf-pill { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; border-radius: 9px; background: var(--surface-solid); box-shadow: 0 1px 5px rgba(0,0,0,.12); transition: transform .2s cubic-bezier(.34,1.56,.64,1), width .2s cubic-bezier(.34,1.56,.64,1), opacity .2s; }
 .cf-badge { margin-left: 5px; font-size: 10.5px; padding: 0 6px; border-radius: 99px; background: var(--amber-soft); color: var(--amber); }
 .cf-stat-l { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); margin-left: auto; flex-wrap: wrap; }
 .cf-sep { color: var(--text-muted); }
