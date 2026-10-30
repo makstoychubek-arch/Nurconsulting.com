@@ -1309,12 +1309,12 @@
                 { op: 'in', column: 'cabinet_id', value: ids },
                 { op: 'gte', column: 'stat_date', value: pFrom },
                 { op: 'lte', column: 'stat_date', value: pTo },
-            ], 'cabinet_id,stat_date,spend,sum_price,revenue,views,clicks') : [],
+            ], 'cabinet_id,stat_date,spend,sum_price,revenue,views,clicks', 25000) : [],
             v2Ids.length ? safeRows('adv_daily_stats', [
                 { op: 'in', column: 'campaign_id', value: v2Ids },
                 { op: 'gte', column: 'date', value: pFrom },
                 { op: 'lte', column: 'date', value: pTo },
-            ], 'campaign_id,date,spend,revenue,views,clicks') : [],
+            ], 'campaign_id,date,spend,revenue,views,clicks', 25000) : [],
         ]);
         if (gen !== state.dynGen || cab !== state.filterCabinetId) return;
         const cur = kpiMetrics(sumStatRows(legacyStats, v2Stats, range.from, range.to));
@@ -2295,7 +2295,7 @@
         if (atEl && !atEl.value) atEl.value = defaultScheduleLocal();
     }
 
-    async function safeRows(table, filters, columns) {
+    async function safeRows(table, filters, columns, timeoutMs) {
         const fetchAll = dep().fetchAllRows;
         if (!fetchAll) return [];
         let timer = 0;
@@ -2303,7 +2303,7 @@
             const work = Promise.resolve(fetchAll(table, filters, columns) || []);
             const rows = await Promise.race([
                 work,
-                new Promise((resolve) => { timer = setTimeout(() => resolve(null), 5000); }),
+                new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs || 5000); }),
             ]);
             if (rows == null) {
                 console.warn('[ads-hq] timeout', table);
