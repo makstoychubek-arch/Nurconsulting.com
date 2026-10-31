@@ -1,5 +1,7 @@
 // Очередь изменений РК: проверка, склейка, повторы и запросы в WB. Чистая логика, fetch подставляется (для тестов).
-export type OpKind = 'set_bid' | 'add_nm' | 'remove_nm' | 'create';
+// finish и set_zones есть в публичном API WB (GET /adv/v0/stop, PUT /adv/v0/auction/placements).
+// Дневного лимита и автопополнения в API нет (docs/adv-controls-api.md), поэтому таких операций в очереди нет.
+export type OpKind = 'set_bid' | 'add_nm' | 'remove_nm' | 'create' | 'finish' | 'set_zones';
 export type Placement = 'search' | 'recommendations' | 'combined';
 
 export interface AdvOp {
@@ -43,6 +45,13 @@ export function validateOp(op: Pick<AdvOp, 'kind' | 'advert_id' | 'payload'>): s
         if (!PLACEMENTS.includes(String(p.placement ?? 'search'))) return 'Неверное место размещения';
         return null;
     }
+    if (op.kind === 'finish') return null;
+    if (op.kind === 'set_zones') {
+        if (typeof p.search !== 'boolean' || typeof p.recommendations !== 'boolean') return 'Нужно указать «Поиск» и «Рекомендации»';
+        if (!p.search && !p.recommendations) return 'Должна остаться хотя бы одна зона показов';
+        return null;
+    }
+    if (op.kind !== 'add_nm' && op.kind !== 'remove_nm') return 'Это действие WB не поддерживает';
     const nms = Array.isArray(p.nms) ? p.nms.map(Number).filter((n) => n > 0) : [];
     if (!nms.length || nms.length > 50) return 'Нужно от 1 до 50 товаров';
     return null;
@@ -52,15 +61,16 @@ export function validateOp(op: Pick<AdvOp, 'kind' | 'advert_id' | 'payload'>): s
 export function coalesceOps(ops: AdvOp[]): { run: AdvOp[]; superseded: AdvOp[] } {
     const sorted = [...ops].sort((a, b) => a.seq - b.seq);
     const lastBid = new Map<string, AdvOp>();
+    const keyOf = (o: AdvOp) => o.kind === 'set_zones' ? `zones:${o.advert_id}` : `${o.advert_id}:${o.payload.nm_id}:${o.payload.placement ?? 'search'}`;
+    // у зон показов тоже побеждает последняя запись по кампании (переключили туда-сюда — уходит итог)
     for (const o of sorted) {
-        if (o.kind === 'set_bid') lastBid.set(`${o.advert_id}:${o.payload.nm_id}:${o.payload.placement ?? 'search'}`, o);
+        if (o.kind === 'set_bid' || o.kind === 'set_zones') lastBid.set(keyOf(o), o);
     }
     const run: AdvOp[] = [];
     const superseded: AdvOp[] = [];
     for (const o of sorted) {
-        if (o.kind === 'set_bid') {
-            const k = `${o.advert_id}:${o.payload.nm_id}:${o.payload.placement ?? 'search'}`;
-            (lastBid.get(k) === o ? run : superseded).push(o);
+        if (o.kind === 'set_bid' || o.kind === 'set_zones') {
+            (lastBid.get(keyOf(o)) === o ? run : superseded).push(o);
         } else run.push(o);
     }
     return { run, superseded };
@@ -100,6 +110,18 @@ export function sendNms(fetchFn: FetchFn, token: string, advertId: number, add: 
     return call(fetchFn, token, 'PATCH', '/adv/v0/auction/nms', { nms: [{ advert_id: advertId, nms }] });
 }
 
+/** Завершение кампании (необратимо): GET /adv/v0/stop?id=, кампании в статусах 9 и 11. Лимит 5 запросов в секунду. */
+export function sendFinish(fetchFn: FetchFn, token: string, advertId: number) {
+    return call(fetchFn, token, 'GET', `/adv/v0/stop?id=${encodeURIComponent(String(Math.trunc(Number(advertId))))}`);
+}
+
+/** Зоны показов: PUT /adv/v0/auction/placements, только ручная ставка и оплата за показы (cpm), статусы 4/9/11. Лимит 1 запрос в секунду, ответ 204. */
+export function sendZones(fetchFn: FetchFn, token: string, advertId: number, search: boolean, recommendations: boolean) {
+    return call(fetchFn, token, 'PUT', '/adv/v0/auction/placements', {
+        placements: [{ advert_id: Number(advertId), placements: { search: !!search, recommendations: !!recommendations } }],
+    });
+}
+
 export function sendCreate(fetchFn: FetchFn, token: string, p: Record<string, unknown>) {
     const body: Record<string, unknown> = {
         name: String(p.name).trim(),
@@ -115,6 +137,7 @@ export function sendCreate(fetchFn: FetchFn, token: string, p: Record<string, un
 export function friendlyWbError(r: WbCallResult): string {
     if (r.status === 401 || r.status === 403) return 'Токен WB не имеет прав на управление рекламой';
     if (r.status === 429) return 'WB просит подождать (лимит запросов), повторим сами';
+    if (r.status === 422) return 'WB не изменил статус: кампания уже завершена или в этом состоянии';
     if (r.status >= 500) return 'WB временно не отвечает, повторим сами';
     return `WB отклонил изменение (${r.status}): ${r.body || 'пустой ответ'}`;
 }

@@ -4,6 +4,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { parseAdvState } from '../_shared/adv-state.ts';
 import { buildClusterListBody, nmIdsFromAdvert, parseClusterList } from '../_shared/wb-cluster-board.ts';
 import {
     getAdverts,
@@ -103,15 +104,23 @@ async function syncOneCabinet(
             name: advertName(advert),
             status: campaignStatus(advert),
             synced_at: syncedAt,
+            ...stateColumns(advert),
         });
     }
 
     const idByWb = new Map<number, string>();
     for (const part of chunk([...campRows.values()], 200)) {
-        const { data: saved, error: upErr } = await admin
+        let { data: saved, error: upErr } = await admin
             .from('adv_campaigns')
             .upsert(part, { onConflict: 'cabinet_id,wb_campaign_id' })
             .select('id, wb_campaign_id');
+        if (upErr && /placements|wb_created_at|wb_started_at/.test(upErr.message)) {
+            // миграция с новыми колонками ещё не применена: пишем по-старому, синхронизация не должна ломаться
+            ({ data: saved, error: upErr } = await admin
+                .from('adv_campaigns')
+                .upsert(part.map(stripStateColumns), { onConflict: 'cabinet_id,wb_campaign_id' })
+                .select('id, wb_campaign_id'));
+        }
         if (upErr) {
             console.error('[sync-campaigns] upsert campaigns', cab.name, upErr.message);
             return { ok: false, error: upErr.message, campaigns: idByWb.size, clusters: 0 };
@@ -171,6 +180,17 @@ async function syncOneCabinet(
     }
 
     return { ok: true, campaigns, clusters };
+}
+
+// Зоны показов и даты кампании из v2/adverts. Дневной лимит и автопополнение WB в API не отдаёт.
+function stateColumns(advert: Record<string, unknown>): Record<string, unknown> {
+    const st = parseAdvState(advert);
+    return { placements: st.zones, wb_created_at: st.createdAt, wb_started_at: st.startedAt };
+}
+
+function stripStateColumns(row: Record<string, unknown>): Record<string, unknown> {
+    const { placements: _p, wb_created_at: _c, wb_started_at: _s, ...rest } = row;
+    return rest;
 }
 
 function chunk<T>(list: T[], size: number): T[][] {

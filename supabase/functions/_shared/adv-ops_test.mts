@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { backoffSeconds, coalesceOps, friendlyWbError, isRetryable, sendBid, sendCreate, sendNms, validateOp, type AdvOp } from './adv-ops.ts';
+import { backoffSeconds, coalesceOps, friendlyWbError, isRetryable, sendBid, sendCreate, sendFinish, sendNms, sendZones, validateOp, type AdvOp } from './adv-ops.ts';
 
 const op = (seq: number, kind: AdvOp['kind'], payload: Record<string, unknown>, advert = 111): AdvOp =>
     ({ id: 'i' + seq, seq, cabinet_id: 'c', advert_id: advert, kind, payload, attempts: 1 });
@@ -69,5 +69,37 @@ assert.equal(cr.data, 12345);
 calls.length = 0;
 await sendCreate(fake, 'T', { name: 'a', nms: [1], bid_type: 'unified' });
 assert.equal('placement_types' in calls[0].body, false, 'для единой ставки места не задаются');
+
+// завершение и зоны показов
+assert.equal(validateOp(op(1, 'finish', {})), null);
+assert.match(validateOp({ kind: 'finish', advert_id: null, payload: {} }) || '', /кампании/);
+assert.equal(validateOp(op(1, 'set_zones', { search: true, recommendations: false })), null);
+assert.equal(validateOp(op(1, 'set_zones', { search: false, recommendations: true })), null);
+assert.match(validateOp(op(1, 'set_zones', { search: false, recommendations: false })) || '', /хотя бы одна/);
+assert.match(validateOp(op(1, 'set_zones', { search: true })) || '', /Поиск/);
+// дневной лимит и автопополнение WB не поддерживает: такие операции очередь не принимает
+assert.match(validateOp(op(1, 'set_limit' as any, { amount_kopecks: 100 })) || '', /не поддерживает/);
+assert.match(validateOp(op(1, 'set_autorefill' as any, { on: true })) || '', /не поддерживает/);
+const z = coalesceOps([
+    op(1, 'set_zones', { search: true, recommendations: false }),
+    op(2, 'set_zones', { search: true, recommendations: true }),
+    op(3, 'set_zones', { search: true, recommendations: false }, 222),
+    op(4, 'finish', {}),
+]);
+assert.deepEqual(z.run.map((o) => o.seq), [2, 3, 4]);
+assert.deepEqual(z.superseded.map((o) => o.seq), [1]);
+assert.match(friendlyWbError({ ok: false, status: 422, body: '' }), /уже/);
+
+calls.length = 0; answers = [200];
+await sendFinish(fake, 'TOKEN', 777);
+assert.equal(calls[0].url, 'https://advert-api.wildberries.ru/adv/v0/stop?id=777');
+assert.equal(calls[0].method, 'GET');
+assert.equal(calls[0].body, null);
+assert.equal(calls[0].auth, 'TOKEN');
+calls.length = 0;
+await sendZones(fake, 'TOKEN', 111, true, false);
+assert.equal(calls[0].url, 'https://advert-api.wildberries.ru/adv/v0/auction/placements');
+assert.equal(calls[0].method, 'PUT');
+assert.deepEqual(calls[0].body, { placements: [{ advert_id: 111, placements: { search: true, recommendations: false } }] });
 
 console.log('adv-ops_test: ok');
