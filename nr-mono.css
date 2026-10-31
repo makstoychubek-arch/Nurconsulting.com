@@ -1009,3 +1009,12 @@ html body .gg-sec-row td, html body #gg-daily-table .gg-sec-row td { color: var(
 /* Окно кампании: верхняя полоса страницы (название, дата, кабинет) затемняется вместе с остальной страницей, как при шестерёнке */
 html#nr-root.nr-f-row header.glass.app-header { background: transparent !important; box-shadow: none !important; border-color: transparent !important; }
 html#nr-root.nr-f-row header.glass.app-header :is(.header-page-title, button, .module-date-label, .nr-crumbs) { opacity: .4; transition: opacity .12s ease; }
+
+/* Окно кампании в верхнем слое (popover): цвет текста берём из темы, а не из системных значений для всплывающих элементов */
+html body #adv-pulse .adp2-row.open > .adp2-body[popover] { color: var(--text-primary); inset: 40px; margin: auto; }
+@media (max-width: 760px) { html body #adv-pulse .adp2-row.open > .adp2-body[popover] { inset: 12px; } }
+
+/* Окно кампании: контейнер скроллится внутри себя, без выпирания и без прокрутки страницы под ним */
+html body #adv-pulse .adp2-row.open > .adp2-body.cw { overscroll-behavior: contain; overflow-x: hidden; }
+html body #adv-pulse .adp2-row.open > .adp2-body.cw .cw-in { display: flex; flex-direction: column; gap: 16px; }
+@media (max-width: 760px) { html body #adv-pulse .adp2-row.open > .adp2-body.cw { padding: 16px; } }

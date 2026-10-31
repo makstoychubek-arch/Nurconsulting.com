@@ -99,6 +99,20 @@ test('Пульт: обновление и фоновая подгрузка ст
     assert.ok(survived, 'строки/ползунки Пульта пережили «Обновить» без пересоздания DOM-узлов');
 });
 
+test('Окно кампании: открывается сразу, есть блоки макета, ESC закрывает, страница не уезжает вбок', async ({ page }) => {
+    await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-head').length >= 4, null, { timeout: 5000 });
+    const t0 = Date.now();
+    await page.locator('#adv-pulse .adp2-head').first().click();
+    await page.waitForSelector('.adp2-body.cw .cw-hd', { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'окно открылось за ' + (Date.now() - t0) + ' мс');
+    const has = await page.evaluate(() => ['.cw-grid2', '.cw-zones', '.cw-prod', '.cw-x'].every((s) => document.querySelector('.adp2-body.cw ' + s)));
+    assert.ok(has, 'в окне есть блоки бюджета, зон и товаров');
+    const over = await page.evaluate(() => { const b = document.querySelector('.adp2-body.cw'); return b.scrollWidth - b.clientWidth; });
+    assert.ok(over <= 1, 'окно не выпирает вбок: ' + over);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.adp2-body.cw'), null, { timeout: 300 });
+});
+
 test('Дашборд на телефоне: новый компактный вид берёт цифры из блоков дашборда', async ({ page }) => {
     await page.setViewportSize({ width: 424, height: 900 });
     await page.evaluate(() => showTab('dashboard'));

@@ -1,11 +1,11 @@
-// Отправляет в WB изменения из очереди adv_ops (ставки, товары, новые кампании).
+// Отправляет в WB изменения из очереди adv_ops (ставки, товары, новые кампании, завершение, зоны показов).
 // Вызывается с сайта сразу после записи (JWT пользователя) и по cron каждую минуту (service_role) — повторы и догон.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
 import { sanitizeWbToken } from '../_shared/wb-cabinet-tokens.ts';
 import {
-    type AdvOp, backoffSeconds, coalesceOps, friendlyWbError, isRetryable, MAX_ATTEMPTS, sendBid, sendCreate, sendNms, validateOp,
+    type AdvOp, backoffSeconds, coalesceOps, friendlyWbError, isRetryable, MAX_ATTEMPTS, sendBid, sendCreate, sendFinish, sendNms, sendZones, validateOp,
     type WbCallResult,
 } from '../_shared/adv-ops.ts';
 
@@ -21,7 +21,7 @@ const BUDGET_MS = 100_000;          // дольше не держим: оста�
 const DRY_RUN = (Deno.env.get('ADV_OPS_DRY_RUN') ?? '') === '1';
 
 // WB: ставки 5/сек, список товаров 1/сек, создание кампании 5/мин.
-const PAUSE_MS: Record<string, number> = { set_bid: 250, add_nm: 1100, remove_nm: 1100, create: 12500 };
+const PAUSE_MS: Record<string, number> = { set_bid: 250, add_nm: 1100, remove_nm: 1100, create: 12500, finish: 250, set_zones: 1100 };
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -92,6 +92,8 @@ Deno.serve(async (req) => {
                 if (DRY_RUN) r = { ok: true, status: 200, body: 'dry-run', data: { dry: true } };
                 else if (o.kind === 'set_bid') r = await sendBid(fetch, token, o);
                 else if (o.kind === 'create') r = await sendCreate(fetch, token, o.payload);
+                else if (o.kind === 'finish') r = await sendFinish(fetch, token, Number(o.advert_id));
+                else if (o.kind === 'set_zones') r = await sendZones(fetch, token, Number(o.advert_id), !!o.payload.search, !!o.payload.recommendations);
                 else {
                     const nms = (o.payload.nms as unknown[]).map(Number).filter((n) => n > 0);
                     r = await sendNms(fetch, token, Number(o.advert_id), o.kind === 'add_nm' ? nms : [], o.kind === 'remove_nm' ? nms : []);
@@ -111,6 +113,16 @@ Deno.serve(async (req) => {
                     }
                     await done(o, { advert_id: newId });
                 } else {
+                    if (o.kind === 'finish' || o.kind === 'set_zones') {
+                        // кэш наших кампаний: после «Завершить» кампания больше не попадёт в синхронизацию (она берёт статусы 4, 9, 11)
+                        try {
+                            const patch = o.kind === 'finish'
+                                ? { status: '7', synced_at: new Date().toISOString() }
+                                : { placements: { search: !!o.payload.search, recommendations: !!o.payload.recommendations }, synced_at: new Date().toISOString() };
+                            const { error: cacheErr } = await admin.from('adv_campaigns').update(patch).eq('cabinet_id', cab).eq('wb_campaign_id', Number(o.advert_id));
+                            if (cacheErr) console.warn('[adv-ops-run] adv_campaigns:', cacheErr.message);
+                        } catch (e) { console.warn('[adv-ops-run] adv_campaigns:', String(e)); }
+                    }
                     if (o.kind === 'set_bid') {
                         try {
                             await admin.from('advertising_campaigns').update({
