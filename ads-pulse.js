@@ -425,6 +425,16 @@
             all.map(function (c) { return tip(c.tip, c.key === 'budget' ? 'adp2-hbal' : 'adp2-mc') + esc(c.title) + '</span></div>'; }).join('') +
             '</div>';
     }
+    /* Окно кампании — в верхнем слое браузера (popover): оно открывается поверх страницы, что бы ни стояло у родительских блоков
+       (раньше при некоторых состояниях страницы оно «прилипало» к таблице и раскрывалось внутри неё). Без поддержки остаётся fixed в CSS. */
+    var CAN_POP = !!(root.HTMLElement && root.HTMLElement.prototype && typeof root.HTMLElement.prototype.showPopover === 'function');
+    function showModals() {
+        if (!CAN_POP) return;
+        var host = $('adv-pulse'); if (!host) return;
+        Array.prototype.forEach.call(host.querySelectorAll('.adp2-row.open > .adp2-body[popover]'), function (b) {
+            try { if (!b.matches(':popover-open')) b.showPopover(); } catch (e) { /* остаётся fixed из CSS */ }
+        });
+    }
     function rowHtml(cab, camp) {
         var key = keyOf(cab, camp), kind = payKind(camp), open = !!S.open[key];
         var ov = S.ov[key], live = ov && ov.paused != null ? !ov.paused : camp.live;
@@ -440,7 +450,7 @@
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<div class="adp2-shl">' + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
             '</div>' +
-            (open ? '<div class="adp2-body" role="dialog" aria-modal="true"><div class="adp2-mh"><b>' + esc(camp.name) + '</b><small>' + esc(camp.wbId) + '</small><button type="button" class="adp2-mclose" data-pact="open" data-key="' + esc(key) + '" aria-label="Закрыть">✕</button></div><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
+            (open ? '<div class="adp2-body" role="dialog" aria-modal="true"' + (CAN_POP ? ' popover="manual"' : '') + '><div class="adp2-mh"><b>' + esc(camp.name) + '</b><small>' + esc(camp.wbId) + '</small><button type="button" class="adp2-mclose" data-pact="open" data-key="' + esc(key) + '" aria-label="Закрыть">✕</button></div><div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'prod' ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (tabOf(key) === 'keys' ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div><div class="adp2-bar">' +
                 '<button type="button" data-pact="toggle" data-key="' + esc(key) + '" class="adp2-tg ' + (live ? 'on' : '') + '">' + (live ? 'Поставить на паузу' : 'Запустить') + '</button>' +
                 '<span class="adp2-bw" data-nostop="1">' + bidControlHtml(key, camp, kind) + '</span>' + '<span class="adp2-mut">Показы ' + fmtSom(camp.views) + ' · клики ' + fmtSom(camp.clicks) + ' · заказы ' + fmtSom(camp.orders) + ' · расход ' + fmtSom(camp.spendToday) + '</span></div>' +
                 (tabOf(key) === 'keys' ? '<div class="adp2-kwp" data-key="' + esc(key) + '">' + kwHtml(key, cab, camp) + '</div>' : productsHtml(key, cab, camp)) + '</div>' : '') +
@@ -482,6 +492,7 @@
         // («трясло» при любом обновлении) — теперь патчим по data-key, как в ads-command-center.js.
         if (root.domMorph && host.querySelector('[data-key]')) root.domMorph.morphList(host, full, 'data-key');
         else host.innerHTML = full;
+        showModals();
         // подгружаем ставки активных кампаний по очереди, не блокируя экран
         var keys = [];
         S.rows.forEach(function (cab) { cab.campaigns.forEach(function (c) { if (c.live) keys.push(keyOf(cab, c)); }); });
@@ -499,6 +510,7 @@
         // при каждой фоновой подгрузке ставок (enqueueInfo зовёт patchRow на каждую кампанию).
         if (root.domMorph && typeof root.domMorph.patchNode === 'function') root.domMorph.patchNode(el, tmp.firstChild);
         else el.replaceWith(tmp.firstChild);
+        showModals();
     }
     function refreshBid(key) {
         var host = $('adv-pulse'), f = findCamp(key); if (!host || !f) return;
