@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
         const items: Record<string, unknown>[] = [];
         for (const [nm, e] of byNm) {
             let cardTnved = '', country = '', vendor = e.vendor;
+            const docs: Record<string, string> = {}; let cardKeys: string[] = [];
             const r = await fetch(CARDS, {
                 method: 'POST', headers: { Authorization: token, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ settings: { cursor: { limit: 10 }, filter: { textSearch: String(nm), withPhoto: -1 } } }),
@@ -66,18 +67,20 @@ Deno.serve(async (req) => {
                 const card = (d.cards || []).find((c: Record<string, unknown>) => Number(c.nmID) === nm);
                 if (card) {
                     vendor = String(card.vendorCode ?? vendor);
+                    cardKeys = Object.keys(card); docs['_documents'] = JSON.stringify(card.documents ?? null).slice(0, 160);
                     for (const ch of (card.characteristics || []) as { name?: string; value?: unknown }[]) {
                         const n = String(ch.name ?? '').toLowerCase().replace(/\s+/g, '');
                         const v = Array.isArray(ch.value) ? ch.value.join(', ') : String(ch.value ?? '');
                         if (n.includes('тнвэд') || n.includes('тн вэд') || n.includes('tnved')) cardTnved = digits(v);
                         if (n.includes('странапроизводства')) country = v;
+                        if (/сертиф|деклар|документ|разрешит/.test(n)) docs[String(ch.name)] = v.slice(0, 80);
                     }
                     if (!cardTnved) for (const s of (card.sizes || []) as Record<string, unknown>[]) if (s.tnved) cardTnved = digits(s.tnved);
                 }
             }
             const st = [...e.supplyTnved];
             items.push({
-                nm_id: nm, vendor_code: vendor, qty: e.qty, supply_tnved: st.join(', ') || null, card_tnved: cardTnved || null, country: country || null,
+                nm_id: nm, vendor_code: vendor, docs: body.docs ? docs : undefined, card_keys: body.docs && items.length === 0 ? cardKeys : undefined, qty: e.qty, supply_tnved: st.join(', ') || null, card_tnved: cardTnved || null, country: country || null,
                 ok: !!cardTnved && st.length > 0 && st.every((t) => t === cardTnved) && /киргиз/i.test(country),
                 issues: [
                     !st.length ? 'в поставке нет ТН ВЭД' : '',
@@ -89,7 +92,7 @@ Deno.serve(async (req) => {
             await sleep(700);
         }
         const bad = items.filter((i) => !i.ok);
-        return json({ ok: true, cabinet: cab.name, supply: detail, goods_rows: goods.length, articles: items.length, bad: bad.length, items: bad.length ? bad : undefined, all_ok: !bad.length, sample: items.slice(0, 3) });
+        return json({ ok: true, cabinet: cab.name, supply: detail, goods_rows: goods.length, articles: items.length, bad: bad.length, items: bad.length ? bad : undefined, all_ok: !bad.length, sample: items.slice(0, 3), all: body.docs ? items.map((i) => ({ nm_id: i.nm_id, vendor_code: i.vendor_code, docs: i.docs })) : undefined });
     }
     return json({ ok: false, error: 'supply_not_found', tried });
 });
