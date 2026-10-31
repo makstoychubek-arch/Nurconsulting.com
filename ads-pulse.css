@@ -354,3 +354,13 @@ html[data-viewer="1"] .adp2-body [data-ctl] { display: none !important; }
     .cw-bcw:nth-child(2) .cw-rng, .cw-bcw:nth-child(2) .cw-cp { display: none; }
     .cw-card { padding: 16px; }
 }
+
+/* перебиваем общие стили полей и кнопок сайта внутри окна */
+.adp2-body.cw .cw-inp input { background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; height: auto !important; min-height: 0 !important; outline: 0; }
+.adp2-body.cw .cw-inp > span { flex: none; white-space: nowrap; }
+.adp2-body.cw .cw-cb { border-radius: 4px !important; width: 15px; height: 15px; min-width: 15px; }
+.adp2-body.cw .cw-tg { border-radius: 999px !important; width: 36px; height: 20px; min-width: 36px; }
+.adp2-body.cw .cw-tg:disabled.on { opacity: .6; }
+.cw-h2 { display: block; }
+.cw-h2 .cw-pen { vertical-align: middle; margin-left: 8px; }
+.cw-h2 .cw-name { display: inline; }

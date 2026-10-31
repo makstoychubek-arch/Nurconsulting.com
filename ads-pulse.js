@@ -420,7 +420,16 @@
     /* ───────── окно кампании ───────── */
     /* Новые действия идут через root.AdvCtl (его пишет другой модуль). Нет модуля или метода: контрол виден, но неактивен. */
     function hasCtl(name) { var C = root.AdvCtl; return !!(C && typeof C[name] === 'function'); }
-    function offAttr(name) { return hasCtl(name) ? '' : ' disabled title="Пока недоступно"'; }
+    function ctlState(key) { var C = root.AdvCtl; return C && typeof C.getState === 'function' ? (C.getState(key) || null) : null; }
+    /* Если AdvCtl знает, что WB не умеет это делать (supports[name] === false), контрол неактивен и объясняет почему */
+    function offText(name) {
+        var C = root.AdvCtl;
+        if (!C || typeof C[name] !== 'function') return 'Пока недоступно';
+        if (C.supports && C.supports[name] === false) return (C.unsupportedText && C.unsupportedText[name]) || 'Пока недоступно';
+        return '';
+    }
+    function offAttr(name) { var t = offText(name); return t ? ' disabled title="' + esc(t) + '"' : ''; }
+    function ctlOk(name) { return !offText(name); }
     function fmtMoney(v) { var p = (Number(v) || 0).toFixed(2).split('.'); return p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + '.' + p[1]; }
     var LIMIT_MIN_SOM = 1200;
     function cwOf(key) { return S.cw[key] || (S.cw[key] = {}); }
@@ -435,7 +444,7 @@
     function refillState(key, camp) { var o = cwOf(key); return !!pick(o.refill, camp.autoRefill); }
     /* Зоны: из camp.zones, иначе по тому, для каких зон у товаров есть ставки; пока ничего не известно, null (нейтрально) */
     function zonesState(key, camp) {
-        var o = cwOf(key).zones || {}, z = camp.zones || null, res = { search: null, recommendations: null };
+        var cs = ctlState(key), o = (cs && cs.zones) || {}, z = camp.zones || camp.placements || null, res = { search: null, recommendations: null };
         if (z) { ['search', 'recommendations'].forEach(function (k) { if (z[k] != null) res[k] = !!z[k]; }); }
         else {
             var list = entriesOf(key, camp);
@@ -455,16 +464,16 @@
     };
     function qHtml(t) { return '<span class="cw-q" title="' + esc(t) + '">?</span>'; }
     function swHtml(on, pact, key, extra, label, name) {
-        var dis = name === false ? ' disabled title="Пока недоступно"' : (name ? offAttr(name) : '');
+        var dis = name && typeof name === 'object' ? ' disabled title="' + esc(name.off) + '"' : (name === false ? ' disabled title="Пока недоступно"' : (name ? offAttr(name) : ''));
         return '<button type="button" class="cw-tg' + (on ? ' on' : '') + '" role="switch" aria-checked="' + (on == null ? 'mixed' : !!on) + '" aria-label="' + esc(label) + '" data-ctl="1" data-pact="' + pact + '" data-key="' + esc(key) + '"' + (extra || '') + dis + '></button>';
     }
     function headHtml(key, camp, kind, live) {
-        var cw = cwOf(key), fin = !!cw.finished;
-        var created = camp.createdAt || camp.created_at || '';
+        var cs0 = ctlState(key), fin = !!(cs0 && (cs0.finished || cs0.finishing)), finDone = !!(cs0 && cs0.finished);
+        var cs = ctlState(key), created = (cs && cs.createdAt) || camp.createdAt || camp.wbCreatedAt || camp.created_at || '';
         if (created) { var d = new Date(created); if (!isNaN(d)) created = ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
         return '<div class="cw-hd"><div class="cw-ttl"><h2 class="cw-h2"><span class="cw-name">' + esc(camp.name) + '</span>' +
             '<button type="button" class="cw-pen" data-ctl="1" data-pact="rename" data-key="' + esc(key) + '" aria-label="Переименовать"' + (hasCtl('rename') ? '' : ' disabled title="Пока недоступно"') + '>' + ico(IC.pen) + '</button></h2>' +
-            '<div class="cw-chips"><span class="cw-chip' + (live && !fin ? ' on' : '') + '">' + (fin ? 'Завершена' : (live ? 'Активна' : 'Приостановлена')) + '</span><span class="cw-chip">' + (kind === 'cpc' ? 'CPC' : 'CPM') + '</span>' +
+            '<div class="cw-chips"><span class="cw-chip' + (live && !fin ? ' on' : '') + '">' + (fin ? (finDone ? 'Завершена' : 'Завершается…') : (live ? 'Активна' : 'Приостановлена')) + '</span><span class="cw-chip">' + (kind === 'cpc' ? 'CPC' : 'CPM') + '</span>' +
             '<button type="button" class="cw-id" data-pact="copyid" data-id="' + esc(camp.wbId) + '" title="Скопировать номер">ID ' + esc(camp.wbId) + ' ⧉</button>' + (created ? '<span class="cw-date">' + esc(created) + '</span>' : '') + '</div></div>' +
             '<div class="cw-act"><a class="cw-lnk" href="https://dev.wildberries.ru/openapi/promotion" target="_blank" rel="noopener">Инструкция</a>' +
             '<button type="button" data-pact="toggle" data-key="' + esc(key) + '" class="cw-btn k adp2-tg"' + (fin ? ' disabled' : '') + '>' + ico(live ? IC.pause : IC.play) + (live ? 'Приостановить' : 'Запустить') + '</button>' +
@@ -481,15 +490,17 @@
             '<span class="cw-lab">' + swHtml(refill, 'refill', key, '', 'Автопополнение бюджета', 'setAutoRefill') + 'Автопополнение бюджета ' + qHtml('Бюджет сам пополнится, когда деньги на кампании заканчиваются') + '</span></div></section>' +
             '<section class="cw-card"><div class="cw-lim"><div class="cw-col">' +
             '<div class="cw-lab">' + swHtml(lim.on, 'limit', key, '', 'Дневной лимит', 'setLimit') + '<h3>Дневной лимит</h3>' + qHtml('Сумма, больше которой кампания не потратит за сутки') + '</div>' +
-            '<label class="cw-inp' + (lim.on ? ' live' : '') + '"><input type="text" inputmode="decimal" class="cw-limit-in" data-key="' + esc(key) + '" value="' + esc(lv) + '" placeholder="Задайте от ' + min + '" aria-label="Дневной лимит"' + (lim.on && hasCtl('setLimit') ? '' : ' disabled') + '><span>KGS</span></label>' +
-            '<label class="cw-lab cw-cbl"><button type="button" class="cw-cb' + (lim.carry ? ' on' : '') + '" role="checkbox" aria-checked="' + lim.carry + '" data-ctl="1" data-pact="carry" data-key="' + esc(key) + '"' + (lim.on && hasCtl('setLimit') ? '' : ' disabled') + '></button>Переносить неистраченные деньги ' + qHtml('Неистраченная за день сумма добавится к лимиту следующего дня') + '</label></div>' +
+            '<label class="cw-inp' + (lim.on ? ' live' : '') + '"><input type="text" inputmode="decimal" class="cw-limit-in" data-key="' + esc(key) + '" value="' + esc(lv) + '" placeholder="Задайте от ' + min + '" aria-label="Дневной лимит"' + (lim.on && ctlOk('setLimit') ? '' : ' disabled') + '><span>KGS</span></label>' +
+            '<label class="cw-lab cw-cbl"><button type="button" class="cw-cb' + (lim.carry ? ' on' : '') + '" role="checkbox" aria-checked="' + lim.carry + '" data-ctl="1" data-pact="carry" data-key="' + esc(key) + '"' + (lim.on && ctlOk('setLimit') ? '' : ' disabled') + '></button>Переносить неистраченные деньги ' + qHtml('Неистраченная за день сумма добавится к лимиту следующего дня') + '</label></div>' +
             '<div class="cw-hint">Равномерно распределим сумму в течение суток</div></div></section></div>';
     }
     function zonesHtml(key, camp, kind) {
-        var z = zonesState(key, camp);
+        var z = zonesState(key, camp), C = root.AdvCtl, allowed = true;
+        try { if (C && typeof C.zonesAllowed === 'function') allowed = C.zonesAllowed(Object.assign({}, ctlState(key) || {}, { paymentType: camp.paymentType, bidType: (S.info[key] && S.info[key].bidType) || camp.bidType })); } catch (e) { allowed = true; }
+        var lock = !allowed ? { off: (C.unsupportedText && C.unsupportedText.zonesCpc) || 'Пока недоступно' } : 'setZones';
         function one(k, t) {
             var on = z[k];
-            return '<div class="cw-zone' + (on === false ? ' off' : '') + '"><span class="cw-lab">' + swHtml(on, 'zone', key, ' data-zone="' + k + '"', t, 'setZones') + t + '</span><span class="cw-pic" aria-hidden="true"><i class="a"></i><i></i><i></i></span></div>';
+            return '<div class="cw-zone' + (on === false ? ' off' : '') + '"><span class="cw-lab">' + swHtml(on, 'zone', key, ' data-zone="' + k + '"', t, lock) + t + '</span><span class="cw-pic" aria-hidden="true"><i class="a"></i><i></i><i></i></span></div>';
         }
         return '<section class="cw-card"><h3>Зоны показов</h3><div class="cw-zones">' + one('search', 'Поиск') + one('recommendations', 'Рекомендации') + '</div></section>';
     }
@@ -541,6 +552,7 @@
         return '<section class="cw-card cw-prod">' + head + '<div class="cw-tbl">' + th + rows + '</div></section>';
     }
     function bodyHtml(key, cab, camp, kind, live) {
+        try { if (hasCtl('register')) root.AdvCtl.register(key, { paymentType: camp.paymentType, bidType: (S.info[key] && S.info[key].bidType) || camp.bidType, createdAt: camp.createdAt || camp.wbCreatedAt, zones: camp.zones || camp.placements, limit: camp.limit, autoRefill: camp.autoRefill }); } catch (e) { /* состояние кампании не критично */ }
         var legacy = !root.AdvStats, kw = legacy && tabOf(key) === 'keys';
         var tabs = legacy ? '<div class="adp2-tabs"><button type="button" data-pact="tab" data-tab="prod" data-key="' + esc(key) + '" class="' + (!kw ? 'on' : '') + '">Товары</button><button type="button" data-pact="tab" data-tab="keys" data-key="' + esc(key) + '" class="' + (kw ? 'on' : '') + '">Ключи' + (S.kw[key] && S.kw[key].loaded ? '<em>' + S.kw[key].rows.length + '</em>' : '') + '</button></div>' : '';
         return '<div class="adp2-body cw" role="dialog" aria-modal="true" aria-label="Окно кампании"' + (CAN_POP ? ' popover="manual"' : '') + '><div class="cw-in">' +
@@ -572,58 +584,64 @@
         });
     }
     function closeMenus(except) { var h = $('adv-pulse'); if (!h) return; Array.prototype.forEach.call(h.querySelectorAll('.cw-dots.open'), function (d) { if (d !== except) d.classList.remove('open'); }); }
-    /* Действие через AdvCtl: экран меняется сразу, при ошибке откат и короткое сообщение с повтором */
-    function ctlRun(key, method, args, apply, revert, again) {
+    /* Действие через AdvCtl. Он сам меняет состояние сразу, показывает сообщения и шлёт 'advctl:change', по которому мы перерисовываем окно.
+       Мы только вызываем метод; отказ (WB не умеет, неверные данные) показываем коротко и откатываем то, что нарисовали заранее. */
+    function ctlRun(key, method, args, revert, again) {
         var C = root.AdvCtl;
-        if (!C || typeof C[method] !== 'function') { toast('Пока недоступно', null); return; }
-        apply(); patchRow(key);
+        if (!C || typeof C[method] !== 'function') { toast('Пока недоступно', null); if (revert) revert(); patchRow(key); return; }
         var p; try { p = C[method].apply(C, args); } catch (e) { p = Promise.reject(e); }
-        return Promise.resolve(p).then(function () { setTimeout(function () { if (root.AdsHQ && root.AdsHQ.load) root.AdsHQ.load(); }, 2500); }).catch(function (e) {
-            revert(); patchRow(key);
-            toast('Не удалось: ' + esc(String((e && e.message) || e || 'WB не ответил')) + '. Повторите', again ? { label: 'Повторить', fn: again } : null);
+        return Promise.resolve(p).then(function (res) {
+            patchRow(key);
+            setTimeout(function () { if (root.AdsHQ && root.AdsHQ.load) root.AdsHQ.load(); }, 2500);
+            return res;
+        }).catch(function (e) {
+            if (revert) revert(); patchRow(key);
+            var why = (e && (e.reason || e.message || e.error)) || (typeof e === 'string' ? e : '') || 'WB не ответил';
+            toast(esc(String(why)) + (e && (e.unsupported || e.invalid) ? '' : '. Повторите'), again && !(e && (e.unsupported || e.invalid)) ? { label: 'Повторить', fn: again } : null);
         });
     }
     function setLimitFlow(key, patch) {
         var f = findCamp(key); if (!f) return;
         var cw = cwOf(key), cur = limitState(key, f.camp), prev = { limitOn: cw.limitOn, limitKop: cw.limitKop, carry: cw.carry };
         var next = { on: patch.on != null ? patch.on : cur.on, amountKop: patch.amountKop != null ? patch.amountKop : (cur.kop || 0), carryOver: patch.carryOver != null ? patch.carryOver : cur.carry };
-        function apply() { cw.limitOn = next.on; cw.limitKop = next.amountKop || null; cw.carry = next.carryOver; }
-        function revert() { cw.limitOn = prev.limitOn; cw.limitKop = prev.limitKop; cw.carry = prev.carry; }
-        if (next.on && !(next.amountKop > 0)) { apply(); patchRow(key); var inp = doc.querySelector('.adp2-row[data-key="' + key.replace(/"/g, '') + '"] .cw-limit-in'); if (inp) inp.focus(); return; }
-        ctlRun(key, 'setLimit', [key, { on: next.on, amountKop: next.amountKop, carryOver: next.carryOver }], apply, revert, function () { setLimitFlow(key, patch); });
+        cw.limitOn = next.on; cw.limitKop = next.amountKop || null; cw.carry = next.carryOver;
+        patchRow(key);
+        if (next.on && !(next.amountKop > 0)) { var inp = doc.querySelector('.adp2-row[data-key="' + key.replace(/"/g, '') + '"] .cw-limit-in'); if (inp) inp.focus(); return; }
+        ctlRun(key, 'setLimit', [key, { on: next.on, amountKop: next.amountKop, carryOver: next.carryOver }], function () { cw.limitOn = prev.limitOn; cw.limitKop = prev.limitKop; cw.carry = prev.carry; }, function () { setLimitFlow(key, patch); });
+    }
+    function refillFlow(key) {
+        var f = findCamp(key); if (!f) return;
+        var cw = cwOf(key), prev = cw.refill, nx = !refillState(key, f.camp);
+        cw.refill = nx; patchRow(key);
+        ctlRun(key, 'setAutoRefill', [key, nx], function () { cw.refill = prev; }, function () { refillFlow(key); });
     }
     function zoneFlow(key, zone) {
         var f = findCamp(key); if (!f) return;
-        var cw = cwOf(key), z = zonesState(key, f.camp), prev = cw.zones ? Object.assign({}, cw.zones) : null;
-        var next = { search: !!z.search, recommendations: !!z.recommendations };
+        var z = zonesState(key, f.camp), next = { search: !!z.search, recommendations: !!z.recommendations };
         next[zone] = !next[zone];
-        if (next[zone] && payKind(f.camp) !== 'cpc') { var other = zone === 'search' ? 'recommendations' : 'search'; next[other] = false; }
         if (!next.search && !next.recommendations) { toast('Должна быть включена хотя бы одна зона', null); return; }
-        ctlRun(key, 'setZones', [key, { search: next.search, recommendations: next.recommendations }], function () { cw.zones = next; }, function () { cw.zones = prev; }, function () { zoneFlow(key, zone); });
+        ctlRun(key, 'setZones', [key, next], null, function () { zoneFlow(key, zone); });
     }
     function finishFlow(key) {
         var f = findCamp(key); if (!f) return;
         var m = modal('<div class="adp2-mh"><b>Завершить кампанию?</b><button type="button" data-close="1" class="adp2-x" aria-label="Закрыть">✕</button></div>' +
-            '<p class="adp2-mut" style="font-size:13px"><b>' + esc(f.camp.name) + '</b> · № ' + esc(f.camp.wbId) + '<br>Завершённую кампанию нельзя запустить снова. Остаток бюджета вернётся на баланс.</p>' +
+            '<p class="adp2-mut" style="font-size:13px"><b>' + esc(f.camp.name) + '</b> · № ' + esc(f.camp.wbId) + '<br>Завершённую кампанию нельзя запустить снова.</p>' +
             '<div class="adp2-mf"><button type="button" class="adp2-gh" data-close="1">Отмена</button><button type="button" class="adp2-go" id="cw-fin">Завершить</button></div>');
-        m.el.querySelector('#cw-fin').addEventListener('click', function () {
-            m.close(); var cw = cwOf(key);
-            toast('Завершаю кампанию…', null);
-            ctlRun(key, 'finish', [key], function () { cw.finished = true; }, function () { cw.finished = false; }, function () { finishFlow(key); });
-        });
+        m.el.querySelector('#cw-fin').addEventListener('click', function () { m.close(); ctlRun(key, 'finish', [key], null, function () { finishFlow(key); }); });
     }
     function historyFlow(key) {
         var m = modal('<div class="adp2-mh"><b>История кампании</b><button type="button" data-close="1" class="adp2-x" aria-label="Закрыть">✕</button></div><div class="cw-hist" id="cw-hist"><div class="adp2-load-line">Загружаем историю…</div></div>');
         var box = m.el.querySelector('#cw-hist');
         var p; try { p = root.AdvCtl.history(key); } catch (e) { p = Promise.reject(e); }
         Promise.resolve(p).then(function (res) {
-            var rows = Array.isArray(res) ? res : (res && (res.rows || res.items || res.history)) || [];
-            if (!rows.length) { box.innerHTML = '<div class="adp2-mut">Изменений пока нет</div>'; return; }
-            box.innerHTML = rows.map(function (r) {
+            var rows = Array.isArray(res) ? res : (res && (res.items || res.rows || res.history)) || [];
+            var note = res && res.note ? '<div class="adp2-mut" style="font-size:12px;margin-bottom:6px">' + esc(res.note) + '</div>' : '';
+            if (!rows.length) { box.innerHTML = note + '<div class="adp2-mut">Изменений пока нет</div>'; return; }
+            box.innerHTML = note + rows.map(function (r) {
                 var t = r.at || r.created_at || r.time || r.date || '', txt = r.text || r.title || r.description || r.action || r.kind || '';
-                return '<div class="cw-hrow"><span>' + esc(String(t).replace('T', ' ').slice(0, 16)) + '</span><b>' + esc(txt || JSON.stringify(r)) + '</b></div>';
+                return '<div class="cw-hrow"><span>' + esc(String(t).replace('T', ' ').slice(0, 16)) + '</span><b>' + esc(txt || JSON.stringify(r)) + '</b>' + (r.statusText ? '<em>' + esc(r.statusText) + '</em>' : '') + '</div>';
             }).join('');
-        }).catch(function (e) { box.innerHTML = '<div class="adp2-mut">Не удалось загрузить: ' + esc(String((e && e.message) || e || 'ошибка')) + '</div>'; });
+        }).catch(function (e) { box.innerHTML = '<div class="adp2-mut">Не удалось загрузить: ' + esc(String((e && (e.reason || e.message || e.error)) || e || 'ошибка')) + '</div>'; });
     }
     function renameFlow(key) {
         var f = findCamp(key); if (!f) return;
@@ -632,7 +650,7 @@
         m.el.querySelector('#cw-rnok').addEventListener('click', function () {
             var v = m.el.querySelector('#cw-rn').value.trim(); if (!v || v === f.camp.name) { m.close(); return; }
             var old = f.camp.name; m.close(); f.camp.name = v;
-            ctlRun(key, 'rename', [key, v], function () {}, function () { f.camp.name = old; }, function () { renameFlow(key); });
+            ctlRun(key, 'rename', [key, v], function () { f.camp.name = old; }, function () { renameFlow(key); });
         });
     }
     function rowHtml(cab, camp) {
@@ -706,6 +724,9 @@
         if (focused && (focused.classList.contains('adp2-num') || focused.classList.contains('adp2-rg'))) { refreshBid(key); var cb = el.querySelector('[data-chipbox]'); if (cb) cb.innerHTML = chipHtml(key); return; }
         var tmp = doc.createElement('div'); tmp.innerHTML = rowHtml(f.cab, f.camp);
         freezeSlots(el, tmp);
+        // Закрытие окна: морфинг не удаляет блок с полями ввода, поэтому убираем окно сами
+        var oldBody = el.querySelector(':scope > .adp2-body');
+        if (oldBody && !tmp.querySelector('.adp2-body')) { try { if (oldBody.matches(':popover-open')) oldBody.hidePopover(); } catch (e) { /* уже закрыт */ } oldBody.remove(); }
         // Патчим узел на месте, а не меняем целиком: replaceWith сбрасывал ползунок/фокус
         // при каждой фоновой подгрузке ставок (enqueueInfo зовёт patchRow на каждую кампанию).
         if (root.domMorph && typeof root.domMorph.patchNode === 'function') root.domMorph.patchNode(el, tmp.firstChild);
@@ -1144,7 +1165,7 @@
         else if (act === 'toggle') togglePause(key);
         else if (act === 'rowmenu') { var dd = t.closest('.cw-dots'); dd.classList.toggle('open'); }
         else if (act === 'copyid') { var idv = String(t.dataset.id || ''); try { Promise.resolve(root.navigator.clipboard.writeText(idv)).catch(function () {}); } catch (er) { /* без буфера */ } toast('Номер ' + esc(idv) + ' скопирован', null); }
-        else if (act === 'refill') { var fr = findCamp(key); if (fr && !t.disabled) { var cwr = cwOf(key), prr = cwr.refill, nxr = !refillState(key, fr.camp); ctlRun(key, 'setAutoRefill', [key, nxr], function () { cwr.refill = nxr; }, function () { cwr.refill = prr; }, function () { t.click(); }); } }
+        else if (act === 'refill') { if (!t.disabled) refillFlow(key); }
         else if (act === 'limit') { var fl = findCamp(key); if (fl && !t.disabled) setLimitFlow(key, { on: !limitState(key, fl.camp).on }); }
         else if (act === 'carry') { var fc = findCamp(key); if (fc && !t.disabled) setLimitFlow(key, { carryOver: !limitState(key, fc.camp).carry }); }
         else if (act === 'zone') { if (!t.disabled) zoneFlow(key, t.dataset.zone); }
@@ -1281,6 +1302,7 @@
         S.inited = true;
         S.view = 'pulse'; // таблица убрана: один вид, список как в макете
         doc.addEventListener('keydown', function (e) { if (e.key !== 'Escape' || doc.querySelector('.adp2-ov')) return; Object.keys(S.open).forEach(function (k) { if (S.open[k]) { S.open[k] = false; patchRow(k); } }); });
+        doc.addEventListener('advctl:change', function (e) { var k = e && e.detail && e.detail.key; if (k && S.open[k]) patchRow(k); });
         host.addEventListener('click', onClick); host.addEventListener('input', onInput); host.addEventListener('change', onChange); host.addEventListener('keydown', onKey);
         mountSwitch();
         if (root.AdsHQ && root.AdsHQ.onRendered) root.AdsHQ.onRendered(function () { if (S.view === 'pulse') render(); });
