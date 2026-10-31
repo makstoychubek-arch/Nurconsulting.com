@@ -118,7 +118,7 @@
 .advs .kt thead th.sorted.asc::after { content: " ↑"; }
 .advs .kt thead tr th { top: 0; color: var(--as-fg); font-size: 10px; font-weight: 800; }
 .advs .kt td.c { width: 30px; padding-right: 0; text-align: left; }
-.advs .pos { border: 1px solid var(--as-m3); border-radius: 8px; padding: 2px 10px; font-size: 11px; font-weight: 700; background: transparent; color: var(--as-fg); font-family: inherit; cursor: pointer; }
+.advs .pos { display: inline-block; line-height: 14px; margin: -4px 0; vertical-align: middle; border: 1px solid var(--as-m3); border-radius: 8px; padding: 2px 10px; font-size: 11px; font-weight: 700; background: transparent; color: var(--as-fg); font-family: inherit; cursor: pointer; }
 .advs .pos[disabled] { opacity: .45; cursor: default; }
 .advs .pos.run { opacity: .6; }
 .advs .kfilter { gap: 8px 8px; }
@@ -129,10 +129,9 @@
 
 /* телефон: те же блоки в колонку (ширина самого блока, а не экрана: окно может быть узким и на широком экране) */
 @container advs (max-width: 520px) {
-    .advs .card { padding: 14px 14px; }
     .advs .bar .sp { display: none; }
     .advs .sw { flex-wrap: wrap; }
+    .advs .side, .advs .colpop { display: none; }
     .advs .scr { max-height: 320px; }
     .advs .t th.d, .advs .t td.d { min-width: 96px; }
-    .advs .card h3, .advs .hrow h3 { font-size: 17px; }
 }

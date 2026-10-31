@@ -122,12 +122,13 @@
             if (!a) return { v: null, txt: DASH, dash: true, g2: col.g === 2 };
             var v = col.v(a);
             if (col.id === 'pclicks' && a.pclicks == null) return { v: null, txt: DASH, dash: true, g2: true };
+            if (mode === 'zero' && !v && (col.id === 'atbs' || col.id === 'orders' || col.id === 'sum')) return { v: v, txt: '', g2: false }; // как в макете: у зоны без корзин и заказов пусто
             var o = { v: v, txt: fmt(col.f, v, cur), g2: col.g === 2 };
             if (col.sm) { var s = col.sm(a); o.sm = s != null ? Math.round(s) + '%' : ''; o.smv = s; }
             return o;
         }
         function cellsFor(a, mode, sub) {
-            return cols.map(function (c) { return cell(c, a, sub && c.g === 2 ? 'blank' : mode); });
+            return cols.map(function (c) { return cell(c, a, sub && c.g === 2 ? 'blank' : (sub && mode === 'num' ? 'zero' : mode)); });
         }
         var total = emptyAgg(), anyRow = false;
         days.forEach(function (r) { if (!r.none) { anyRow = true; addAgg(total, aggDay(r)); } });
@@ -351,7 +352,7 @@
                 if (seq !== st.seq) return;
                 st.rows = nd.rows; st.nms = nms; st.upd = nd.upd || st.upd; st.applied = { from: from, to: to };
                 st.prodOk = prod != null; st.prod = prodMap(prod || []); st.fromCache = false;
-                st.loading = false; st.dim = false; persistCache(st); paintStats(st);
+                st.loading = false; st.dim = false; st.rev = (st.rev || 0) + 1; persistCache(st); paintStats(st);
                 maybeLiveRefresh(st);
             });
         }).catch(function (e) {
@@ -375,7 +376,7 @@
     /** «Обновить»: живой запрос WB API по одной кампании; идёт в фоне, таблица остаётся на месте. */
     function refreshLive(st, manual) {
         var d = deps();
-        if (!d.callWbProxy) { if (manual) { st.msg = 'Обновление недоступно'; paintStats(st); } return Promise.resolve(); }
+        if (!d.callWbProxy) { if (manual) toast(st, 'Обновление сейчас недоступно'); return Promise.resolve(); }
         if (st.refreshing) return st.refreshing;
         st.refreshing = true; st.msg = ''; st.dim = !!manual; paintStats(st);
         var from = st.applied.from, to = st.applied.to;
@@ -384,16 +385,16 @@
         st.refreshing = Promise.resolve(d.callWbProxy('advert_stats', { advertIds: [st.wbId], dateFrom: lf, dateTo: to }, st.cabId)).then(function (res) {
             st.refreshing = false; st.dim = false; st.lastLive = Date.now();
             var lr = liveItemRows(res, st.wbId);
-            if (!lr) { st.msg = res == null ? 'Нет ответа от WB' : 'WB не вернул статистику'; paintStats(st); return; }
+            if (!lr) { if (manual) toast(st, res == null ? 'Нет ответа от WB, попробуйте ещё раз' : 'WB не вернул статистику за этот период'); else paintStats(st); return; }
             if (lr.currency) { CURRENCY[st.cabId] = curName(lr.currency); }
             var by = {}; (st.rows || []).forEach(function (r) { by[r.date] = r; });
             lr.rows.forEach(function (r) { if (r.date >= from && r.date <= to) by[r.date] = r; });
             st.rows = Object.keys(by).sort().map(function (k) { return by[k]; }).filter(function (r) { return r.date >= from && r.date <= to; });
             if (lr.nms.length) st.nms = lr.nms;
-            st.syncedAt = Date.now(); st.upd = st.syncedAt; st.fromCache = false; st.error = '';
+            st.syncedAt = Date.now(); st.upd = st.syncedAt; st.fromCache = false; st.error = ''; st.rev = (st.rev || 0) + 1;
             persistCache(st); paintStats(st);
         }).catch(function (e) {
-            st.refreshing = false; st.dim = false; st.msg = 'Не получилось обновить: ' + String((e && e.message) || e || 'ошибка'); paintStats(st);
+            st.refreshing = false; st.dim = false; if (manual) toast(st, 'Не получилось обновить: ' + String((e && e.message) || e || 'ошибка') + '. Повторите'); else paintStats(st);
         });
         return st.refreshing;
     }
@@ -440,7 +441,7 @@
         return h;
     }
 
-    function paintStats(st) {
+    function paintStats(st, defer) {
         var el = st.els.stats;
         if (!el || !el.isConnected) return;
         var r0 = el.querySelector('[data-advs-root="stats"]'); if (!r0) return;
@@ -455,25 +456,33 @@
         var rb = q(r0, 'refresh'); rb.classList.toggle('busy', !!st.refreshing); rb.disabled = false;
         r0.querySelector('[data-advs="show"]').classList.toggle('busy', !!st.loading);
         r0.querySelectorAll('[data-advs="tab"]').forEach(function (t) { var a = t.getAttribute('data-t') === st.tab; t.classList.toggle('a', a); t.setAttribute('aria-selected', a ? 'true' : 'false'); });
-        var pane = q(r0, 'pane'), scr0 = pane.querySelector('.scr');
-        if (scr0) st.scroll[st.shownTab || st.tab] = [scr0.scrollLeft, scr0.scrollTop];
+        var pane = q(r0, 'pane');
         var data = statsData(st), sk = false;
         if (!data && st.error) data = { rows: [], from: st.from, to: st.to, prod: {}, prodOk: false, zones: null, zoneTotal: null };
         if (!data) { data = skeletonData(st.from, st.to); sk = true; }
         var cur = curOf(st);
-        var model = buildModel(data, st.tab, st.hiddenCols, cur);
-        st.lastModel = sk ? null : model; st.shownTab = st.tab;
-        var sig = st.tab + '|' + (sk ? 'sk' : 'd') + '|' + (st.rows ? st.rows.length : 0) + '|' + Object.keys(st.hiddenCols).filter(function (k) { return st.hiddenCols[k]; }).join(',') + '|' + st.upd + '|' + st.applied.from + st.applied.to + '|' + cur + '|' + (st.prodOk ? 1 : 0) + '|' + JSON.stringify(st.prod).length + '|' + (st.rows ? st.rows.map(function (r) { return r.views + r.spend + r.orders; }).join(',').length : 0);
-        if (pane.getAttribute('data-sig') !== sig) {
-            pane.innerHTML = '<div class="scr">' + tableHtml(model, sk) + '</div>';
+        var sig = [st.tab, sk ? 'sk' : 'd', st.rows ? st.rows.length : 0, Object.keys(st.hiddenCols).filter(function (k) { return st.hiddenCols[k]; }).join(','), st.upd, st.applied.from, st.applied.to, cur, st.prodOk ? 1 : 0, st.rev || 0].join('|');
+        var need = pane.getAttribute('data-sig') !== sig;
+        if (need && defer && !sk && pane.firstChild) {
+            // тяжёлую перерисовку таблицы откладываем на следующий кадр: сначала человек видит, что нажал
+            pane.classList.add('stale'); clearTimeout(st.deferT);
+            st.deferT = setTimeout(function () { paintStats(st); }, 0);
+            return;
+        }
+        if (need) {
+            var hit = st.hc && st.hc[sig], model;
+            if (hit) model = hit.model;
+            else { model = buildModel(data, st.tab, st.hiddenCols, cur); }
+            st.lastModel = sk ? null : model; st.shownTab = st.tab;
+            pane.innerHTML = '<div class="scr">' + (hit ? hit.html : tableHtml(model, sk)) + '</div>';
+            if (!hit && !sk) { st.hc = st.hc || {}; var ks = Object.keys(st.hc); if (ks.length > 7) delete st.hc[ks[0]]; st.hc[sig] = { model: model, html: pane.firstChild.innerHTML }; }
             pane.setAttribute('data-sig', sig);
             var scr = pane.querySelector('.scr'), sc = st.scroll[st.tab];
             if (sc) { scr.scrollLeft = sc[0]; scr.scrollTop = sc[1]; }
             scr.addEventListener('scroll', function () { st.scroll[st.shownTab] = [scr.scrollLeft, scr.scrollTop]; }, { passive: true });
-            measureHead(scr);
-        }
+            if (!st.hidden) measureHead(scr); else st.needMeasure = true;
+        } else if (st.needMeasure && !st.hidden) { var scr2 = pane.querySelector('.scr'); if (scr2) measureHead(scr2); st.needMeasure = false; }
         pane.classList.toggle('stale', !!st.dim && !!(st.loading || st.refreshing) && !sk);
-        if (!st.hidden) { var scr1 = pane.querySelector('.scr'); if (scr1) measureHead(scr1); }
         q(r0, 'prog').classList.toggle('on', !!(st.loading || st.refreshing));
         pane.setAttribute('aria-busy', st.loading ? 'true' : 'false');
         var tg = r0.querySelector('[data-advs="src"]'); tg.classList.toggle('on', !!st.live); tg.setAttribute('aria-checked', st.live ? 'true' : 'false');
@@ -610,6 +619,7 @@
         r0.querySelectorAll('[data-advs="ktab"]').forEach(function (t) { var a = t.getAttribute('data-t') === kw.tab; t.classList.toggle('a', a); t.setAttribute('aria-selected', a ? 'true' : 'false'); });
         var words = kw.tab === 'words';
         q(r0, 'kbar').hidden = words;
+        setText(q(r0, 'kper'), String(kw.perCall));
         var pane = q(r0, 'kpane');
         if (!kw.rows) {
             if (!pane.getAttribute('data-sk')) { pane.innerHTML = '<div class="scr k"><table class="t kt"><thead><tr><th style="width:30px"></th><th class="l">Кластеры</th><th>Конт.</th><th>Частота</th><th>Позиция</th><th>Клики</th><th>CPC</th><th>Затраты</th></tr></thead><tbody>' + keysSkeleton() + '</tbody></table></div>'; pane.setAttribute('data-sk', '1'); }
@@ -633,7 +643,6 @@
         var kb = q(r0, 'kcheck'), left = 0; scope.forEach(function (a) { if (!a.checked) left++; });
         if (kw.run) { setText(kb, 'Остановить / Осталось: ' + kw.run.left); kb.classList.remove('off'); }
         else { setText(kb, left ? 'Проверить позиции · ' + left : 'Позиции проверены'); kb.classList.toggle('off', !left); }
-        var scr0 = pane.querySelector('.scr'); if (scr0) st.scroll['k' + kw.tab] = [scr0.scrollLeft, scr0.scrollTop];
         var sig = [kw.tab, kw.filter, kw.sort, kw.dir, kw.limit, cur, scope.length, list.length, JSON.stringify(kw.sel).length, Object.keys(kw.pos).length, kw.run ? kw.run.cur || '' : '', curOf(st), kw.touched ? 1 : 0, scope.reduce(function (s, a) { return s + a.spend + a.clicks; }, 0)].join('|');
         if (pane.getAttribute('data-sig') !== sig) {
             pane.innerHTML = '<div class="scr k">' + (words ? kwWordsHtml(st, kwWords(scope)) : kwTableHtml(st, kw, list, scope)) + '</div>';
@@ -677,7 +686,11 @@
             a.keys.forEach(function (k) { var p = k.indexOf('|'); todo.push({ k: k, nm: Number(k.slice(0, p)), q: k.slice(p + 1) }); });
         });
         if (only) todo = todo.filter(function (t) { return only.indexOf(t.k) >= 0; });
-        if (!todo.length) return;
+        if (!todo.length) {
+            kw.msg = kw.rows ? 'Позиции этих ключей уже проверены' : 'Ключи ещё загружаются';
+            paintKeys(st); clearTimeout(kw.msgT); kw.msgT = setTimeout(function () { kw.msg = ''; paintKeys(st); }, 3000);
+            return;
+        }
         var run = kw.run = { left: todo.length, stop: false, cur: only && only.length === 1 ? only[0] : '', busy: true };
         kw.msg = '';
         paintKeys(st);
@@ -707,14 +720,14 @@
     }
 
     /* ───────── события ───────── */
-    function toast(st, text) { st.msg = text; paintStats(st); clearTimeout(st.msgT); st.msgT = setTimeout(function () { if (st.msg === text) { st.msg = ''; paintStats(st); } }, 3500); }
+    function toast(st, text) { st.msg = text; paintStats(st); clearTimeout(st.msgT); st.msgT = setTimeout(function () { if (st.msg === text) { st.msg = ''; paintStats(st); } }, 5000); }
     function onClick(st, e) {
         if (st.colsOpen && !(e.target.closest && e.target.closest('.colpop,[data-advs="cols"]'))) { st.colsOpen = false; paintStats(st); }
         var t = e.target.closest('[data-advs]'); if (!t) return;
         var a = t.getAttribute('data-advs');
         if (a === 'from' || a === 'to') { try { if (t.showPicker) t.showPicker(); } catch (x) { /* откроется штатно */ } return; }
         if (a === 'kper' || a === 'knm') return;
-        if (a === 'tab') { st.tab = t.getAttribute('data-t'); st.colsOpen = false; paintStats(st); return; }
+        if (a === 'tab') { st.tab = t.getAttribute('data-t'); st.colsOpen = false; paintStats(st, true); return; }
         if (a === 'show') {
             if (st.from > st.to) { var s = st.from; st.from = st.to; st.to = s; }
             st.dim = true; loadStats(st);
@@ -740,7 +753,7 @@
     function onChange(st, e) {
         var t = e.target, a = t.getAttribute && t.getAttribute('data-advs'); if (!a) return;
         if (a === 'from' || a === 'to') { if (validYmd(t.value)) { st[a] = t.value; if (st.to > todayYmd()) st.to = todayYmd(); paintStats(st); } return; }
-        if (a === 'col') { var id = t.getAttribute('data-c'), left = COLS.filter(function (c) { return !st.hiddenCols[c.id] && c.id !== id; }).length; if (!t.checked && !left) { t.checked = true; return; } if (t.checked) delete st.hiddenCols[id]; else st.hiddenCols[id] = true; lsSet('nr_advs_cols_v1', JSON.stringify(st.hiddenCols)); paintStats(st); return; }
+        if (a === 'col') { var id = t.getAttribute('data-c'), left = COLS.filter(function (c) { return !st.hiddenCols[c.id] && c.id !== id; }).length; if (!t.checked && !left) { t.checked = true; return; } if (t.checked) delete st.hiddenCols[id]; else st.hiddenCols[id] = true; lsSet('nr_advs_cols_v1', JSON.stringify(st.hiddenCols)); paintStats(st, true); return; }
         var kw = kwStateOf(st);
         if (a === 'knm') { kw.nm = t.value; kw.limit = 300; paintKeys(st); return; }
         if (a === 'kper') { kw.perCall = Number(t.value) || 30; paintKeys(st); return; }
