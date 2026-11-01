@@ -414,7 +414,7 @@
 
     function statsFrame(st) {
         return '<div class="advs" data-advs-root="stats"><div class="card"><div class="stt">' +
-            '<div class="hrow"><h3>Статистика РК по дням и зонам показов</h3><button type="button" class="lnk" data-advs="hide" data-r="hide">скрыть блок ↑</button></div>' +
+            '<div class="hrow"><h3>Статистика РК по дням</h3><button type="button" class="lnk" data-advs="hide" data-r="hide">скрыть блок ↑</button></div>' +
             '<div class="bar"><label class="dt" data-r="from"><span></span>' + ICO_CAL + '<input type="date" data-advs="from" aria-label="Дата начала"></label>' +
             '<label class="dt" data-r="to"><span></span>' + ICO_CAL + '<input type="date" data-advs="to" aria-label="Дата окончания"></label>' +
             '<button type="button" class="btn k" data-advs="show">Показать статистику</button><button type="button" class="btn" data-advs="export">Экспорт в Excel</button><span class="sp"></span>' +
