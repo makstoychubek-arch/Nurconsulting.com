@@ -776,6 +776,7 @@
     function mount(el, ctx) {
         if (!el || !ctx) return;
         var slot = el.getAttribute('data-slot') || ctx.slot || 'stats';
+        if (slot !== 'keys') return; // блок «Статистика РК по дням» убран: разбивки по зонам в API WB нет
         if (!ctx.key && el.getAttribute('data-key')) ctx = Object.assign({}, ctx, { key: el.getAttribute('data-key') });
         var st = stateOf(ctx);
         var first = !el.__advs || el.__advs !== st.key + ':' + slot || !el.querySelector('.advs');

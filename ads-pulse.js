@@ -558,7 +558,7 @@
         return '<div class="adp2-body cw" role="dialog" aria-modal="true" aria-label="Окно кампании"' + (CAN_POP ? ' popover="manual"' : '') + '><div class="cw-in">' +
             headHtml(key, camp, kind, live) + budgetCardsHtml(key, camp) + zonesHtml(key, camp, kind) + tabs +
             (kw ? '<div class="adp2-kwp" data-key="' + esc(key) + '">' + kwHtml(key, cab, camp) + '</div>' : productsHtml(key, cab, camp)) +
-            (legacy ? '' : '<div class="adp2-slot" data-slot="stats" data-key="' + esc(key) + '"></div><div class="adp2-slot" data-slot="keys" data-key="' + esc(key) + '"></div>') +
+            (legacy ? '' : '<div class="adp2-slot" data-slot="keys" data-key="' + esc(key) + '"></div>') +
             '</div></div>';
     }
     /* Слоты статистики и ключей наполняет root.AdvStats прямо в DOM; морфинг списка их не должен стирать:
