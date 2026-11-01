@@ -566,7 +566,8 @@
     function zonesHtml(key, camp, kind) {
         var z = zonesState(key, camp), C = root.AdvCtl, allowed = true;
         try { if (C && typeof C.zonesAllowed === 'function') allowed = C.zonesAllowed(Object.assign({}, ctlState(key) || {}, { paymentType: camp.paymentType, bidType: (S.info[key] && S.info[key].bidType) || camp.bidType })); } catch (e) { allowed = true; }
-        var lock = !allowed ? { off: (C.unsupportedText && C.unsupportedText.zonesCpc) || 'Пока недоступно' } : 'setZones';
+        if (!allowed) return ''; // единая ставка и CPC: зон нет, блок не показываем (для «Полок» зоны заменяет исключение ключей)
+        var lock = 'setZones';
         function one(k, t) {
             var on = z[k];
             return '<div class="cw-zone' + (on === false ? ' off' : '') + '"><span class="cw-lab">' + swHtml(on, 'zone', key, ' data-zone="' + k + '"', t, lock) + t + '</span><span class="cw-pic" aria-hidden="true"><i class="a"></i><i></i><i></i></span></div>';
