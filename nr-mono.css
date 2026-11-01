@@ -1088,3 +1088,10 @@ html body .abw-b.k { background: var(--text-primary); color: var(--surface-solid
   html body #adv-pulse .adp2-pos > .adp2-sl { grid-area: ps; }
   html body #adv-pulse .adp2-abt { grid-area: ab; justify-self: end; }
 }
+
+/* Фильтр статусов кампаний (как в кабинете WB) */
+html body #adv-pulse .adp2-flt { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 12px; }
+html body #adv-pulse .adp2-flt::-webkit-scrollbar { display: none; }
+html body #adv-pulse .adp2-flt button { flex: none; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+html body #adv-pulse .adp2-flt button em { font-style: normal; font-size: 11px; font-weight: 800; opacity: .7; }
+html body #adv-pulse .adp2-flt button.on { border-color: var(--text-primary); color: var(--text-primary); background: transparent; box-shadow: inset 0 0 0 1px var(--text-primary); }
