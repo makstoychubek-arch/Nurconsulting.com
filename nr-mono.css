@@ -1083,10 +1083,8 @@ html body .abw-b.k { background: var(--text-primary); color: var(--surface-solid
   html body header.glass.app-header .header-page-title .nr-crumbs { flex: none; font-size: 12px; white-space: nowrap; }
   html body header.glass.app-header .header-page-title .nr-crumbs .nr-crumb-cur { display: none; }
   html body header.glass.app-header .header-page-title .header-title { font-size: 15px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  html body #adv-pulse .adp2-head { grid-template-areas: "tc nm ps" "ty ab bl" "m5 m5 m5"; }
-  html body #adv-pulse .adp2-pos { display: contents; }
-  html body #adv-pulse .adp2-pos > .adp2-sl { grid-area: ps; }
-  html body #adv-pulse .adp2-abt { grid-area: ab; justify-self: end; }
+  html body #adv-pulse .adp2-pos .adp2-abt { display: none; }
+  html body #adv-pulse .adp2-ty { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 }
 
 /* Фильтр статусов кампаний (как в кабинете WB) */
@@ -1104,3 +1102,6 @@ html body .adp2-ov[popover] { inset: 0; width: 100%; height: 100%; max-width: no
 @media (max-width: 760px) {
   html body .advs .scr, html body .advs .scr.k { max-height: none; overflow-y: visible; overflow-x: auto; overscroll-behavior-x: contain; overscroll-behavior-y: auto; }
 }
+
+/* ПК: ползунок «Автобиддер» стоит в колонке режима, копия для телефона (в ячейке типа) скрыта */
+@media (min-width: 761px) { html body #adv-pulse .adp2-ty .adp2-abt-m { display: none; } }
