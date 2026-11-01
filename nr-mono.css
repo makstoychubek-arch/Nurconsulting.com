@@ -1066,3 +1066,11 @@ html body .abw-b.k { background: var(--text-primary); color: var(--surface-solid
 @media (max-width: 700px) { html body .abw { place-items: end center; padding: 0; } html body .abw .adp2-md { border-radius: 26px 26px 0 0 !important; padding: 18px; } html body .abw-two { grid-template-columns: 1fr; } html body .abw-ft { flex-direction: column; } }
 
 @media (min-width: 761px) { html body #adv-pulse .adp2-abt span { display: none; } html body #adv-pulse .adp2-pos { gap: 10px; } }
+
+/* Телефон: окно кампании не прячется под строкой состояния (вырез, время, батарея): опускаем по безопасной зоне экрана */
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-row.open > .adp2-body, html body #adv-pulse .adp2-row.open > .adp2-body[popover] {
+    inset: calc(env(safe-area-inset-top, 0px) + 20px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px) 12px;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px);
+  }
+}
