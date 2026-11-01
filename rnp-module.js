@@ -8263,13 +8263,16 @@ const RNP = (() => {
     }
 
     // Телефон: таблица едет только по одной оси за жест. Первое заметное движение пальца выбирает ось
-    // (вправо-влево или вверх-вниз), вторая ось на время жеста блокируется, так что по диагонали не «плывёт».
+    // (вправо-влево или вверх-вниз), вторая ось на время жеста держится на месте, так что по диагонали не «плывёт».
+    // Раньше вторая ось отключалась через overflow:hidden: на iPhone это сбрасывало горизонтальную позицию в начало
+    // (после сдвига к поздним дням любой вертикальный свайп возвращал таблицу к названиям строк). Теперь стили не трогаем:
+    // позицию второй оси просто возвращаем на запомненную.
     function _bindAxisLock(body) {
         if (!body || body.__rnpAxisLock) return;
         body.__rnpAxisLock = true;
-        let x0 = 0, y0 = 0, axis = '', timer = 0, touching = false;
-        const restore = () => { clearTimeout(timer); body.style.overflowX = ''; body.style.overflowY = ''; axis = ''; };
-        // Возвращаем обе оси, когда инерция закончилась (нет событий прокрутки 160 мс).
+        let x0 = 0, y0 = 0, axis = '', timer = 0, touching = false, lockL = 0, lockT = 0;
+        const restore = () => { clearTimeout(timer); axis = ''; };
+        // Ось освобождаем, когда инерция закончилась (нет событий прокрутки 160 мс).
         const restoreLater = () => { clearTimeout(timer); timer = setTimeout(restore, 160); };
         body.addEventListener('touchstart', (e) => {
             if (!_isPhone() || !e.touches || e.touches.length !== 1) return;
@@ -8281,7 +8284,7 @@ const RNP = (() => {
             const dx = Math.abs(e.touches[0].clientX - x0), dy = Math.abs(e.touches[0].clientY - y0);
             if (Math.max(dx, dy) < 6) return;
             axis = dx > dy ? 'x' : 'y';
-            if (axis === 'x') body.style.overflowY = 'hidden'; else body.style.overflowX = 'hidden';
+            lockL = body.scrollLeft; lockT = body.scrollTop;
         }, { passive: true });
         // Упор в край таблицы: дальше тянуть нельзя (на старых iOS резинка показывает пустой угол).
         let px = 0, py = 0;
@@ -8295,7 +8298,11 @@ const RNP = (() => {
         }, { passive: false });
         body.addEventListener('touchend', () => { touching = false; restoreLater(); }, { passive: true });
         body.addEventListener('touchcancel', () => { touching = false; restore(); }, { passive: true });
-        body.addEventListener('scroll', () => { if (axis && !touching) restoreLater(); }, { passive: true });
+        body.addEventListener('scroll', () => {
+            if (axis === 'y' && body.scrollLeft !== lockL) body.scrollLeft = lockL;
+            else if (axis === 'x' && body.scrollTop !== lockT) body.scrollTop = lockT;
+            if (axis && !touching) restoreLater();
+        }, { passive: true });
     }
 
     // Телефон: таблица на весь месяц (30+ колонок × 80 строк) слишком тяжела для мобильного браузера.

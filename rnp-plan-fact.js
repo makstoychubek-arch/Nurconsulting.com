@@ -446,7 +446,8 @@
         if (!sc || sc.__pfLock) return;
         sc.__pfLock = true;
         var x0 = 0, y0 = 0, px = 0, py = 0, axis = '', timer = 0, touching = false;
-        function restore() { clearTimeout(timer); sc.style.overflowX = ''; sc.style.overflowY = ''; axis = ''; }
+        var lockL = 0, lockT = 0; // вторую ось держим на месте (overflow:hidden сбрасывал позицию на iPhone)
+        function restore() { clearTimeout(timer); axis = ''; }
         function later() { clearTimeout(timer); timer = setTimeout(restore, 160); }
         sc.addEventListener('touchstart', function (e) {
             if (!isPhone() || !e.touches || e.touches.length !== 1) return;
@@ -461,7 +462,7 @@
                 var ax = Math.abs(x - x0), ay = Math.abs(y - y0);
                 if (Math.max(ax, ay) < 6) return;
                 axis = ax > ay ? 'x' : 'y';
-                if (axis === 'x') sc.style.overflowY = 'hidden'; else sc.style.overflowX = 'hidden';
+                lockL = sc.scrollLeft; lockT = sc.scrollTop;
             }
             if (!e.cancelable) return;
             var maxL = sc.scrollWidth - sc.clientWidth, maxT = sc.scrollHeight - sc.clientHeight;
@@ -470,7 +471,11 @@
         }, { passive: false });
         sc.addEventListener('touchend', function () { touching = false; later(); }, { passive: true });
         sc.addEventListener('touchcancel', function () { touching = false; restore(); }, { passive: true });
-        sc.addEventListener('scroll', function () { if (axis && !touching) later(); }, { passive: true });
+        sc.addEventListener('scroll', function () {
+            if (axis === 'y' && sc.scrollLeft !== lockL) sc.scrollLeft = lockL;
+            else if (axis === 'x' && sc.scrollTop !== lockT) sc.scrollTop = lockT;
+            if (axis && !touching) later();
+        }, { passive: true });
     }
 
     function ensureOverlay() {
