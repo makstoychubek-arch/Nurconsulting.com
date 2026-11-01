@@ -468,6 +468,9 @@
     }
 
     function compareCampaigns(a, b) {
+        // Активные (идёт показ) всегда выше остановленных; внутри группы прежний порядок.
+        const live = (b && b.live ? 1 : 0) - (a && a.live ? 1 : 0);
+        if (live) return live;
         const yu = (b && b.usedYesterday ? 1 : 0) - (a && a.usedYesterday ? 1 : 0);
         if (yu) return yu;
         const rec = (Number(b && b.recentAt) || 0) - (Number(a && a.recentAt) || 0);
@@ -476,8 +479,6 @@
         if (last) return last;
         const sp = (Number(b && b.spendToday) || 0) - (Number(a && a.spendToday) || 0);
         if (sp) return sp;
-        const live = (b && b.live ? 1 : 0) - (a && a.live ? 1 : 0);
-        if (live) return live;
         return String((a && a.name) || '').localeCompare(String((b && b.name) || ''), 'ru');
     }
 
