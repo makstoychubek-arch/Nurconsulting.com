@@ -1,4 +1,4 @@
-/* Окно кампании: «Статистика РК по дням и зонам показов» и «Ключевые фразы».
+/* Окно кампании: «Статистика РК по дням» и «Ключевые фразы».
    Контракт: window.AdvStats.mount(el, ctx), ctx = { key, cabId, campaign: { wbId, ... }, currency? }.
    mount вызывается при каждой перерисовке окна для слотов <div class="adp2-slot" data-slot="stats|keys" data-key="…">
    и идемпотентен: вкладки, даты, столбцы и загруженные данные лежат в памяти по ключу кампании.
@@ -271,7 +271,7 @@
             var rg = defaultRange();
             st = ST[key] = {
                 key: key, cabId: ctx.cabId, wbId: Number(ctx.campaign && ctx.campaign.wbId) || 0,
-                from: rg.from, to: rg.to, tab: 'z', live: true, hidden: false, colsOpen: false, hiddenCols: savedCols(),
+                from: rg.from, to: rg.to, tab: 'd', live: true, hidden: false, colsOpen: false, hiddenCols: savedCols(),
                 rows: null, prod: {}, prodOk: false, nms: [], upd: 0, syncedAt: 0, loading: false, seq: 0, error: '', msg: '', scroll: {},
                 zones: null, zoneTotal: null, lastLive: 0, els: {}, kw: null, ctxCurrency: ctx.currency || '',
             };
@@ -409,7 +409,8 @@
 
     /* ───────── разметка: статистика ───────── */
     var ICO_CAL = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>';
-    var TABS = [['z', 'По зонам показов'], ['d', 'По дням (без разбивки)'], ['s', 'Полки'], ['p', 'Поиск'], ['c', 'Каталог']];
+    // Разбивку по зонам (поиск, полки, каталог) WB API не отдаёт, поэтому остаётся одна вкладка «По дням»: отдельную полосу вкладок не рисуем.
+    var TABS = [['d', 'По дням']];
 
     function statsFrame(st) {
         return '<div class="advs" data-advs-root="stats"><div class="card"><div class="stt">' +
@@ -419,7 +420,7 @@
             '<button type="button" class="btn k" data-advs="show">Показать статистику</button><button type="button" class="btn" data-advs="export">Экспорт в Excel</button><span class="sp"></span>' +
             '<span class="sw">Источник данных: с сайта WB <button type="button" class="tg on" data-advs="src" role="switch" aria-checked="true" aria-label="Источник данных: WB API"></button> WB API</span></div>' +
             '<div class="bar"><span class="sync" data-r="sync"></span><button type="button" class="btn" data-advs="refresh" data-r="refresh">⟳ Обновить</button><span class="sp"></span>' +
-            '<span class="seg" role="tablist">' + TABS.map(function (t) { return '<span role="tab" tabindex="0" data-advs="tab" data-t="' + t[0] + '">' + t[1] + '</span>'; }).join('') + '</span></div>' +
+            '</div>' +
             '<div class="pw"><div class="prog" data-r="prog"></div><div class="pane" data-r="pane"></div><button type="button" class="side" data-advs="cols" aria-expanded="false">Столбцы</button><div class="colpop" data-r="colpop" hidden></div></div>' +
             '<div class="sub" data-r="note" hidden></div>' +
             '</div></div></div>';
@@ -488,7 +489,6 @@
         var tg = r0.querySelector('[data-advs="src"]'); tg.classList.toggle('on', !!st.live); tg.setAttribute('aria-checked', st.live ? 'true' : 'false');
         var note = q(r0, 'note'), nt = '';
         if (st.srcNote) nt = 'Выгрузка с сайта WB пока не подключена: цифры берём из WB API.';
-        else if (!sk && (st.tab === 'z' || st.tab === 's' || st.tab === 'p' || st.tab === 'c') && !st.zones) nt = 'WB API не отдаёт разбивку по зонам показов (поиск, полки, каталог), поэтому эти строки пока без цифр.';
         else if (st.rows && st.rows.length === 0) nt = 'За выбранные даты по этой кампании нет данных. Нажмите «Обновить», чтобы запросить их у WB.';
         note.hidden = !nt; setText(note, nt);
         var cp = q(r0, 'colpop'); cp.hidden = !st.colsOpen; r0.querySelector('[data-advs="cols"]').setAttribute('aria-expanded', st.colsOpen ? 'true' : 'false');
