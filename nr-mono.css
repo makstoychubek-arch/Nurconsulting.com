@@ -1105,3 +1105,15 @@ html body .adp2-ov[popover] { inset: 0; width: 100%; height: 100%; max-width: no
 
 /* ПК: ползунок «Автобиддер» стоит в колонке режима, копия для телефона (в ячейке типа) скрыта */
 @media (min-width: 761px) { html body #adv-pulse .adp2-ty .adp2-abt-m { display: none; } }
+
+/* Окно кампании на телефоне: название и «Закрыть» закреплены сверху и не уезжают при прокрутке вниз; всё ниже зоны размытия iPhone (см. отступ окна) */
+html body .cw-bar { display: none; }
+@media (max-width: 760px) {
+  html body .cw-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: sticky; top: -16px; z-index: 8; margin: -16px -16px 12px; padding: 14px 16px 10px; background: var(--surface-solid, #fff); border-bottom: 1px solid var(--border); border-radius: 22px 22px 0 0; }
+  html body .cw-bar-t { flex: 1; min-width: 0; font-size: 17px; font-weight: 900; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html body .cw-xb { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  html body .cw-xb svg { width: 16px; height: 16px; }
+  html body .adp2-body.cw .cw-hd .cw-h2, html body .adp2-body.cw .cw-hd .cw-x { display: none; }
+}
+/* Уведомления поверх окон: на телефоне ниже зоны размытия iPhone и по ширине экрана (перебивает общий сброс popover) */
+@media (max-width: 640px) { html body .nru-wrap[popover] { inset: auto 12px auto 12px; top: calc(env(safe-area-inset-top, 0px) + 8px); max-width: none; } }
