@@ -341,7 +341,7 @@
     function balHtml(key, camp) {
         var b = balOf(key, camp), low = b != null && b < 300;
         return '<button type="button" class="adp2-bal' + (low ? ' low' : '') + '" data-pact="topup" data-key="' + esc(key) + '" title="Баланс кампании. Нажмите, чтобы пополнить">' +
-            '<b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : '<span class="adp2-bn">' + fmtInt(b) + '</span><span class="adp2-cur"> ₽</span>') + '</b><i>+</i></button>';
+            '<b class="' + (low ? 'bad' : '') + '">' + (b == null ? '—' : '<span class="adp2-bn">' + fmtInt(b) + '</span><span class="adp2-cur"> сом</span>') + '</b><i>+</i></button>';
     }
     function bidControlHtml(key, camp, kind) {
         var inf = S.info[key], list = entriesOf(key, camp);
@@ -447,7 +447,7 @@
     /* Ползунок: 0 — выкл, 1 — включена, A — автопилот */
     function switchHtml(key, camp, live) {
         var AS = root.AdvShelves, kp = String(key).split(':');
-        var pos = !live ? 0 : ((camp.auto || (AS && AS.has(kp[0], kp[1]))) ? 2 : 1);
+        var pos = !live ? 0 : (camp.auto ? 2 : 1); // «A» горит только у автопилота: «Полки» и список ключей показывает своя метка под названием
         var IC = ['<path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/>', '<path d="M8 5.5v13l11-6.5z"/>', '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'];
         function b(n, l, t) { return '<button type="button" data-pact="pos" data-pos="' + n + '" data-key="' + esc(key) + '" class="' + (pos === n ? 'on' : '') + '" aria-pressed="' + (pos === n) + '" aria-label="' + t + '" title="' + t + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg></button>'; }
         return '<div class="adp2-sl p' + pos + '" role="group" aria-label="Режим кампании">' + b(0, '0', 'Выключена') + b(1, '1', 'Включена') + b(2, 'A', 'Автопилот сам ведёт ставки') + '</div>';
@@ -566,7 +566,7 @@
             '<div class="cw-lab">' + swHtml(lim.on, 'limit', key, '', 'Дневной лимит', 'setLimit') + '<h3>Дневной лимит</h3>' + qHtml('Сумма, больше которой кампания не потратит за сутки') + '</div>' +
             '<label class="cw-inp' + (lim.on ? ' live' : '') + '"><input type="text" inputmode="decimal" class="cw-limit-in" data-key="' + esc(key) + '" value="' + esc(lv) + '" placeholder="Задайте от ' + min + '" aria-label="Дневной лимит"' + (lim.on && ctlOk('setLimit') ? '' : ' disabled') + '><span>KGS</span></label>' +
             '<label class="cw-lab cw-cbl"><button type="button" class="cw-cb' + (lim.carry ? ' on' : '') + '" role="checkbox" aria-checked="' + lim.carry + '" data-ctl="1" data-pact="carry" data-key="' + esc(key) + '"' + (lim.on && ctlOk('setLimit') ? '' : ' disabled') + '></button>Переносить неистраченные деньги ' + qHtml('Неистраченная за день сумма добавится к лимиту следующего дня') + '</label></div>' +
-            '<div class="cw-ls">' + (lim.on && lim.kop ? fmtMoney(kopToSom(lim.kop)) + ' KGS в сутки' : 'не задан') + '</div>' + '<div class="cw-hint">Равномерно распределим сумму в течение суток</div></div></section></div>';
+            '<div class="cw-ls">' + (lim.on && lim.kop ? fmtMoney(kopToSom(lim.kop)) + ' KGS в сутки' : 'не задан') + '</div>' + '<a class="cw-lnk cw-wb" href="https://cmp.wildberries.ru/campaigns/edit/' + esc(camp.wbId) + '" target="_blank" rel="noopener">Лимит и автопополнение задаются в кабинете WB ↗</a>' + '<div class="cw-hint">Равномерно распределим сумму в течение суток</div></div></section></div>';
     }
     function zonesHtml(key, camp, kind) {
         var z = zonesState(key, camp), C = root.AdvCtl, allowed = true;
@@ -634,7 +634,7 @@
         return '<div class="adp2-body cw" role="dialog" aria-modal="true" aria-label="Окно кампании"' + (CAN_POP ? ' popover="manual"' : '') + '><div class="cw-in">' +
             headHtml(key, camp, kind, live) + budgetCardsHtml(key, camp) + zonesHtml(key, camp, kind) + tabs +
             (kw ? '<div class="adp2-kwp" data-key="' + esc(key) + '">' + kwHtml(key, cab, camp) + '</div>' : productsHtml(key, cab, camp)) +
-            (!legacy && kind === 'cpm' && root.AdvShelves && root.AdvShelves.openAllowed ? '<div class="cw-allow"><button type="button" class="btn" data-pact="allowed" data-key="' + esc(key) + '">Разрешённые ключи' + (root.AdvShelves.keepCount(cab.id, camp.wbId) ? ' (' + root.AdvShelves.keepCount(cab.id, camp.wbId) + ')' : '') + '</button><span class="adp2-mut">Список ключей, на которых идут показы. Остальные исключаются автоматически.</span></div>' : '') +
+            (!legacy && kind === 'cpm' && root.AdvShelves && root.AdvShelves.openAllowed ? '<div class="cw-allow"><button type="button" class="btn" data-pact="allowed" data-key="' + esc(key) + '">Разрешённые ключи' + (root.AdvShelves.keepCount(cab.id, camp.wbId) ? ' (' + root.AdvShelves.keepCount(cab.id, camp.wbId) + ')' : '') + '</button><span class="adp2-mut">Остальные ключи исключаются автоматически. Выключенный в WB ключ из списка сам не включится: включите его в кабинете WB.</span></div>' : '') +
             (legacy ? '' : '<div class="adp2-slot" data-slot="keys" data-key="' + esc(key) + '"></div>') +
             '</div></div>';
     }
@@ -769,6 +769,17 @@
             '<div class="adp2-ch">' + bar(74, 22, ';border-radius:999px') + '</div>' +
             '</div></article>';
     }
+    /* Порядок списка не прыгает после «Пауза/Запуск»: пока не сменили фильтр, поиск или кабинет, строки стоят там, где стояли */
+    function orderSig() { var A = root.AdsHQ; return A && A.getCampFilter ? [A.getCampFilter(), A.getSearch ? A.getSearch() : '', (A.getFilterCabinetId && A.getFilterCabinetId()) || ''].join('|') : ''; }
+    function holdOrder() { S.ord = {}; (S.rows || []).forEach(function (cab) { S.ord[cab.id] = cab.campaigns.map(function (c) { return keyOf(cab, c); }); }); S.ordSig = orderSig(); }
+    function applyHeldOrder(rows) {
+        if (!S.ord || S.ordSig !== orderSig()) { S.ord = null; return rows; }
+        return rows.map(function (cab) {
+            var o = S.ord[cab.id]; if (!o) return cab;
+            var idx = function (c) { var i = o.indexOf(keyOf(cab, c)); return i < 0 ? 1e6 : i; };
+            return Object.assign({}, cab, { campaigns: cab.campaigns.slice().sort(function (a, b) { return idx(a) - idx(b); }) });
+        });
+    }
     /* Фильтр статусов как в кабинете WB: все, активные, приостановленные, архивные (с числом кампаний) */
     function fltHtml() {
         var A = root.AdsHQ; if (!A || !A.getStatusCounts || !A.getCampFilter) return '';
@@ -780,7 +791,7 @@
     }
     function render() {
         var host = $('adv-pulse'); if (!host || S.view !== 'pulse') return;
-        S.rows = (root.AdsHQ && root.AdsHQ.getVisibleRows) ? root.AdsHQ.getVisibleRows() : [];
+        S.rows = (root.AdsHQ && root.AdsHQ.getVisibleRows) ? applyHeldOrder(root.AdsHQ.getVisibleRows()) : [];
         var total = 0, html = '';
         S.rows.forEach(function (cab) {
             if (S.rows.length > 1 && cab.campaigns.length) html += '<h3 class="adp2-cab" data-key="cab:' + esc(cab.id) + '"><b>' + esc(cab.name) + '</b><span>' + cab.campaigns.length + ' ' + campWord(cab.campaigns.length) +'</span></h3>';
@@ -1254,7 +1265,7 @@
         else if (act === 'prodtgl') { if (e.target.closest('.cw-tools')) return; S.pc = S.pc || {}; S.pc[key] = !S.pc[key]; patchRow(key); }
         else if (act === 'flt') { if (root.AdsHQ && root.AdsHQ.setCampFilter) { root.AdsHQ.setCampFilter(t.dataset.f); render(); } }
         else if (act === 'allowed') { var fa = findCamp(key); if (fa && root.AdvShelves && root.AdvShelves.openAllowed) root.AdvShelves.openAllowed(fa.cab.id, fa.camp.wbId); }
-        else if (act === 'toggle') togglePause(key);
+        else if (act === 'toggle') { holdOrder(); togglePause(key); }
         else if (act === 'rowmenu') { var dd = t.closest('.cw-dots'); dd.classList.toggle('open'); }
         else if (act === 'copyid') { var idv = String(t.dataset.id || ''); try { Promise.resolve(root.navigator.clipboard.writeText(idv)).catch(function () {}); } catch (er) { /* без буфера */ } toast('Номер ' + esc(idv) + ' скопирован', null); }
         else if (act === 'refill') { if (!t.disabled) refillFlow(key); }
@@ -1264,7 +1275,7 @@
         else if (act === 'finish') { if (!t.disabled) finishFlow(key); }
         else if (act === 'hist') { if (!t.disabled) historyFlow(key); }
         else if (act === 'rename') { if (!t.disabled) renameFlow(key); }
-        else if (act === 'pos') { var fp = findCamp(key); if (fp && root.AdsHQ && root.AdsHQ.setCampPos) root.AdsHQ.setCampPos(fp.cab.id, fp.camp.wbId, Number(t.dataset.pos)); }
+        else if (act === 'pos') { holdOrder(); var fp = findCamp(key); if (fp && root.AdsHQ && root.AdsHQ.setCampPos) root.AdsHQ.setCampPos(fp.cab.id, fp.camp.wbId, Number(t.dataset.pos)); }
         else if (act === 'retry') retryOps(key);
         else if (act === 'drop') dropOps(key);
         else if (act === 'vretry') { var o = S.ops[t.dataset.v]; if (o) { o.tries = 0; send(t.dataset.v); render(); } }

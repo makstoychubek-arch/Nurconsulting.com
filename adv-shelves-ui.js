@@ -181,7 +181,7 @@
                 '<div><div class="shv-lab">Что будет в кампании <b>' + prev.length + ' ключей</b></div><div class="shv-pvs">' + (pv || '<div class="shv-li mut">Ключи кампании загружаются…</div>') + '</div></div></div>' +
                 '<label class="shv-chk"><input type="checkbox" id="shv-dryfirst"' + (dryFirst ? ' checked' : '') + '> Сначала пробно (3 часа покажем, что исключим, WB не трогаем)</label>' +
                 '<div class="shv-act"><button type="button" class="shv-b" data-apply="1">Применить список</button></div>' +
-                '<p class="shv-hint">Новые ключи, которые WB добавит в кампанию, тоже будут исключены, пока их нет в списке. Совпадение по точной фразе без учёта регистра.</p>';
+                '<p class="shv-hint">Новые ключи, которые WB добавит в кампанию, тоже будут исключены, пока их нет в списке. Совпадение по точной фразе без учёта регистра. Выключенный в WB ключ из списка сам не включится: включите его в кабинете WB.</p>';
         }
         function applyAllowed() {
             var keep = mode === 'allowed' ? draft.slice() : [];

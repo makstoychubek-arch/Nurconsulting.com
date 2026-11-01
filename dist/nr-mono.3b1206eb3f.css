@@ -1152,3 +1152,6 @@ html body .cw-sum, html body .cw-ls { display: none; }
   html body .adp2-body.cw .cw-ls { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); }
   html body .cw-allow .adp2-mut { display: none; }
 }
+
+html body .cw-wb { display: inline-block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 760px) { html body .adp2-body.cw .cw-lim .cw-wb { display: none; } }
