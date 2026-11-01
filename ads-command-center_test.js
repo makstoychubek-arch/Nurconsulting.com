@@ -87,12 +87,15 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
         snapshots: [],
         v2Stats: [],
     });
-    assert.equal(used.rows[0].campaigns[0].name, 'Вчерашняя');
-    assert.equal(used.rows[0].campaigns[0].usedYesterday, true);
-    assert.equal(used.rows[0].campaigns[0].spendToday, 0, 'yesterday spend stays out of the picked day KPI');
+    // активные (status 9) идут выше остановленных, даже если остановленная тратила вчера
+    assert.equal(used.rows[0].campaigns[0].name, 'Старая');
+    const yest = used.rows[0].campaigns.find((c) => c.name === 'Вчерашняя');
+    assert.equal(yest.usedYesterday, true);
+    assert.equal(yest.spendToday, 0, 'yesterday spend stays out of the picked day KPI');
     assert.equal(used.rows[0].spendToday, 100);
     const visible = AdsHQ.filterCampaigns(used.rows[0].campaigns, 'all');
-    assert.equal(visible[0].name, 'Вчерашняя');
+    assert.equal(visible[0].name, 'Старая');
+    assert.equal(visible[1].name, 'Вчерашняя');
     assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'all', 'вчераш').length, 1);
     assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'active').length, 1);
     assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'active')[0].name, 'Старая');
