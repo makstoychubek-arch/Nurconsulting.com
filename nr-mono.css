@@ -1029,3 +1029,8 @@ html body .nr-win.nr-win-photo .nr-win-x::after { content: none !important; }
 html body .nr-win.nr-win-photo .nr-win-x:hover { background: var(--text-primary); color: var(--surface-solid, #fff); }
 html body .nr-win.nr-win-photo > .nr-win-scroll { padding: 0; }
 html body .nr-win.nr-win-photo img { border-radius: 0; }
+
+/* Кнопка «Разрешённые ключи» в окне кампании (только CPM) */
+html body .cw-allow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 2px 0; }
+html body .cw-allow .btn { border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); border-radius: 999px; padding: 9px 18px; font-size: 13px; font-weight: 800; cursor: pointer; }
+html body .cw-allow .btn:hover { background: var(--text-primary); color: var(--surface-solid, #fff); }

@@ -558,6 +558,7 @@
         return '<div class="adp2-body cw" role="dialog" aria-modal="true" aria-label="Окно кампании"' + (CAN_POP ? ' popover="manual"' : '') + '><div class="cw-in">' +
             headHtml(key, camp, kind, live) + budgetCardsHtml(key, camp) + zonesHtml(key, camp, kind) + tabs +
             (kw ? '<div class="adp2-kwp" data-key="' + esc(key) + '">' + kwHtml(key, cab, camp) + '</div>' : productsHtml(key, cab, camp)) +
+            (!legacy && kind === 'cpm' && root.AdvShelves && root.AdvShelves.openAllowed ? '<div class="cw-allow"><button type="button" class="btn" data-pact="allowed" data-key="' + esc(key) + '">Разрешённые ключи' + (root.AdvShelves.keepCount(cab.id, camp.wbId) ? ' (' + root.AdvShelves.keepCount(cab.id, camp.wbId) + ')' : '') + '</button><span class="adp2-mut">Список ключей, на которых идут показы. Остальные исключаются автоматически.</span></div>' : '') +
             (legacy ? '' : '<div class="adp2-slot" data-slot="keys" data-key="' + esc(key) + '"></div>') +
             '</div></div>';
     }
@@ -1162,6 +1163,7 @@
         else if (act === 'rm') { closeMenus(); removeProduct(key, Number(t.dataset.nm)); }
         else if (act === 'addp') addProductsFlow(key);
         else if (act === 'topup') topupFlow(key);
+        else if (act === 'allowed') { var fa = findCamp(key); if (fa && root.AdvShelves && root.AdvShelves.openAllowed) root.AdvShelves.openAllowed(fa.cab.id, fa.camp.wbId); }
         else if (act === 'toggle') togglePause(key);
         else if (act === 'rowmenu') { var dd = t.closest('.cw-dots'); dd.classList.toggle('open'); }
         else if (act === 'copyid') { var idv = String(t.dataset.id || ''); try { Promise.resolve(root.navigator.clipboard.writeText(idv)).catch(function () {}); } catch (er) { /* без буфера */ } toast('Номер ' + esc(idv) + ' скопирован', null); }

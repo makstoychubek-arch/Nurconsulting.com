@@ -131,7 +131,7 @@
             var hour = ex.filter(function (x) { return Date.now() - Date.parse(x.created_at) < 3600 * 1000; }).length;
             var dry = isDry(r);
             box.innerHTML = '<div class="shv-dlg wide" role="dialog"><div class="shv-grab"></div>' +
-                '<div class="shv-top"><div><h3>Кампания ' + esc(adv) + '</h3><span class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '"><i></i>' + (r.enabled ? 'Чистка идёт, каждые ' + r.interval_min + ' мин' : 'Чистка на паузе') + '</span></div><button type="button" class="shv-b g" data-x="1">Закрыть</button></div>' +
+                '<div class="shv-top"><div><h3>Кампания ' + esc(adv) + '</h3><span class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '"><i></i>' + (r.enabled ? 'Чистка идёт, каждые ' + r.interval_min + ' мин' : (r._virtual ? 'Чистка не включена' : 'Чистка на паузе')) + '</span></div><button type="button" class="shv-b g" data-x="1">Закрыть</button></div>' +
                 '<div class="shv-kp"><div><small>' + (dry ? 'Нашли бы исключить' : 'Исключено фраз') + '</small><b>' + (dry ? ex.length : (r.excluded_total || 0)) + '</b><em>' + hour + ' за час</em></div>' +
                 '<div><small>Последняя проверка</small><b class="s">' + ago(r.last_run_at) + '</b></div></div>' +
                 (r.last_status === 'error' ? '<p class="shv-err">Последняя проверка не удалась: ' + esc(r.last_error || 'ошибка') + '. Повторим автоматически.</p>' : '') +
@@ -185,6 +185,7 @@
             var keep = mode === 'allowed' ? draft.slice() : [];
             if (mode === 'allowed' && !keep.length) { toast('error', 'Список пуст', 'Добавьте хотя бы один ключ, иначе исключатся все'); return; }
             var patch = { keep_phrases: keep };
+            if (mode === 'allowed') patch.enabled = true;
             if (mode === 'allowed' && dryFirst) patch.dry_run_until = new Date(Date.now() + 3 * 3600 * 1000).toISOString();
             toast('success', 'Список сохранён', mode === 'allowed' ? ('Разрешено ключей: ' + keep.length + (dryFirst ? '. 3 часа пробный режим' : '')) : 'Исключаем все ключи');
             save(cab, adv, patch).then(function () { r = rows[key(cab, adv)] || r; paint((logCache[key(cab, adv)] || {}).items || []); });
@@ -217,6 +218,8 @@
             if (e.target.id === 'shv-iv') { save(cab, adv, { interval_min: Number(e.target.value) }); r = rows[key(cab, adv)]; }
         });
         doc.body.appendChild(box);
+        // Окно кампании открыто в верхнем слое браузера (popover), поэтому и это окно поднимаем туда же, иначе оно окажется под ним.
+        try { if (typeof box.showPopover === 'function') { box.setAttribute('popover', 'manual'); box.showPopover(); } } catch (e) { /* остаётся fixed */ }
         loadLog(cab, adv).then(function (items) { if (doc.getElementById('shv-detail') === box) paint(items); });
     }
     function runNow(cab, adv) {
@@ -287,7 +290,8 @@
         '.shv-lbl{font-size:12px;color:var(--text-muted,#6b7280)}.shv-iv{display:flex;gap:6px;flex-wrap:wrap}.shv-iv button{border:1.5px solid var(--border,#e5e3f0);background:none;color:inherit;border-radius:99px;padding:8px 14px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}.shv-iv button.sel{border-color:var(--accent,#5b4be8);background:var(--sel,#f1effc);color:var(--accent,#5b4be8)}' +
         '.shv-chk{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-muted,#6b7280)}.shv-act{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.shv-act.left{justify-content:flex-start;align-items:center}.shv-act select{border:1px solid var(--border,#e5e3f0);border-radius:10px;padding:8px;background:var(--bg-card,#fff);color:inherit;font:inherit;font-size:12.5px}' +
         '.shv-b{border:0;background:var(--accent,#5b4be8);color:#fff;border-radius:10px;padding:10px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}.shv-b.g{background:var(--sel,#f1effc);color:var(--accent,#5b4be8)}' +
-        '#shv-allowed{display:grid;gap:12px;min-width:0}.shv-seg{display:flex;border:1px solid var(--text-primary,#182433);border-radius:999px;padding:3px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}.shv-seg button{flex:none;border:0;background:transparent;color:var(--text-muted,#6b7280);border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}.shv-seg button.a{background:var(--text-primary,#182433);color:var(--surface-solid,#fff)}' +
+        '.shv-ov[popover]{inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;padding:16px;overflow:visible;background:transparent;color:inherit}' +
+        '.shv-dlg>*,#shv-allowed>*,.shv-two>*{min-width:0}#shv-allowed{display:grid;gap:12px;min-width:0}.shv-seg{display:flex;border:1px solid var(--text-primary,#182433);border-radius:999px;padding:3px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}.shv-seg button{flex:none;border:0;background:transparent;color:var(--text-muted,#6b7280);border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}.shv-seg button.a{background:var(--text-primary,#182433);color:var(--surface-solid,#fff)}' +
         '.shv-kpm{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.shv-kpm>div{border:1px solid var(--border,#e5e3f0);border-radius:14px;padding:8px 12px}.shv-kpm small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted,#6b7280)}.shv-kpm b{font-size:22px;font-weight:900}' +
         '.shv-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.shv-lab{display:flex;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7280);margin-bottom:6px}.shv-lab b{color:var(--text-primary,#182433)}' +
         '.shv-addr{display:flex;gap:8px;margin-bottom:8px}.shv-addr input{flex:1;min-width:0;border:1px solid var(--text-primary,#182433);border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;background:transparent;color:inherit}#shv-paste{width:100%;box-sizing:border-box;border:1px solid var(--text-primary,#182433);border-radius:14px;padding:10px 12px;font:inherit;font-size:13px;background:transparent;color:inherit;margin-bottom:8px}' +
@@ -301,5 +305,13 @@
         '@media(max-width:700px){.shv-ov{place-items:end center;padding:0}.shv-dlg,.shv-dlg.wide{width:100%;border-radius:22px 22px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom,0px))}.shv-grab{display:block;width:38px;height:4px;border-radius:9px;background:var(--border,#e5e3f0);margin:0 auto 4px}.shv-b{padding:13px 16px;font-size:14px}.shv-act .shv-b{flex:1}.shv-undo{padding:10px 16px}.shv-iv button{padding:10px 16px}}';
     var st = doc.createElement('style'); st.id = 'shv-css'; st.textContent = CSS; doc.head.appendChild(st);
 
-    root.AdvShelves = { has: has, needsAsk: needsAsk, ask: ask, slotHtml: slotHtml, setEnabled: setEnabled, load: load, paintSlots: paintSlots, isShelvesName: isShelvesName };
+    // Окно разрешённых ключей из окна кампании: только для CPM; если функции «Полки» ещё нет, строка создаётся при первом «Применить».
+    function openAllowed(cab, adv) {
+        return Promise.resolve(load(cab)).then(function () {
+            if (!rows[key(cab, adv)]) rows[key(cab, adv)] = { cabinet_id: cab, advert_id: Number(adv), enabled: false, interval_min: 10, keep_phrases: [], dry_run_until: null, excluded_total: 0, last_status: null, _virtual: true };
+            openDetail(cab, adv);
+        });
+    }
+    function keepCount(cab, adv) { var r = rows[key(cab, adv)]; return r && r.keep_phrases ? r.keep_phrases.length : 0; }
+    root.AdvShelves = { openAllowed: openAllowed, keepCount: keepCount, has: has, needsAsk: needsAsk, ask: ask, slotHtml: slotHtml, setEnabled: setEnabled, load: load, paintSlots: paintSlots, isShelvesName: isShelvesName };
 })(typeof window !== 'undefined' ? window : globalThis);
