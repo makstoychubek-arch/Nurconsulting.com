@@ -1074,3 +1074,17 @@ html body .abw-b.k { background: var(--text-primary); color: var(--surface-solid
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px);
   }
 }
+
+/* Телефон, «Продвижение»: без полосы «Реклама / Раздачи / Контент» (разделы есть в меню), заголовок страницы в одну строку,
+   ползунок «Автобиддер» во второй строке карточки кампании, чтобы название не обрезалось */
+@media (max-width: 760px) {
+  html body #nr-ads-tabs { display: none !important; }
+  html body header.glass.app-header .header-page-title { display: flex; flex-direction: row; align-items: baseline; flex-wrap: nowrap; gap: 6px; overflow: hidden; }
+  html body header.glass.app-header .header-page-title .nr-crumbs { flex: none; font-size: 12px; white-space: nowrap; }
+  html body header.glass.app-header .header-page-title .nr-crumbs .nr-crumb-cur { display: none; }
+  html body header.glass.app-header .header-page-title .header-title { font-size: 15px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  html body #adv-pulse .adp2-head { grid-template-areas: "tc nm ps" "ty ab bl" "m5 m5 m5"; }
+  html body #adv-pulse .adp2-pos { display: contents; }
+  html body #adv-pulse .adp2-pos > .adp2-sl { grid-area: ps; }
+  html body #adv-pulse .adp2-abt { grid-area: ab; justify-self: end; }
+}
