@@ -1,4 +1,4 @@
-/* Окно кампании: «Статистика РК по дням и зонам показов» и «Ключевые фразы» (adv-stats.js).
+/* Окно кампании: «Ключевые фразы» (adv-stats.js).
    «Минимализм»: чёрный (в тёмной теме белый), белый и серые; цвет только у зелёного и красного.
    Все цвета выводятся из токенов темы (--accent, --on-accent, --surface-solid, --green, --red), своих цветов нет.
    Классы как в утверждённом макете (.stt .bar .seg .scr .t .band .sum .sub), но всё под корнем .advs, чтобы не задеть остальной сайт. */
@@ -18,17 +18,12 @@
 .advs *, .advs *::before, .advs *::after { box-sizing: border-box; }
 .advs [hidden] { display: none !important; }
 .advs .card { border: 1px solid var(--as-m3); border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
-.advs .card h3 { margin: 0; font-size: 17px; font-weight: 900; letter-spacing: -.01em; display: flex; gap: 8px; align-items: baseline; color: var(--as-fg); }
 .advs .stt { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .advs .stt > *, .advs .card > * { min-width: 0; max-width: 100%; }
-.advs .hrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.advs .hrow h3 { margin: 0; font-size: 17px; font-weight: 900; letter-spacing: -.01em; }
 .advs .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
 .advs .bar .sp { flex: 1; }
 .advs .sub { font-size: 12px; color: var(--as-m2); max-width: 80ch; line-height: 1.5; }
-.advs .sync { font-size: 11px; color: var(--as-m2); }
 .advs .lnk { font-size: 12px; font-weight: 600; color: var(--as-m2); text-decoration: underline; text-underline-offset: 3px; margin-right: 6px; cursor: pointer; background: none; border: 0; padding: 0; font-family: inherit; }
-.advs .ico { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 /* кнопки, даты, переключатели */
 .advs .btn { border: 1px solid var(--as-m3); border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 700; background: transparent; color: var(--as-fg); font-family: inherit; display: inline-flex; gap: 8px; align-items: center; cursor: pointer; flex: none; line-height: normal; transition: opacity .15s, transform .08s; -webkit-tap-highlight-color: transparent; }
@@ -62,10 +57,9 @@
 @keyframes advs-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
 @media (prefers-reduced-motion: reduce) { .advs .prog.on::after { animation: none; width: 100%; opacity: .3; } }
 
-/* таблица с закреплёнными шапкой и колонкой «Дата» */
+/* таблица */
 .advs .pw { display: flex; gap: 8px; align-items: flex-start; min-width: 0; position: relative; }
 .advs .pw > .pane { flex: 1; min-width: 0; transition: opacity .15s; }
-.advs.collapsed .stt > :not(.hrow) { display: none; }
 .advs .pane.stale { opacity: .55; }
 .advs .scr { overflow: auto; max-height: 420px; border: 1px solid var(--as-m3); border-radius: 16px; position: relative; max-width: 100%; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--as-m3) transparent; -webkit-overflow-scrolling: touch; }
 .advs .scr.k { max-height: 380px; }
@@ -76,35 +70,9 @@
 .advs .t th, .advs .t td { padding: 7px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--as-m4); color: var(--as-fg); }
 .advs .t thead th { position: sticky; background: var(--as-surface); z-index: 3; font-weight: 700; color: var(--as-m2); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; border-bottom: 1px solid var(--as-m3); }
 .advs .t thead tr:nth-child(1) th { top: 0; text-align: left; color: var(--as-fg); font-size: 11px; font-weight: 800; }
-.advs .t thead tr:nth-child(2) th { top: var(--advs-h1, 29px); }
-.advs .t .g2 { background: var(--as-m4) !important; }
-.advs .t th.d, .advs .t td.d { position: sticky; left: 0; text-align: left; background: var(--as-surface); z-index: 2; border-right: 1px solid var(--as-m3); min-width: 132px; }
-.advs .t thead th.d { z-index: 4; }
 .advs .t tr.sum td { font-weight: 900; background: var(--as-m4); }
-.advs .t tr.sum td.d { background: var(--as-m4); }
-.advs .t tr.sub td { color: var(--as-m2); font-size: 11px; padding-top: 4px; padding-bottom: 4px; }
-.advs .t tr.sub td.d { padding-left: 26px; }
-.advs .t tr.sub td.d b { color: var(--as-fg); margin-left: 6px; }
-.advs .t tr.day td { font-weight: 800; }
-.advs .t tr.day.none td { color: var(--as-m2); font-weight: 600; }
-.advs .t tr.band td { background: var(--as-fg); color: var(--as-on); font-weight: 800; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; position: sticky; z-index: 1; border-bottom-color: var(--as-fg); }
-.advs .t tr.band td.d { background: var(--as-fg); }
-.advs .t tr.spk th { top: var(--advs-h12, 56px); height: 26px; padding: 3px 12px; }
-.advs .t td.g2c { background: var(--as-m4); }
-.advs .t tr.sum td.g2c { background: var(--as-m4); }
-.advs .t td small { font-size: 9px; color: var(--as-m2); vertical-align: super; margin-left: 2px; }
-.advs .t td .gr { color: var(--as-good); }
-.advs .t td .rd { color: var(--as-bad); }
 .advs .t td.dim { color: var(--as-m2); }
 .advs .sk { filter: blur(5px); user-select: none; display: inline-block; }
-.advs .t th svg { display: block; margin-left: auto; color: var(--as-m2); }
-.advs .side { writing-mode: vertical-rl; border: 1px solid var(--as-m3); border-radius: 12px; padding: 10px 6px; font-size: 11px; font-weight: 700; color: var(--as-m2); align-self: flex-start; background: transparent; font-family: inherit; cursor: pointer; flex: none; }
-.advs .side[aria-expanded="true"] { background: var(--as-fg); color: var(--as-on); border-color: var(--as-fg); }
-.advs .colpop { position: absolute; right: 36px; top: 0; z-index: 20; background: var(--as-surface); border: 1px solid var(--as-fg); border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow: auto; min-width: 190px; }
-.advs .colpop label { display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.advs .colpop .gt { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--as-m2); margin-top: 4px; }
-.advs .colpop .gt:first-child { margin-top: 0; }
-.advs .colpop input { accent-color: var(--as-fg); margin: 0; }
 
 /* ключи */
 .advs .kt td.k { text-align: left; font-weight: 600; min-width: 260px; }
@@ -131,7 +99,5 @@
 @container advs (max-width: 520px) {
     .advs .bar .sp { display: none; }
     .advs .sw { flex-wrap: wrap; }
-    .advs .side, .advs .colpop { display: none; }
     .advs .scr { max-height: 320px; }
-    .advs .t th.d, .advs .t td.d { min-width: 96px; }
 }
