@@ -45,7 +45,8 @@ test('«Полки»: в «Пульте» у кампании метка с чи
     const wb = String(CAMPS[0][0]);
     await page.waitForFunction((w) => { const e = document.querySelector('.shv-slot[data-shv-adv="' + w + '"]'); return e && /Полки/.test(e.innerText); }, wb, { timeout: 4000 });
     const pos = await page.evaluate((w) => { const r = document.querySelector('.adp2-row[data-key$=":' + w + '"] .adp2-sl'); return r ? r.className : ''; }, wb);
-    assert.ok(/\bp2\b/.test(pos), 'ползунок показывает «A» у кампании с чисткой полок: ' + pos);
+    // «A» теперь только у автопилота; «Полки» показывает метка под названием, ползунок на «1» (включена)
+    assert.ok(/\bp1\b/.test(pos), 'у кампании с чисткой полок ползунок на «1», «A» не горит: ' + pos);
 });
 
 test('«Пауза» по кампании: статус на экране меняется сразу, WB догоняет в фоне', async ({ page, calls }) => {
@@ -129,7 +130,7 @@ test('Дашборд на телефоне: новый компактный ви
 test('Пульт: у каждой РК виден баланс, по нажатию открывается пополнение и сумма уходит в WB', async ({ page, calls }) => {
     await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-bal').length >= 4, null, { timeout: 5000 });
     const bals = await page.evaluate(() => [...document.querySelectorAll('#adv-pulse .adp2-bal b')].map((b) => b.textContent.trim()));
-    assert.ok(bals.every((t) => /₽|—/.test(t)), 'в каждой строке есть баланс: ' + bals.join(', '));
+    assert.ok(bals.every((t) => /сом|—/.test(t)), 'в каждой строке есть баланс в сомах: ' + bals.join(', '));
     assert.ok(await page.locator('#adv-pulse .adp2-bal b.bad').count() >= 1, 'маленький баланс (меньше 300 ₽) подсвечен');
     const t0 = Date.now();
     await page.locator('#adv-pulse .adp2-bal').first().click();

@@ -718,7 +718,7 @@
                     return 0;
                 };
                 const pickLast = () => lastSpend.get(spendKeyWb) || (spendKeyUuid ? lastSpend.get(spendKeyUuid) : '') || '';
-                const name = raw.campaign_name || (v2 && v2.name) || ('РК ' + wbId);
+                const name = (v2 && v2.name) || raw.campaign_name || ('РК ' + wbId); // имя из WB обновляется раз в 30 минут, старая таблица раз в 6 часов
                 const nmId = resolveCampNmId(
                     name,
                     wbId,
