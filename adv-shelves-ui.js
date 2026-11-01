@@ -136,14 +136,73 @@
                 '<div><small>Последняя проверка</small><b class="s">' + ago(r.last_run_at) + '</b></div></div>' +
                 (r.last_status === 'error' ? '<p class="shv-err">Последняя проверка не удалась: ' + esc(r.last_error || 'ошибка') + '. Повторим автоматически.</p>' : '') +
                 (dry ? '<div class="shv-dry"><span>Пробный режим до ' + new Date(r.dry_run_until).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '. Фразы пока в WB не добавляются.</span><button type="button" class="shv-b" data-live="1">Подтвердить и включить</button></div>' : '') +
+                '<div id="shv-allowed"></div>' +
                 '<div class="shv-act left"><select id="shv-iv">' + [5, 10, 30].map(function (m) { return '<option value="' + m + '"' + (m === r.interval_min ? ' selected' : '') + '>каждые ' + m + ' мин</option>'; }).join('') + '</select>' +
                 '<button type="button" class="shv-b g" data-now="1">Проверить сейчас</button><button type="button" class="shv-b g" data-toggle="1">' + (r.enabled ? 'Пауза чистки' : 'Возобновить') + '</button></div>' +
                 '<h4>Журнал чистки</h4><div class="shv-log">' + (ex.length ? ex.slice(0, 40).map(function (x) {
                     return '<div class="shv-li"><div><span>' + esc(x.phrase) + '</span><small>' + new Date(x.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + (x.action === 'would_exclude' ? ' · пробно' : '') + '</small></div>' +
                         (x.action === 'exclude' ? '<button type="button" class="shv-undo" data-undo="' + x.id + '" data-nm="' + x.nm_id + '" data-ph="' + esc(x.phrase) + '">Вернуть</button>' : '<span class="shv-tag">пробно</span>') + '</div>';
                 }).join('') : '<div class="shv-li mut">Пока ничего не исключали. Новые фразы появятся здесь.</div>') + '</div>' +
-                '<p class="shv-hint">Исключаются только поисковые фразы. Ставка и бюджет остаются как заданы. Возвращённые фразы сайт больше не трогает.</p></div>';
+                '<p class="shv-hint">Исключаются только поисковые фразы. Ставка и бюджет остаются как заданы. Возвращённые фразы сайт больше не трогает.</p></div>'; paintAllowed();
         }
+
+        // ===== Разрешённые ключи: один блок на ключ, всё остальное исключается автоматически =====
+        var draft = (r.keep_phrases || []).slice(), mode = draft.length ? 'allowed' : 'all', addVal = '', pasteOpen = false, dryFirst = true, prev = null;
+        function normPhrase(t) { return String(t || '').replace(/\s+/g, ' ').trim(); }
+        function addPhrases(list) {
+            var have = {}, added = 0; draft.forEach(function (x) { have[x.toLowerCase()] = 1; });
+            list.forEach(function (t) { t = normPhrase(t); if (t && !have[t.toLowerCase()]) { have[t.toLowerCase()] = 1; draft.push(t); added++; } });
+            return added;
+        }
+        function loadPrev() {
+            if (prev !== null) return; prev = [];
+            Promise.resolve(sb().from('adv_campaigns').select('id').eq('cabinet_id', cab).eq('wb_campaign_id', Number(adv)).maybeSingle()).then(function (c) {
+                if (!c || !c.data) return null;
+                return sb().from('adv_clusters').select('cluster_key,is_active').eq('campaign_id', c.data.id).range(0, 499);
+            }).then(function (cl) { prev = (cl && cl.data || []).filter(function (x) { return x.is_active; }).map(function (x) { return x.cluster_key; }); paintAllowed(); }).catch(function () { paintAllowed(); });
+        }
+        function paintAllowed() {
+            var host = box.querySelector('#shv-allowed'); if (!host) return;
+            var seg = '<div class="shv-seg"><button type="button" data-mode="all" class="' + (mode === 'all' ? 'a' : '') + '">Исключать все ключи</button><button type="button" data-mode="allowed" class="' + (mode === 'allowed' ? 'a' : '') + '">Оставить только разрешённые</button></div>';
+            if (mode === 'all') { host.innerHTML = seg + '<p class="shv-hint">Сейчас сайт исключает все ключи кампании, показы идут только на полках. Чтобы оставить нужные ключи, выберите «Оставить только разрешённые».</p>' + (draft.length ? '<div class="shv-act"><button type="button" class="shv-b" data-apply="1">Применить</button></div>' : ''); return; }
+            loadPrev();
+            var set = {}; draft.forEach(function (x) { set[x.toLowerCase()] = 1; });
+            var keepN = prev.filter(function (k) { return set[String(k).toLowerCase()]; }).length;
+            var blocks = draft.map(function (k, i) { return '<div class="shv-kb"><i>' + (i + 1) + '</i><span>' + esc(k) + '</span><button type="button" data-del="' + i + '" aria-label="Убрать ключ">×</button></div>'; }).join('');
+            var pv = prev.slice(0, 40).map(function (k) { var ok = set[String(k).toLowerCase()]; return '<div class="shv-pv ' + (ok ? 'ok' : 'no') + '"><span>' + esc(k) + '</span><small>' + (ok ? 'оставляем' : 'исключим') + '</small></div>'; }).join('');
+            host.innerHTML = seg +
+                '<div class="shv-kpm"><div><small>Разрешено</small><b>' + draft.length + '</b></div><div><small>Остаётся в кампании</small><b>' + keepN + '</b></div><div><small>Исключим</small><b>' + Math.max(0, prev.length - keepN) + '</b></div></div>' +
+                '<div class="shv-two"><div><div class="shv-lab">Разрешённые ключи <b>' + draft.length + '</b></div>' +
+                '<div class="shv-addr"><input id="shv-add" type="text" placeholder="Добавить ключ, Enter" value="' + esc(addVal) + '" autocomplete="off"><button type="button" class="shv-b g" data-paste="1">Вставить списком</button></div>' +
+                (pasteOpen ? '<textarea id="shv-paste" rows="5" placeholder="Один ключ на строку (можно из Excel)"></textarea><div class="shv-act"><button type="button" class="shv-b g" data-pastex="1">Отмена</button><button type="button" class="shv-b" data-pasteok="1">Добавить</button></div>' : '') +
+                '<div class="shv-kbs">' + (blocks || '<div class="shv-li mut">Пока пусто. Добавьте хотя бы один ключ.</div>') + '</div></div>' +
+                '<div><div class="shv-lab">Что будет в кампании <b>' + prev.length + ' ключей</b></div><div class="shv-pvs">' + (pv || '<div class="shv-li mut">Ключи кампании загружаются…</div>') + '</div></div></div>' +
+                '<label class="shv-chk"><input type="checkbox" id="shv-dryfirst"' + (dryFirst ? ' checked' : '') + '> Сначала пробно (3 часа покажем, что исключим, WB не трогаем)</label>' +
+                '<div class="shv-act"><button type="button" class="shv-b" data-apply="1">Применить список</button></div>' +
+                '<p class="shv-hint">Новые ключи, которые WB добавит в кампанию, тоже будут исключены, пока их нет в списке. Совпадение по точной фразе без учёта регистра.</p>';
+        }
+        function applyAllowed() {
+            var keep = mode === 'allowed' ? draft.slice() : [];
+            if (mode === 'allowed' && !keep.length) { toast('error', 'Список пуст', 'Добавьте хотя бы один ключ, иначе исключатся все'); return; }
+            var patch = { keep_phrases: keep };
+            if (mode === 'allowed' && dryFirst) patch.dry_run_until = new Date(Date.now() + 3 * 3600 * 1000).toISOString();
+            toast('success', 'Список сохранён', mode === 'allowed' ? ('Разрешено ключей: ' + keep.length + (dryFirst ? '. 3 часа пробный режим' : '')) : 'Исключаем все ключи');
+            save(cab, adv, patch).then(function () { r = rows[key(cab, adv)] || r; paint((logCache[key(cab, adv)] || {}).items || []); });
+        }
+        box.addEventListener('click', function (e) {
+            var t = e.target, el;
+            if ((el = t.closest('[data-mode]'))) { mode = el.getAttribute('data-mode'); paintAllowed(); return; }
+            if ((el = t.closest('[data-del]'))) { draft.splice(Number(el.getAttribute('data-del')), 1); paintAllowed(); return; }
+            if (t.closest('[data-paste]')) { pasteOpen = !pasteOpen; paintAllowed(); var ta = box.querySelector('#shv-paste'); if (ta) ta.focus(); return; }
+            if (t.closest('[data-pastex]')) { pasteOpen = false; paintAllowed(); return; }
+            if (t.closest('[data-pasteok]')) { var ta2 = box.querySelector('#shv-paste'); var n = addPhrases(String(ta2 && ta2.value || '').split(/[\n;\t]+/)); pasteOpen = false; paintAllowed(); toast('success', 'Добавлено ключей: ' + n, ''); return; }
+            if (t.closest('[data-apply]')) { applyAllowed(); return; }
+        });
+        box.addEventListener('keydown', function (e) {
+            if (e.target.id === 'shv-add' && e.key === 'Enter') { e.preventDefault(); if (addPhrases([e.target.value])) { addVal = ''; paintAllowed(); var i = box.querySelector('#shv-add'); if (i) i.focus(); } }
+        });
+        box.addEventListener('input', function (e) { if (e.target.id === 'shv-add') addVal = e.target.value; });
+        box.addEventListener('change', function (e) { if (e.target.id === 'shv-dryfirst') dryFirst = !!e.target.checked; });
         paint((logCache[key(cab, adv)] || {}).items || []);
         box.addEventListener('click', function (e) {
             var t = e.target;
@@ -228,6 +287,13 @@
         '.shv-lbl{font-size:12px;color:var(--text-muted,#6b7280)}.shv-iv{display:flex;gap:6px;flex-wrap:wrap}.shv-iv button{border:1.5px solid var(--border,#e5e3f0);background:none;color:inherit;border-radius:99px;padding:8px 14px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}.shv-iv button.sel{border-color:var(--accent,#5b4be8);background:var(--sel,#f1effc);color:var(--accent,#5b4be8)}' +
         '.shv-chk{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-muted,#6b7280)}.shv-act{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.shv-act.left{justify-content:flex-start;align-items:center}.shv-act select{border:1px solid var(--border,#e5e3f0);border-radius:10px;padding:8px;background:var(--bg-card,#fff);color:inherit;font:inherit;font-size:12.5px}' +
         '.shv-b{border:0;background:var(--accent,#5b4be8);color:#fff;border-radius:10px;padding:10px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}.shv-b.g{background:var(--sel,#f1effc);color:var(--accent,#5b4be8)}' +
+        '#shv-allowed{display:grid;gap:12px;min-width:0}.shv-seg{display:flex;border:1px solid var(--text-primary,#182433);border-radius:999px;padding:3px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}.shv-seg button{flex:none;border:0;background:transparent;color:var(--text-muted,#6b7280);border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}.shv-seg button.a{background:var(--text-primary,#182433);color:var(--surface-solid,#fff)}' +
+        '.shv-kpm{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.shv-kpm>div{border:1px solid var(--border,#e5e3f0);border-radius:14px;padding:8px 12px}.shv-kpm small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted,#6b7280)}.shv-kpm b{font-size:22px;font-weight:900}' +
+        '.shv-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.shv-lab{display:flex;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7280);margin-bottom:6px}.shv-lab b{color:var(--text-primary,#182433)}' +
+        '.shv-addr{display:flex;gap:8px;margin-bottom:8px}.shv-addr input{flex:1;min-width:0;border:1px solid var(--text-primary,#182433);border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;background:transparent;color:inherit}#shv-paste{width:100%;box-sizing:border-box;border:1px solid var(--text-primary,#182433);border-radius:14px;padding:10px 12px;font:inherit;font-size:13px;background:transparent;color:inherit;margin-bottom:8px}' +
+        '.shv-kbs,.shv-pvs{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}.shv-pvs{gap:0;border:1px solid var(--border,#e5e3f0);border-radius:14px}.shv-kb{display:flex;align-items:center;gap:10px;border:1px solid var(--text-primary,#182433);border-radius:14px;padding:7px 8px 7px 12px;font-size:13px;font-weight:700}.shv-kb i{font-style:normal;font-size:10px;font-weight:800;color:var(--text-muted,#6b7280);width:18px;flex:none}.shv-kb span{flex:1;min-width:0}.shv-kb button{width:24px;height:24px;border-radius:50%;border:1px solid var(--border,#e5e3f0);background:transparent;color:var(--text-muted,#6b7280);cursor:pointer;flex:none}' +
+        '.shv-pv{display:flex;justify-content:space-between;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border,#e5e3f0);font-size:13px;font-weight:600}.shv-pv:last-child{border-bottom:0}.shv-pv small{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.shv-pv.ok small{color:var(--green,#16803c)}.shv-pv.no{color:var(--text-muted,#6b7280)}.shv-pv.no small{color:var(--red,#d92d20)}' +
+        '@media(max-width:700px){.shv-two{grid-template-columns:1fr}.shv-kpm b{font-size:18px}}' +
         '.shv-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.shv-kp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.shv-kp>div{background:var(--sel,#f1effc);border-radius:12px;padding:10px 12px;display:grid;gap:2px}.shv-kp small{font-size:11px;color:var(--text-muted,#6b7280)}.shv-kp b{font-size:20px;font-variant-numeric:tabular-nums}.shv-kp b.s{font-size:15px}.shv-kp em{font-style:normal;font-size:11px;color:#16a34a}' +
         '.shv-dry{display:flex;gap:10px;justify-content:space-between;align-items:center;background:rgba(217,119,6,.12);border-radius:12px;padding:10px 12px;font-size:12.5px;flex-wrap:wrap}.shv-err{color:#dc2626!important}' +
         '.shv-log{border:1px solid var(--border,#e5e3f0);border-radius:12px;overflow:hidden}.shv-li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border,#e5e3f0);font-size:13px}.shv-li:last-child{border:0}.shv-li small{display:block;color:var(--text-muted,#6b7280);font-size:11px}.shv-li.mut{color:var(--text-muted,#6b7280)}' +
