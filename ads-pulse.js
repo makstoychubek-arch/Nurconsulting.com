@@ -520,13 +520,7 @@
     function zonesState(key, camp) {
         var cs = ctlState(key), o = (cs && cs.zones) || {}, z = camp.zones || camp.placements || null, res = { search: null, recommendations: null };
         if (z) { ['search', 'recommendations'].forEach(function (k) { if (z[k] != null) res[k] = !!z[k]; }); }
-        else {
-            var list = entriesOf(key, camp);
-            if (list.length) {
-                res.search = list.some(function (e) { return e.placement === 'search' || e.placement === 'combined' || (e.placement !== 'recommendations'); });
-                res.recommendations = list.some(function (e) { return e.placement === 'recommendations'; });
-            }
-        }
+        /* Без данных WB зоны не угадываем по ставкам (ставка есть у обеих зон, даже если зона выключена): показываем нейтрально */
         ['search', 'recommendations'].forEach(function (k) { if (o[k] != null) res[k] = o[k]; });
         return res;
     }
