@@ -206,6 +206,18 @@ test('Окна из окна кампании открываются повер�
     assert.ok(top2, 'уведомление должно быть видно поверх окна кампании');
 });
 
+test('Ползунок режима «0 / 1» не отключает чистку «Полок» и список ключей', async ({ page }) => {
+    const wb = CAMPS[0][0];
+    await page.waitForFunction((w) => window.AdvShelves && window.AdvShelves.has(document.querySelector('.adp2-row') ? document.querySelector('.adp2-row').dataset.key.split(':')[0] : '', w), wb, { timeout: 6000 });
+    const key = await page.evaluate((w) => [...document.querySelectorAll('.adp2-row')].map((r) => r.dataset.key).find((k) => k.split(':')[1] === String(w)), wb);
+    for (const pos of [1, 0, 1]) {
+        await page.evaluate(({ k, p }) => { const cab = k.split(':')[0], w = k.split(':')[1]; window.AdsHQ.setCampPos(cab, Number(w), p); }, { k: key, p: pos });
+        await page.waitForTimeout(300);
+    }
+    const still = await page.evaluate((k) => window.AdvShelves.has(k.split(':')[0], k.split(':')[1]), key);
+    assert.ok(still, 'чистка «Полок» осталась включённой после нажатий «1», «0», «1»');
+});
+
 (async () => {
     const srv = await serve();
     const base = 'http://127.0.0.1:' + srv.address().port;

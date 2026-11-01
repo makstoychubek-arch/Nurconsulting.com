@@ -2056,14 +2056,14 @@
             });
             return;
         }
-        if (AS && pos !== 2 && AS.has(cabinetId, obj.wbId)) AS.setEnabled(cabinetId, obj.wbId, false);
+        // Чистку «Полок» и список разрешённых ключей ползунок режима НЕ выключает (раньше «1» или «0» молча отключали чистку): она управляется своей меткой и окном
         setCampPosCore(cabinetId, wbId, pos);
     }
 
     function setCampPosCore(cabinetId, wbId, pos) {
         const obj = findCampaign(cabinetId, wbId);
         if (!obj) return;
-        const cur = !obj.live ? 0 : ((obj.auto || shelvesOn(cabinetId, wbId)) ? 2 : 1);
+        const cur = !obj.live ? 0 : (obj.auto ? 2 : 1);
         if (cur === pos) return;
         const wasAuto = !!obj.auto;
         const wantAuto = pos === 2;
