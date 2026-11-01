@@ -482,11 +482,19 @@
         return String((a && a.name) || '').localeCompare(String((b && b.name) || ''), 'ru');
     }
 
+    const ARCHIVE_CAP = 60; // архив у кабинета бывает на сотни кампаний: показываем свежие
     function filterCampaigns(campaigns, mode, query) {
-        let list = listableCampaigns(campaigns);
-        if (mode !== 'all') list = list.filter((c) => c.live);
+        let list;
+        if (mode === 'archive') {
+            list = (campaigns || []).filter(campaignEnded);
+        } else {
+            list = listableCampaigns(campaigns);
+            if (mode === 'paused') list = list.filter((c) => !c.live);
+            else if (mode !== 'all') list = list.filter((c) => c.live);
+        }
         if (query) list = list.filter((c) => campaignMatchesSearch(c, query));
-        return list.slice().sort(compareCampaigns);
+        list = list.slice().sort(compareCampaigns);
+        return mode === 'archive' ? list.slice(0, ARCHIVE_CAP) : list;
     }
 
     function extendRangeForRanking(range, now) {
@@ -1141,8 +1149,22 @@
         return state.filterCabinetId;
     }
 
+    // Счётчики для фильтра статусов (как в кабинете WB): все, активные, приостановленные, архивные.
+    function statusCounts() {
+        const out = { all: 0, active: 0, paused: 0, archive: 0 };
+        cabinetRows().forEach((cab) => {
+            const list = cab.campaigns || [];
+            const lv = listableCampaigns(list);
+            out.all += lv.length;
+            out.active += lv.filter((c) => c.live).length;
+            out.paused += lv.filter((c) => !c.live).length;
+            out.archive += list.filter(campaignEnded).length;
+        });
+        return out;
+    }
+
     function setCampFilter(mode) {
-        state.campFilter = mode === 'all' ? 'all' : 'active';
+        state.campFilter = ['all', 'active', 'paused', 'archive'].indexOf(mode) >= 0 ? mode : 'all';
         paintFilters();
         paintTree();
         return state.campFilter;
@@ -1171,7 +1193,7 @@
 
     function filterProducts(products, mode, query) {
         let list = products || [];
-        if (mode !== 'all') list = list.filter((p) => p.live);
+        if (mode === 'active') list = list.filter((p) => p.live);
         const q = String(query || '').trim().toLowerCase();
         if (q) {
             list = list.filter((p) => String(p.nmId).includes(q) || String(p.name || '').toLowerCase().includes(q));
@@ -1371,6 +1393,7 @@
         if (!totalCount) {
             return 'В кабинете ещё нет кампаний. Нажмите «Подтянуть из WB».<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
         }
+        if (state.campFilter === 'paused' || state.campFilter === 'archive') return 'Нет ' + noun + ' в этом разделе.';
         if (state.campFilter !== 'all' && pausedCount) {
             return 'Нет активных ' + noun + '. На паузе: ' + pausedCount + '. Откройте «Все» или подтяните свежие из WB.<div class="ads-hq-empty-actions">' +
                 '<button type="button" class="ui-btn ui-btn-secondary" data-camp-filter="all">Показать все</button> ' + syncBtn + '</div>';
@@ -1468,7 +1491,7 @@
 
     const renderListeners = [];
     function visibleRows() {
-        return cabinetRows().map((cab) => ({ id: cab.id, name: cabName(cab.name), campaigns: visibleCampaigns(cab).filter((c) => !campaignEnded(c)) }));
+        return cabinetRows().map((cab) => ({ id: cab.id, name: cabName(cab.name), campaigns: visibleCampaigns(cab).filter((c) => state.campFilter === 'archive' || !campaignEnded(c)) }));
     }
     function renderTable() {
         renderTableBody();
@@ -2541,6 +2564,8 @@
         getModelReady: () => !!state.model,
         getFilterCabinetId: () => state.filterCabinetId,
         getCampFilter: () => state.campFilter,
+        setCampFilter,
+        getStatusCounts: statusCounts,
         getColPreset: () => state.colPreset,
         getListView: () => state.listView,
         getSearch: () => state.searchQuery,

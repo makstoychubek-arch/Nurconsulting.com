@@ -766,6 +766,15 @@
             '<div class="adp2-ch">' + bar(74, 22, ';border-radius:999px') + '</div>' +
             '</div></article>';
     }
+    /* Фильтр статусов как в кабинете WB: все, активные, приостановленные, архивные (с числом кампаний) */
+    function fltHtml() {
+        var A = root.AdsHQ; if (!A || !A.getStatusCounts || !A.getCampFilter) return '';
+        var c = A.getStatusCounts(), cur = A.getCampFilter() || 'all';
+        var items = [['all', 'Все'], ['active', 'Активные'], ['paused', 'Приостановленные'], ['archive', 'Архивные']];
+        return '<div class="adp2-flt" role="tablist" aria-label="Статус кампаний" data-key="flt">' + items.map(function (it) {
+            return '<button type="button" role="tab" aria-selected="' + (cur === it[0]) + '" class="' + (cur === it[0] ? 'on' : '') + '" data-pact="flt" data-f="' + it[0] + '">' + it[1] + '<em>' + (c[it[0]] || 0) + '</em></button>';
+        }).join('') + '</div>';
+    }
     function render() {
         var host = $('adv-pulse'); if (!host || S.view !== 'pulse') return;
         S.rows = (root.AdsHQ && root.AdsHQ.getVisibleRows) ? root.AdsHQ.getVisibleRows() : [];
@@ -776,7 +785,7 @@
         });
         if (!root.AdsHQ || !root.AdsHQ.getModelReady || !root.AdsHQ.getModelReady()) html = [0, 1, 2, 3].map(skelRowHtml).join('');
         else if (!total && !S.virtual.length) html = '<div class="adp2-empty" data-key="empty">Кампаний по выбранному фильтру нет. Нажмите «Новая РК», чтобы создать.</div>';
-        var full = headerHtml() + virtualHtml() + html;
+        var full = fltHtml() + headerHtml() + virtualHtml() + html;
         // Полная перерисовка списка на каждое обновление данных роняла фокус и сбрасывала ползунки
         // («трясло» при любом обновлении) — теперь патчим по data-key, как в ads-command-center.js.
         var fresh = null;
@@ -1237,6 +1246,7 @@
         else if (act === 'addp') addProductsFlow(key);
         else if (act === 'topup') topupFlow(key);
         else if (act === 'abt') abToggle(key);
+        else if (act === 'flt') { if (root.AdsHQ && root.AdsHQ.setCampFilter) { root.AdsHQ.setCampFilter(t.dataset.f); render(); } }
         else if (act === 'allowed') { var fa = findCamp(key); if (fa && root.AdvShelves && root.AdvShelves.openAllowed) root.AdvShelves.openAllowed(fa.cab.id, fa.camp.wbId); }
         else if (act === 'toggle') togglePause(key);
         else if (act === 'rowmenu') { var dd = t.closest('.cw-dots'); dd.classList.toggle('open'); }
