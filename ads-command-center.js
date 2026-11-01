@@ -2398,7 +2398,7 @@
                 { op: 'gte', column: 'stat_date', value: rank.from },
                 { op: 'lte', column: 'stat_date', value: rank.to },
             ]),
-            safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
+            safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }], undefined, 12000),
             safeRows('rnp_articles', [{ op: 'in', column: 'cabinet_id', value: ids }], 'cabinet_id,nm_id,photo_url,name,manual_data'),
             safeRows('wb_stocks', [{ op: 'in', column: 'cabinet_id', value: ids }], 'cabinet_id,nm_id,quantity'),
             safeRows('adv_start_schedule', [
