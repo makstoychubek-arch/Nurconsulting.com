@@ -447,10 +447,10 @@
     /* Ползунок: 0 — выкл, 1 — включена, A — автопилот */
     function switchHtml(key, camp, live) {
         var AS = root.AdvShelves, kp = String(key).split(':');
-        var pos = !live ? 0 : (camp.auto ? 2 : 1); // «A» горит только у автопилота: «Полки» и список ключей показывает своя метка под названием
+        var pos = !live ? 0 : 1; // звезда («Автопилот») убрана с экрана; «Полки» и список ключей показывает своя метка под названием
         var IC = ['<path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/>', '<path d="M8 5.5v13l11-6.5z"/>', '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'];
         function b(n, l, t) { return '<button type="button" data-pact="pos" data-pos="' + n + '" data-key="' + esc(key) + '" class="' + (pos === n ? 'on' : '') + '" aria-pressed="' + (pos === n) + '" aria-label="' + t + '" title="' + t + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg></button>'; }
-        return '<div class="adp2-sl p' + pos + '" role="group" aria-label="Режим кампании">' + b(0, '0', 'Выключена') + b(1, '1', 'Включена') + b(2, 'A', 'Автопилот сам ведёт ставки') + '</div>';
+        return '<div class="adp2-sl p' + pos + '" role="group" aria-label="Режим кампании">' + b(0, '0', 'Выключена') + b(1, '1', 'Включена') + '</div>';
     }
     /* Таблица на широком экране: тип кампании меткой и остальные колонки метрик справа (на телефоне прячутся CSS) */
     function bidWord(camp) { var b = String(camp.bidType || '').toLowerCase(); return b === 'unified' ? 'единая' : (b === 'manual' ? 'ручная' : ''); }

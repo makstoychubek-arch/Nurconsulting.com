@@ -869,11 +869,11 @@ html#nr-root.nr-f-gear header.glass.app-header :is(.header-page-title, button, .
   html body #adv-pulse .adp2-row { width: max-content; min-width: 100%; margin: 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface-solid, var(--surface)); overflow: visible; }
   html body #adv-pulse .adp2-head { height: 36px; min-height: 36px; }
   html body #adv-pulse .adp2-head > * { align-self: center; }
-  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { order: 1; flex: none; width: 150px; box-sizing: border-box; display: flex; justify-content: center; position: sticky; left: 0; z-index: 5; background: var(--surface-solid, var(--surface)); padding: 0; }
-  html body #adv-pulse .adp2-tc { order: 2; flex: none; width: 34px; position: sticky; left: 150px; z-index: 4; display: flex; align-items: center; padding-left: 10px; background: var(--surface-solid, var(--surface)); }
+  html body #adv-pulse .adp2-pos, html body #adv-pulse .adp2-hpos { order: 1; flex: none; width: 116px; box-sizing: border-box; display: flex; justify-content: center; position: sticky; left: 0; z-index: 5; background: var(--surface-solid, var(--surface)); padding: 0; }
+  html body #adv-pulse .adp2-tc { order: 2; flex: none; width: 34px; position: sticky; left: 116px; z-index: 4; display: flex; align-items: center; padding-left: 10px; background: var(--surface-solid, var(--surface)); }
   html body #adv-pulse .adp2-mph, html body #adv-pulse .adp2-ph { width: 22px; height: 22px; border-radius: 6px; }
   html body #adv-pulse .adp2-nm, html body #adv-pulse .adp2-hnm { order: 3; flex: none; width: 286px; box-sizing: border-box; position: sticky; left: 118px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 0 8px; overflow: hidden; white-space: nowrap; background: var(--surface-solid, var(--surface)); }
-  html body #adv-pulse .adp2-hd .adp2-hnm { width: 320px; padding-left: 44px; justify-content: flex-start; left: 150px; }
+  html body #adv-pulse .adp2-hd .adp2-hnm { width: 320px; padding-left: 44px; justify-content: flex-start; left: 116px; }
   html body #adv-pulse .adp2-nm b { flex: none; max-width: 190px; font-size: 12px; }
   html body #adv-pulse .adp2-nm small { display: inline; margin: 0; }
   html body #adv-pulse .adp2-stt, html body #adv-pulse .adp2-nmc, html body #adv-pulse .adp2-nm .adp2-main, html body #adv-pulse .adp2-nm .shv-slot, html body #adv-pulse .adp2-ch, html body #adv-pulse .adp2-cur, html body #adv-pulse .adp2-bal i { display: none; }

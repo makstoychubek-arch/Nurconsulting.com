@@ -71,17 +71,7 @@ test('ползунок 0 / 1 / A: «A» помечает кампанию авт
     assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
 });
 
-test('Пульт: ползунок «A» меняется сразу и ставит пометку автопилота', async ({ page, calls }) => {
-    const sel = '.adp2-sl.p1 button[data-pos="2"]';
-    const key = await page.locator(sel).first().getAttribute('data-key');
-    const t0 = Date.now();
-    await page.evaluate((s) => document.querySelector(s).click(), sel);
-    await page.waitForFunction((k) => document.querySelector('.adp2-sl.p2 button[data-key="' + k + '"]'), key, { timeout: 300 });
-    assert.ok(Date.now() - t0 < 300, 'ползунок переехал за ' + (Date.now() - t0) + ' мс');
-    await page.waitForTimeout(600);
-    assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
-});
-
+// Звезда («Автопилот») в «Пульте» убрана с экрана по просьбе владельца, проверка про неё удалена
 test('Пульт: обновление и фоновая подгрузка ставок не пересоздают строки (без «трясёт»)', async ({ page }) => {
     // Раньше render() целиком стирал #adv-pulse через innerHTML при каждой перерисовке AdsHQ,
     // а patchRow() подменял строку через replaceWith — ползунки теряли фокус и мигали на каждое обновление.
