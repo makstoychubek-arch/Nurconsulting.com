@@ -1155,3 +1155,12 @@ html body .cw-sum, html body .cw-ls { display: none; }
 
 html body .cw-wb { display: inline-block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 760px) { html body .adp2-body.cw .cw-lim .cw-wb { display: none; } }
+
+/* Телефон, «Продвижение»: пять метрик в одну строку без прокрутки (подпись, цифра, под ней динамика) */
+@media (max-width: 760px) {
+  html body #adv-view-ads .ads-hq-kpi-bar { display: grid !important; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, .85fr) minmax(0, .85fr); gap: 6px; overflow: visible; flex-wrap: nowrap; padding: 0 !important; }
+  html body #adv-view-ads .ads-hq-kpi { flex: none; min-width: 0; gap: 1px; }
+  html body #adv-view-ads .ads-hq-kpi-label { font-size: 7.5px; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html body #adv-view-ads .ads-hq-kpi-value { font-size: 12.5px !important; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: clip; letter-spacing: -.02em; }
+  html body #adv-view-ads .ads-hq-kpi-d { display: block; margin: 0; font-size: 8.5px; line-height: 1.2; white-space: nowrap; }
+}
