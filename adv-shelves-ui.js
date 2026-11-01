@@ -104,8 +104,10 @@
             var el = els[i], r = rows[key(el.getAttribute('data-shv-cab'), el.getAttribute('data-shv-adv'))];
             var html = '';
             if (r && r.enabled) {
-                var dry = isDry(r);
-                html = '<button type="button" class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '" data-shv-open="1"><i></i>Полки · чистка каждые ' + r.interval_min + ' мин' + (dry ? ' · пробный' : '') + '</button>' +
+                var dry = isDry(r), nk = (r.keep_phrases || []).length;
+                // Ручная кампания со списком: «исключаем всё, чего нет в списке»; «Полки» без списка: исключаем все ключи
+                var label = (nk ? 'Исключаем неразрешённые ключи · разрешено ' + nk : 'Полки · чистка каждые ' + r.interval_min + ' мин') + (dry ? ' · пробный' : '');
+                html = '<button type="button" class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '" data-shv-open="1"><i></i>' + label + '</button>' +
                     '<span class="shv-sub">' + (dry ? 'Пробный режим, WB не трогаем' : 'Исключено ' + (r.excluded_total || 0) + ' фраз') + ' · ' + (r.last_run_at ? 'проверка ' + ago(r.last_run_at) : 'ещё не проверяли') + '</span>';
             }
             if (el.getAttribute('data-h') !== html) { el.innerHTML = html; el.setAttribute('data-h', html); }
@@ -131,7 +133,7 @@
             var hour = ex.filter(function (x) { return Date.now() - Date.parse(x.created_at) < 3600 * 1000; }).length;
             var dry = isDry(r);
             box.innerHTML = '<div class="shv-dlg wide" role="dialog"><div class="shv-grab"></div>' +
-                '<div class="shv-top"><div><h3>Кампания ' + esc(adv) + '</h3><span class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '"><i></i>' + (r.enabled ? 'Чистка идёт, каждые ' + r.interval_min + ' мин' : (r._virtual ? 'Чистка не включена' : 'Чистка на паузе')) + '</span></div><button type="button" class="shv-b g" data-x="1">Закрыть</button></div>' +
+                '<div class="shv-top"><div><h3>Кампания ' + esc(adv) + '</h3><span class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '"><i></i>' + (r.enabled ? ((r.keep_phrases || []).length ? 'Исключаем неразрешённые ключи, проверка каждые ' + r.interval_min + ' мин' : 'Чистка идёт, каждые ' + r.interval_min + ' мин') : (r._virtual ? 'Чистка не включена' : 'Чистка на паузе')) + '</span></div><button type="button" class="shv-b g" data-x="1">Закрыть</button></div>' +
                 '<div class="shv-kp"><div><small>' + (dry ? 'Нашли бы исключить' : 'Исключено фраз') + '</small><b>' + (dry ? ex.length : (r.excluded_total || 0)) + '</b><em>' + hour + ' за час</em></div>' +
                 '<div><small>Последняя проверка</small><b class="s">' + ago(r.last_run_at) + '</b></div></div>' +
                 (r.last_status === 'error' ? '<p class="shv-err">Последняя проверка не удалась: ' + esc(r.last_error || 'ошибка') + '. Повторим автоматически.</p>' : '') +
