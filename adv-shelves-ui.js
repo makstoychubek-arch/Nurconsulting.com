@@ -133,7 +133,7 @@
             var hour = ex.filter(function (x) { return Date.now() - Date.parse(x.created_at) < 3600 * 1000; }).length;
             var dry = isDry(r);
             box.innerHTML = '<div class="shv-dlg wide" role="dialog"><div class="shv-grab"></div>' +
-                '<div class="shv-top"><div><h3>Кампания ' + esc(adv) + '</h3><span class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '"><i></i>' + (r.enabled ? ((r.keep_phrases || []).length ? 'Исключаем неразрешённые ключи, проверка каждые ' + r.interval_min + ' мин' : 'Чистка идёт, каждые ' + r.interval_min + ' мин') : (r._virtual ? 'Чистка не включена' : 'Чистка на паузе')) + '</span></div><button type="button" class="shv-b g" data-x="1">Закрыть</button></div>' +
+                '<div class="shv-top"><div><h3>Кампания ' + esc(adv) + '</h3><span class="shv-pill' + (r.last_status === 'error' ? ' err' : '') + '"><i></i>' + (r.enabled ? ((r.keep_phrases || []).length ? 'Исключаем неразрешённые ключи, проверка каждые ' + r.interval_min + ' мин' : 'Чистка идёт, каждые ' + r.interval_min + ' мин') : (r._virtual ? 'Чистка не включена' : 'Чистка на паузе')) + '</span></div><button type="button" class="shv-xb" data-x="1" aria-label="Закрыть">✕</button></div>' +
                 '<div class="shv-kp"><div><small>' + (dry ? 'Нашли бы исключить' : 'Исключено фраз') + '</small><b>' + (dry ? ex.length : (r.excluded_total || 0)) + '</b><em>' + hour + ' за час</em></div>' +
                 '<div><small>Последняя проверка</small><b class="s">' + ago(r.last_run_at) + '</b></div></div>' +
                 (r.last_status === 'error' ? '<p class="shv-err">Последняя проверка не удалась: ' + esc(r.last_error || 'ошибка') + '. Повторим автоматически.</p>' : '') +

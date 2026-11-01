@@ -1172,3 +1172,17 @@ html body #adv-pulse .adp2-trash { display: none; }
   html body #adv-pulse .adp2-trash svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
   html body #adv-pulse .adp2-trash:disabled { opacity: .35; }
 }
+
+/* Единая шапка всех окон: название слева, круглый крестик справа; в окнах с прокруткой шапка закреплена сверху */
+html body .adp2-md { --py: 16px; --px: 16px; }
+html body .abw .adp2-md { --py: 22px; --px: 26px; }
+html body .shv-dlg { --py: 20px; --px: 20px; }
+html body .ffm { --py: 26px; --px: 28px; }
+html body :is(.adp2-mh, .shv-top, .ffm-h, .gc-head, .rnp-plan-head, #nrdb-modal .mh, .adx-gh) { display: flex !important; align-items: center !important; justify-content: space-between; gap: 12px; min-height: 44px; box-sizing: border-box; background: var(--surface-solid, #fff); }
+html body :is(.adp2-mh > b, .shv-top h3, .ffm-h h2, .gc-title, .rnp-plan-title, #nrdb-modal .mh h3, .adx-gh h4) { margin: 0; font-size: 18px; font-weight: 900; letter-spacing: -.02em; line-height: 1.2; color: var(--text-primary); }
+html body :is(.adp2-x, .shv-xb, .ffm-x, .gc-close, .rnp-plan-close, #nrdb-modal .x, .adx-gx) { width: 36px; height: 36px; min-width: 36px; padding: 0; border-radius: 50%; border: 1.5px solid var(--text-primary); background: transparent; color: var(--text-primary); display: inline-grid; place-items: center; font-size: 15px; line-height: 1; cursor: pointer; flex: none; margin-left: auto; }
+html body :is(.adp2-mh, .shv-top, .ffm-h) { position: sticky; top: calc(-1 * var(--py)); z-index: 6; margin: calc(-1 * var(--py)) calc(-1 * var(--px)) 0; padding: var(--py) var(--px) 10px; border-bottom: 1px solid var(--border); }
+html body #nrdb-modal .mh { position: sticky; top: 0; z-index: 6; }
+html body .adx-gh { margin-bottom: 8px; }
+html body .shv-top > div { min-width: 0; flex: 1; }
+@media (max-width: 760px) { html body :is(.adp2-mh, .shv-top, .ffm-h) { padding-top: max(var(--py), 14px); } }
