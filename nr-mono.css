@@ -1018,3 +1018,14 @@ html body #adv-pulse .adp2-row.open > .adp2-body[popover] { color: var(--text-pr
 html body #adv-pulse .adp2-row.open > .adp2-body.cw { overscroll-behavior: contain; overflow-x: hidden; }
 html body #adv-pulse .adp2-row.open > .adp2-body.cw .cw-in { display: flex; flex-direction: column; gap: 16px; }
 @media (max-width: 760px) { html body #adv-pulse .adp2-row.open > .adp2-body.cw { padding: 16px; } }
+
+/* ===== Окно с фото товара (РНП): как остальные окна «Минимализма» — без светофора, без затемнения, контур и круглая ✕ ===== */
+html body .rnp-photo-lightbox { background: transparent !important; -webkit-backdrop-filter: blur(6px) !important; backdrop-filter: blur(6px) !important; }
+html body .nr-win.nr-win-photo { background: var(--surface-solid, #fff) !important; border: 1.5px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important; overflow: hidden; }
+html body .nr-win.nr-win-photo > .nr-win-bar { position: absolute; top: 14px; right: 14px; left: auto; z-index: 6; width: auto; height: auto; min-height: 0; padding: 0; background: transparent !important; border: 0 !important; cursor: default; }
+html body .nr-win.nr-win-photo .nr-win-lights > .nr-win-dot:not(.nr-win-x), html body .nr-win.nr-win-photo .nr-win-title, html body .nr-win.nr-win-photo > .nr-win-resize { display: none !important; }
+html body .nr-win.nr-win-photo .nr-win-x { display: inline-grid !important; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--text-primary); background: var(--surface-solid, #fff); color: var(--text-primary); font-size: 18px; font-weight: 800; line-height: 1; padding: 0; }
+html body .nr-win.nr-win-photo .nr-win-x::after { content: none !important; }
+html body .nr-win.nr-win-photo .nr-win-x:hover { background: var(--text-primary); color: var(--surface-solid, #fff); }
+html body .nr-win.nr-win-photo > .nr-win-scroll { padding: 0; }
+html body .nr-win.nr-win-photo img { border-radius: 0; }
