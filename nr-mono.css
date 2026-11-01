@@ -1164,3 +1164,11 @@ html body .cw-wb { display: inline-block; font-size: 12px; font-weight: 700; col
   html body #adv-view-ads .ads-hq-kpi-value { font-size: 12.5px !important; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: clip; letter-spacing: -.02em; }
   html body #adv-view-ads .ads-hq-kpi-d { display: block; margin: 0; font-size: 8.5px; line-height: 1.2; white-space: nowrap; }
 }
+
+/* Корзина в строке кампании: только телефон, открывает «Завершить кампанию?» с подтверждением */
+html body #adv-pulse .adp2-trash { display: none; }
+@media (max-width: 760px) {
+  html body #adv-pulse .adp2-trash { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; margin-left: 6px; border: 1px solid var(--border-strong, var(--border)); border-radius: 50%; background: transparent; color: var(--text-primary); flex: none; cursor: pointer; }
+  html body #adv-pulse .adp2-trash svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  html body #adv-pulse .adp2-trash:disabled { opacity: .35; }
+}
