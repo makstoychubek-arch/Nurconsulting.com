@@ -380,11 +380,11 @@
         var p = String(key).split(':');
         return !!(root.AdvShelves && root.AdvShelves.has && root.AdvShelves.has(p[0], p[1]));
     }
-    function abToggleHtml(key, camp, kind) {
+    function abToggleHtml(key, camp, kind, mobile) {
         if (kind !== 'cpm') return '';
         var on = abOn(key, camp), lock = abLocked(key);
         var title = lock ? 'На «Полках» ставка одна, держите её на минимуме' : (on ? 'Автобиддер включён: сайт сам ведёт ставки' : 'Включить автобиддер');
-        return '<button type="button" class="adp2-abt' + (on ? ' on' : '') + (lock ? ' lock' : '') + '" role="switch" aria-checked="' + on + '"' + (lock ? ' aria-disabled="true"' : '') + ' data-pact="abt" data-key="' + esc(key) + '" title="' + esc(title) + '"><span>Автобиддер</span><i></i></button>';
+        return '<button type="button" class="adp2-abt' + (mobile ? ' adp2-abt-m' : '') + (on ? ' on' : '') + (lock ? ' lock' : '') + '" role="switch" aria-checked="' + on + '"' + (lock ? ' aria-disabled="true"' : '') + ' data-pact="abt" data-key="' + esc(key) + '" title="' + esc(title) + '"><span>Автобиддер</span><i></i></button>';
     }
     function abSaveActive(key, camp, active) {
         S.ab = S.ab || {}; S.ab[key] = active;
@@ -454,9 +454,9 @@
     }
     /* Таблица на широком экране: тип кампании меткой и остальные колонки метрик справа (на телефоне прячутся CSS) */
     function bidWord(camp) { var b = String(camp.bidType || '').toLowerCase(); return b === 'unified' ? 'единая' : (b === 'manual' ? 'ручная' : ''); }
-    function typeCellHtml(camp, kind) {
+    function typeCellHtml(camp, kind, key) {
         var w = bidWord(camp);
-        return '<div class="adp2-ty"><span class="adp2-tag2">' + (kind === 'cpc' ? 'CPC' : 'CPM') + (w ? ' · ' + w : '') + '</span></div>';
+        return '<div class="adp2-ty"><span class="adp2-tag2">' + (kind === 'cpc' ? 'CPC' : 'CPM') + (w ? ' · ' + w : '') + '</span>' + abToggleHtml(key, camp, kind, true) + '</div>';
     }
     function tableCols() {
         var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
@@ -736,7 +736,7 @@
             '<div class="adp2-head" data-pact="open" data-key="' + esc(key) + '">' +
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
             '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small><span class="adp2-stt">' + (live ? 'Активна' : 'Приостановлена') + ' · </span>' + esc(camp.wbId) + (nmCount ? '<span class="adp2-nmc"> · ' + nmCount + ' тов.</span>' : '') + '</small>' + mainLine(cab, camp, nmCount) + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
-            typeCellHtml(camp, kind) +
+            typeCellHtml(camp, kind, key) +
             '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + abToggleHtml(key, camp, kind) + '</div></div>' +
             metricCellsHtml(c) +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
