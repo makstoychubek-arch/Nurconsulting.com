@@ -844,6 +844,8 @@
         var ov = doc.createElement('div'); ov.className = 'adp2-ov';
         ov.innerHTML = '<div class="adp2-md" role="dialog" aria-modal="true">' + inner + '</div>';
         doc.body.appendChild(ov);
+        // Окно кампании в верхнем слое браузера: выбор товаров, пополнение и т. п. должны открываться поверх него
+        try { if (typeof ov.showPopover === 'function') { ov.setAttribute('popover', 'manual'); ov.showPopover(); } } catch (e) { /* остаётся fixed */ }
         function close() { ov.remove(); doc.removeEventListener('keydown', onKey); if (onClose) onClose(); }
         function onKey(e) { if (e.key === 'Escape') close(); }
         doc.addEventListener('keydown', onKey);

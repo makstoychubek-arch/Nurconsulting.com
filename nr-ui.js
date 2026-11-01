@@ -14,6 +14,7 @@
     var GLYPH = { success: '✓', error: '!', warning: '!', info: 'i' };
 
     var css =
+        '.nru-wrap[popover],.nru-ov[popover]{border:0;margin:0;padding:0;background:transparent;color:inherit;overflow:visible;max-width:none;max-height:none;width:auto;height:auto}.nru-wrap[popover]{inset:auto;top:16px;right:16px;overflow:hidden;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px)}.nru-ov[popover]{inset:0;width:100%;height:100%;padding:16px}' +
         '.nru-wrap{position:fixed;top:16px;right:16px;z-index:100000;display:flex;flex-direction:column;gap:10px;pointer-events:none;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:hidden}' +
         '.nru-toast,.nru-dlg,.nru-win{font:13px/1.45 var(--font-ui,Inter,system-ui,sans-serif);color:var(--text-primary,#111)}' +
         '.nru-toast{pointer-events:auto;width:344px;max-width:100%;display:flex;gap:12px;align-items:flex-start;padding:12px 14px 14px;background:var(--surface-solid,#fff);' +
@@ -53,6 +54,15 @@
     function el(tag, cls, html) { var e = doc.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     var wrap = null, n = 0;
+    /* Окно кампании открыто в верхнем слое браузера (popover): уведомления и подтверждения поднимаем туда же, иначе они окажутся под ним. */
+    function lift(e) {
+        try {
+            if (!e || typeof e.showPopover !== 'function') return;
+            if (!e.hasAttribute('popover')) e.setAttribute('popover', 'manual');
+            if (e.matches(':popover-open')) e.hidePopover();
+            e.showPopover();
+        } catch (err) { /* остаётся fixed */ }
+    }
     function wrapEl() { if (!wrap || !wrap.isConnected) { wrap = el('div', 'nru-wrap'); wrap.setAttribute('aria-live', 'polite'); doc.body.appendChild(wrap); } return wrap; }
 
     /* ───── Уведомление ───── */
@@ -80,7 +90,7 @@
         }
         t.querySelector('.nru-x').addEventListener('click', function () { h.close(); });
         if (opts.preview) { t.classList.add('static'); if (!(opts.duration || DUR[type]) || opts.sticky || opts.loading) t.classList.add('sticky'); opts.preview.appendChild(t); h.close = function () {}; return h; }
-        var w = wrapEl();
+        var w = wrapEl(); lift(w);
         if (opts.key) { var ex = null; for (var i = 0; i < w.children.length; i++) { if (w.children[i].getAttribute('data-k') === String(opts.key)) { ex = w.children[i]; break; } } if (ex) ex.remove(); t.setAttribute('data-k', opts.key); }
         while (w.children.length >= 4) w.firstChild.remove();
         w.appendChild(t);
@@ -121,7 +131,7 @@
     /* ───── Подтверждение ───── */
     function overlay(content, onClose, preview) {
         if (preview) { content.classList.add('static'); preview.appendChild(content); return { close: function () {} }; }
-        var ov = el('div', 'nru-ov'); ov.appendChild(content); doc.body.appendChild(ov);
+        var ov = el('div', 'nru-ov'); ov.appendChild(content); doc.body.appendChild(ov); lift(ov);
         var prev = doc.activeElement;
         function close(v) { doc.removeEventListener('keydown', key, true); ov.classList.remove('on'); setTimeout(function () { ov.remove(); }, 220); try { prev && prev.focus && prev.focus(); } catch (e) {} onClose && onClose(v); }
         function key(e) { if (e.key === 'Escape') { e.stopPropagation(); close(false); } }
