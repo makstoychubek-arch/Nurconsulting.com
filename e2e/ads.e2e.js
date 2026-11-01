@@ -189,6 +189,9 @@ test('Окна из окна кампании открываются повер�
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-head').length >= 4, null, { timeout: 5000 });
     await page.locator('#adv-pulse .adp2-head .adp2-nm').first().click();
+    // на телефоне блок товаров свёрнут: раскрываем нажатием на строку «Товары»
+    await page.waitForSelector('.adp2-body.cw .cw-prod .cw-ch', { timeout: 2000 });
+    await page.click('.adp2-body.cw .cw-prod .cw-ch');
     await page.waitForSelector('.adp2-body.cw [data-pact="addp"]', { timeout: 2000 });
     await page.locator('.adp2-body.cw [data-pact="addp"]').first().scrollIntoViewIfNeeded();
     await page.click('.adp2-body.cw [data-pact="addp"]');

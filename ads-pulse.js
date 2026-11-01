@@ -566,7 +566,7 @@
             '<div class="cw-lab">' + swHtml(lim.on, 'limit', key, '', 'Дневной лимит', 'setLimit') + '<h3>Дневной лимит</h3>' + qHtml('Сумма, больше которой кампания не потратит за сутки') + '</div>' +
             '<label class="cw-inp' + (lim.on ? ' live' : '') + '"><input type="text" inputmode="decimal" class="cw-limit-in" data-key="' + esc(key) + '" value="' + esc(lv) + '" placeholder="Задайте от ' + min + '" aria-label="Дневной лимит"' + (lim.on && ctlOk('setLimit') ? '' : ' disabled') + '><span>KGS</span></label>' +
             '<label class="cw-lab cw-cbl"><button type="button" class="cw-cb' + (lim.carry ? ' on' : '') + '" role="checkbox" aria-checked="' + lim.carry + '" data-ctl="1" data-pact="carry" data-key="' + esc(key) + '"' + (lim.on && ctlOk('setLimit') ? '' : ' disabled') + '></button>Переносить неистраченные деньги ' + qHtml('Неистраченная за день сумма добавится к лимиту следующего дня') + '</label></div>' +
-            '<div class="cw-hint">Равномерно распределим сумму в течение суток</div></div></section></div>';
+            '<div class="cw-ls">' + (lim.on && lim.kop ? fmtMoney(kopToSom(lim.kop)) + ' KGS в сутки' : 'не задан') + '</div>' + '<div class="cw-hint">Равномерно распределим сумму в течение суток</div></div></section></div>';
     }
     function zonesHtml(key, camp, kind) {
         var z = zonesState(key, camp), C = root.AdvCtl, allowed = true;
@@ -576,7 +576,7 @@
             var on = z[k];
             return '<div class="cw-zone' + (on === false ? ' off' : '') + '"><span class="cw-lab">' + swHtml(on, 'zone', key, ' data-zone="' + k + '"', t, lock) + t + '</span><span class="cw-pic" aria-hidden="true"><i class="a"></i><i></i><i></i></span></div>';
         }
-        return '<section class="cw-card"><h3>Зоны показов</h3><div class="cw-zones">' + one('search', 'Поиск') + one('recommendations', 'Рекомендации') + '</div></section>';
+        return '<section class="cw-card cw-zc"><h3>Зоны показов</h3><div class="cw-zones">' + one('search', 'Поиск') + one('recommendations', 'Рекомендации') + '</div></section>';
     }
     /* Шкала ставки: диапазон WB (info.rng, если он есть в данных), иначе только минимум. Подпись выдумывать нельзя: нет диапазона, нет и «Ставка за 11–34». */
     function bidMeta(key, e) {
@@ -603,11 +603,13 @@
     function productsHtml(key, cab, camp) {
         var info = S.info[key], nms = effectiveNms(info ? info.nms : [], S.ov[key]);
         var list = entriesOf(key, camp), z = zonesState(key, camp), stock = (S.arts[cab.id] && S.arts[cab.id].stock) || null;
-        var head = '<div class="cw-ch"><h3>Товары <small>' + (info && info.loaded ? nms.length + ' шт.' : '') + '</small></h3><div class="cw-tools">' +
+        var bidSum = (function () { var v = list.map(function (e) { return fmtSom(kopToSom(e.kop)); }); var u = []; v.forEach(function (x) { if (u.indexOf(x) < 0) u.push(x); }); return u.length ? ' · ставка ' + u.slice(0, 2).join(' / ') + ' KGS' : ''; })();
+        var collapsed = !(S.pc && S.pc[key]);
+        var head = '<div class="cw-ch" data-pact="prodtgl" data-key="' + esc(key) + '"><h3>Товары <small>' + (info && info.loaded ? nms.length + ' шт.' : '') + '</small><small class="cw-sum">' + esc(bidSum) + ' <b aria-hidden="true">' + (collapsed ? '⌄' : '⌃') + '</b></small></h3><div class="cw-tools">' +
             '<button type="button" class="cw-btn" data-pact="addp" data-key="' + esc(key) + '">＋ Добавить товары</button>' +
             '<button type="button" class="cw-btn" disabled title="Пока недоступно">Загрузить ⌄</button></div></div>' +
             '<div class="cw-note">' + ico(IC.tag) + 'Умный алгоритм помогает платить меньше с аукционом второй цены</div>';
-        if (!info || !info.loaded) return '<section class="cw-card cw-prod">' + head + '<div class="adp2-load-line">Загружаем товары кампании…</div></section>';
+        if (!info || !info.loaded) return '<section class="cw-card cw-prod' + (collapsed ? ' cw-pc' : '') + '">' + head + '<div class="adp2-load-line">Загружаем товары кампании…</div></section>';
         var th = '<div class="cw-th"><span>Фото</span><span>Бренд · Артикул · Название</span><span>Остатки ' + qHtml('Сколько штук товара лежит на складах WB') + '</span><span>Поиск ' + qHtml('Ставка в поисковой выдаче') + '</span><span>Рекомендации ' + qHtml('Ставка в блоках рекомендаций') + '</span><span></span></div>';
         var rows = nms.map(function (nm) {
             var es = list.filter(function (x) { return x.nm === nm; });
@@ -623,7 +625,7 @@
                 '<div class="cw-bids"><div class="cw-bcw"><span class="cw-lb">Поиск</span>' + cell(es1, true, z.search) + '</div><div class="cw-bcw"><span class="cw-lb">Рекомендации</span>' + cell(es2, false, z.recommendations) + '</div></div>' +
                 '<div class="cw-dots" data-nostop="1"><button type="button" class="cw-dbtn" data-pact="rowmenu" aria-label="Действия" aria-haspopup="true">··· ⌄</button><div class="cw-menu"><button type="button" data-ctl="1" data-pact="rm" data-key="' + esc(key) + '" data-nm="' + nm + '">Убрать из кампании</button></div></div></div>';
         }).join('');
-        return '<section class="cw-card cw-prod">' + head + '<div class="cw-tbl">' + th + rows + '</div></section>';
+        return '<section class="cw-card cw-prod' + (collapsed ? ' cw-pc' : '') + '">' + head + '<div class="cw-tbl">' + th + rows + '</div></section>';
     }
     function bodyHtml(key, cab, camp, kind, live) {
         try { if (hasCtl('register')) root.AdvCtl.register(key, { paymentType: camp.paymentType, bidType: (S.info[key] && S.info[key].bidType) || camp.bidType, createdAt: camp.createdAt || camp.wbCreatedAt, zones: camp.zones || camp.placements, limit: camp.limit, autoRefill: camp.autoRefill }); } catch (e) { /* состояние кампании не критично */ }
@@ -1249,6 +1251,7 @@
         else if (act === 'addp') addProductsFlow(key);
         else if (act === 'topup') topupFlow(key);
         else if (act === 'abt') abToggle(key);
+        else if (act === 'prodtgl') { if (e.target.closest('.cw-tools')) return; S.pc = S.pc || {}; S.pc[key] = !S.pc[key]; patchRow(key); }
         else if (act === 'flt') { if (root.AdsHQ && root.AdsHQ.setCampFilter) { root.AdsHQ.setCampFilter(t.dataset.f); render(); } }
         else if (act === 'allowed') { var fa = findCamp(key); if (fa && root.AdvShelves && root.AdvShelves.openAllowed) root.AdvShelves.openAllowed(fa.cab.id, fa.camp.wbId); }
         else if (act === 'toggle') togglePause(key);
