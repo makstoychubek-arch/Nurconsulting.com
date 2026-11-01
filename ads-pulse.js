@@ -371,6 +371,79 @@
         if (!t || (nmCount || 0) < 2) return '';
         return '<small class="adp2-main">главный: ' + esc(t) + '</small>';
     }
+    /* ───────── Автобиддер: отдельный ползунок в строке (только CPM) и окно первого включения ───────── */
+    function abOn(key, camp) {
+        if (S.ab && S.ab[key] != null) return !!S.ab[key];
+        return (camp.rules || []).some(function (r) { return r.is_active !== false; });
+    }
+    function abLocked(key) {
+        var p = String(key).split(':');
+        return !!(root.AdvShelves && root.AdvShelves.has && root.AdvShelves.has(p[0], p[1]));
+    }
+    function abToggleHtml(key, camp, kind) {
+        if (kind !== 'cpm') return '';
+        var on = abOn(key, camp), lock = abLocked(key);
+        var title = lock ? 'На «Полках» ставка одна, держите её на минимуме' : (on ? 'Автобиддер включён: сайт сам ведёт ставки' : 'Включить автобиддер');
+        return '<button type="button" class="adp2-abt' + (on ? ' on' : '') + (lock ? ' lock' : '') + '" role="switch" aria-checked="' + on + '"' + (lock ? ' aria-disabled="true"' : '') + ' data-pact="abt" data-key="' + esc(key) + '" title="' + esc(title) + '"><span>Автобиддер</span><i></i></button>';
+    }
+    function abSaveActive(key, camp, active) {
+        S.ab = S.ab || {}; S.ab[key] = active;
+        (camp.rules || []).forEach(function (r) { r.is_active = active; });
+        patchRow(key);
+        if (!camp.uuid || !db()) return;
+        Promise.resolve(db().from('autobidder_rules').update({ is_active: active, updated_at: new Date().toISOString() }).eq('campaign_id', camp.uuid)).then(function (r) {
+            if (r && r.error) throw r.error;
+        }).catch(function () {
+            S.ab[key] = !active; (camp.rules || []).forEach(function (rr) { rr.is_active = !active; }); patchRow(key);
+            toast('Не получилось ' + (active ? 'включить' : 'выключить') + ' автобиддер. Повторите.');
+        });
+    }
+    function abToggle(key) {
+        var f = findCamp(key); if (!f) return;
+        if (abLocked(key)) { toast('На «Полках» ставка одна, держите её на минимуме. Автобиддер здесь не нужен.'); return; }
+        if (abOn(key, f.camp)) { abSaveActive(key, f.camp, false); toast('Автобиддер выключен. Ставки остаются как были.'); return; }
+        if ((f.camp.rules || []).length) { abSaveActive(key, f.camp, true); toast('Автобиддер включён'); return; }
+        abWindow(key);
+    }
+    function abWindow(key) {
+        var f = findCamp(key); if (!f) return;
+        if (!f.camp.uuid) { toast('Кампания ещё не загружена, обновите страницу и повторите.'); return; }
+        var old = doc.getElementById('adp2-ab'); if (old) old.remove();
+        var n = (f.camp.clusters || []).filter(function (c) { return c.active !== false && c.is_active !== false; }).length || (f.camp.clusters || []).length;
+        var cur = (S.cur && S.cur[f.cab.id]) || 'сом';
+        var box = doc.createElement('div'); box.id = 'adp2-ab'; box.className = 'adp2-ov abw';
+        box.innerHTML = '<div class="adp2-md" role="dialog" aria-modal="true" aria-label="Автобиддер"><div class="abw-hd"><div><h3>Автобиддер</h3><small>' + esc(f.camp.name) + ' · ID ' + esc(f.camp.wbId) + '</small></div><button type="button" class="abw-x" data-abx aria-label="Закрыть">×</button></div>' +
+            '<div class="abw-two"><label><span>Максимальная ставка</span><div class="abw-in"><input id="abw-max" type="number" min="1" step="1" inputmode="decimal" placeholder="400"><small>' + esc(cur) + ' за 1000 показов</small></div></label>' +
+            '<label><span>Целевая позиция</span><div class="abw-in"><input id="abw-from" type="number" min="1" step="1" value="3"><b>—</b><input id="abw-to" type="number" min="1" step="1" value="5"><small>место</small></div></label></div>' +
+            '<p class="abw-note"><b>' + (n ? 'Применится к ' + n + ' активным ключам кампании.' : 'Применится ко всем ключам кампании.') + '</b> Каждые 5 минут сайт смотрит позицию ключа: ниже цели поднимает ставку на шаг, выше нужного опускает. Выше максимума не поднимет никогда. Выключить можно тем же ползунком.</p>' +
+            '<div class="abw-ft"><button type="button" class="abw-b k" data-abok>Включить</button><button type="button" class="abw-b" data-abx>Отмена</button></div></div>';
+        doc.body.appendChild(box);
+        try { if (typeof box.showPopover === 'function') { box.setAttribute('popover', 'manual'); box.showPopover(); } } catch (e) { /* остаётся fixed */ }
+        function close() { box.remove(); doc.removeEventListener('keydown', onKey); }
+        function onKey(e) { if (e.key === 'Escape') close(); }
+        doc.addEventListener('keydown', onKey);
+        box.addEventListener('click', function (e) {
+            if (e.target === box || e.target.closest('[data-abx]')) { close(); return; }
+            if (!e.target.closest('[data-abok]')) return;
+            var mx = Number(box.querySelector('#abw-max').value), a = Math.round(Number(box.querySelector('#abw-from').value)), b = Math.round(Number(box.querySelector('#abw-to').value));
+            if (!(mx > 0)) { toast('Укажите максимальную ставку'); box.querySelector('#abw-max').focus(); return; }
+            if (!(a >= 1) || !(b >= a)) { toast('Позиция: «от» не больше «до», начиная с 1'); return; }
+            close();
+            var payload = { campaign_id: f.camp.uuid, cluster_id: null, strategy: 'fixed_position', target_pos_from: a, target_pos_to: b, max_bid: mx, is_active: true, schedule: null };
+            S.ab = S.ab || {}; S.ab[key] = true;
+            var tmp = Object.assign({ id: 'tmp-' + Date.now() }, payload); f.camp.rules = (f.camp.rules || []).concat([tmp]);
+            patchRow(key); toast('Автобиддер включён: макс ' + mx + ' ' + cur + ', позиция ' + a + '–' + b);
+            Promise.resolve(db().from('autobidder_rules').insert(payload).select('id')).then(function (r) {
+                if (r && r.error) throw r.error;
+                if (r && r.data && r.data[0]) tmp.id = r.data[0].id;
+            }).catch(function () {
+                S.ab[key] = false; f.camp.rules = (f.camp.rules || []).filter(function (x) { return x !== tmp; }); patchRow(key);
+                toast('Правило не сохранилось. Включите автобиддер ещё раз.');
+            });
+        });
+        setTimeout(function () { var i = box.querySelector('#abw-max'); if (i) i.focus(); }, 30);
+    }
+
     /* Ползунок: 0 — выкл, 1 — включена, A — автопилот */
     function switchHtml(key, camp, live) {
         var AS = root.AdvShelves, kp = String(key).split(':');
@@ -401,7 +474,7 @@
         var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
         var tip = function (t, x) { return '<div class="' + x + ' adp2-tip" data-tip="' + esc(t || '') + '"><span>'; };
         return '<div class="adp2-hd" data-key="hd" aria-hidden="true">' +
-            tip('Выключена, включена или автопилот сам ведёт ставки.', 'adp2-hpos') + 'Режим</span></div>' +
+            tip('Выключена, включена или автопилот сам ведёт ставки. Правый ползунок: автобиддер сам ведёт ставки по ключам.', 'adp2-hpos') + 'Режим · автобиддер</span></div>' +
             tip('Название, номер и статус кампании.', 'adp2-hnm') + 'Кампания</span></div>' +
             tip('Как оплачивается реклама (CPM за показы, CPC за клики) и как ведётся ставка.', 'adp2-ty') + 'Тип</span></div>' +
             all.map(function (c) { return tip(c.tip, c.key === 'budget' ? 'adp2-hbal' : 'adp2-mc') + esc(c.title) + '</span></div>'; }).join('') +
@@ -664,7 +737,7 @@
             '<div class="adp2-tc">' + mainPhotoHtml(cab, camp, kind) + '</div>' +
             '<div class="adp2-nm"><b><span class="adp2-dot' + (live ? '' : ' off') + '"></span>' + esc(camp.name) + (camp.auto ? '<span class="adp2-auto" title="Ставками управляет автопилот">авто</span>' : '') + '</b><small><span class="adp2-stt">' + (live ? 'Активна' : 'Приостановлена') + ' · </span>' + esc(camp.wbId) + (nmCount ? '<span class="adp2-nmc"> · ' + nmCount + ' тов.</span>' : '') + '</small>' + mainLine(cab, camp, nmCount) + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
             typeCellHtml(camp, kind) +
-            '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + '</div></div>' +
+            '<div class="adp2-r" data-nostop="1">' + balHtml(key, camp) + '<div class="adp2-pos">' + switchHtml(key, camp, live) + abToggleHtml(key, camp, kind) + '</div></div>' +
             metricCellsHtml(c) +
             '<div class="adp2-ch" data-chipbox="1">' + chipHtml(key) + '</div>' +
             '<div class="adp2-shl">' + (root.AdvShelves ? root.AdvShelves.slotHtml(cab.id, camp.wbId) : '') + '</div>' +
@@ -1163,6 +1236,7 @@
         else if (act === 'rm') { closeMenus(); removeProduct(key, Number(t.dataset.nm)); }
         else if (act === 'addp') addProductsFlow(key);
         else if (act === 'topup') topupFlow(key);
+        else if (act === 'abt') abToggle(key);
         else if (act === 'allowed') { var fa = findCamp(key); if (fa && root.AdvShelves && root.AdvShelves.openAllowed) root.AdvShelves.openAllowed(fa.cab.id, fa.camp.wbId); }
         else if (act === 'toggle') togglePause(key);
         else if (act === 'rowmenu') { var dd = t.closest('.cw-dots'); dd.classList.toggle('open'); }
