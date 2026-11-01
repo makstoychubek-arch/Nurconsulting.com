@@ -350,6 +350,8 @@
         if (!doc || !root.matchMedia) return;
         var mq = root.matchMedia('(max-width: 768px)');
         var el = null, x0 = 0, y0 = 0, px = 0, py = 0, axis = '', saved = null, timer = 0, touching = false;
+        /* Вторую ось держим на запомненной позиции, а не отключаем через overflow:hidden: на iPhone смена overflow
+           сбрасывала горизонтальную позицию в начало (после сдвига вбок любой свайп вниз возвращал к первой колонке). */
         var SELF = { __nrmX: false, __nrmY: false };
         function scrollable(n) {
             while (n && n !== doc.body && n !== doc.documentElement) {
@@ -366,7 +368,7 @@
         }
         function restore() {
             clearTimeout(timer);
-            if (saved) { saved.n.style.overflowX = saved.x; saved.n.style.overflowY = saved.y; saved = null; }
+            saved = null;
             axis = '';
         }
         var free = false;
@@ -387,8 +389,7 @@
                 if (Math.max(ax, ay) < 6) return;
                 axis = ax > ay ? 'x' : 'y';
                 if (el && el.__nrmX && el.__nrmY) {
-                    saved = { n: el, x: el.style.overflowX, y: el.style.overflowY };
-                    if (axis === 'x') el.style.overflowY = 'hidden'; else el.style.overflowX = 'hidden';
+                    saved = { n: el, l: el.scrollLeft, t: el.scrollTop };
                 }
             }
             if (!e.cancelable || axis !== 'x') return;
@@ -398,7 +399,13 @@
         function end() { touching = false; clearTimeout(timer); timer = setTimeout(restore, 160); }
         doc.addEventListener('touchend', end, { passive: true, capture: true });
         doc.addEventListener('touchcancel', function () { touching = false; restore(); }, { passive: true, capture: true });
-        doc.addEventListener('scroll', function () { if (saved && !touching) { clearTimeout(timer); timer = setTimeout(restore, 160); } }, { passive: true, capture: true });
+        doc.addEventListener('scroll', function (e) {
+            if (saved && e.target === saved.n) {
+                if (axis === 'y' && saved.n.scrollLeft !== saved.l) saved.n.scrollLeft = saved.l;
+                else if (axis === 'x' && saved.n.scrollTop !== saved.t) saved.n.scrollTop = saved.t;
+            }
+            if (saved && !touching) { clearTimeout(timer); timer = setTimeout(restore, 160); }
+        }, { passive: true, capture: true });
     })();
     /* Таблица РНП: горизонтальная прокрутка колесом или тачпадом плавная и неторопливая. Даже сильный рывок вправо или влево
        двигает таблицу не быстрее ~1700 пикс/с: цель сдвигается на долю рывка, а сама таблица догоняет её плавно. Вертикаль и телефон не трогаем. */

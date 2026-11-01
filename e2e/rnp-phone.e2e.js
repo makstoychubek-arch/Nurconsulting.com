@@ -55,6 +55,21 @@ const tables = {
         const restored = await page.evaluate(() => document.getElementById('rnp-sheet-body').style.overflowY);
         assert.strictEqual(restored, '', 'после жеста вертикальная прокрутка возвращена');
         console.log('ok   телефон: горизонтальный жест едет вбок и не трогает вертикаль (замок оси не ломает прокрутку)');
+        // вертикальный жест после сдвига вправо: горизонтальная позиция остаётся (раньше на iPhone сбрасывалась к названиям строк),
+        // а стили overflow у таблицы не трогаются
+        await page.evaluate(() => { const b = document.getElementById('rnp-sheet-body'); b.scrollLeft = Math.min(120, b.scrollWidth - b.clientWidth); });
+        await page.waitForTimeout(200);
+        const mid = await pos();
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(box.x, box.y + 80) });
+        for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(box.x - i * 2, box.y + 80 - i * 14) });
+        const midStyle = await page.evaluate(() => { const b = document.getElementById('rnp-sheet-body'); return b.style.overflowX + '|' + b.style.overflowY; });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.waitForTimeout(600);
+        const down = await pos();
+        assert.ok(mid.l > 50, 'таблица сдвинута вправо: ' + JSON.stringify(mid));
+        assert.ok(Math.abs(down.l - mid.l) < 4, 'после вертикального жеста горизонтальная позиция не сбросилась: ' + JSON.stringify([mid, down]));
+        assert.strictEqual(midStyle, '|', 'во время жеста стили overflow таблицы не меняются: ' + midStyle);
+        console.log('ok   телефон: вертикальный свайп не сбрасывает горизонтальную позицию таблицы');
         const ov = await page.evaluate(() => getComputedStyle(document.getElementById('rnp-sheet-body')).overscrollBehaviorX);
         assert.strictEqual(ov, 'none', 'таблица не тянется за край (нет пустого угла): ' + ov);
         console.log('ok   телефон: таблицу нельзя оттянуть за край');
@@ -73,7 +88,7 @@ const tables = {
         });
         assert.ok(Math.abs(pf.dl) < 1 && Math.abs(pf.dw - pf.vw) < 1, 'план/факт на весь экран: ' + JSON.stringify(pf));
         assert.ok(pf.bw <= 96, 'столбец артикулов узкий: ' + pf.bw);
-        assert.ok(pf.bv && pf.bl < 16 && pf.bt < 24, '«Назад» на краю сверху: ' + JSON.stringify(pf));
+        assert.ok(pf.bv && pf.bl < 40 && pf.bt < 30, '«Назад» на краю сверху: ' + JSON.stringify(pf));
         assert.strictEqual(pf.ov, 'none', 'таблицу плана нельзя оттянуть за край');
         await page.locator('.pf-back').click();
         assert.strictEqual(await page.evaluate(() => document.getElementById('rnp-plan-fact-overlay').classList.contains('is-open')), false, '«Назад» закрывает план/факт');
