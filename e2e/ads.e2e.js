@@ -185,6 +185,23 @@ test('после жёсткого обновления РК сразу пока�
     assert.ok(Date.now() - t0 < 400, 'список виден через ' + (Date.now() - t0) + ' мс');
 });
 
+test('Окна из окна кампании открываются поверх него: выбор товара и уведомление', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-head').length >= 4, null, { timeout: 5000 });
+    await page.locator('#adv-pulse .adp2-head .adp2-nm').first().click();
+    await page.waitForSelector('.adp2-body.cw [data-pact="addp"]', { timeout: 2000 });
+    await page.locator('.adp2-body.cw [data-pact="addp"]').first().scrollIntoViewIfNeeded();
+    await page.click('.adp2-body.cw [data-pact="addp"]');
+    await page.waitForSelector('.adp2-ov', { timeout: 2000 });
+    const top1 = await page.evaluate(() => { const o = document.querySelector('.adp2-ov'); const r = o.querySelector('.adp2-md').getBoundingClientRect(); return o.contains(document.elementFromPoint(r.left + r.width / 2, r.top + 20)); });
+    assert.ok(top1, 'окно выбора товара должно быть поверх окна кампании');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.NrUi.toast('success', 'Проверка уведомления', ''));
+    await page.waitForSelector('.nru-toast', { timeout: 1000 });
+    const top2 = await page.evaluate(() => { const t = document.querySelector('.nru-toast'); const r = t.getBoundingClientRect(); return t.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); });
+    assert.ok(top2, 'уведомление должно быть видно поверх окна кампании');
+});
+
 (async () => {
     const srv = await serve();
     const base = 'http://127.0.0.1:' + srv.address().port;
