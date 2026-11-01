@@ -101,3 +101,13 @@
     .advs .sw { flex-wrap: wrap; }
     .advs .scr { max-height: 320px; }
 }
+
+/* Таблица ключей: название ключа остаётся на месте, пока листаешь вправо к затратам; ячейки компактнее */
+.advs .kt th:first-child, .advs .kt td.c { position: sticky; left: 0; z-index: 2; background: var(--as-surface); }
+.advs .kt th.l, .advs .kt td.k { position: sticky; left: 30px; z-index: 2; background: var(--as-surface); box-shadow: 1px 0 0 var(--as-m4); }
+.advs .kt thead th:first-child, .advs .kt thead th.l { z-index: 4; }
+@media (max-width: 760px) {
+  .advs .kt th, .advs .kt td { padding: 6px 8px; }
+  .advs .kt td.k, .advs .kt th.l { min-width: 0 !important; width: 112px; max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .advs .bar { gap: 6px; }
+}

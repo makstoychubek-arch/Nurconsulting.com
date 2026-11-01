@@ -135,12 +135,9 @@
             '<div class="seg" style="align-self:flex-start" role="tablist"><span class="a" role="tab" tabindex="0" data-advs="ktab" data-t="kw">Ключевые фразы</span><span role="tab" tabindex="0" data-advs="ktab" data-t="words">Слова в запросах</span></div>' +
             '<div class="bar" data-r="kbar"><button type="button" class="btn k" data-advs="kcheck" data-r="kcheck">Проверить позиции</button>' +
             '<span class="sub" style="margin:0">Проверяем ключей</span><label class="dt"><span data-r="kper"></span>' + chev + '<select data-advs="kper" aria-label="Сколько ключей проверять за раз"><option>5</option><option>10</option><option>30</option><option>60</option></select></label>' +
-            '<span class="sub" style="margin:0">Регион</span><span class="dt off" title="Позиции считает WB по региону по умолчанию">г Москва' + chev + '</span>' +
-            '<span class="sub" style="margin:0">Артикул</span><label class="dt"><span data-r="knm"></span>' + chev + '<select data-advs="knm" aria-label="Артикул"></select></label></div>' +
+                        '<span data-r="kart" style="display:contents"><span class="sub" style="margin:0">Артикул</span><label class="dt"><span data-r="knm"></span>' + chev + '<select data-advs="knm" aria-label="Артикул"></select></label></span></div>' +
             '<div class="bar" data-r="kflt"><span class="seg" role="tablist" data-r="kchips"></span>' +
-            '<span class="sw off" title="Скоро: нужен отчёт WB по новым кластерам">Новые <span class="tg" aria-disabled="true"></span></span>' +
-            '<span class="sw off" title="Скоро: нужен отчёт WB по актуальным кластерам"><span class="tg" aria-disabled="true"></span>Актуальные</span><span class="sp"></span>' +
-            '<span class="sw off" title="Скоро: склейки карточек в API нет"><span class="tg" aria-disabled="true"></span>Учитывать корзины и заказы склейки</span></div>' +
+            '</div>' +
             '<div class="pw"><div class="prog" data-r="kprog"></div><div class="pane" data-r="kpane"></div></div>' +
             '<div class="sub" data-r="knote" hidden></div>' +
             '</div></div></div>';
@@ -148,12 +145,12 @@
 
     function keysSkeleton() {
         var rows = '';
-        for (var i = 0; i < 8; i++) rows += '<tr><td class="c"><span class="cb"></span></td><td class="k"><span class="sk">черный костюм женский</span></td><td><span class="sk">3/4</span></td><td><span class="sk">1 841</span></td><td><span class="sk">2 / 4</span></td><td><span class="sk">12</span></td><td><span class="sk">6,80</span></td><td><span class="sk">75</span></td></tr>';
+        for (var i = 0; i < 8; i++) rows += '<tr><td class="c"><span class="cb"></span></td><td class="k"><span class="sk">черный костюм женский</span></td><td><span class="sk">1 841</span></td><td><span class="sk">2 / 4</span></td><td><span class="sk">12</span></td><td><span class="sk">6,80</span></td><td><span class="sk">75</span></td></tr>';
         return rows;
     }
     function kwTableHtml(st, kw, list, scope) {
         var cur = curOf(st), h = '<table class="t kt"><thead><tr><th style="width:30px"></th>';
-        var ths = [['q', 'Кластеры', 'l'], ['con', 'Конт.', ''], ['freq', 'Частота', 'sort'], ['pos', 'Позиция', 'sort'], ['clicks', 'Клики', 'sort'], ['cpc', 'CPC', 'sort'], ['spend', 'Затраты', 'sort']];
+        var ths = [['q', 'Кластеры', 'l'], ['freq', 'Частота', 'sort'], ['pos', 'Позиция', 'sort'], ['clicks', 'Клики', 'sort'], ['cpc', 'CPC', 'sort'], ['spend', 'Затраты', 'sort']];
         ths.forEach(function (t) {
             var srt = t[2] === 'sort', on = srt && kw.sort === t[0] && kw.touched;
             h += '<th class="' + (t[2] === 'l' ? 'l' : '') + (on ? ' sorted' + (kw.dir > 0 ? ' asc' : '') : '') + '"' + (srt ? ' data-advs="ksort" data-s="' + t[0] + '"' : '') + '>' + t[1] + '</th>';
@@ -165,11 +162,11 @@
             var posCell = a.checked ? (a.pos != null ? String(Math.round(a.pos)) : DASH) : '<button type="button" class="pos' + (kw.run && kw.run.cur === k ? ' run' : '') + '" data-advs="kpos1" data-k="' + esc(k) + '">проверить</button>';
             h += '<tr><td class="c"><span class="cb' + (on ? ' on' : '') + '" role="checkbox" tabindex="0" aria-checked="' + on + '" data-advs="ksel" data-k="' + esc(k) + '"></span></td>' +
                 '<td class="k"><a href="' + searchUrl(a.q) + '" target="_blank" rel="noopener" title="Открыть поиск WB">' + esc(a.q) + ' <span>↗</span></a></td>' +
-                '<td class="dim">' + DASH + '</td><td>' + (a.freq != null ? grp(a.freq) : '') + '</td><td>' + posCell + '</td>' +
+                '<td>' + (a.freq != null ? grp(a.freq) : '') + '</td><td>' + posCell + '</td>' +
                 '<td>' + (a.clicks ? grp(a.clicks) : '') + '</td><td>' + (a.clicks ? dec(a.spend / a.clicks, 2) + NB + cur : '') + '</td><td>' + (a.spend ? fmt(a.spend < 10 ? 'rub1' : 'rub0', a.spend, cur) : '') + '</td></tr>';
         });
         var tc = 0, ts = 0, tf = 0, anyF = false; list.forEach(function (a) { tc += a.clicks; ts += a.spend; if (a.freq != null) { tf += a.freq; anyF = true; } });
-        h += '<tr class="sum"><td></td><td class="k">Итого ' + grp(list.length) + ' ' + plural(list.length, 'ключ', 'ключа', 'ключей') + '</td><td></td><td>' + (anyF ? grp(tf) : '') + '</td><td></td><td>' + (tc ? grp(tc) : '') + '</td><td>' + (tc ? dec(ts / tc, 2) + NB + cur : '') + '</td><td>' + (ts ? fmt('rub0', ts, cur) : '') + '</td></tr>';
+        h += '<tr class="sum"><td></td><td class="k">Итого ' + grp(list.length) + ' ' + plural(list.length, 'ключ', 'ключа', 'ключей') + '</td><td>' + (anyF ? grp(tf) : '') + '</td><td></td><td>' + (tc ? grp(tc) : '') + '</td><td>' + (tc ? dec(ts / tc, 2) + NB + cur : '') + '</td><td>' + (ts ? fmt('rub0', ts, cur) : '') + '</td></tr>';
         h += '</tbody></table>';
         if (list.length > shown.length) h += '<button type="button" class="btn more" data-advs="kmore" style="margin:8px">Показать ещё ' + Math.min(300, list.length - shown.length) + '</button>';
         return h;
@@ -193,7 +190,7 @@
         setText(q(r0, 'kper'), String(kw.perCall));
         var pane = q(r0, 'kpane');
         if (!kw.rows) {
-            if (!pane.getAttribute('data-sk')) { pane.innerHTML = '<div class="scr k"><table class="t kt"><thead><tr><th style="width:30px"></th><th class="l">Кластеры</th><th>Конт.</th><th>Частота</th><th>Позиция</th><th>Клики</th><th>CPC</th><th>Затраты</th></tr></thead><tbody>' + keysSkeleton() + '</tbody></table></div>'; pane.setAttribute('data-sk', '1'); }
+            if (!pane.getAttribute('data-sk')) { pane.innerHTML = '<div class="scr k"><table class="t kt"><thead><tr><th style="width:30px"></th><th class="l">Кластеры</th><th>Частота</th><th>Позиция</th><th>Клики</th><th>CPC</th><th>Затраты</th></tr></thead><tbody>' + keysSkeleton() + '</tbody></table></div>'; pane.setAttribute('data-sk', '1'); }
             q(r0, 'kprog').classList.toggle('on', !!kw.loading);
             q(r0, 'kchips').innerHTML = '<span class="a">Все<b>—</b></span><span>Управляемые<b>—</b></span><span>Активные<b>—</b></span>';
             setKeysNote(r0, kw.error ? kw.error : '', true, st);
@@ -209,6 +206,7 @@
         var opts = (nms.length > 1 ? '<option value="all">Все</option>' : '') + nms.map(function (n) { return '<option value="' + n + '">' + n + '</option>'; }).join('');
         if (sel.getAttribute('data-sig') !== opts) { sel.innerHTML = opts; sel.setAttribute('data-sig', opts); }
         sel.value = cur; setText(q(r0, 'knm'), cur === 'all' ? 'Все' : cur);
+        var kart = q(r0, 'kart'); if (kart) kart.style.display = nms.length > 1 ? 'contents' : 'none'; // один артикул: выбирать нечего
         var per = r0.querySelector('select[data-advs="kper"]'); per.value = String(kw.perCall); setText(q(r0, 'kper'), String(kw.perCall));
         // кнопка проверки: пока идёт — «Остановить / Осталось: N»
         var kb = q(r0, 'kcheck'), left = 0; scope.forEach(function (a) { if (!a.checked) left++; });
