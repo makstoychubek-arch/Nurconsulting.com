@@ -102,7 +102,7 @@ test('Пульт: обновление и фоновая подгрузка ст
 test('Окно кампании: открывается сразу, есть блоки макета, ESC закрывает, страница не уезжает вбок', async ({ page }) => {
     await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-head').length >= 4, null, { timeout: 5000 });
     const t0 = Date.now();
-    await page.locator('#adv-pulse .adp2-head').first().click();
+    await page.locator('#adv-pulse .adp2-head .adp2-nm').first().click();
     await page.waitForSelector('.adp2-body.cw .cw-hd', { timeout: 300 });
     assert.ok(Date.now() - t0 < 300, 'окно открылось за ' + (Date.now() - t0) + ' мс');
     const has = await page.evaluate(() => ['.cw-grid2', '.cw-zones', '.cw-prod', '.cw-x'].every((s) => document.querySelector('.adp2-body.cw ' + s)));
