@@ -544,7 +544,8 @@
         var cs0 = ctlState(key), fin = !!(cs0 && (cs0.finished || cs0.finishing)), finDone = !!(cs0 && cs0.finished);
         var cs = ctlState(key), created = (cs && cs.createdAt) || camp.createdAt || camp.wbCreatedAt || camp.created_at || '';
         if (created) { var d = new Date(created); if (!isNaN(d)) created = ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
-        return '<div class="cw-hd"><div class="cw-ttl"><h2 class="cw-h2"><span class="cw-name">' + esc(camp.name) + '</span>' +
+        return '<div class="cw-bar"><span class="cw-bar-t">' + esc(camp.name) + '</span><button type="button" class="cw-xb" data-pact="open" data-key="' + esc(key) + '" aria-label="Закрыть">' + ico(IC.x) + '</button></div>' +
+            '<div class="cw-hd"><div class="cw-ttl"><h2 class="cw-h2"><span class="cw-name">' + esc(camp.name) + '</span>' +
             '<button type="button" class="cw-pen" data-ctl="1" data-pact="rename" data-key="' + esc(key) + '" aria-label="Переименовать"' + (hasCtl('rename') ? '' : ' disabled title="Пока недоступно"') + '>' + ico(IC.pen) + '</button></h2>' +
             '<div class="cw-chips"><span class="cw-chip' + (live && !fin ? ' on' : '') + '">' + (fin ? (finDone ? 'Завершена' : 'Завершается…') : (live ? 'Активна' : 'Приостановлена')) + '</span><span class="cw-chip">' + (kind === 'cpc' ? 'CPC' : 'CPM') + '</span>' +
             '<button type="button" class="cw-id" data-pact="copyid" data-id="' + esc(camp.wbId) + '" title="Скопировать номер">ID ' + esc(camp.wbId) + ' ⧉</button>' + (created ? '<span class="cw-date">' + esc(created) + '</span>' : '') + '</div></div>' +
