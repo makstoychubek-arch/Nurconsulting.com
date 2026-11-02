@@ -6112,6 +6112,17 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     __nrCss += 'html[data-nr-early] #header-date-chip-wrap{display:none !important}';
                     __nrCss += 'html[data-nr-early] #header-back-btn.hidden{display:inline-flex !important}';
                 }
+                // Настройки: в первом кадре сразу нужный раздел (Интеграции и др.), без мигания «Профиля»
+                if (__nrPane === 'settings') {
+                    try {
+                        var __nrSec = localStorage.getItem('nr_settings_section');
+                        if (['security', 'integrations', 'api'].indexOf(__nrSec) !== -1) {
+                            __nrCss += '#settings-profile{display:none !important}#settings-' + __nrSec + '{display:block !important}';
+                            __nrCss += 'html body #tab-settings #settings-tab-btn-profile.settings-section-tab.active{color:var(--text-muted) !important;box-shadow:none !important}';
+                            __nrCss += 'html body #tab-settings #settings-tab-btn-' + __nrSec + '.settings-section-tab{color:var(--text-primary) !important;box-shadow:inset 0 -2px 0 var(--text-primary) !important}';
+                        }
+                    } catch (e) {}
+                }
                 __nrStyle.textContent = __nrCss;
                 document.head.appendChild(__nrStyle);
                 window.__nrEarlyTab = __nrPane;
@@ -8200,7 +8211,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
-<script src="/dist/viewer-mode.f473a5763c.min.js"></script>
+<script src="/dist/viewer-mode.67265b0c12.min.js"></script>
 <script src="/dist/space-admin-ext.68d561b81b.min.js"></script>
 <script src="/dist/rnp-planning.193b5a741b.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
@@ -16402,6 +16413,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (pane) pane.classList.add('hidden');
         });
         el?.classList.add('active');
+        // Раздел запоминаем: после обновления страницы человек остаётся там же (раньше всегда возвращался в «Профиль»)
+        try { localStorage.setItem('nr_settings_section', section); } catch (_) {}
         document.getElementById('settings-' + section)?.classList.remove('hidden');
         if (section === 'profile' || section === 'integrations') { try { window.NrAccess?.card?.(); } catch (_) {} }
         if (section === 'profile') loadSettingsProfile();
@@ -16450,8 +16463,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         // Профиль, Безопасность, Интеграции, API Wildberries и Тарифы видят все; «Сессии» только команда.
         document.getElementById('settings-tab-btn-devsessions')?.classList.toggle('hidden-tab', !isSuperAdmin);
         document.getElementById('admin-access-card')?.classList.toggle('hidden', !isSuperAdmin);
-        const active = document.querySelector('.settings-section-tab.active');
-        showSettingsSection('profile', document.getElementById('settings-tab-btn-profile'));
+        let saved = '';
+        try { saved = localStorage.getItem('nr_settings_section') || ''; } catch (_) {}
+        if (saved === 'devsessions' && !isSuperAdmin) saved = '';
+        const sec = SETTINGS_PANES.includes(saved) ? saved : 'profile';
+        showSettingsSection(sec, document.getElementById('settings-tab-btn-' + sec));
     }
 
     async function ensureUserSpace(user) {
