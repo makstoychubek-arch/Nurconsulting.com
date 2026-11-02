@@ -111,6 +111,11 @@ Deno.serve(async (req) => {
                             cabinet_id: cab, advert_id: newId, kind: 'set_bid', payload: { nm_id: Number(nm), bid_kopecks: bid, placement },
                         })));
                     }
+                    // «Только полки»: единая ставка, чистка всех ключей включается сразу (adv-shelves-tick исключает всё, чего нет в списке разрешённых)
+                    if (newId && o.payload.only_shelves === true) {
+                        const { error: shErr } = await admin.from('adv_shelves').upsert({ cabinet_id: cab, advert_id: newId, enabled: true, interval_min: 10, keep_phrases: [] }, { onConflict: 'cabinet_id,advert_id' });
+                        if (shErr) console.warn('[adv-ops-run] adv_shelves:', shErr.message);
+                    }
                     await done(o, { advert_id: newId });
                 } else {
                     if (o.kind === 'finish' || o.kind === 'set_zones') {

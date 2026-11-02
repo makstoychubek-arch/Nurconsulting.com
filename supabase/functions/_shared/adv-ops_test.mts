@@ -67,6 +67,12 @@ const cr = await sendCreate(fake, 'T', { name: ' Свитер ', nms: ['5', 6], 
 assert.deepEqual(calls[0].body, { name: 'Свитер', nms: [5, 6], bid_type: 'manual', payment_type: 'cpc', placement_types: ['search'] });
 assert.equal(cr.data, 12345);
 calls.length = 0;
+await sendCreate(fake, 'T', { name: 'a', nms: [1], bid_type: 'manual', payment_type: 'cpc', placement_types: ['recommendations'] });
+assert.deepEqual(calls[0].body.placement_types, ['recommendations'], 'выбранная зона уходит в WB при создании, в том числе для CPC');
+calls.length = 0;
+await sendCreate(fake, 'T', { name: 'a', nms: [1], bid_type: 'manual', placement_types: ['search', 'recommendations'] });
+assert.deepEqual(calls[0].body.placement_types, ['search', 'recommendations']);
+calls.length = 0;
 await sendCreate(fake, 'T', { name: 'a', nms: [1], bid_type: 'unified' });
 assert.equal('placement_types' in calls[0].body, false, 'для единой ставки места не задаются');
 
