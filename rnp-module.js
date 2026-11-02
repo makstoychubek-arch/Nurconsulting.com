@@ -6613,6 +6613,8 @@ const RNP = (() => {
         const digits = s.replace(/\D/g, '').length;
         const n = Math.abs(parseFloat(s.replace(/\s/g, '').replace(',', '.')));
         if (digits >= 7 || n >= 1e6) return 'rnp-num rnp-num--m';
+        // телефон: «100,0%» и «20,00%» (6 знаков) не помещаются в узкую колонку дня и обрезались справа
+        if (_isPhone() && s.length >= 6) return 'rnp-num rnp-num--m';
         return 'rnp-num';
     }
 
