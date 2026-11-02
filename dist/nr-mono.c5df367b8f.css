@@ -1197,3 +1197,15 @@ html body .adp2-zck > button { width: 20px; height: 20px; min-width: 20px; paddi
 html body .adp2-zck > button.on { background: var(--accent); }
 html body .adp2-zck b { display: block; }
 html body .adp2-zck small { display: block; color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+
+/* РНП на телефоне: область нажатия раскрытия «ЗАКАЗЫ / Продажи» была высотой 11px; окно «Планирование»: шапка переносится, поиск не уходит за край */
+@media (max-width: 768px) {
+  /* поле «Ответственный» в шапке артикула: подсказка не помещалась и обрезалась («Ответственнь»); сам ввод остаётся 16px, чтобы iPhone не приближал страницу */
+  html body .rnp-ph2-row .rnp-meta-input::placeholder { font-size: 13px; }
+  html body .rnp-sheet-table .rnp-split-toggle { display: inline-block; padding: 9px 8px 9px 0; margin: -9px 0; }
+  html body .rnp-plan-panel .rnp-plan-head { flex-wrap: wrap; row-gap: 8px; }
+  html body .rnp-plan-panel .rnp-plan-head .rnp-plan-title { order: 1; flex: 1 1 auto; min-width: 0; }
+  html body .rnp-plan-panel .rnp-plan-head .rnp-plan-close { order: 2; margin-left: auto; }
+  html body .rnp-plan-panel .rnp-plan-head .rnp-plan-month { order: 3; flex: 1 1 100%; justify-content: space-between; }
+  html body .rnp-plan-panel .rnp-plan-search { width: 100%; max-width: 100%; box-sizing: border-box; flex: 1 1 100%; order: 4; }
+}
