@@ -6964,6 +6964,18 @@ const RNP = (() => {
         return false;
     }
 
+    // Настоящие цифры в таблице: заказы или продажи больше нуля в клетках фактов. Строки плана (140, 155) и «ИТОГ» не считаем:
+    // раньше по ним кэш из одних плановых цифр принимался за «данные» и размытие не включалось, а экран был пустым.
+    const _RNP_REAL_METRICS = { orders_count: 1, sales_count: 1, orders_sum: 1, sales_sum: 1 };
+    function _rnpHasRealData(scope) {
+        const cells = scope ? scope.querySelectorAll('.rnp-sheet-table td[data-rnp-metric]') : [];
+        for (let i = 0; i < cells.length && i < 4000; i++) {
+            const c = cells[i];
+            if (_RNP_REAL_METRICS[c.getAttribute('data-rnp-metric')] && parseFloat(c.getAttribute('data-rnp-value')) > 0) return true;
+        }
+        return false;
+    }
+    const _RNP_REAL_RE = /data-rnp-value="(?:[1-9]\d*(?:\.\d+)?|0\.\d*[1-9]\d*)"[^>]*data-rnp-metric="(?:orders_count|sales_count|orders_sum|sales_sum)"/;
     function _markPaintedCab(scope) {
         _paintedCab = _cab || null;
         const body = (scope && scope.querySelector)
@@ -7260,7 +7272,7 @@ const RNP = (() => {
                 req.onerror = () => finish(false);
                 req.onsuccess = () => {
                     const html = req.result;
-                    if (html && String(html).indexOf('rnp-workspace') >= 0 && !_rnpMainRendered()) {
+                    if (html && String(html).indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(String(html)) && !_rnpMainRendered()) {
                         el.innerHTML = html;
                         finish(true);
                     } else finish(!!_rnpMainRendered());
@@ -7380,10 +7392,7 @@ const RNP = (() => {
         // В кэш попадает только таблица с настоящими цифрами. Раньше при обновлении страницы во время загрузки
         // сохранялась таблица из одних нулей и потом показывалась первой («снова нули»).
         if (window._rnpLoadedForCabinet !== _cab) return;
-        const cellsSample = ws.querySelectorAll('.rnp-sheet-table td');
-        let hasData = false;
-        for (let i = 0; i < cellsSample.length && i < 1500; i++) { if (/^\s*[1-9]/.test(cellsSample[i].textContent)) { hasData = true; break; } }
-        if (!hasData) return;
+        if (!_rnpHasRealData(ws)) return;
         _markPaintedCab(ws);
         const html = _compactRnpWorkspace(ws);
         if (!html) return;
@@ -7421,7 +7430,8 @@ const RNP = (() => {
         if (el.querySelector('.rnp-workspace') && _rnpMainRendered()
             && (!want || !domCab || domCab === want)) return true;
         const html = want ? _readRnpKey(_rnpShellKey(want)) : '';
-        if (html && html.indexOf('rnp-workspace') >= 0) {
+        // Старый снимок без настоящих цифр (одни нули и план) не показываем: он давал пустой экран без размытия
+        if (html && html.indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(html)) {
             el.innerHTML = html;
             _stripTransientClasses(el);
             return !!el.querySelector('.rnp-workspace');
@@ -7504,8 +7514,8 @@ const RNP = (() => {
         // Свежие цифры на экране из кэша уже есть: показываем их сразу, догрузка идёт в фоне без размытия.
         try {
             const ws = document.querySelector('#tab-rnp .rnp-workspace');
-            if (ws && _cab && (!_paintedCab || _paintedCab === _cab)) { const tds = ws.querySelectorAll('.rnp-sheet-table td'); for (let i = 0; i < tds.length && i < 1500; i++) if (/^\s*[1-9]/.test(tds[i].textContent)) return; }
-            if (_cab && /<td[^>]*>(?:<[^>]+>)*\s*[1-9]/.test(String(_readRnpKey(_rnpShellKey(_cab)) || ''))) return;
+            if (ws && _cab && (!_paintedCab || _paintedCab === _cab) && _rnpHasRealData(ws)) return;
+            if (_cab && _RNP_REAL_RE.test(String(_readRnpKey(_rnpShellKey(_cab)) || ''))) return;
         } catch (e) {}
         window._rnpBusyLate = false;
         window.NrBusy.run(new Promise((r) => { window._rnpBusyEnd = r; }));

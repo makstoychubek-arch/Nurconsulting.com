@@ -7290,7 +7290,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     try { selected = localStorage.getItem('selected_cabinet_id') || ''; } catch (e4) {}
                     var cab = selected || read('rnp_shell_cab');
                     var html = cab ? read('rnp_shell_' + cab) : '';
-                    if (html && html.indexOf('rnp-workspace') !== -1) {
+                    var realRe = /data-rnp-value="(?:[1-9]\d*(?:\.\d+)?|0\.\d*[1-9]\d*)"[^>]*data-rnp-metric="(?:orders_count|sales_count|orders_sum|sales_sum)"/;
+                    if (html && html.indexOf('rnp-workspace') !== -1 && realRe.test(html)) {
                         el.innerHTML = html;
                     } else {
                         var raw = read('rnp_chrome');
@@ -7319,7 +7320,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             var req = tx.objectStore('shell').get(cab);
                             req.onsuccess = function () {
                                 var html2 = req.result;
-                                if (!html2 || String(html2).indexOf('rnp-workspace') === -1) return;
+                                if (!html2 || String(html2).indexOf('rnp-workspace') === -1 || !realRe.test(String(html2))) return;
                                 if (el.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide')) return;
                                 el.innerHTML = html2;
                             };
@@ -8076,7 +8077,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-win.9a80ed5b42.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
-<script src="/dist/rnp-module.93d28450b8.min.js"></script>
+<script src="/dist/rnp-module.a9bfc872ce.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
