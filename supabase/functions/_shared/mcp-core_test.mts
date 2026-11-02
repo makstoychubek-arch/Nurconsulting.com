@@ -6,9 +6,12 @@ const calls: string[] = [];
 const data: McpData = {
     cabinets: async () => [{ id: 'c1', name: 'Zevina 1' }, { id: 'c2', name: 'Baza' }],
     stocks: async (c, a) => { calls.push(`stocks:${c}:${a ?? ''}`); return [{ name: 'Свитер', fbo: 3, fbs: 5 }]; },
-    orders: async (c, d) => { calls.push(`orders:${c}:${d}`); return []; },
-    finance: async (c, d) => { calls.push(`finance:${c}:${d}`); return []; },
-    penalties: async (c, d) => { calls.push(`penalties:${c}:${d}`); return []; },
+    orders: async (c, r, g) => { calls.push(`orders:${c}:${r.from}:${r.to}:${g}`); return []; },
+    sales: async (c, r, g) => { calls.push(`sales:${c}:${r.from}:${r.to}:${g}`); return []; },
+    finance: async (c, r) => { calls.push(`finance:${c}:${r.from}:${r.to}`); return []; },
+    penalties: async (c, r) => { calls.push(`penalties:${c}:${r.from}:${r.to}`); return []; },
+    adCampaigns: async (c, st, r) => { calls.push(`adc:${c}:${st}:${r ? r.from + '..' + r.to : '-'}`); return {}; },
+    adStats: async (c, r, id, g) => { calls.push(`ads:${c}:${r.from}:${r.to}:${id ?? '-'}:${g}`); return {}; },
 };
 
 const init = await handleRpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } }, data);
@@ -28,13 +31,36 @@ const call = async (name: string, args: any) => (await handleRpc({ jsonrpc: '2.0
 assert.match((await call('list_cabinets', {})).content[0].text, /Zevina 1/);
 await call('get_stocks', { cabinet: 'zevina', article: 'свитер' });
 assert.deepEqual(calls.at(-1), 'stocks:c1:свитер', 'кабинет по части названия, артикул передан');
-await call('get_orders', { cabinet: 'Baza', days: 99 });
-assert.equal(calls.at(-1), 'orders:c2:31', 'не больше 31 дня');
+const day = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+await call('get_orders', { cabinet: 'Baza', days: 999 });
+assert.equal(calls.at(-1), `orders:c2:${day(90)}:${day(0)}:day`, 'без дат: не больше 90 последних дней');
 await call('get_finance', { cabinet: 'Baza' });
-assert.equal(calls.at(-1), 'finance:c2:7', 'по умолчанию 7 дней');
-
+assert.equal(calls.at(-1), `finance:c2:${day(7)}:${day(0)}`, 'по умолчанию 7 дней');
 await call('get_penalties', { cabinet: 'Baza' });
-assert.equal(calls.at(-1), 'penalties:c2:30', 'штрафы по умолчанию за 30 дней');
+assert.equal(calls.at(-1), `penalties:c2:${day(30)}:${day(0)}`, 'штрафы по умолчанию за 30 дней');
+
+// выбор дат
+await call('get_orders', { cabinet: 'Baza', from: '2026-10-01', to: '2026-10-09', group_by: 'article' });
+assert.equal(calls.at(-1), 'orders:c2:2026-10-01:2026-10-09:article', 'выбранные даты и разбивка по артикулам доходят до данных');
+await call('get_sales', { cabinet: 'Baza', from: '2026-10-01', to: '2026-10-09', group_by: 'day_article' });
+assert.equal(calls.at(-1), 'sales:c2:2026-10-01:2026-10-09:day_article');
+const tooLong = await call('get_orders', { cabinet: 'Baza', from: '2026-01-01', to: '2026-06-01' });
+assert.equal(tooLong.isError, true, 'период длиннее 90 дней отклоняется');
+assert.match(tooLong.content[0].text, /90 дней/);
+const badDate = await call('get_finance', { cabinet: 'Baza', from: 'вчера' });
+assert.equal(badDate.isError, true, 'кривая дата объясняется человеку');
+const reversed = await call('get_penalties', { cabinet: 'Baza', from: '2026-10-09', to: '2026-10-01' });
+assert.equal(reversed.isError, true, 'конец раньше начала отклоняется');
+const longDa = await call('get_orders', { cabinet: 'Baza', from: '2026-08-01', to: '2026-09-30', group_by: 'day_article' });
+assert.equal(longDa.isError, true, 'по дням и артикулам не больше 31 дня');
+
+// реклама
+await call('list_ad_campaigns', { cabinet: 'Baza', status: 'archive', from: '2026-10-09', to: '2026-10-09' });
+assert.equal(calls.at(-1), 'adc:c2:archive:2026-10-09..2026-10-09', 'архивные кампании с итогами за выбранный день');
+await call('list_ad_campaigns', { cabinet: 'Baza' });
+assert.equal(calls.at(-1), 'adc:c2:all:-', 'без периода итоги не считаются');
+await call('get_ad_stats', { cabinet: 'Baza', from: '2026-10-01', to: '2026-10-09', campaign_id: 39497335, group_by: 'campaign' });
+assert.equal(calls.at(-1), 'ads:c2:2026-10-01:2026-10-09:39497335:campaign');
 
 const off = await call('apply_change', { change_id: 'x' });
 assert.equal(off.isError, true, 'без разрешения на ключе изменить нельзя');
