@@ -123,7 +123,7 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
         snapshots: [],
         v2Stats: [],
     });
-    assert.equal(ended.rows[0].spendToday, 100, 'finished RK spend stays out of the WB-style cabinet KPI');
+    assert.equal(ended.rows[0].spendToday, 1000, 'расход завершённых РК за период входит в итоги кабинета: так считает и сам WB (проверено 9.10.2026: 20 кампаний, 41 335 KGS)');
     assert.equal(ended.rows[0].campaigns.length, 5, 'model keeps ended rows for spend');
     const visibleAll = AdsHQ.filterCampaigns(ended.rows[0].campaigns, 'all');
     assert.deepEqual(visibleAll.map((c) => c.name).sort(), ['Готовая', 'Живая', 'Пауза']);
@@ -187,10 +187,11 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
         }],
         stocks: [{ cabinet_id: 'cab-a', nm_id: 296564448, quantity: 646 }],
     });
-    assert.equal(wb.rows[0].spendToday, 9204.17);
+    // Итоги кабинета включают и завершённую РК (в тот день она тратила): так считает WB, сверено 9.10.2026
+    assert.equal(wb.rows[0].spendToday, 10104.17);
     assert.equal(wb.rows[0].revenue7, 15936);
-    assert.equal(Number(wb.rows[0].ctr.toFixed(2)), 2.97);
-    assert.equal(Number(wb.rows[0].roas.toFixed(2)), 1.73);
+    assert.equal(Number(wb.rows[0].ctr.toFixed(2)), Number(((659 + 10) / (22160 + 100) * 100).toFixed(2)));
+    assert.equal(Number(wb.rows[0].roas.toFixed(2)), Number((15936 / 10104.17).toFixed(2)));
     const row = wb.rows[0].campaigns.find((c) => c.wbId === 40302705);
     assert.equal(row.paymentType, 'cpm');
     assert.equal(row.bidType, 'auto');

@@ -801,7 +801,9 @@
 
             const listed = listableCampaigns(campaigns);
             const listedIds = new Set(listed.map((c) => String(c.wbId)));
-            const sumField = (field) => listed.reduce((s, c) => s + num(c[field]), 0);
+            // Итоги за период считаем по ВСЕМ кампаниям, в том числе уже завершённым: в тот день они тратили деньги,
+            // и WB в своих итогах их учитывает (раньше завершённые выпадали, и затраты были меньше, чем в кабинете WB).
+            const sumField = (field) => campaigns.reduce((s, c) => s + num(c[field]), 0);
             const spendT = sumField('spendToday');
             const s7 = sumField('spend7');
             const r7 = sumField('revenue7');
