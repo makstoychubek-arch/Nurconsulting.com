@@ -262,7 +262,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         if (document.getElementById('nr-acc-css')) return;
         const s = document.createElement('style');
         s.id = 'nr-acc-css';
-        s.textContent = `#nr-acc { position: fixed; inset: 0; z-index: 9000; background: rgba(15,15,25,.45); display: grid; place-items: center; padding: 16px; }
+        s.textContent = `#nr-acc { position: fixed; inset: 0; z-index: 10100; background: rgba(15,15,25,.45); display: grid; place-items: center; padding: 16px; }
 :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-b { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--surface-solid, #fff); color: var(--text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
 :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) h3 { margin: 0; font-size: 16px; } :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-muted); }
 :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-r { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; font-size: 13px; }
