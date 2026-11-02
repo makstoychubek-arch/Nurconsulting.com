@@ -1808,6 +1808,7 @@ const RNP = (() => {
     /** Активные артикулы текущего кабинета для настроек звука заказов. */
 
     /** Период из общего выбора дат в шапке. opts.noReload — только запомнить (перед первой отрисовкой). */
+    let _rangeSeq = 0;
     async function setDateRange(from, to, opts) {
         const r = _clipRange(from, to);
         if (!r) return;
@@ -1829,7 +1830,9 @@ const RNP = (() => {
             _compareMonthKey = null;
             try { localStorage.setItem('rnp_compare_month', ''); } catch (e) {}
         }
+        const seq = ++_rangeSeq;
         await _loadRnpData();
+        if (seq !== _rangeSeq) return; // за это время период сменили ещё раз: рисует последняя загрузка
         await _renderActiveTable();
     }
 
@@ -2614,6 +2617,7 @@ const RNP = (() => {
     async function _loadNotes(nmIds) {
         if (!nmIds.length) return;
         nmIds.forEach(id => { if (!_notesCache[id]) _notesCache[id] = {}; });
+        const cab0 = _cab;
         try {
             const cal = _buildCalendar();
             const allDates = _calAllDates(cal);
@@ -2624,13 +2628,15 @@ const RNP = (() => {
             for (let i = 0; i < nmIds.length; i += CHUNK) {
                 const batch = nmIds.slice(i, i + CHUNK);
                 const { data, error } = await _db.from('rnp_date_notes')
-                    .select('*').eq('cabinet_id', _cab).in('nm_id', batch)
+                    .select('*').eq('cabinet_id', cab0).in('nm_id', batch)
                     .gte('note_date', from).lte('note_date', to)
                     .order('created_at', { ascending: false });
                 if (error) throw error;
+                if (cab0 !== _cab) return; // сменили кабинет: кэш заметок уже сброшен, чужие заметки не записываем
                 (data || []).forEach(row => {
                     const nm = row.nm_id;
                     const d = row.note_date;
+                    if (!_notesCache[nm]) _notesCache[nm] = {};
                     if (!_notesCache[nm][d]) _notesCache[nm][d] = { text: '', history: [] };
                     const entry = { text: row.note, author: row.author || '—', at: row.created_at, image: row.image_url || '' };
                     _notesCache[nm][d].history.push(entry);
@@ -4920,13 +4926,15 @@ const RNP = (() => {
         const cal = _buildCalendar();
         const allDates = _calAllDates(cal);
         if (!allDates.length) return {};
+        const cab0 = _cab;
         try {
             const data = await _fetchAllRows('rnp_daily_data', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'eq', column: 'cabinet_id', value: cab0 },
                 { op: 'eq', column: 'nm_id', value: nmId },
                 { op: 'gte', column: 'date', value: allDates[0] },
                 { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
             ]);
+            if (cab0 !== _cab) return {};
             const map = {};
             (data || []).forEach(r => { map[r.date] = r; });
             _dataCache[nmId] = map;
@@ -5275,6 +5283,7 @@ const RNP = (() => {
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length) return;
         const idSet = new Set(nmIds.map(Number));
+        const cab0 = _cab;
         try {
             // Все независимые запросы уходят одной пачкой (раньше шли по очереди, по кругу туда-обратно).
             const FT = (typeof window !== 'undefined' && window.FfTerms) || null;
@@ -5293,6 +5302,7 @@ const RNP = (() => {
             ]);
             const { data, error } = splitRes;
             if (error) throw error;
+            if (cab0 !== _cab) return;
             // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт: тарифы КАЖДОГО ФФ вносят в «Товары → FBS» (ff_terms, по периодам)
             let includeShip = true, includeStorage = true;
             if (setRes && setRes.data) { includeShip = setRes.data.rnp_ship_costs !== false; includeStorage = setRes.data.rnp_storage_costs !== false; }
@@ -5389,12 +5399,14 @@ const RNP = (() => {
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length) return;
         const idSet = new Set(nmIds.map(Number));
+        const cab0 = _cab; // ответ мог прийти уже после смены кабинета: чужие строки в кэш нового кабинета не пускаем
         try {
             const data = await _fetchAllRows('rnp_daily_data', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'eq', column: 'cabinet_id', value: cab0 },
                 { op: 'gte', column: 'date', value: allDates[0] },
                 { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
             ]);
+            if (cab0 !== _cab) return;
             (data || []).forEach(r => {
                 if (!idSet.has(Number(r.nm_id))) return;
                 if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
@@ -5523,10 +5535,11 @@ const RNP = (() => {
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length || !_cab) return 0;
         const idSet = new Set(nmIds.map(Number));
+        const cab0 = _cab;
         let rows = [];
         try {
             rows = await _fetchAllRows('advertising_daily_stats', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'eq', column: 'cabinet_id', value: cab0 },
                 { op: 'gte', column: 'stat_date', value: allDates[0] },
                 { op: 'lte', column: 'stat_date', value: allDates[allDates.length - 1] },
             ], 'campaign_id,stat_date,views,clicks,spend,orders,atbs,data');
@@ -5534,6 +5547,7 @@ const RNP = (() => {
             console.warn('[RNP] advertising_daily_stats:', e.message);
             return 0;
         }
+        if (cab0 !== _cab) return 0;
         const byNmDate = {};
         const outside = { views: 0, spend: 0, nms: new Set() };
         (rows || []).forEach(row => {
@@ -5798,6 +5812,9 @@ const RNP = (() => {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
         if (!_cab || !_db) return false;
+        // Период сменили, пока шла эта загрузка: её ответ уже не нужен и не должен затереть данные новой загрузки
+        const snapRange = _extRange ? _extRange.from + '|' + _extRange.to : '';
+        const _isStaleLoad2 = (rq, cb) => _isStaleLoad(rq, cb) || (_extRange ? _extRange.from + '|' + _extRange.to : '') !== snapRange;
 
         const active = _articles.filter(a => a.is_active);
         const nmIds = active.map(a => a.nm_id);
@@ -5835,7 +5852,7 @@ const RNP = (() => {
         ]);
         const stocks = Array.isArray(stocksRaw) ? stocksRaw : [];
         if (dailyRows === null) return false;
-        if (_isStaleLoad(snapReq, snapCab)) return false;
+        if (_isStaleLoad2(snapReq, snapCab)) return false;
 
         const settings = _rnpMetricSettings();
         settings.periodDays = cal.days?.length || cal.months?.[0]?.dates?.length || settings.periodDays;
@@ -5848,13 +5865,13 @@ const RNP = (() => {
         // грузим их параллельно со слиянием финансов/рекламы/FBS (которое идёт по порядку).
         const totalsP = Promise.all([_loadCabinetTotals(cal), _loadGeneralHead(cal)]).catch(e => console.warn('[RNP] totals:', e.message || e));
         await _mergeFinanceDailyFromDb(nmIds, cal);
-        if (_isStaleLoad(snapReq, snapCab)) { await totalsP; return false; }
+        if (_isStaleLoad2(snapReq, snapCab)) { await totalsP; return false; }
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
         await _mergeFbsSplit(nmIds, cal);
         await totalsP;
         _overlayPriceDaily(dailyRows, nmIds);
         _seedTodayLiveZeros(nmIds, cal);
-        if (_isStaleLoad(snapReq, snapCab)) return false;
+        if (_isStaleLoad2(snapReq, snapCab)) return false;
 
         window._rnpLastLoadedAt = Date.now();
         _cabinetColsCacheKey = '';
@@ -7621,6 +7638,7 @@ const RNP = (() => {
         const renderId = ++_mainRenderGen;
         const snapReq = _loadRequestId();
         const snapCab = _cab;
+        const snapRange0 = _extRange ? _extRange.from + '|' + _extRange.to : '';
         // Первый заход в кабинет: пока догружаются итоги и воронка, цифры в таблице размыты (как при смене периода), а не нули.
         const firstLoad = window._rnpLoadedForCabinet !== _cab;
         let lateDone = () => {};
@@ -7646,6 +7664,8 @@ const RNP = (() => {
             } else if (first.e) { throw first.e; } else { loadOk = first.v; }
             if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             if (loadOk === false) {
+                // Период сменили во время загрузки: «нет данных» не показываем, таблицу дорисует загрузка нового периода
+                if ((_extRange ? _extRange.from + '|' + _extRange.to : '') !== snapRange0) return;
                 _setRnpSheetState('empty', 'Нет данных за выбранный период. Запустите синхронизацию на дашборде.');
                 return;
             }
