@@ -7,7 +7,7 @@
 // deno-lint-ignore-file no-explicit-any
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { handleRpc, type McpData, type McpWrite } from '../_shared/mcp-core.ts';
+import { handleRpc, type McpData, type McpGroup, type McpRange, type McpWrite } from '../_shared/mcp-core.ts';
 import { planPriceChanges, summarize, WRITE_LIMITS, type PriceCard } from '../_shared/mcp-write.ts';
 import { PRICES_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import { sanitizeWbToken } from '../_shared/wb-cabinet-tokens.ts';
@@ -35,7 +35,10 @@ async function pageAll(build: (from: number, to: number) => any, max = 40000): P
     return out;
 }
 
-const sinceDate = (days: number) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+const nextDay = (d: string) => new Date(Date.parse(d) + 86400000).toISOString().slice(0, 10);
+const AD_STATUS: Record<string, string> = { '9': 'активна', '11': 'на паузе', '4': 'готова к запуску', '8': 'отклонена', '7': 'завершена (архив)', '-1': 'удалена' };
+const adStatusKey = (v: unknown) => { const x = String(v ?? ''); return x === 'active' ? '9' : x === 'paused' ? '11' : x === 'ready' ? '4' : x === 'done' ? '7' : x; };
+const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 10000) / 100 : null);
 const rub = (n: number) => Math.round(n);
 
 function writeFor(admin: any, userId: string, canWrite: boolean): McpWrite {
@@ -119,31 +122,97 @@ function dataFor(admin: any, userId: string, canWrite = false): McpData {
             }
             return [...by.values()].filter((e) => e.fbo['всего'] + e.fbs['всего'] > 0).sort((a, b) => b.fbs['всего'] + b.fbo['всего'] - a.fbs['всего'] - a.fbo['всего']).slice(0, 150);
         },
-        orders: async (cabId, days) => {
-            const since = sinceDate(days);
-            const rows = await pageAll((a, b) => admin.from('wb_orders').select('order_date, wt:data->>warehouseType').eq('cabinet_id', cabId).gte('order_date', since).range(a, b));
+        orders: async (cabId, r: McpRange, group: McpGroup) => {
+            const rows = await pageAll((a, b) => admin.from('wb_orders').select('order_date, nm_id, wt:data->>warehouseType, art:data->>supplierArticle, cancel:data->>isCancel, pwd:data->>priceWithDisc').eq('cabinet_id', cabId).gte('order_date', r.from).lt('order_date', nextDay(r.to)).range(a, b), 60000);
             const by = new Map<string, any>();
-            for (const r of rows) {
-                const d = String(r.order_date).slice(0, 10);
-                const e = by.get(d) || { date: d, всего: 0, 'склад WB': 0, 'склад продавца': 0 };
-                e['всего']++;
-                if (r.wt === 'Склад продавца') e['склад продавца']++; else e['склад WB']++;
-                by.set(d, e);
+            for (const x of rows) {
+                const d = String(x.order_date).slice(0, 10);
+                const art = String(x.art || x.nm_id || '—');
+                const key = group === 'day' ? d : group === 'article' ? art : d + '|' + art;
+                const e = by.get(key) || (group === 'day' ? { date: d } : group === 'article' ? { артикул: art } : { date: d, артикул: art });
+                Object.assign(e, { заказов: e.заказов || 0, отменено: e.отменено || 0, сумма_без_отмен: e.сумма_без_отмен || 0, 'склад WB': e['склад WB'] || 0, 'склад продавца': e['склад продавца'] || 0 });
+                e.заказов++;
+                if (x.cancel === 'true') e.отменено++; else e.сумма_без_отмен += Number(x.pwd || 0);
+                if (x.wt === 'Склад продавца') e['склад продавца']++; else e['склад WB']++;
+                by.set(key, e);
             }
-            return [...by.values()].sort((a, b) => a.date.localeCompare(b.date));
+            const out = [...by.values()].map((e) => ({ ...e, сумма_без_отмен: rub(e.сумма_без_отмен) }));
+            return group === 'article' ? out.sort((a: any, b: any) => b.заказов - a.заказов).slice(0, 150) : out.sort((a: any, b: any) => String(a.date).localeCompare(String(b.date)) || b.заказов - a.заказов);
         },
-        penalties: async (cabId, days) => {
-            const since = sinceDate(days);
-            const rows = await pageAll((a, b) => admin.from('raw_finance_report').select('rr_dt, bonus_type_name, penalty, deduction, nm_id, sa_name').eq('cabinet_id', cabId).gte('rr_dt', since).or('penalty.neq.0,deduction.neq.0').range(a, b), 20000);
+        sales: async (cabId, r: McpRange, group: McpGroup) => {
+            const rows = await pageAll((a, b) => admin.from('raw_finance_report').select('sale_dt, rr_dt, sa_name, nm_id, doc_type_name, supplier_oper_name, quantity, retail_price_withdisc_rub').eq('cabinet_id', cabId).gte('sale_dt', r.from).lte('sale_dt', r.to).in('doc_type_name', ['Продажа', 'Возврат']).range(a, b), 80000);
+            const by = new Map<string, any>();
+            for (const x of rows) {
+                const isRet = String(x.doc_type_name).toLowerCase() === 'возврат';
+                if (!isRet && /компенсац/i.test(String(x.supplier_oper_name || ''))) continue;
+                const d = String(x.sale_dt || x.rr_dt).slice(0, 10);
+                const art = String(x.sa_name || x.nm_id || '—');
+                const key = group === 'day' ? d : group === 'article' ? art : d + '|' + art;
+                const e = by.get(key) || (group === 'day' ? { date: d } : group === 'article' ? { артикул: art } : { date: d, артикул: art });
+                Object.assign(e, { выкуплено_шт: e.выкуплено_шт || 0, возвратов_шт: e.возвратов_шт || 0, сумма_выкупов: e.сумма_выкупов || 0 });
+                const q = Number(x.quantity || 0);
+                if (isRet) e.возвратов_шт += q; else { e.выкуплено_шт += q; e.сумма_выкупов += Number(x.retail_price_withdisc_rub || 0) * q; }
+                by.set(key, e);
+            }
+            const out = [...by.values()].map((e) => ({ ...e, сумма_выкупов: rub(e.сумма_выкупов) }));
+            return group === 'article' ? out.sort((a: any, b: any) => b.выкуплено_шт - a.выкуплено_шт).slice(0, 150) : out.sort((a: any, b: any) => String(a.date).localeCompare(String(b.date)) || b.выкуплено_шт - a.выкуплено_шт);
+        },
+        adCampaigns: async (cabId, status, r: McpRange | null) => {
+            const { data: legacy } = await admin.from('advertising_campaigns').select('campaign_id, campaign_name, status, payment_type, bid_type, type').eq('cabinet_id', cabId).range(0, 4999);
+            const { data: v2 } = await admin.from('adv_campaigns').select('wb_campaign_id, name, status').eq('cabinet_id', cabId).range(0, 4999);
+            const v2By = new Map<number, any>((v2 || []).map((c: any) => [Number(c.wb_campaign_id), c]));
+            const stats = new Map<number, any>();
+            if (r) {
+                const rows = await pageAll((a, b) => admin.from('advertising_daily_stats').select('campaign_id, spend, views, clicks, orders, sum_price').eq('cabinet_id', cabId).gte('stat_date', r.from).lte('stat_date', r.to).range(a, b), 60000);
+                for (const x of rows) {
+                    const e = stats.get(Number(x.campaign_id)) || { затраты: 0, показы: 0, клики: 0, заказы: 0, сумма_заказов: 0 };
+                    e.затраты += Number(x.spend || 0); e.показы += Number(x.views || 0); e.клики += Number(x.clicks || 0); e.заказы += Number(x.orders || 0); e.сумма_заказов += Number(x.sum_price || 0);
+                    stats.set(Number(x.campaign_id), e);
+                }
+            }
+            const want = (k: string) => status === 'all' ? true : status === 'active' ? k === '9' : status === 'paused' ? (k === '11' || k === '4') : k === '7' || k === '-1' || k === '8';
+            let list = (legacy || []).map((c: any) => {
+                const id = Number(c.campaign_id), v = v2By.get(id);
+                const k = adStatusKey(v?.status ?? c.status);
+                return { id, название: String(v?.name || c.campaign_name || id), статус: AD_STATUS[k] || k, _k: k, оплата: c.payment_type === 'cpc' ? 'за клики' : c.payment_type === 'cpm' ? 'за показы' : (c.payment_type || null), ставка: c.bid_type === 'unified' ? 'единая' : c.bid_type === 'manual' ? 'ручная' : (c.bid_type || null), st: stats.get(id) };
+            }).filter((c: any) => want(c._k));
+            if (r) list = list.filter((c: any) => c.st && (c.st.затраты > 0 || c.st.показы > 0 || c.st.клики > 0 || c.st.заказы > 0));
+            const total = list.length;
+            list.sort((a: any, b: any) => (b.st?.затраты || 0) - (a.st?.затраты || 0) || b.id - a.id);
+            const out = list.slice(0, 150).map((c: any) => {
+                const { _k, st, ...rest } = c;
+                return st ? { ...rest, затраты: rub(st.затраты), показы: st.показы, клики: st.клики, ctr_процент: pct(st.клики, st.показы), заказы: st.заказы, сумма_заказов: rub(st.сумма_заказов) } : rest;
+            });
+            return { период: r || 'не задан (итоги не считаются)', найдено: total, показано: out.length, кампании: out };
+        },
+        adStats: async (cabId, r: McpRange, campaignId, group) => {
+            let q = (a: number, b: number) => admin.from('advertising_daily_stats').select('campaign_id, campaign_name, stat_date, spend, views, clicks, atbs, orders, sum_price').eq('cabinet_id', cabId).gte('stat_date', r.from).lte('stat_date', r.to).range(a, b);
+            if (campaignId) q = (a: number, b: number) => admin.from('advertising_daily_stats').select('campaign_id, campaign_name, stat_date, spend, views, clicks, atbs, orders, sum_price').eq('cabinet_id', cabId).eq('campaign_id', campaignId).gte('stat_date', r.from).lte('stat_date', r.to).range(a, b);
+            const rows = await pageAll(q, 60000);
+            const by = new Map<string, any>();
+            for (const x of rows) {
+                const d = String(x.stat_date).slice(0, 10);
+                const key = group === 'day' ? d : String(x.campaign_id);
+                const e = by.get(key) || (group === 'day' ? { date: d } : { id: Number(x.campaign_id), название: String(x.campaign_name || x.campaign_id) });
+                Object.assign(e, { затраты: e.затраты || 0, показы: e.показы || 0, клики: e.клики || 0, корзины: e.корзины || 0, заказы: e.заказы || 0, сумма_заказов: e.сумма_заказов || 0 });
+                e.затраты += Number(x.spend || 0); e.показы += Number(x.views || 0); e.клики += Number(x.clicks || 0); e.корзины += Number(x.atbs || 0); e.заказы += Number(x.orders || 0); e.сумма_заказов += Number(x.sum_price || 0);
+                by.set(key, e);
+            }
+            const out = [...by.values()].map((e) => ({ ...e, затраты: rub(e.затраты), сумма_заказов: rub(e.сумма_заказов), ctr_процент: pct(e.клики, e.показы), доля_затрат_процент: pct(e.затраты, e.сумма_заказов) }));
+            const tot = out.reduce((t: any, e: any) => ({ затраты: t.затраты + e.затраты, показы: t.показы + e.показы, клики: t.клики + e.клики, заказы: t.заказы + e.заказы, сумма_заказов: t.сумма_заказов + e.сумма_заказов }), { затраты: 0, показы: 0, клики: 0, заказы: 0, сумма_заказов: 0 });
+            const list = group === 'day' ? out.sort((a: any, b: any) => a.date.localeCompare(b.date)) : out.sort((a: any, b: any) => b.затраты - a.затраты).slice(0, 150);
+            return { период: r, итого: tot, строки: list };
+        },
+        penalties: async (cabId, r: McpRange) => {
+            const rows = await pageAll((a, b) => admin.from('raw_finance_report').select('rr_dt, bonus_type_name, penalty, deduction, nm_id, sa_name').eq('cabinet_id', cabId).gte('rr_dt', r.from).lte('rr_dt', r.to).or('penalty.neq.0,deduction.neq.0').range(a, b), 20000);
             return rows.map((r: any) => ({
                 date: String(r.rr_dt).slice(0, 10), сумма: rub(Number(r.penalty || 0) + Number(r.deduction || 0)), тип: Number(r.penalty || 0) ? 'штраф' : 'удержание',
                 причина: r.bonus_type_name || null, артикул: r.sa_name || null, nm_id: r.nm_id || null,
                 поставка: (String(r.bonus_type_name || '').match(/поставка\s+(\d+)/i) || [])[1] || null,
             })).sort((a: any, b: any) => a.date.localeCompare(b.date) || b.сумма - a.сумма);
         },
-        finance: async (cabId, days) => {
-            const since = sinceDate(days);
-            const rows = await pageAll((a, b) => admin.from('raw_finance_report').select('rr_dt, supplier_oper_name, retail_amount, ppvz_for_pay, delivery_rub, penalty, storage_fee, deduction, acceptance').eq('cabinet_id', cabId).gte('rr_dt', since).range(a, b), 60000);
+        finance: async (cabId, r: McpRange) => {
+            const rows = await pageAll((a, b) => admin.from('raw_finance_report').select('rr_dt, supplier_oper_name, retail_amount, ppvz_for_pay, delivery_rub, penalty, storage_fee, deduction, acceptance').eq('cabinet_id', cabId).gte('rr_dt', r.from).lte('rr_dt', r.to).range(a, b), 60000);
             const by = new Map<string, any>();
             for (const r of rows) {
                 const d = String(r.rr_dt).slice(0, 10);
