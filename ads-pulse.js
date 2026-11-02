@@ -900,7 +900,7 @@
     function createFlow() {
         var cabs = S.rows.length ? S.rows : (root.AdsHQ && root.AdsHQ.getVisibleRows ? root.AdsHQ.getVisibleRows() : []);
         if (!cabs.length) { toast('Сначала выберите кабинет', null); return; }
-        var st = { step: 1, cab: cabs[0].id, kind: 'cpm', bidType: 'manual', nms: [], name: '', bid: 400 };
+        var st = { step: 1, cab: cabs[0].id, kind: 'cpm', bidType: 'manual', zone: 'search', onlyShelves: true, nms: [], name: '', bid: 400 };
         var m = modal('<div id="adp2-wz"></div>');
         function paint() {
             var s = st.step, h = '<div class="adp2-mh"><b>Новая кампания</b><button type="button" data-close="1" class="adp2-x" aria-label="Закрыть">✕</button></div><div class="adp2-steps">' +
@@ -910,7 +910,11 @@
                     '<div class="adp2-opt">' +
                     '<button type="button" data-kind="cpc" class="' + (st.kind === 'cpc' ? 'sel' : '') + '">' + badge('cpc', 'xl') + '<span>Оплата за клик</span><small>Платите, когда человек нажал. Ставка на старте минимальная.</small></button>' +
                     '<button type="button" data-kind="cpm" class="' + (st.kind === 'cpm' ? 'sel' : '') + '">' + badge('cpm', 'xl') + '<span>Оплата за 1000 показов</span><small>Платите за показы. Ставку задаёте сами.</small></button></div>' +
-                    '<div class="adp2-seg"><button type="button" data-bt="manual" class="' + (st.bidType === 'manual' ? 'sel' : '') + '">Ручная ставка (поиск)</button><button type="button" data-bt="unified" class="' + (st.bidType === 'unified' ? 'sel' : '') + '">Единая ставка</button></div>';
+                    '<div class="adp2-seg"><button type="button" data-bt="manual" class="' + (st.bidType === 'manual' ? 'sel' : '') + '">Ручная ставка</button><button type="button" data-bt="unified" class="' + (st.bidType === 'unified' ? 'sel' : '') + '">Единая ставка</button></div>' +
+                    (st.bidType === 'manual'
+                        ? '<div class="adp2-zsel"><div class="adp2-lb">Где показывать</div><div class="adp2-zch">' + [['search', 'Поиск'], ['recommendations', 'Рекомендации'], ['both', 'Оба места']].map(function (z) { return '<button type="button" data-zone="' + z[0] + '" class="' + (st.zone === z[0] ? 'sel' : '') + '">' + z[1] + '</button>'; }).join('') + '</div>' +
+                          '<p class="adp2-mut">' + (st.kind === 'cpc' ? 'В CPC зоны после создания через сайт не поменять (WB не даёт). Выберите сразу.' : 'Зоны потом можно менять переключателями в окне кампании.') + '</p></div>'
+                        : '<label class="adp2-zck"><button type="button" role="checkbox" aria-checked="' + !!st.onlyShelves + '" data-shelves="1" class="' + (st.onlyShelves ? 'on' : '') + '">' + (st.onlyShelves ? '✓' : '') + '</button><span><b>Только полки</b><small>Исключаем все ключи, показы идут на полках. Зон в единой ставке нет, поэтому чистка включится сразу после создания.</small></span></label>');
             } else if (s === 2) {
                 h += '<div class="adp2-sel">' + (st.nms.length ? st.nms.map(function (n) { return '<span class="adp2-tag">' + thumb(st.cab, n, 's') + esc(artName(st.cab, n)) + ' <u data-del="' + n + '">✕</u></span>'; }).join('') : '<span class="adp2-mut">Товары не выбраны</span>') + '</div>' +
                     '<button type="button" class="adp2-addp" data-pick="1">＋ Выбрать товары</button>';
@@ -929,6 +933,8 @@
             var t = e.target.closest('button,u'); if (!t) return;
             if (t.dataset.kind) { st.kind = t.dataset.kind; paint(); }
             else if (t.dataset.bt) { st.bidType = t.dataset.bt; paint(); }
+            else if (t.dataset.zone) { st.zone = t.dataset.zone; paint(); }
+            else if (t.dataset.shelves) { st.onlyShelves = !st.onlyShelves; paint(); }
             else if (t.dataset.back) { st.step--; paint(); }
             else if (t.dataset.del) { st.nms = st.nms.filter(function (n) { return n !== Number(t.dataset.del); }); paint(); }
             else if (t.dataset.pick) { openPicker({ cabId: st.cab, exclude: st.nms, title: 'Товары новой кампании', button: 'Выбрать', onPick: function (n) { st.nms = st.nms.concat(n).slice(0, 50); paint(); } }); }
@@ -947,6 +953,8 @@
     function createCampaign(st) {
         var payload = { name: st.name, nms: st.nms, payment_type: st.kind, bid_type: st.bidType };
         if (st.kind === 'cpm') payload.bid_kopecks = somToKop(st.bid);
+        if (st.bidType === 'manual') payload.placement_types = st.zone === 'both' ? ['search', 'recommendations'] : [st.zone || 'search'];
+        else if (st.onlyShelves) payload.only_shelves = true;
         var v = { name: st.name, kind: st.kind, nms: st.nms, opId: null };
         S.virtual.unshift(v);
         v.opId = enqueue(null, st.cab, null, 'create', payload, { virtual: v });
