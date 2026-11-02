@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
             await sleep(700);
         }
         const bad = items.filter((i) => !i.ok);
-        return json({ ok: true, cabinet: cab.name, supply: detail, goods_rows: goods.length, articles: items.length, bad: bad.length, items: bad.length ? bad : undefined, all_ok: !bad.length, sample: items.slice(0, 3), all: body.docs ? items.map((i) => ({ nm_id: i.nm_id, vendor_code: i.vendor_code, docs: i.docs })) : undefined });
+        return json({ ok: true, cabinet: cab.name, supply: detail, goods_rows: goods.length, articles: items.length, bad: bad.length, items: bad.length ? bad : undefined, all_ok: !bad.length, sample: items.slice(0, 3), items_all: body.list ? items : undefined, all: body.docs ? items.map((i) => ({ nm_id: i.nm_id, vendor_code: i.vendor_code, docs: i.docs })) : undefined });
     }
     return json({ ok: false, error: 'supply_not_found', tried });
 });
