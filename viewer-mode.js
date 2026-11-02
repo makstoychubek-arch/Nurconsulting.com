@@ -431,7 +431,12 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
             } else if (t.closest('[data-mrev]')) {
                 const id = t.closest('[data-mrev]').getAttribute('data-mrev');
                 mc.keys = mc.keys.filter((k) => k.id !== id); mcpPaint(host);
-                supabase.rpc('mcp_key_revoke', { p_id: id });
+                // Ответ сервера не игнорируем: раньше при отказе ключ молча возвращался после обновления страницы.
+                // После запроса перечитываем настоящий список, чтобы экран показывал то, что есть на самом деле.
+                Promise.resolve(supabase.rpc('mcp_key_revoke', { p_id: id })).then((r) => {
+                    if (r && r.error) mc.err = 'Не получилось отозвать ключ. Повторите.';
+                    mcpLoad(host);
+                }).catch(() => { mc.err = 'Не получилось отозвать ключ. Повторите.'; mcpLoad(host); });
             }
         });
     }
