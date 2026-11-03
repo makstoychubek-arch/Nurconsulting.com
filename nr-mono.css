@@ -1276,3 +1276,5 @@ html body .rv-pill { display: inline-block; border: 1px solid var(--border); bor
   html body .nr-subbar > .on::after, html body .nr-subbar > .is-on::after { content: "▾"; margin-left: 8px; font-size: 12px; opacity: .6; }
   html body .nr-subbar.nr-open > .on::after, html body .nr-subbar.nr-open > .is-on::after { content: "▴"; }
 }
+html body .rv-cmp { margin-left: 10px; padding: 3px 12px; border: 1px solid var(--text-primary); border-radius: 999px; background: transparent; color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+html body .rv-cmp:active { background: var(--accent); color: var(--on-accent, #fff); }

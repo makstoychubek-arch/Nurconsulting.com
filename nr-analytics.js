@@ -150,7 +150,7 @@
                 (body ? '<div class="rv-txt">' + esc(r.text) + (r.pros ? '<br><span class="rv-meta">Достоинства:</span> ' + esc(r.pros) : '') + (r.cons ? '<br><span class="rv-meta">Недостатки:</span> ' + esc(r.cons) : '') + '</div>' : '<div class="rv-meta">Оценка без текста</div>') +
                 (r.photos && r.photos.length ? '<div class="rv-ph">' + r.photos.slice(0, 6).map(function (u) { return '<img src="' + esc(u) + '" alt="" loading="lazy">'; }).join('') + '</div>' : '') +
                 (sus[r.id] ? '<div class="rv-flag">' + esc(sus[r.id]) + '</div>' : '') +
-                '<div class="rv-meta">' + (r.answered ? 'Ответ опубликован' : 'Без ответа') + '</div></div>';
+                '<div class="rv-meta">' + (r.answered ? 'Ответ опубликован' : 'Без ответа') + (r.stars <= 3 || sus[r.id] ? ' <button type="button" class="rv-cmp" data-cmp="' + esc(r.id) + '">Пожаловаться</button>' : '') + '</div></div>';
         }).join('');
         host.innerHTML =
             '<div class="rv-top"><div class="rv-pick"><select id="rv-art" aria-label="Артикул">' + (opts || '<option>Нет артикулов в РНП</option>') + '</select>' +
@@ -162,7 +162,7 @@
             '<div class="rv-main"><div class="rv-left"><div class="rv-tabs"><button type="button" class="rv-tab' + (RV.tab === 'all' ? ' on' : '') + '" data-tab="all">Все</button><button type="button" class="rv-tab' + (RV.tab === 'noans' ? ' on' : '') + '" data-tab="noans">Без ответа</button><button type="button" class="rv-tab' + (RV.tab === 'sus' ? ' on' : '') + '" data-tab="sus">Подозрительные · ' + nSus + '</button></div>' +
             '<div class="rv-list' + ld + '">' + (rows || '<div class="rv-hint">' + (RV.loading ? 'Загружаем отзывы…' : 'Таких отзывов нет') + '</div>') + '</div>' +
             (list.length > RV.shown ? '<button type="button" class="rv-more" data-more="1">Показать ещё</button>' : '') + '</div>' +
-            '<div class="rv-side"><div class="rv-panel"><div class="rv-cap">Жалобы на отзывы</div><p class="rv-hint">Жалобы на отзывы подаются в кабинете WB. Подозрительные отзывы отмечены точкой с причиной, что подавать, решаете вы.</p>' +
+            '<div class="rv-side"><div class="rv-panel"><div class="rv-cap">Жалобы на отзывы</div><p class="rv-hint">WB не принимает жалобы через API, поэтому у отзыва до 3★ и у подозрительных есть кнопка «Пожаловаться»: она копирует готовый текст и открывает отзывы в кабинете WB, остаётся вставить и отправить. Что подавать, решаете вы.</p>' +
             '<a class="rv-link" href="https://seller.wildberries.ru/feedbacks-and-questions" target="_blank" rel="noopener">Открыть отзывы в кабинете WB</a>' +
             '<div class="rv-auto"><span class="rv-sw" aria-hidden="true"></span><div><b>Автожалобы</b><span class="rv-pill">пока недоступно</span><p>Включим, когда подтвердим официальный способ подачи жалоб через WB.</p></div></div></div></div></div>';
     }
@@ -187,13 +187,24 @@
     }
 
     var bound = false;
+    // Жалобу WB через API не принимает: готовим текст и открываем отзывы в кабинете, остаётся вставить и отправить.
+    function complain(id) {
+        var r = RV.items.filter(function (x) { return String(x.id) === String(id); })[0]; if (!r) return;
+        var why = suspicion(RV.items)[r.id] || (r.stars <= 3 ? 'Отзыв не отражает реальные свойства товара' : 'Отзыв нарушает правила площадки');
+        var d = new Date(r.at), ds = isNaN(d) ? '' : ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear();
+        var txt = 'Прошу проверить отзыв на артикул ' + RV.nm + (ds ? ' от ' + ds : '') + ' (оценка ' + r.stars + ', id ' + r.id + '). Причина: ' + why + '. Прошу удалить отзыв, если он нарушает правила размещения отзывов.';
+        function done() { if (root.NrUi) root.NrUi.toast('success', 'Текст жалобы скопирован', 'Вставьте его в кабинете WB'); }
+        try { root.navigator.clipboard.writeText(txt).then(done, done); } catch (_) { done(); }
+        root.open('https://seller.wildberries.ru/feedbacks-and-questions', '_blank', 'noopener');
+    }
     function bind() {
         var host = doc.getElementById('rv-root'); if (!host || bound) return; bound = true;
         host.addEventListener('click', function (e) {
             var t = e.target, b;
             if ((b = t.closest('[data-star]'))) { var k = Number(b.getAttribute('data-star')); RV.star = RV.star === k ? 0 : k; RV.shown = 40; paintRoot(); return; }
             if ((b = t.closest('[data-tab]'))) { RV.tab = b.getAttribute('data-tab'); RV.shown = 40; paintRoot(); return; }
-            if (t.closest('[data-more]')) { RV.shown += 40; paintRoot(); }
+            if (t.closest('[data-more]')) { RV.shown += 40; paintRoot(); return; }
+            if ((b = t.closest('[data-cmp]'))) complain(b.getAttribute('data-cmp'));
         });
         host.addEventListener('change', function (e) {
             if (e.target.id === 'rv-art') { RV.nm = Number(e.target.value); try { root.localStorage.setItem('nr_rv_nm', String(RV.nm)); } catch (_) {} RV.star = 0; RV.shown = 40; refresh(); }
