@@ -92,6 +92,12 @@ const tables = {
         console.log('ok   вкладка «Все артикулы»');
         if (process.env.RV_SHOT2) { await page.click('.rv-tab[data-view="overview"]'); await page.waitForTimeout(800); await page.screenshot({ path: process.env.RV_SHOT2 + '-o.png', fullPage: true }); await page.click('.rv-tab[data-view="topics"]'); await page.waitForTimeout(500); await page.screenshot({ path: process.env.RV_SHOT2 + '-t.png', fullPage: true }); }
         await page.click('.rv-tab[data-view="overview"]');
+        // смена кабинета: отзывы нового кабинета грузятся заново
+        const rb = env.calls.filter((c) => c.kind === 'read' && c.table === 'rnp_articles').length;
+        await page.evaluate(() => { window.currentCabinetId = 'other-cab'; document.dispatchEvent(new CustomEvent('cabinet-changed', { detail: { cabinetId: 'other-cab' } })); });
+        for (let i = 0; i < 60 && env.calls.filter((c) => c.kind === 'read' && c.table === 'rnp_articles').length <= rb; i++) await new Promise((r) => setTimeout(r, 100));
+        assert.ok(env.calls.filter((c) => c.kind === 'read' && c.table === 'rnp_articles').length > rb, 'при смене кабинета отзывы перезагружаются');
+        console.log('ok   при смене кабинета отзывы перезагружаются');
         assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
         console.log('e2e отзывов: все проверки прошли');
     } finally { await browser.close(); srv.close(); }

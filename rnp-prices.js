@@ -348,7 +348,9 @@
         // с кнопки РНП на левой панели всегда открывается сам РНП
         doc.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.rail-btn[data-tab="rnp"]') && S.view !== 'rnp') setView('rnp'); }, true);
     }
-    root.addEventListener && root.addEventListener('nr-cabinet-changed', function () { S.cab = ''; S.arts = []; S.sel = {}; closeModal(); if (S.view === 'prices') open(); });
+    // Сайт сообщает о смене кабинета событием document «cabinet-changed» (кабинет к этому моменту уже выбран): сбрасываем чужие данные и грузим новые
+    function onCabinetChanged() { S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; closeModal(); if (S.view === 'prices') open(); }
+    doc.addEventListener('cabinet-changed', onCabinetChanged);
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
 
     root.NrRnpPrices = { open: open, setView: setView, _catOf: catOf, _build: build, _nextPrice: nextPrice, _beforeDiscount: beforeDiscount, _ratioPct: ratioPct };
