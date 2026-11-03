@@ -1278,3 +1278,30 @@ html body .rv-pill { display: inline-block; border: 1px solid var(--border); bor
 }
 html body .rv-cmp { margin-left: 10px; padding: 3px 12px; border: 1px solid var(--text-primary); border-radius: 999px; background: transparent; color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 html body .rv-cmp:active { background: var(--accent); color: var(--on-accent, #fff); }
+/* Отзывы: вкладки аналитики */
+html body .rv-views { margin: 0 0 14px; flex-wrap: wrap; }
+html body .rv-viewbody { display: grid; gap: 16px; margin-bottom: 16px; }
+html body .rv-main[hidden] { display: none !important; }
+html body .rv-grid3 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+html body .rv-g2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+html body .rv-grid3 .rv-panel, html body .rv-wide { display: grid; gap: 12px; align-content: start; min-width: 0; }
+html body .rv-viewbody svg { width: 100%; height: auto; display: block; }
+html body .rv-viewbody svg text { fill: var(--text-muted, #6b6b6b); font-size: 10px; }
+html body .rv-kp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+html body .rv-kp b, html body .rv-big { display: block; font-size: 28px; font-weight: 900; letter-spacing: -.02em; }
+html body .rv-calc { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+html body .rv-calc input { width: 76px; padding: 8px 12px; border: 1px solid var(--mono-4, #d9d9d9); border-radius: 14px; background: transparent; color: var(--text-primary); font: inherit; font-weight: 800; }
+html body .rv-tw { overflow-x: auto; }
+html body .rv-tbl { border-collapse: collapse; width: 100%; min-width: 420px; }
+html body .rv-tbl th { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted, #6b6b6b); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--mono-4, #d9d9d9); }
+html body .rv-tbl td { padding: 9px 8px; border-bottom: 1px solid var(--mono-4, #d9d9d9); font-variant-numeric: tabular-nums; }
+html body .rv-tbl .n { text-align: right; }
+html body .rv-tbl .dn { color: var(--red, #c42b1c); font-weight: 800; }
+html body .rv-tbl .up { color: var(--green, #16803c); font-weight: 800; }
+html body .rv-brow { display: grid; grid-template-columns: minmax(120px, 170px) 1fr 34px; gap: 10px; align-items: center; width: 100%; padding: 6px 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+html body .rv-brow:disabled { cursor: default; }
+html body .rv-brow .t { height: 8px; border-radius: 8px; background: var(--mono-4, #d9d9d9); overflow: hidden; }
+html body .rv-brow .t i { display: block; height: 100%; border-radius: 8px; background: var(--text-primary); }
+html body .rv-brow.on span:first-child { font-weight: 900; text-decoration: underline; }
+html body .rv-brow b { text-align: right; }
+html body .rv-chip { margin-bottom: 10px; padding: 5px 14px; border: 1px solid var(--text-primary); border-radius: 999px; background: transparent; color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }

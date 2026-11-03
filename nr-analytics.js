@@ -54,7 +54,7 @@
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
 
     /* ───────── Отзывы по артикулу (только чтение): оценки, воронка заказов, подозрительные отзывы ───────── */
-    var RV = { cab: '', arts: [], nm: 0, days: 30, items: [], funnel: null, prev: null, loading: false, err: '', star: 0, tab: 'all', shown: 40, token: 0, cache: {} };
+    var RV = { cab: '', arts: [], nm: 0, days: 30, items: [], funnel: null, prev: null, loading: false, err: '', star: 0, tab: 'all', shown: 40, token: 0, cache: {}, view: 'overview', theme: -1, by: 'color', goal: 4.7, all: {}, allBusy: false, sizeOrd: null };
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
     function sb() { return root.supabase; }
@@ -123,6 +123,138 @@
         });
     }
 
+    /* ───── Расширенная аналитика отзывов: считаем только из загруженных отзывов WB и заказов ───── */
+    var NEG_TOPICS = [
+        ['Размер: маломерит или велико', ['маломер', 'мал был', 'мала ', 'мало ', 'велик', 'большемер', 'не по размер', 'размер не', 'села', 'сел ', 'тесн', 'узк', 'широк', 'коротк']],
+        ['Ткань и качество', ['ткан', 'качеств', 'тонк', 'прозрачн', 'колюч', 'скатыв', 'синтет', 'пошив']],
+        ['Цвет не как на фото', ['цвет', 'оттенок', 'не как на фото', 'не соответств']],
+        ['Брак, шов, пятно', ['брак', 'шов', 'нитк', 'дыр', 'пятн', 'порв', 'торчат', 'молни', 'пуговиц']],
+        ['Доставка и упаковка', ['достав', 'упаковк', 'пакет', 'мят', 'курьер']]
+    ];
+    var POS_TOPICS = [
+        ['Посадка и фигура', ['сидит', 'посадк', 'фигур', 'идеальн', 'по размеру']],
+        ['Приятная ткань', ['приятн', 'мягк', 'плотн', 'качествен']],
+        ['Цена', ['цен', 'недорог', 'за свои деньги', 'дешев', 'дёшев']],
+        ['Цвет', ['цвет', 'оттенок']]
+    ];
+    function hasAny(text, words) { for (var i = 0; i < words.length; i++) if (text.indexOf(words[i]) >= 0) return true; return false; }
+    function topicCounts(items, topics, test) {
+        return topics.map(function (t, i) {
+            var n = items.filter(function (f) { return test(f) && hasAny(norm(bodyOf(f)) + ' ', t[1]); }).length;
+            return { i: i, name: t[0], n: n };
+        });
+    }
+    function mondayKey(iso) {
+        var d = new Date(iso); if (isNaN(d)) return ''; d = new Date(d.getTime() + 6 * 3600e3);
+        var dow = (d.getUTCDay() + 6) % 7; d = new Date(d.getTime() - dow * 86400e3); return ymd(d);
+    }
+    function weekly(items, days) {
+        var map = {}, from = periodOf(days, 0).from, w = mondayKey(from + 'T00:00:00Z'), end = periodOf(days, 0).to, out = [];
+        items.forEach(function (f) { var k = mondayKey(f.at); if (!k) return; var o = map[k] = map[k] || { n: 0, sum: 0 }; o.n++; o.sum += f.stars; });
+        for (var guard = 0; w <= end && guard < 30; guard++) {
+            var o = map[w]; out.push({ week: w, n: o ? o.n : 0, avg: o ? o.sum / o.n : 0 });
+            w = ymd(new Date(Date.parse(w) + 7 * 86400e3));
+        }
+        return out;
+    }
+    function replyStats(items) {
+        var ans = items.filter(function (f) { return f.answered; }).length, no = items.filter(function (f) { return !f.answered; });
+        var ph = items.filter(function (f) { return f.photos && f.photos.length; }), nph = items.filter(function (f) { return !(f.photos && f.photos.length); });
+        function avg(a) { return a.length ? a.reduce(function (s, f) { return s + f.stars; }, 0) / a.length : 0; }
+        return { total: items.length, pct: items.length ? Math.round(ans / items.length * 100) : 0, noans: no.length, noansNeg: no.filter(function (f) { return f.stars <= 2; }).length,
+            phPct: items.length ? Math.round(ph.length / items.length * 100) : 0, phAvg: avg(ph), nphAvg: avg(nph), nPh: ph.length };
+    }
+    // сколько отзывов на 5★ нужно, чтобы средняя дошла до цели
+    function needFive(avg, total, goal) { if (!(goal > avg) || goal >= 5) return 0; return Math.ceil(total * (goal - avg) / (5 - goal)); }
+    function groupBy(items, key) {
+        var map = {};
+        items.forEach(function (f) { var k = String(f[key] || '').trim() || 'не указан'; var o = map[k] = map[k] || { name: k, n: 0, sum: 0, neg: 0 }; o.n++; o.sum += f.stars; if (f.stars <= 2) o.neg++; });
+        return Object.keys(map).map(function (k) { var o = map[k]; return { name: o.name, n: o.n, avg: o.sum / o.n, negPct: Math.round(o.neg / o.n * 100) }; }).sort(function (a, b) { return b.n - a.n; });
+    }
+    function artRow(name, nm, items) {
+        var st = ratingStats(items), neg = (st.n[1] || 0) + (st.n[2] || 0);
+        return { nm: nm, name: name, n: st.total, avg: st.avg, negPct: st.total ? Math.round(neg / st.total * 100) : 0, noans: items.filter(function (f) { return !f.answered; }).length, sus: Object.keys(suspicion(items)).length };
+    }
+    // заказы по размерам (techSize в заказах WB): сколько заказали и сколько отказались
+    function loadSizeOrders(cab, nm, per) {
+        var out = {}, page = 0;
+        function next() {
+            return Promise.resolve(sb().from('wb_orders').select('size:data->>techSize,cancel:data->>isCancel').eq('cabinet_id', cab).eq('nm_id', nm)
+                .gte('order_date', per.from).lt('order_date', ymd(new Date(Date.parse(per.to) + 86400e3))).range(page * 1000, page * 1000 + 999)).then(function (r) {
+                var rows = (r && r.data) || [];
+                rows.forEach(function (x) { var k = String(x.size || '').trim(); if (!k) return; var o = out[k] = out[k] || { n: 0, c: 0 }; o.n++; if (String(x.cancel) === 'true') o.c++; });
+                if (rows.length === 1000 && ++page < 5) return next();
+                return out;
+            });
+        }
+        return next().catch(function () { return null; });
+    }
+    function lineSvg(weeks) {
+        var W = 360, H = 150, x0 = 30, x1 = 350, n = weeks.length || 1, mx = Math.max(1, Math.max.apply(null, weeks.map(function (w) { return w.n; })));
+        var step = (x1 - x0) / n, bw = Math.min(34, step * 0.6), bars = '', pts = [], labs = '', dots = '';
+        weeks.forEach(function (w, i) {
+            var cx = x0 + step * i + step / 2, h = w.n ? Math.max(4, w.n / mx * 75) : 0;
+            bars += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + (125 - h).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="5" fill="var(--mono-3, #b9b9b9)"/>';
+            if (w.n) pts.push((cx).toFixed(1) + ',' + (105 - (w.avg - 1) / 4 * 85).toFixed(1));
+            if (n <= 8 || i % 2 === 0) labs += '<text x="' + cx.toFixed(1) + '" y="142" text-anchor="middle">' + w.week.slice(8, 10) + '.' + w.week.slice(5, 7) + '</text>';
+        });
+        if (pts.length) { var lp = pts[pts.length - 1].split(','); dots = '<circle cx="' + lp[0] + '" cy="' + lp[1] + '" r="4.5" fill="var(--text-primary)"/>'; }
+        return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Отзывы и рейтинг по неделям"><g stroke="var(--mono-4, #d9d9d9)"><line x1="30" y1="20" x2="350" y2="20"/><line x1="30" y1="62" x2="350" y2="62"/><line x1="30" y1="105" x2="350" y2="105"/></g>' + bars +
+            (pts.length > 1 ? '<polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--text-primary)" stroke-width="2.5"/>' : '') + dots + labs + '<text x="2" y="24">5,0</text><text x="2" y="66">3,0</text><text x="2" y="109">1,0</text></svg>';
+    }
+    function topicBars(list, cls) {
+        var mx = Math.max(1, Math.max.apply(null, list.map(function (t) { return t.n; })));
+        return list.map(function (t) {
+            return '<button type="button" class="rv-brow' + (RV.theme === t.i && cls === 'neg' ? ' on' : '') + '" ' + (cls === 'neg' ? 'data-topic="' + t.i + '"' : 'disabled') + '><span>' + esc(t.name) + '</span><span class="t"><i style="width:' + (t.n ? Math.max(4, t.n / mx * 100) : 0) + '%"></i></span><b>' + t.n + '</b></button>';
+        }).join('');
+    }
+    function viewHtml(st) {
+        var v = RV.view, rp = replyStats(RV.items);
+        if (v === 'overview') {
+            var need = needFive(st.avg, st.total, RV.goal);
+            return '<div class="rv-grid3"><div class="rv-panel"><div class="rv-cap">Рейтинг по неделям</div>' + (st.total ? lineSvg(weekly(RV.items, RV.days)) : '<div class="rv-hint">Отзывов за период нет.</div>') +
+                '<div class="rv-hint">Серые столбики: отзывов за неделю. Чёрная линия: средний рейтинг недели.</div></div>' +
+                '<div class="rv-panel"><div class="rv-cap">Ответы и фото</div><div class="rv-kp"><div><span class="rv-hint">Отвечено</span><b>' + rp.pct + '%</b></div><div><span class="rv-hint">Без ответа</span><b>' + rp.noans + '</b><span class="rv-hint">негативных: ' + rp.noansNeg + '</span></div>' +
+                '<div><span class="rv-hint">С фото</span><b>' + rp.phPct + '%</b><span class="rv-hint">оценка ' + (rp.nPh ? rp.phAvg.toFixed(1).replace('.', ',') : '—') + '</span></div><div><span class="rv-hint">Без фото</span><b>' + (st.total ? 100 - rp.phPct : 0) + '%</b><span class="rv-hint">оценка ' + (st.total - rp.nPh ? rp.nphAvg.toFixed(1).replace('.', ',') : '—') + '</span></div></div></div>' +
+                '<div class="rv-panel"><div class="rv-cap">Сколько 5★ нужно до цели</div><div class="rv-calc"><span class="rv-hint">Сейчас ' + (st.total ? st.avg.toFixed(1).replace('.', ',') : '—') + '</span><label class="rv-hint" for="rv-goal">Цель</label><input id="rv-goal" type="number" min="1" max="4.9" step="0.1" value="' + String(RV.goal).replace(',', '.') + '"></div>' +
+                '<b class="rv-big">' + (st.total ? (RV.goal <= st.avg ? 'Цель достигнута' : '+' + need) : '—') + '</b><div class="rv-hint">' + (st.total && RV.goal > st.avg ? 'отзывов на 5★ подряд. Считаем по отзывам за выбранный период.' : 'Поставьте цель выше текущего рейтинга.') + '</div></div></div>';
+        }
+        if (v === 'colors') {
+            var by = RV.by, rows = groupBy(RV.items, by === 'color' ? 'color' : 'size'), ord = by === 'size' && RV.sizeOrd ? RV.sizeOrd : null;
+            var tr = rows.map(function (r) {
+                var o = ord && ord[r.name], can = o && o.n ? Math.round(o.c / o.n * 100) : null;
+                return '<tr><td>' + esc(r.name) + '</td><td class="n">' + r.n + '</td><td class="n">' + r.avg.toFixed(1).replace('.', ',') + '</td><td class="n' + (r.negPct >= 25 ? ' dn' : (r.negPct <= 8 ? ' up' : '')) + '">' + r.negPct + '%</td>' +
+                    (by === 'size' ? '<td class="n">' + (o ? o.n : '—') + '</td><td class="n' + (can != null && can >= 25 ? ' dn' : '') + '">' + (can == null ? '—' : can + '%') + '</td>' : '') + '</tr>';
+            }).join('');
+            return '<div class="rv-panel rv-wide"><div class="rv-cap">Где копится негатив</div><div class="rv-tabs"><button type="button" class="rv-tab' + (by === 'color' ? ' on' : '') + '" data-by="color">По цветам</button><button type="button" class="rv-tab' + (by === 'size' ? ' on' : '') + '" data-by="size">По размерам</button></div>' +
+                (rows.length ? '<div class="rv-tw"><table class="rv-tbl"><tr><th>' + (by === 'color' ? 'Цвет' : 'Размер') + '</th><th class="n">Отзывов</th><th class="n">Рейтинг</th><th class="n">1–2★</th>' + (by === 'size' ? '<th class="n">Заказов</th><th class="n">Отказов</th>' : '') + '</tr>' + tr + '</table></div>' : '<div class="rv-hint">Отзывов за период нет.</div>') +
+                '<div class="rv-hint">Красным отмечена доля 1–2★ от 25%' + (by === 'size' ? ' и отказы от 25% (по заказам WB за период)' : '') + '. WB отдаёт цвет и размер только у части отзывов, остальные в строке «не указан».</div></div>';
+        }
+        if (v === 'topics') {
+            var neg = topicCounts(RV.items, NEG_TOPICS, function (f) { return f.stars <= 3; }), pos = topicCounts(RV.items, POS_TOPICS, function (f) { return f.stars >= 4; });
+            return '<div class="rv-grid3 rv-g2"><div class="rv-panel"><div class="rv-cap">Темы в отзывах до 3★</div>' + topicBars(neg, 'neg') + '<div class="rv-hint">Ищем по словам в тексте. Нажмите на тему, и список ниже покажет только такие отзывы.</div></div>' +
+                '<div class="rv-panel"><div class="rv-cap">Что хвалят (4–5★)</div>' + topicBars(pos, 'pos') + '<div class="rv-hint">Эти слова можно взять в описание карточки и в главное фото.</div></div></div>';
+        }
+        // all
+        var key = RV.cab + ':' + RV.days, rows2 = RV.all[key] || [];
+        var body = rows2.map(function (r) {
+            return '<tr><td>' + esc(r.name || r.nm) + ' · ' + r.nm + '</td><td class="n">' + r.n + '</td><td class="n">' + (r.n ? r.avg.toFixed(1).replace('.', ',') : '—') + '</td><td class="n' + (r.negPct >= 25 ? ' dn' : '') + '">' + r.negPct + '%</td><td class="n' + (r.noans >= 5 ? ' dn' : '') + '">' + r.noans + '</td><td class="n' + (r.sus ? ' dn' : '') + '">' + r.sus + '</td></tr>';
+        }).join('');
+        return '<div class="rv-panel rv-wide"><div class="rv-cap">Сравнение артикулов за период</div><div><button type="button" class="rv-more" data-all="1"' + (RV.allBusy ? ' disabled' : '') + '>' + (RV.allBusy ? 'Собираем… ' + rows2.length + ' из ' + RV.arts.length : (rows2.length ? 'Обновить' : 'Собрать по всем артикулам')) + '</button></div>' +
+            (rows2.length ? '<div class="rv-tw"><table class="rv-tbl"><tr><th>Артикул</th><th class="n">Отзывов</th><th class="n">Рейтинг</th><th class="n">1–2★</th><th class="n">Без ответа</th><th class="n">Подозрит.</th></tr>' + body + '</table></div>' : '<div class="rv-hint">Нажмите кнопку: WB отдаёт отзывы по одному артикулу за запрос, готовые строки появляются по мере сбора.</div>') + '</div>';
+    }
+    function collectAll() {
+        var cab = RV.cab, key = cab + ':' + RV.days, per = periodOf(RV.days, 0), arts = RV.arts.slice(), my = ++RV.token, out = RV.all[key] = [];
+        RV.allBusy = true; paintRoot();
+        function step(i) {
+            if (i >= arts.length || RV.cab !== cab) { RV.allBusy = false; paintRoot(); return Promise.resolve(); }
+            var a = arts[i];
+            return loadReviews(cab, Number(a.nm_id), per).then(function (items) { out.push(artRow(a.name, a.nm_id, items)); }, function () { out.push({ nm: a.nm_id, name: a.name, n: 0, avg: 0, negPct: 0, noans: 0, sus: 0 }); })
+                .then(function () { paintRoot(); return new Promise(function (r) { setTimeout(r, 350); }); }).then(function () { return step(i + 1); });
+        }
+        return step(0);
+    }
+
     function paintRoot() {
         var host = doc.getElementById('rv-root'); if (!host) return;
         if (RV.empty && !RV.loading) { host.innerHTML = '<div class="rv-panel rv-empty"><div class="rv-cap">Отзывы</div><b>В этом кабинете пока нет артикулов в РНП</b><p class="rv-hint">Добавьте артикулы в РНП: отзывы, оценки и воронка по ним появятся здесь сами.</p></div>'; return; }
@@ -142,6 +274,7 @@
             if (RV.star && r.stars !== RV.star) return false;
             if (RV.tab === 'noans' && r.answered) return false;
             if (RV.tab === 'sus' && !sus[r.id]) return false;
+            if (RV.theme >= 0 && !(r.stars <= 3 && hasAny(norm(bodyOf(r)) + ' ', NEG_TOPICS[RV.theme][1]))) return false;
             return true;
         });
         var rows = list.slice(0, RV.shown).map(function (r) {
@@ -155,11 +288,13 @@
         host.innerHTML =
             '<div class="rv-top"><div class="rv-pick"><select id="rv-art" aria-label="Артикул">' + (opts || '<option>Нет артикулов в РНП</option>') + '</select>' +
             '<select id="rv-days" aria-label="Период"><option value="30"' + (RV.days === 30 ? ' selected' : '') + '>30 дней</option><option value="90"' + (RV.days === 90 ? ' selected' : '') + '>90 дней</option></select></div></div>' +
+            '<div class="rv-tabs rv-views">' + [['overview', 'Обзор'], ['colors', 'Цвета и размеры'], ['topics', 'О чём пишут'], ['all', 'Все артикулы']].map(function (v) { return '<button type="button" class="rv-tab' + (RV.view === v[0] ? ' on' : '') + '" data-view="' + v[0] + '">' + v[1] + '</button>'; }).join('') + '</div>' +
             (RV.err ? '<div class="rv-err">' + esc(RV.err) + '</div>' : '') +
-            '<div class="rv-hero' + ld + '"><div class="rv-rate"><div class="rv-cap">Рейтинг за период</div><b>' + (st.total ? st.avg.toFixed(1).replace('.', ',') : '—') + '</b><div class="rv-s">' + (st.total ? '★★★★★' : '') + '</div><small>' + st.total + ' отзывов</small></div>' +
+            (RV.view === 'overview' ? ('<div class="rv-hero' + ld + '"><div class="rv-rate"><div class="rv-cap">Рейтинг за период</div><b>' + (st.total ? st.avg.toFixed(1).replace('.', ',') : '—') + '</b><div class="rv-s">' + (st.total ? '★★★★★' : '') + '</div><small>' + st.total + ' отзывов</small></div>' +
             '<div class="rv-panel"><div class="rv-cap">Оценки: нажмите, чтобы читать</div><div class="rv-dist">' + dist + '</div><div class="rv-hint">' + (RV.star ? 'Показаны отзывы с оценкой ' + RV.star + '. Нажмите ещё раз, чтобы снять' : 'Показаны все отзывы') + '</div></div>' +
-            '<div class="rv-panel"><div class="rv-cap">Куда уходят заказы</div>' + funnel + '</div></div>' +
-            '<div class="rv-main"><div class="rv-left"><div class="rv-tabs"><button type="button" class="rv-tab' + (RV.tab === 'all' ? ' on' : '') + '" data-tab="all">Все</button><button type="button" class="rv-tab' + (RV.tab === 'noans' ? ' on' : '') + '" data-tab="noans">Без ответа</button><button type="button" class="rv-tab' + (RV.tab === 'sus' ? ' on' : '') + '" data-tab="sus">Подозрительные · ' + nSus + '</button></div>' +
+            '<div class="rv-panel"><div class="rv-cap">Куда уходят заказы</div>' + funnel + '</div></div>') : '') +
+            '<div class="rv-viewbody">' + viewHtml(st) + '</div>' +
+            '<div class="rv-main"' + (RV.view === 'colors' || RV.view === 'all' ? ' hidden' : '') + '><div class="rv-left">' + (RV.theme >= 0 ? '<button type="button" class="rv-chip" data-topic="-1">Тема: ' + esc(NEG_TOPICS[RV.theme][0]) + ' ×</button>' : '') + '<div class="rv-tabs"><button type="button" class="rv-tab' + (RV.tab === 'all' ? ' on' : '') + '" data-tab="all">Все</button><button type="button" class="rv-tab' + (RV.tab === 'noans' ? ' on' : '') + '" data-tab="noans">Без ответа</button><button type="button" class="rv-tab' + (RV.tab === 'sus' ? ' on' : '') + '" data-tab="sus">Подозрительные · ' + nSus + '</button></div>' +
             '<div class="rv-list' + ld + '">' + (rows || '<div class="rv-hint">' + (RV.loading ? 'Загружаем отзывы…' : 'Таких отзывов нет') + '</div>') + '</div>' +
             (list.length > RV.shown ? '<button type="button" class="rv-more" data-more="1">Показать ещё</button>' : '') + '</div>' +
             '<div class="rv-side"><div class="rv-panel"><div class="rv-cap">Жалобы на отзывы</div><p class="rv-hint">WB не принимает жалобы через API, поэтому у отзыва до 3★ и у подозрительных есть кнопка «Пожаловаться»: она копирует готовый текст и открывает отзывы в кабинете WB, остаётся вставить и отправить. Что подавать, решаете вы.</p>' +
@@ -197,6 +332,11 @@
         try { root.navigator.clipboard.writeText(txt).then(done, done); } catch (_) { done(); }
         root.open('https://seller.wildberries.ru/feedbacks-and-questions', '_blank', 'noopener');
     }
+    function loadSizes() {
+        if (RV.sizeOrd && RV.sizeOrd.key === RV.cab + ':' + RV.nm + ':' + RV.days) return;
+        var key = RV.cab + ':' + RV.nm + ':' + RV.days, my = RV.token;
+        loadSizeOrders(RV.cab, RV.nm, periodOf(RV.days, 0)).then(function (o) { if (o && key === RV.cab + ':' + RV.nm + ':' + RV.days) { o.key = key; RV.sizeOrd = o; if (RV.view === 'colors') paintRoot(); } });
+    }
     function bind() {
         var host = doc.getElementById('rv-root'); if (!host || bound) return; bound = true;
         host.addEventListener('click', function (e) {
@@ -204,10 +344,15 @@
             if ((b = t.closest('[data-star]'))) { var k = Number(b.getAttribute('data-star')); RV.star = RV.star === k ? 0 : k; RV.shown = 40; paintRoot(); return; }
             if ((b = t.closest('[data-tab]'))) { RV.tab = b.getAttribute('data-tab'); RV.shown = 40; paintRoot(); return; }
             if (t.closest('[data-more]')) { RV.shown += 40; paintRoot(); return; }
-            if ((b = t.closest('[data-cmp]'))) complain(b.getAttribute('data-cmp'));
+            if ((b = t.closest('[data-cmp]'))) { complain(b.getAttribute('data-cmp')); return; }
+            if ((b = t.closest('[data-view]'))) { RV.view = b.getAttribute('data-view'); paintRoot(); if (RV.view === 'colors' && RV.by === 'size') loadSizes(); return; }
+            if ((b = t.closest('[data-by]'))) { RV.by = b.getAttribute('data-by'); paintRoot(); if (RV.by === 'size') loadSizes(); return; }
+            if ((b = t.closest('[data-topic]'))) { var k = Number(b.getAttribute('data-topic')); RV.theme = RV.theme === k ? -1 : k; RV.shown = 40; paintRoot(); return; }
+            if (t.closest('[data-all]') && !RV.allBusy) collectAll();
         });
         host.addEventListener('change', function (e) {
-            if (e.target.id === 'rv-art') { RV.nm = Number(e.target.value); try { root.localStorage.setItem('nr_rv_nm', String(RV.nm)); } catch (_) {} RV.star = 0; RV.shown = 40; refresh(); }
+            if (e.target.id === 'rv-art') { RV.nm = Number(e.target.value); try { root.localStorage.setItem('nr_rv_nm', String(RV.nm)); } catch (_) {} RV.star = 0; RV.theme = -1; RV.shown = 40; refresh(); }
+            if (e.target.id === 'rv-goal') { var g = Number(String(e.target.value).replace(',', '.')); if (g >= 1 && g < 5) { RV.goal = g; paintRoot(); } }
             if (e.target.id === 'rv-days') { RV.days = Number(e.target.value) || 30; refresh(); }
         });
     }
