@@ -977,18 +977,26 @@ const RNP = (() => {
         }
     }
 
+    // «big» → превью (tm / c246x328 / c516x688) на том же CDN; для других адресов возвращает null
+    function _sizedPhotoUrl(url, size) {
+        if (!url || !/^(?:tm|c246x328|c516x688)$/.test(String(size || ''))) return null;
+        return /\/images\/big\//.test(url) ? String(url).replace('/images/big/', '/images/' + size + '/') : null;
+    }
+
     function _imgHtml(art, className, size = 'c516x688', extraStyle = '', photoIndex = 1, eager = false) {
         const nmId = art.nm_id;
         const idx = Math.max(1, photoIndex || 1);
         const cached = _cachedPhotoUrl(art, idx);
         const guess = (!cached && idx === 1) ? _wbPhotoUrl(nmId, size.includes('c') ? size : 'c246x328') : null;
-        const src = cached || guess || _PHOTO_PLACEHOLDER;
+        // В карточке WB сохранён «big» (около 170 КБ); для мелких плиток и иконок берём превью нужного размера, иначе РНП тянет десятки мегабайт и тормозит
+        const sized = _sizedPhotoUrl(cached, size);
+        const src = sized || cached || guess || _PHOTO_PLACEHOLDER;
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
         const loading = eager ? 'eager' : 'lazy';
         const errAttr = (!cached && idx === 1)
             ? ` onerror="RNP.imgFallback(this)"`
-            : '';
+            : (sized ? ` onerror="this.onerror=null;this.src='${cached}'"` : '');
         return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt="" data-nmid="${nmId}" data-photo="${idx}"${errAttr}>`;
     }
 
