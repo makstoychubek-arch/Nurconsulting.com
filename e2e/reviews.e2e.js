@@ -64,6 +64,33 @@ const tables = {
         const last = calls.filter((c) => c.action === 'feedbacks_by_nm').pop();
         assert.ok(last.params.dateTo - last.params.dateFrom > 80 * 86400, 'за 90 дней период расширен');
         console.log('ok   период 90 дней');
+        // новые вкладки аналитики
+        await page.selectOption('#rv-art', '1001');
+        await page.waitForFunction(() => document.querySelectorAll('.rv-item').length === 5);
+        assert.ok(await page.evaluate(() => !!document.querySelector('.rv-viewbody svg')), 'обзор: график по неделям нарисован');
+        assert.ok(await page.evaluate(() => /Отвечено/.test(document.querySelector('.rv-viewbody').textContent)), 'обзор: блок ответов');
+        await page.fill('#rv-goal', '4.7'); await page.dispatchEvent('#rv-goal', 'change');
+        assert.ok(await page.evaluate(() => /\+\d+/.test(document.querySelector('.rv-big').textContent)), 'калькулятор цели считает');
+        console.log('ok   вкладка «Обзор»');
+        await page.click('.rv-tab[data-view="colors"]');
+        assert.ok(await page.evaluate(() => /коричневый/.test(document.querySelector('.rv-tbl').textContent) && /не указан/.test(document.querySelector('.rv-tbl').textContent)), 'цвета в таблице');
+        assert.ok(await page.evaluate(() => document.querySelector('.rv-main').hidden), 'список скрыт на вкладке цветов');
+        await page.click('.rv-tab[data-by="size"]');
+        assert.ok(await page.evaluate(() => /46/.test(document.querySelector('.rv-tbl').textContent)), 'размеры в таблице');
+        console.log('ok   вкладка «Цвета и размеры»');
+        await page.click('.rv-tab[data-view="topics"]');
+        assert.ok(await page.evaluate(() => document.querySelectorAll('.rv-brow').length === 9), 'темы показаны');
+        await page.click('.rv-brow[data-topic="1"]');
+        assert.ok(await page.evaluate(() => /Тема:/.test(document.querySelector('.rv-chip').textContent)), 'тема включила фильтр');
+        await page.click('.rv-chip');
+        assert.strictEqual(await n(), 5, 'фильтр по теме снят');
+        console.log('ok   вкладка «О чём пишут»');
+        await page.click('.rv-tab[data-view="all"]');
+        await page.click('[data-all]');
+        await page.waitForFunction(() => document.querySelectorAll('.rv-tbl tr').length >= 3, null, { timeout: 15000 });
+        console.log('ok   вкладка «Все артикулы»');
+        if (process.env.RV_SHOT2) { await page.click('.rv-tab[data-view="overview"]'); await page.waitForTimeout(800); await page.screenshot({ path: process.env.RV_SHOT2 + '-o.png', fullPage: true }); await page.click('.rv-tab[data-view="topics"]'); await page.waitForTimeout(500); await page.screenshot({ path: process.env.RV_SHOT2 + '-t.png', fullPage: true }); }
+        await page.click('.rv-tab[data-view="overview"]');
         assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
         console.log('e2e отзывов: все проверки прошли');
     } finally { await browser.close(); srv.close(); }
