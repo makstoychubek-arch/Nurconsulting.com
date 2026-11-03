@@ -9,7 +9,7 @@
     var PAYOUT = 0.70;      // примерная доля цены, которую WB перечисляет продавцу (по финотчётам 70–72%)
     var LOW_PROFIT = 300;   // ниже этой прибыли на штуку (до логистики) строка красная и кнопка переспрашивает
     var CATS = ['Костюмы классические', 'Свитера', 'Пиджаки', 'Спортивные костюмы', 'Летние костюмы', 'Платья и верхняя одежда', 'Другое'];
-    var S = { cab: '', view: 'rnp', arts: [], prices: {}, stock: {}, fbo: {}, fbs: {}, pd: {}, ord: {}, sal: {}, sel: {}, gmap: {}, modal: null, load: { arts: false, prices: false, stock: false, sales: false }, token: 0, raf: 0 };
+    var S = { cab: '', view: 'rnp', arts: [], prices: {}, stock: {}, fbo: {}, fbs: {}, pd: {}, ratio: {}, ord: {}, sal: {}, sel: {}, gmap: {}, modal: null, load: { arts: false, prices: false, stock: false, sales: false }, token: 0, raf: 0 };
 
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -91,18 +91,19 @@
     }
     function cacheKey(cab) { return 'nr_rp_' + cab; }
     function readCache(cab) { try { return JSON.parse(root.localStorage.getItem(cacheKey(cab)) || 'null'); } catch (_) { return null; } }
-    function writeCache() { try { root.localStorage.setItem(cacheKey(S.cab), JSON.stringify({ arts: S.arts, prices: S.prices, stock: S.stock, fbo: S.fbo, fbs: S.fbs, pd: S.pd, ord: S.ord, sal: S.sal, at: Date.now() })); } catch (_) {} }
+    function writeCache() { try { root.localStorage.setItem(cacheKey(S.cab), JSON.stringify({ arts: S.arts, prices: S.prices, stock: S.stock, fbo: S.fbo, fbs: S.fbs, pd: S.pd, ratio: S.ratio, ord: S.ord, sal: S.sal, at: Date.now() })); } catch (_) {} }
 
     function open() {
         var cab = cabId(); if (!cab || !sb()) { paint(); return; }
         var my = ++S.token, same = cab === S.cab && S.arts.length;
         if (!same) {
             S.cab = cab; var c = readCache(cab);
-            S.arts = (c && c.arts) || []; S.prices = (c && c.prices) || {}; S.stock = (c && c.stock) || {}; S.fbo = (c && c.fbo) || {}; S.fbs = (c && c.fbs) || {}; S.pd = (c && c.pd) || {}; S.ord = (c && c.ord) || {}; S.sal = (c && c.sal) || {};
+            S.arts = (c && c.arts) || []; S.prices = (c && c.prices) || {}; S.stock = (c && c.stock) || {}; S.fbo = (c && c.fbo) || {}; S.fbs = (c && c.fbs) || {}; S.pd = (c && c.pd) || {}; S.ratio = (c && c.ratio) || {}; S.ord = (c && c.ord) || {}; S.sal = (c && c.sal) || {};
         }
         S.load = { arts: true, prices: true, stock: true, sales: true };
         paint();
         var per = period();
+        loadRatio(cab, my);
         function done(k) { if (my === S.token) { S.load[k] = false; schedule(); } }
         pageAll(function () { return sb().from('rnp_articles').select('nm_id,name,photo_url,imt_id,card_title,subject_name,cost_price').eq('cabinet_id', cab).eq('is_active', true); }).then(function (rows) {
             if (my !== S.token) return; S.arts = rows;
@@ -119,6 +120,21 @@
             S.ord = o; S.sal = s; done('sales');
         }, function () { done('sales'); });
     }
+    // Цена для покупателя после скидки WB: отношение «итоговая цена / цена со скидкой продавца» по самому свежему заказу артикула
+    function loadRatio(cab, my) {
+        var from = ymd(new Date(Date.now() + 6 * 3600e3 - 5 * 86400e3));
+        pageAll(function () { return sb().from('wb_orders').select('nm_id,order_date,pw:data->>priceWithDisc,fp:data->>finishedPrice').eq('cabinet_id', cab).gte('order_date', from); }).then(function (rows) {
+            if (my !== S.token) return; var best = {}, all = [];
+            rows.forEach(function (x) {
+                var pw = Number(x.pw), fp = Number(x.fp); if (!(pw > 0) || !(fp > 0) || fp > pw) return;
+                var r = fp / pw; all.push(r); var b = best[x.nm_id]; if (!b || String(x.order_date) > b.d) best[x.nm_id] = { d: String(x.order_date), r: r };
+            });
+            var out = {}; Object.keys(best).forEach(function (k) { out[k] = Math.round(best[k].r * 1000) / 1000; });
+            all.sort(function (a, b) { return a - b; }); out._med = all.length ? Math.round(all[Math.floor(all.length / 2)] * 1000) / 1000 : 0;
+            S.ratio = out; schedule(); writeCache();
+        }, function () {});
+    }
+    function buyerOf(nm, price) { var r = S.ratio[nm] || S.ratio._med || 0; return r && price ? Math.round(price * r) : 0; }
     function loadPrices(cab, arts, my) {
         if (typeof root.callWbProxy !== 'function') { S.load.prices = false; schedule(); return; }
         var nms = arts.map(function (a) { return Number(a.nm_id); }), chunks = [];
@@ -141,7 +157,7 @@
             (loco ? '<span class="rp-cw">' + CROWN + '</span>' : '') +
             '<span class="rp-ph">' + (a.photo_url ? '<img src="' + esc(a.photo_url) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
             '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '" aria-label="Выбрать" data-ck="' + a.nm_id + '">' + (sel ? '✓' : '') + '</span>' +
-            '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' +
+            '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' + (a._p && buyerOf(a.nm_id, a._p) ? '<u class="rp-by" title="Для покупателя после скидки WB">' + fmt(buyerOf(a.nm_id, a._p)) + '</u>' : '') +
             '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s></div>';
     }
     function rings(g) {
@@ -178,7 +194,7 @@
                 '<button type="button" class="rp-btn w" data-act="price" data-g="sel">Изменить цену</button><button type="button" class="rp-btn" data-act="move" data-g="sel">Перенести в склейку</button><button type="button" class="rp-btn" data-act="clear">Снять выбор</button></div>';
         }
         var sc = pane.scrollTop;
-        pane.innerHTML = legend + '<div class="rp-stage">' + html + '</div><div class="rp-foot">' + total + ' артикулов</div>' + bar;
+        pane.innerHTML = legend + '<div class="rp-stage">' + html + '</div><div class="rp-foot">' + total + ' артикулов. Серая цена под основной: для покупателя после скидки WB</div>' + bar;
         pane.scrollTop = sc;
     }
     function artOf(nm) { for (var i = 0; i < S.arts.length; i++) if (String(S.arts[i].nm_id) === String(nm)) return S.arts[i]; return null; }
@@ -211,10 +227,10 @@
             var lab = { one: 'Новая цена со скидкой, сом', down: 'Снизить на, %', up: 'Поднять на, %', abs: 'Изменить на, сом (минус снижает)' }[M.mode];
             head = 'Цена: ' + M.nms.length + ' арт.';
             body = '<div class="rp-seg">' + seg + '</div><label class="rp-lab" for="rp-val">' + lab + '</label><input id="rp-val" class="rp-inp" inputmode="decimal" autocomplete="off" value="' + esc(M.val) + '">' +
-                '<div class="rp-tw"><table class="rp-tbl"><tr><th>Артикул</th><th class="n">Было</th><th class="n">Станет</th><th class="n">≈ прибыль/шт</th></tr>' + rows.map(function (r) {
-                    return '<tr><td>' + esc(r.name) + '</td><td class="n">' + (r.cur ? fmt(r.cur) : '—') + '</td><td class="n' + (M.val !== '' && !r.wrong ? (r.t < r.cur ? ' dn' : (r.t > r.cur ? ' up' : '')) : '') + '">' + (M.val === '' ? '—' : fmt(r.t)) + '</td><td class="n' + (r.bad && M.val !== '' ? ' dn' : '') + '">' + (r.pf == null ? '—' : (r.pf0 != null && M.val !== '' ? fmt(r.pf0) + ' → ' : '') + fmt(r.pf)) + '</td></tr>';
+                '<div class="rp-tw"><table class="rp-tbl"><tr><th>Артикул</th><th class="n">Было</th><th class="n">Станет</th><th class="n">Покупатель</th><th class="n">≈ прибыль/шт</th></tr>' + rows.map(function (r) {
+                    return '<tr><td>' + esc(r.name) + '</td><td class="n">' + (r.cur ? fmt(r.cur) : '—') + '</td><td class="n' + (M.val !== '' && !r.wrong ? (r.t < r.cur ? ' dn' : (r.t > r.cur ? ' up' : '')) : '') + '">' + (M.val === '' ? '—' : fmt(r.t)) + '</td><td class="n">' + (buyerOf(r.nm, M.val === '' ? r.cur : r.t) ? fmt(buyerOf(r.nm, M.val === '' ? r.cur : r.t)) : '—') + '</td><td class="n' + (r.bad && M.val !== '' ? ' dn' : '') + '">' + (r.pf == null ? '—' : (r.pf0 != null && M.val !== '' ? fmt(r.pf0) + ' → ' : '') + fmt(r.pf)) + '</td></tr>';
                 }).join('') + '</table></div>' +
-                '<p class="rp-hint">Прибыль примерная: цена × 70% (доля, которую WB перечисляет) − себестоимость, без логистики и налога. Скидку артикула не трогаем, цена до скидки пересчитывается сама. Прошлые цены сохраняются в журнале цен.</p>' +
+                '<p class="rp-hint">Покупатель: цена для покупателя после скидки WB (по свежим заказам). Прибыль примерная: цена × 70% (доля, которую WB перечисляет) − себестоимость, без логистики и налога. Скидку артикула не трогаем, цена до скидки пересчитывается сама. Прошлые цены сохраняются в журнале цен.</p>' +
                 (anyWrong ? '<p class="rp-warn">Цена должна быть от 100 сом, у артикула должна быть текущая цена из WB.</p>' : '') +
                 (anyBad ? '<p class="rp-warn">У части артикулов примерная прибыль ниже ' + LOW_PROFIT + ' сом на штуку.</p>' : '');
             foot = '<button type="button" class="rp-btn q" data-mc="close">Отмена</button><button type="button" class="rp-btn go" data-mc="apply"' + (M.val === '' || anyWrong || M.busy ? ' disabled' : '') + '>' + (anyBad && !M.confirm ? 'Применить к ' + M.nms.length + ' (проверьте прибыль)' : 'Применить к ' + M.nms.length) + '</button>';
