@@ -599,7 +599,7 @@ html body .sidebar-flyout .flyout-body .nav-item.active { background: var(--acce
 @media (prefers-reduced-motion: reduce) { html body .sidebar-flyout, html body .sidebar-flyout .flyout-body .nav-item { transition: none !important; } }
 /* на компьютере подразделы живут в панели, а полоски на страницах скрыты; на телефоне полоски остаются */
 @media (min-width: 769px) {
-  html body #nr-ads-tabs, html body #an-tabs { display: none !important; }
+  html body #nr-ads-tabs, html body #an-tabs, html body #rnp-views { display: none !important; }
   html body #gg-view-now-btn, html body #gg-view-fbs-btn, html body #gg-view-ship-btn, html body #gg-view-give-btn { display: none !important; }
 }
 html body .sidebar-flyout .flyout-body .nav-item.active .nav-ico, html body .sidebar-flyout .flyout-body .nav-item.active .nav-item-label { color: var(--on-accent, #fff) !important; opacity: 1; }
@@ -1305,3 +1305,37 @@ html body .rv-brow .t i { display: block; height: 100%; border-radius: 8px; back
 html body .rv-brow.on span:first-child { font-weight: 900; text-decoration: underline; }
 html body .rv-brow b { text-align: right; }
 html body .rv-chip { margin-bottom: 10px; padding: 5px 14px; border: 1px solid var(--text-primary); border-radius: 999px; background: transparent; color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+/* РНП → Цены: полки со склейками (rnp-prices.js) */
+html body #tab-rnp.rp-on > :not(#rnp-views):not(#rnp-prices-pane) { display: none !important; }
+html body #rnp-prices-pane { display: none; }
+html body #tab-rnp.rp-on #rnp-prices-pane { display: block; flex: 1; min-height: 0; overflow: auto; padding: 8px 0 24px; }
+html body #rnp-views { display: flex; gap: 6px; margin: 0 0 10px; }
+html body .rp-leg { display: flex; gap: 6px 16px; flex-wrap: wrap; color: var(--text-muted); font-size: 12px; margin: 0 0 8px; }
+html body .rp-leg b { color: var(--text-primary); }
+html body .rp-stage { padding: 0; }
+html body .rp-cat { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 18px 0 0; }
+html body .rp-row { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; padding: 14px 0 10px; border-bottom: 1px solid var(--mono-4, #d9d9d9); }
+html body .rp-nm { cursor: pointer; }
+html body .rp-nm b { display: block; font-size: 12px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+html body .rp-nm span { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+html body .rp-shelf { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; border-bottom: 3px solid var(--text-primary); padding-top: 18px; }
+html body .rp-it { position: relative; width: 44px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: center; cursor: pointer; }
+html body .rp-it .rp-ph { display: block; height: 56px; border-radius: 8px 8px 0 0; background: var(--mono-4, #e4e4e4); overflow: hidden; }
+html body .rp-it .rp-ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html body .rp-it .rp-cw { position: absolute; left: 50%; top: -17px; transform: translateX(-50%); width: 26px; height: 26px; color: var(--text-primary); }
+html body .rp-it .rp-cw svg { width: 26px; height: 26px; display: block; }
+html body .rp-it.l .rp-ph { box-shadow: 0 0 0 2px var(--text-primary); }
+html body .rp-it i { display: block; font-style: normal; font-weight: 900; font-size: 10px; font-variant-numeric: tabular-nums; }
+html body .rp-it s { display: block; text-decoration: none; font-size: 10px; color: var(--text-muted); padding: 2px 0; font-variant-numeric: tabular-nums; }
+html body .rp-it.rp-low s { color: var(--red, #c42b1c); font-weight: 800; }
+html body .rp-it u { display: block; text-decoration: none; font-size: 10px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+html body .rp-it em { display: block; font-style: normal; font-size: 10px; font-weight: 900; border-top: 1px solid var(--mono-4, #d9d9d9); margin-top: 1px; padding-top: 1px; font-variant-numeric: tabular-nums; }
+html body .rp-ld { filter: blur(5px); opacity: .55; }
+html body .rp-foot { color: var(--text-muted); font-size: 12px; padding-top: 14px; }
+html body .rp-empty { padding: 40px 0; }
+html body .rp-empty b { font-size: 18px; font-weight: 900; }
+@media (max-width: 768px) {
+  html body .rp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  html body .rp-it { width: calc((100% - 24px) / 5); }
+}
