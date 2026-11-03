@@ -1,6 +1,6 @@
 /* РНП → Цены: все артикулы кабинета на одной странице «Полки».
- * Склейки WB (imt_id) стоят на полках внутри групп. У каждого артикула четыре строки: цена со скидкой, остаток, заказы и продажи за 30 дней.
- * Над локомотивом склейки (больше всего заказов) корона. Нажали на артикул, и открывается РНП на нём.
+ * Склейки WB (imt_id) стоят на полках внутри групп. У каждого артикула две строки: цена со скидкой и остаток.
+ * Над локомотивом строки (больше всего заказов за 30 дней, сами заказы не показываем) корона. Нажали на артикул, и открывается РНП на нём.
  * Страница живёт внутри вкладки РНП: показ и скрытие переключает полоска #rnp-views (меню слева нажимает её кнопки). */
 (function (root) {
     'use strict';
@@ -126,17 +126,15 @@
             (loco ? '<span class="rp-cw">' + CROWN + '</span>' : '') +
             '<span class="rp-ph">' + (a.photo_url ? '<img src="' + esc(a.photo_url) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
             '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' +
-            '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s>' +
-            '<u' + (S.load.sales && !a._o ? ' class="rp-ld"' : '') + '>' + fmt(a._o) + '</u>' +
-            '<em' + (S.load.sales && !a._s ? ' class="rp-ld"' : '') + '>' + fmt(a._s) + '</em></button>';
+            '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s></button>';
     }
     function skeleton() {
-        var row = function () { var t = ''; for (var i = 0; i < 12; i++) t += '<span class="rp-it rp-sk"><span class="rp-ph"></span><i class="rp-ld">0000</i><s class="rp-ld">000</s><u class="rp-ld">00</u><em class="rp-ld">00</em></span>'; return t; };
+        var row = function () { var t = ''; for (var i = 0; i < 12; i++) t += '<span class="rp-it rp-sk"><span class="rp-ph"></span><i class="rp-ld">0000</i><s class="rp-ld">000</s></span>'; return t; };
         return '<div class="rp-cat rp-ld">Загружаем артикулы</div>' + '<div class="rp-row"><div class="rp-nm rp-ld"><b>Склейка</b><span>ост 0000</span></div><div class="rp-shelf">' + row() + '</div></div><div class="rp-row"><div class="rp-nm rp-ld"><b>Склейка</b><span>ост 0000</span></div><div class="rp-shelf">' + row() + '</div></div>';
     }
     function paint() {
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
-        var legend = '<div class="rp-leg"><span><b>1</b> цена со скидкой</span><span><b>2</b> остаток, меньше 60 красным</span><span><b>3</b> заказы за ' + DAYS + ' дней</span><span><b>4</b> продажи за ' + DAYS + ' дней</span></div>';
+        var legend = '';
         if (!S.arts.length) {
             pane.innerHTML = legend + '<div class="rp-stage">' + (S.load.arts ? skeleton() : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b><p>Добавьте артикулы в РНП, и они появятся здесь по склейкам.</p></div>') + '</div>';
             return;

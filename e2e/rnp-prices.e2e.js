@@ -50,9 +50,10 @@ const tables = {
         console.log('ok   корона у локомотива склейки');
         await page.waitForFunction(() => !document.querySelector('.rp-it[data-nm="2"] .rp-ld'));
         const t = await page.evaluate(() => [...document.querySelector('.rp-it[data-nm="2"]').querySelectorAll('i,s,u,em')].map((e) => e.textContent.replace(/\s/g, '')));
-        assert.deepStrictEqual(t, ['3020', '300', '40', '20'], 'четыре строки: цена, остаток, заказы, продажи: ' + t);
+        assert.deepStrictEqual(t, ['3020', '300'], 'две строки: цена и остаток: ' + t);
         assert.ok(await page.evaluate(() => document.querySelector('.rp-it[data-nm="4"]').classList.contains('rp-low')), 'остаток меньше 60 красным');
-        console.log('ok   цена, остаток, заказы и продажи');
+        console.log('ok   цена и остаток');
+        assert.ok(await page.evaluate(() => !document.querySelector('.rp-leg')), 'подписи-ключа нет');
         assert.ok(await page.evaluate(() => !document.querySelector('.rnp-workspace').offsetParent), 'сам РНП скрыт, пока открыты цены');
         await page.click('.rp-it[data-nm="3"]');
         await page.waitForFunction(() => !!document.querySelector('.rnp-workspace') && document.querySelector('.rnp-workspace').offsetParent !== null, null, { timeout: 8000 });
