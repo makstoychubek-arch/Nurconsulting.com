@@ -1399,4 +1399,4 @@ html body .rp-opt span { color: var(--text-muted); font-size: 12px; white-space:
   html body .rp-ck { opacity: 1; }
 }
 /* РНП и «Цены»: левый и правый отступ такой же, как у дашборда */
-@media (min-width: 769px) { html body .main-rail .main-content.rnp-compact:not(#nr-x) { padding-left: 16px !important; padding-right: 16px !important; } }
+@media (min-width: 769px) { html body .main-rail .main-content.rnp-compact:not(#nr-x) { padding-left: 23px !important; padding-right: 23px !important; } }
