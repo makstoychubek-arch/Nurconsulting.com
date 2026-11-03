@@ -1340,3 +1340,63 @@ html body .rp-empty b { font-size: 18px; font-weight: 900; }
   html body .rp-it { width: 54px; }
   html body .rp-shelf { gap: 8px 6px; }
 }
+/* РНП → Цены: кружки итогов, выбор артикулов, окна цены и переноса */
+html body .rp-row { grid-template-columns: 170px minmax(0, 1fr) auto; }
+html body .rp-side { display: grid; gap: 10px; justify-items: end; align-content: start; }
+html body .rp-rings { display: flex; gap: 10px; }
+html body .rp-ring { width: 78px; height: 78px; border-radius: 50%; border: 1.5px solid var(--text-primary); display: grid; place-content: center; text-align: center; gap: 1px; position: relative; }
+html body .rp-ring b { font-size: 17px; font-weight: 900; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; position: relative; }
+html body .rp-ring span { font-size: 8px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); position: relative; }
+html body .rp-ring.b { background: var(--text-primary); color: var(--bg-primary, #fff); }
+html body .rp-ring.b span { color: inherit; opacity: .7; }
+html body .rp-ring.fx { border: 0; background: conic-gradient(var(--text-primary) 0 calc(var(--fbo) * 1%), var(--mono-4, #d9d9d9) 0); }
+html body .rp-ring.fx::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--bg-card, var(--bg-primary, #fff)); }
+html body .rp-ring.fx b { font-size: 14px; }
+html body .rp-acts { display: flex; gap: 6px; }
+html body .rp-btn { border: 1.5px solid var(--text-primary); border-radius: 999px; padding: 6px 14px; font: inherit; font-weight: 800; font-size: 12px; background: transparent; color: var(--text-primary); cursor: pointer; }
+html body .rp-btn.go { background: var(--text-primary); color: var(--bg-primary, #fff); }
+html body .rp-btn.q { border-color: var(--mono-4, #d9d9d9); color: var(--text-muted); }
+html body .rp-btn.w { background: var(--bg-primary, #fff); color: var(--text-primary); }
+html body .rp-btn:disabled { opacity: .4; cursor: default; }
+html body .rp-it { cursor: pointer; outline-offset: 2px; }
+html body .rp-ck { position: absolute; right: -5px; top: -5px; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--text-primary); background: var(--bg-primary, #fff); color: var(--text-primary); display: grid; place-items: center; font-size: 11px; font-weight: 900; z-index: 2; opacity: 0; transition: opacity .12s; }
+html body .rp-it:hover .rp-ck, html body .rp-it:focus-within .rp-ck, html body .rp-it.sel .rp-ck, html body.rp-sel .rp-ck { opacity: 1; }
+html body .rp-it.sel .rp-ck { background: var(--text-primary); color: var(--bg-primary, #fff); }
+html body .rp-it.sel .rp-ph { box-shadow: 0 0 0 2px var(--text-primary); }
+html body .rp-bar { position: sticky; bottom: 8px; margin-top: 14px; background: var(--text-primary); color: var(--bg-primary, #fff); border-radius: 999px; padding: 8px 10px 8px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; z-index: 5; }
+html body .rp-bar .rp-btn { border-color: var(--bg-primary, #fff); color: var(--bg-primary, #fff); }
+html body .rp-bar .rp-btn.w { background: var(--bg-primary, #fff); color: var(--text-primary); }
+html body .rp-barn { opacity: .75; font-size: 12px; }
+html body .rp-sp { flex: 1; }
+html body #rp-modal { position: fixed; inset: 0; z-index: 9000; background: rgba(0, 0, 0, .38); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) 16px 16px; }
+html body .rp-dlg { width: min(560px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: var(--bg-card, var(--bg-primary, #fff)); color: var(--text-primary); border: 1.5px solid var(--text-primary); border-radius: 26px; overflow: hidden; }
+html body .rp-dh { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 18px 20px 10px; }
+html body .rp-dh b { font-size: 18px; font-weight: 900; letter-spacing: -.02em; }
+html body .rp-x { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--text-primary); background: transparent; color: inherit; cursor: pointer; }
+html body .rp-db { padding: 4px 20px 10px; overflow: auto; display: grid; gap: 10px; align-content: start; }
+html body .rp-df { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 20px 18px; }
+html body .rp-seg { display: flex; border: 1px solid var(--mono-4, #d9d9d9); border-radius: 999px; padding: 3px; gap: 3px; }
+html body .rp-sg { flex: 1; border: 0; background: transparent; color: var(--text-muted); font: inherit; font-weight: 700; font-size: 12px; padding: 7px 4px; border-radius: 999px; cursor: pointer; }
+html body .rp-sg.on { background: var(--text-primary); color: var(--bg-primary, #fff); }
+html body .rp-lab { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+html body .rp-inp { width: 100%; box-sizing: border-box; border: 1.5px solid var(--text-primary); border-radius: 14px; padding: 10px 14px; font: inherit; font-size: 18px; font-weight: 900; background: transparent; color: inherit; }
+html body .rp-tbl { border-collapse: collapse; width: 100%; font-size: 13px; }
+html body .rp-tbl th { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--mono-4, #d9d9d9); }
+html body .rp-tbl td { padding: 7px 6px; border-bottom: 1px solid var(--mono-4, #d9d9d9); font-variant-numeric: tabular-nums; }
+html body .rp-tbl .n { text-align: right; }
+html body .rp-tbl .dn { color: var(--red, #c42b1c); font-weight: 800; }
+html body .rp-tbl .up { color: var(--green, #16803c); font-weight: 800; }
+html body .rp-hint { margin: 0; font-size: 12px; color: var(--text-muted); }
+html body .rp-warn { margin: 0; font-size: 12px; font-weight: 700; color: var(--red, #c42b1c); }
+html body .rp-opts { display: grid; gap: 6px; max-height: 42vh; overflow: auto; }
+html body .rp-opt { display: flex; justify-content: space-between; gap: 10px; text-align: left; border: 1px solid var(--mono-4, #d9d9d9); border-radius: 16px; padding: 10px 12px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+html body .rp-opt.on { border: 1.5px solid var(--text-primary); }
+html body .rp-opt span { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+@media (max-width: 768px) {
+  html body .rp-row { grid-template-columns: minmax(0, 1fr); }
+  html body .rp-side { justify-items: start; }
+  html body .rp-ring { width: 70px; height: 70px; }
+  html body .rp-ck { opacity: 1; }
+}
+/* РНП и «Цены»: левый и правый отступ такой же, как у дашборда */
+@media (min-width: 769px) { html body .main-rail .main-content.rnp-compact:not(#nr-x) { padding-left: 16px !important; padding-right: 16px !important; } }
