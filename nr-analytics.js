@@ -114,10 +114,10 @@
             var t = sumRows(a[0] && a[0].data); t.cancels = (a[1] && a[1].count) || 0; return t;
         }).catch(function () { return null; });
     }
-    function loadReviews(cab, nm, per) {
+    function loadReviews(cab, nm, per, all) {
         if (typeof root.callWbProxy !== 'function') return Promise.reject(new Error('Нет связи с WB'));
         var from = Math.floor(Date.parse(per.from + 'T00:00:00Z') / 1000), to = Math.floor(Date.parse(per.to + 'T23:59:59Z') / 1000);
-        return Promise.resolve(root.callWbProxy('feedbacks_by_nm', { nmId: nm, dateFrom: from, dateTo: to }, cab)).then(function (res) {
+        return Promise.resolve(root.callWbProxy('feedbacks_by_nm', all ? { all: true, dateFrom: from, dateTo: to } : { nmId: nm, dateFrom: from, dateTo: to }, cab)).then(function (res) {
             if (!res || res.error) throw new Error((res && res.error) || 'WB не отдал отзывы');
             return res.feedbacks || [];
         });
@@ -240,19 +240,17 @@
         var body = rows2.map(function (r) {
             return '<tr><td>' + esc(r.name || r.nm) + ' · ' + r.nm + '</td><td class="n">' + r.n + '</td><td class="n">' + (r.n ? r.avg.toFixed(1).replace('.', ',') : '—') + '</td><td class="n' + (r.negPct >= 25 ? ' dn' : '') + '">' + r.negPct + '%</td><td class="n' + (r.noans >= 5 ? ' dn' : '') + '">' + r.noans + '</td><td class="n' + (r.sus ? ' dn' : '') + '">' + r.sus + '</td></tr>';
         }).join('');
-        return '<div class="rv-panel rv-wide"><div class="rv-cap">Сравнение артикулов за период</div><div><button type="button" class="rv-more" data-all="1"' + (RV.allBusy ? ' disabled' : '') + '>' + (RV.allBusy ? 'Собираем… ' + rows2.length + ' из ' + RV.arts.length : (rows2.length ? 'Обновить' : 'Собрать по всем артикулам')) + '</button></div>' +
-            (rows2.length ? '<div class="rv-tw"><table class="rv-tbl"><tr><th>Артикул</th><th class="n">Отзывов</th><th class="n">Рейтинг</th><th class="n">1–2★</th><th class="n">Без ответа</th><th class="n">Подозрит.</th></tr>' + body + '</table></div>' : '<div class="rv-hint">Нажмите кнопку: WB отдаёт отзывы по одному артикулу за запрос, готовые строки появляются по мере сбора.</div>') + '</div>';
+        return '<div class="rv-panel rv-wide"><div class="rv-cap">Сравнение артикулов за период</div><div><button type="button" class="rv-more" data-all="1"' + (RV.allBusy ? ' disabled' : '') + '>' + (RV.allBusy ? 'Собираем…' : (rows2.length ? 'Обновить' : 'Собрать по всем артикулам')) + '</button></div>' +
+            (RV.allErr ? '<div class="rv-err">' + esc(RV.allErr) + '</div>' : '') + (rows2.length ? '<div class="rv-tw"><table class="rv-tbl"><tr><th>Артикул</th><th class="n">Отзывов</th><th class="n">Рейтинг</th><th class="n">1–2★</th><th class="n">Без ответа</th><th class="n">Подозрит.</th></tr>' + body + '</table></div>' : '<div class="rv-hint">Нажмите кнопку: отзывы всего кабинета за период загрузятся разом и разложатся по артикулам.</div>') + '</div>';
     }
+    // WB отдаёт отзывы всего кабинета одним потоком, поэтому собираем их разом и делим по артикулам
     function collectAll() {
-        var cab = RV.cab, key = cab + ':' + RV.days, per = periodOf(RV.days, 0), arts = RV.arts.slice(), my = ++RV.token, out = RV.all[key] = [];
-        RV.allBusy = true; paintRoot();
-        function step(i) {
-            if (i >= arts.length || RV.cab !== cab) { RV.allBusy = false; paintRoot(); return Promise.resolve(); }
-            var a = arts[i];
-            return loadReviews(cab, Number(a.nm_id), per).then(function (items) { out.push(artRow(a.name, a.nm_id, items)); }, function () { out.push({ nm: a.nm_id, name: a.name, n: 0, avg: 0, negPct: 0, noans: 0, sus: 0 }); })
-                .then(function () { paintRoot(); return new Promise(function (r) { setTimeout(r, 350); }); }).then(function () { return step(i + 1); });
-        }
-        return step(0);
+        var cab = RV.cab, key = cab + ':' + RV.days, per = periodOf(RV.days, 0), arts = RV.arts.slice();
+        RV.allBusy = true; RV.allErr = ''; paintRoot();
+        loadReviews(cab, 0, per, true).then(function (items) {
+            var by = {}; items.forEach(function (f) { (by[f.nmId] = by[f.nmId] || []).push(f); });
+            RV.all[key] = arts.map(function (a) { return artRow(a.name, a.nm_id, by[a.nm_id] || []); }).sort(function (x, y) { return y.n - x.n; });
+        }).catch(function (e) { RV.allErr = 'Не собралось: ' + String((e && e.message) || e); }).then(function () { RV.allBusy = false; if (RV.cab === cab) paintRoot(); });
     }
 
     function paintRoot() {

@@ -1834,14 +1834,16 @@ serve(async (req) => {
                 break;
             }
             case 'feedbacks_by_nm': {
-                // Отзывы одного артикула за период (только чтение): отвеченные и без ответа, до 1000 каждых.
-                const nmId = Number(params.nmId);
-                if (!nmId || nmId <= 0) return json({ error: 'Нужен артикул WB (nmId)' }, 400);
+                // Отзывы за период (только чтение): отвеченные и без ответа. С nmId один артикул (до 1000 каждых), с all=true весь кабинет (до 10 000 каждых).
+                const all = params.all === true;
+                const nmId = Number(params.nmId) || 0;
+                if (!all && nmId <= 0) return json({ error: 'Нужен артикул WB (nmId)' }, 400);
+                const TAKE = all ? 1000 : 200, MAX_SKIP = all ? 10000 : 1000;
                 const dateFrom = Number(params.dateFrom) || 0, dateTo = Number(params.dateTo) || 0;
                 const items: Record<string, unknown>[] = [];
                 for (const answered of [false, true]) {
-                    for (let skip = 0; skip < 1000; skip += 200) {
-                        const q = `isAnswered=${answered}&nmId=${nmId}&take=200&skip=${skip}&order=dateDesc` + (dateFrom ? `&dateFrom=${dateFrom}` : '') + (dateTo ? `&dateTo=${dateTo}` : '');
+                    for (let skip = 0; skip < MAX_SKIP; skip += TAKE) {
+                        const q = `isAnswered=${answered}${nmId ? `&nmId=${nmId}` : ''}&take=${TAKE}&skip=${skip}&order=dateDesc` + (dateFrom ? `&dateFrom=${dateFrom}` : '') + (dateTo ? `&dateTo=${dateTo}` : '');
                         const res = await wbSend(`${FEEDBACKS_API}/api/v1/feedbacks?${q}`, WB_TOKEN);
                         if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
                         const list = (((res.data as Record<string, unknown>)?.data as Record<string, unknown>)?.feedbacks || []) as Record<string, unknown>[];
@@ -1856,7 +1858,7 @@ serve(async (req) => {
                                 photos, video: !!f.video, answered: answered || !!ans, answerText: ans ? String(ans.text || '') : '',
                             });
                         }
-                        if (list.length < 200) break;
+                        if (list.length < TAKE) break;
                         await new Promise((r) => setTimeout(r, 400));
                     }
                 }

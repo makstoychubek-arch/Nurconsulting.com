@@ -31,7 +31,7 @@ const tables = {
         const calls = [];
         const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, {
             phone: !!process.env.RV_PHONE, userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 30, tables, rpcs: { is_super_admin: true },
-            functions: { 'wb-proxy': async (b) => { calls.push(b); return b.action === 'feedbacks_by_nm' ? { feedbacks: FB[b.params.nmId] || [] } : {}; } },
+            functions: { 'wb-proxy': async (b) => { calls.push(b); return b.action === 'feedbacks_by_nm' ? { feedbacks: b.params.all ? [].concat(...Object.values(FB)) : (FB[b.params.nmId] || []) } : {}; } },
         });
         const { page } = env;
         await page.evaluate(() => { document.documentElement.setAttribute('data-staff', '1'); showTab('analytics'); });
@@ -88,6 +88,7 @@ const tables = {
         await page.click('.rv-tab[data-view="all"]');
         await page.click('[data-all]');
         await page.waitForFunction(() => document.querySelectorAll('.rv-tbl tr').length >= 3, null, { timeout: 15000 });
+        assert.ok(calls.some((c) => c.params && c.params.all === true && !c.params.nmId), 'все отзывы кабинета запрошены одним запросом');
         console.log('ok   вкладка «Все артикулы»');
         if (process.env.RV_SHOT2) { await page.click('.rv-tab[data-view="overview"]'); await page.waitForTimeout(800); await page.screenshot({ path: process.env.RV_SHOT2 + '-o.png', fullPage: true }); await page.click('.rv-tab[data-view="topics"]'); await page.waitForTimeout(500); await page.screenshot({ path: process.env.RV_SHOT2 + '-t.png', fullPage: true }); }
         await page.click('.rv-tab[data-view="overview"]');
