@@ -125,6 +125,7 @@
 
     function paintRoot() {
         var host = doc.getElementById('rv-root'); if (!host) return;
+        if (RV.empty && !RV.loading) { host.innerHTML = '<div class="rv-panel rv-empty"><div class="rv-cap">Отзывы</div><b>В этом кабинете пока нет артикулов в РНП</b><p class="rv-hint">Добавьте артикулы в РНП: отзывы, оценки и воронка по ним появятся здесь сами.</p></div>'; return; }
         var st = ratingStats(RV.items), sus = suspicion(RV.items), nSus = Object.keys(sus).length;
         var f = RV.funnel, pv = RV.prev, ld = RV.loading ? ' rv-load' : '';
         var opts = RV.arts.map(function (a) { return '<option value="' + a.nm_id + '"' + (Number(a.nm_id) === RV.nm ? ' selected' : '') + '>' + esc(a.name || a.nm_id) + ' · ' + a.nm_id + '</option>'; }).join('');
@@ -204,15 +205,16 @@
         if (!doc.getElementById('rv-root')) return;
         bind();
         if (cab && cab === RV.cab && RV.arts.length) { refresh(); return; }
-        RV.cab = cab; RV.loading = true; paintRoot();
+        RV.cab = cab; RV.loading = true; RV.empty = false; paintRoot();
         loadArticles().then(function (arts) {
             RV.arts = arts;
+            if (!arts.length) { RV.loading = false; RV.empty = true; paintRoot(); return; }
             var saved = 0; try { saved = Number(root.localStorage.getItem('nr_rv_nm')) || 0; } catch (_) {}
             RV.nm = arts.some(function (a) { return Number(a.nm_id) === saved; }) ? saved : (arts[0] ? Number(arts[0].nm_id) : 0);
             refresh();
         });
     }
-    root.addEventListener && root.addEventListener('nr-cabinet-changed', function () { RV.arts = []; RV.cache = {}; RV.cab = ''; if (doc.getElementById('rv-root') && !doc.getElementById('an-reviews').hidden) open(); });
+    root.addEventListener && root.addEventListener('nr-cabinet-changed', function () { RV.arts = []; RV.empty = false; RV.cache = {}; RV.cab = ''; if (doc.getElementById('rv-root') && !doc.getElementById('an-reviews').hidden) open(); });
     root.NrReviews = { open: open, _suspicion: suspicion, _stats: ratingStats };
 
     root.NrAnalytics = { mount: mount };
