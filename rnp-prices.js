@@ -28,7 +28,7 @@
         if (/костюм/.test(subj) || /костюм/.test(t)) return 'Костюмы классические';
         return 'Другое';
     }
-    // Склейки WB: артикулы с одним imt_id. Локомотив склейки: артикул с наибольшим числом заказов (если заказов нет, короны нет).
+    // Склейки WB: артикулы с одним imt_id. Локомотив строки: артикул с наибольшим числом заказов; короны нет, если в строке один артикул или заказов нет.
     function build(arts, ord, stock, prices, sal) {
         var byImt = {}, order = [];
         arts.forEach(function (a) {
@@ -36,6 +36,14 @@
             if (!byImt[k]) { byImt[k] = { key: k, title: a.card_title || a.name || String(a.nm_id), items: [], cat: catOf(a) }; order.push(k); }
             byImt[k].items.push(a);
         });
+        // Одиночные склейки с одним названием (например, шесть полупальто по одному цвету) собираем в одну строку, чтобы страница не пестрила повторами
+        var singles = {}, merged = [];
+        order.forEach(function (k) {
+            var g = byImt[k];
+            if (g.items.length === 1) { var sk = g.cat + '|' + norm(g.title); if (singles[sk]) { singles[sk].items.push(g.items[0]); return; } singles[sk] = g; }
+            merged.push(k);
+        });
+        order = merged;
         var cats = {};
         order.forEach(function (k) {
             var g = byImt[k], st = 0, od = 0, mn = Infinity, mx = 0;
@@ -45,7 +53,7 @@
             g.items.sort(function (x, y) { return (y._o - x._o) || String(x.name || '').localeCompare(String(y.name || ''), 'ru'); });
             g.items.forEach(function (a) { st += a._k; od += a._o; if (a._p) { mn = Math.min(mn, a._p); mx = Math.max(mx, a._p); } });
             g.stock = st; g.orders = od; g.min = mn === Infinity ? 0 : mn; g.max = mx;
-            g.loco = g.items.length && g.items[0]._o > 0 ? g.items[0].nm_id : 0;
+            g.loco = g.items.length >= 2 && g.items[0]._o > 0 ? g.items[0].nm_id : 0;
             (cats[g.cat] = cats[g.cat] || { name: g.cat, groups: [], count: 0, stock: 0 });
             cats[g.cat].groups.push(g); cats[g.cat].count += g.items.length; cats[g.cat].stock += st;
         });

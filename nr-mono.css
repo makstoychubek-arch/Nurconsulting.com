@@ -1337,5 +1337,6 @@ html body .rp-empty { padding: 40px 0; }
 html body .rp-empty b { font-size: 18px; font-weight: 900; }
 @media (max-width: 768px) {
   html body .rp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-  html body .rp-it { width: calc((100% - 24px) / 5); }
+  html body .rp-it { width: 54px; }
+  html body .rp-shelf { gap: 8px 6px; }
 }
