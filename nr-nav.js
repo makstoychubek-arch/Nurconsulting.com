@@ -16,7 +16,9 @@
         ship: '<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.5"/><circle cx="17" cy="17.5" r="1.5"/>',
         srch: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>',
         cmp: '<path d="M12 4v16M6 8h12M5 8l-2 5h4zM19 8l-2 5h4z"/>',
-        rev: '<path d="M4 5h16v11H9l-5 4z"/>'
+        rev: '<path d="M4 5h16v11H9l-5 4z"/>',
+        tbl: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M9.5 10v9.5"/>',
+        price: '<path d="M4 12.5V5h7.5l8.5 8.5-7.5 7.5L4 12.5z"/><circle cx="8.5" cy="9" r="1.3"/>'
     };
     // tab: вкладка сайта; el: кнопка/вкладка подраздела, на которую нажимаем; on: как узнать, что подраздел сейчас открыт
     var SECTIONS = {
@@ -34,6 +36,13 @@
                 { id: 'now', label: 'Остатки', ico: 'box', sel: '#gg-view-now-btn', on: '#gg-view-now-btn.is-on', dflt: true },
                 { id: 'fbs', label: 'FBS', ico: 'fbs', sel: '#gg-view-fbs-btn', on: '#gg-view-fbs-btn.is-on' },
                 { id: 'ship', label: 'Логистика', ico: 'ship', sel: '#gg-view-ship-btn', on: '#gg-view-ship-btn.is-on' }
+            ]
+        },
+        rnp: {
+            fly: 'fly-rnp', title: 'РНП',
+            items: [
+                { id: 'rnp', label: 'РНП', ico: 'tbl', sel: '#rnp-views [data-rv="rnp"]', on: '#rnp-views [data-rv="rnp"].is-on', dflt: true },
+                { id: 'prices', label: 'Цены', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' }
             ]
         },
         analytics: {
@@ -166,7 +175,7 @@
         if (s && !(tab === 'advertising' && root._advView === 'detail')) {
             var cur = currentItem(tab) || (s.items.filter(function (x) { return x.dflt; })[0] || {}).id;
             var it = s.items.filter(function (x) { return x.id === cur; })[0];
-            if (it) { label = it.label; secTitle = s.title; go1 = (s.items.filter(function (x) { return x.dflt; })[0] || it).id; }
+            if (it) { label = (tab === 'rnp' && it.id === 'rnp') ? '' : it.label; secTitle = s.title; go1 = (s.items.filter(function (x) { return x.dflt; })[0] || it).id; }
         } else if (tab === 'ab-testing') { secTitle = 'Инструменты'; label = 'А/Б тесты'; }
         else if (tab === 'agents' || tab === 'akylai') { secTitle = 'Инструменты'; label = 'Агенты'; }
         else if (tab === 'tariffs') { secTitle = 'Настройки'; label = 'Тарифы'; go1 = '*settings'; }
@@ -316,7 +325,7 @@
 
     // Телефон: полоска подразделов (Аналитика, Продвижение, Товары) показывает только выбранный, остальные раскрываются по нажатию на него.
     (function () {
-        var SEL = '#an-tabs, #nr-ads-tabs, .gg-views';
+        var SEL = '#an-tabs, #nr-ads-tabs, .gg-views, #rnp-views';
         function mark() { Array.prototype.forEach.call(doc.querySelectorAll(SEL), function (b) { b.classList.add('nr-subbar'); }); }
         mark();
         doc.addEventListener('click', function (e) {
