@@ -313,4 +313,20 @@
     buildFlyouts();
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
     root.NrNav = { go: go, refresh: refresh };
+
+    // Телефон: полоска подразделов (Аналитика, Продвижение, Товары) показывает только выбранный, остальные раскрываются по нажатию на него.
+    (function () {
+        var SEL = '#an-tabs, #nr-ads-tabs, .gg-views';
+        function mark() { Array.prototype.forEach.call(doc.querySelectorAll(SEL), function (b) { b.classList.add('nr-subbar'); }); }
+        mark();
+        doc.addEventListener('click', function (e) {
+            if (!root.matchMedia || !root.matchMedia('(max-width: 768px)').matches) return;
+            var bar = e.target.closest && e.target.closest('.nr-subbar'); 
+            Array.prototype.forEach.call(doc.querySelectorAll('.nr-subbar.nr-open'), function (x) { if (x !== bar || !e.target.closest('.on, .is-on')) x.classList.remove('nr-open'); });
+            if (!bar) return;
+            var btn = e.target.closest('button'); if (!btn || btn.parentNode !== bar) return;
+            if (btn.classList.contains('on') || btn.classList.contains('is-on')) { e.stopPropagation(); e.preventDefault(); bar.classList.toggle('nr-open'); }
+        }, true);
+        var mt = 0; new MutationObserver(function () { if (mt) return; mt = setTimeout(function () { mt = 0; mark(); }, 300); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true });
+    })();
 })(typeof window !== 'undefined' ? window : globalThis);
