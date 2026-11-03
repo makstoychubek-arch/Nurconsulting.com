@@ -71,10 +71,11 @@
             (cats[g.cat] = cats[g.cat] || { name: g.cat, groups: [], count: 0, stock: 0 });
             cats[g.cat].groups.push(g); cats[g.cat].count += g.items.length; cats[g.cat].stock += st;
         });
+        // Группы выше, у которых общий остаток больше; внутри группы выше склейки с большим остатком
         return CATS.filter(function (c) { return cats[c]; }).map(function (c) {
-            cats[c].groups.sort(function (a, b) { return (b.stock - a.stock) || (b.orders - a.orders); });   // выше склейки с большим остатком
+            cats[c].groups.sort(function (a, b) { return (b.stock - a.stock) || (b.orders - a.orders); });
             return cats[c];
-        });
+        }).sort(function (a, b) { return (b.stock - a.stock) || (CATS.indexOf(a.name) - CATS.indexOf(b.name)); });
     }
 
     /* ───── загрузка ───── */
