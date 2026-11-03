@@ -305,13 +305,98 @@
         }).catch(function () { M.nms.forEach(function (nm) { var a = artOf(nm); if (a) a.imt_id = prev[nm]; }); paint(); toast('error', 'Перенос не удался', 'Нет связи с WB'); });
     }
 
+
+    /* ───── Юнит-экономика (по формулам РНП): расходы и прибыль с одной штуки по каждому артикулу, без рекламы ───── */
+    var U = { cab: '', arts: [], agg: {}, tax: 0, load: false, token: 0, raf: 0 };
+    var UDAYS = 30;
+    function num(v) { return Number(v) || 0; }
+    // Те же расчёты, что в РНП (wb-formulas.js): к перечислению уже без комиссии, эквайринга и возвратов; себестоимость только на выкупленные (продажи минус возвраты)
+    function unitOf(a, cost, taxRate) {
+        var n = num(a && a.n); if (!(n > 0)) return null;
+        var r = num(a.r), net = Math.max(0, n - r), ss = num(a.ss), price = ss / n, tt = num(a.tt) / n;
+        var comm = ss > 0 ? num(a.cm) / ss : 0;                       // комиссия WB, % от цены (как в РНП)
+        var log = num(a.dl) / n, sto = num(a.st) / n, pen = num(a.pn) / n, cst = (num(cost) * net) / n;
+        var tax = (Number(taxRate) > 0 ? (ss * (net / n)) * Number(taxRate) / 100 : 0) / n;
+        var profit = tt - log - sto - pen - cst - tax;
+        var commU = Math.min(price * comm / 100, Math.max(0, price - tt));
+        return { n: n, r: r, price: price, comm: comm, retPct: r / n * 100, log: log, stoPen: sto + pen, cost: cst, tax: tax,
+            resid: Math.max(0, price - tt - commU), commU: commU, profit: profit, margin: price > 0 ? profit / price * 100 : 0, total: profit * n, sales: ss };
+    }
+    function uCacheKey(cab) { return 'nr_ru_' + cab; }
+    function uSchedule() { if (U.raf) return; U.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { U.raf = 0; paintUnit(); }) : (paintUnit(), 0); }
+    function openUnit() {
+        var cab = cabId(); if (!cab || !sb()) { paintUnit(); return; }
+        var my = ++U.token;
+        if (cab !== U.cab || !U.arts.length) {
+            U.cab = cab; U.arts = []; U.agg = {}; U.tax = 0;
+            try { var c = JSON.parse(root.localStorage.getItem(uCacheKey(cab)) || 'null'); if (c) { U.arts = c.arts || []; U.agg = c.agg || {}; U.tax = c.tax || 0; } } catch (_) {}
+        }
+        U.load = true; paintUnit();
+        var per = period();
+        Promise.all([
+            pageAll(function () { return sb().from('rnp_articles').select('nm_id,name,photo_url,imt_id,card_title,subject_name,cost_price').eq('cabinet_id', cab).eq('is_active', true); }),
+            pageAll(function () { return sb().from('rnp_daily_data').select('nm_id,sales_count,sales_sum,returns_count,to_transfer,delivery_sum,storage_sum,penalty_sum,deduction_sum,commission_pct').eq('cabinet_id', cab).gte('date', per.from).lte('date', per.to); }),
+            Promise.resolve(sb().from('rnp_settings').select('options').eq('cabinet_id', cab).limit(1)).then(function (r) { return (r && r.data && r.data[0] && r.data[0].options) || {}; }, function () { return {}; })
+        ]).then(function (a) {
+            if (my !== U.token) return;
+            var agg = {};
+            a[1].forEach(function (x) {
+                var g = agg[x.nm_id] = agg[x.nm_id] || { n: 0, r: 0, ss: 0, tt: 0, dl: 0, st: 0, pn: 0, cm: 0 };
+                g.n += num(x.sales_count); g.r += num(x.returns_count); g.ss += num(x.sales_sum); g.tt += num(x.to_transfer); g.dl += num(x.delivery_sum);
+                g.st += num(x.storage_sum); g.pn += num(x.penalty_sum) + num(x.deduction_sum); g.cm += num(x.commission_pct) * num(x.sales_sum);
+            });
+            U.arts = a[0]; U.agg = agg; U.tax = num(a[2] && a[2].taxRate); U.load = false; uSchedule();
+            try { root.localStorage.setItem(uCacheKey(cab), JSON.stringify({ arts: U.arts, agg: U.agg, tax: U.tax, at: Date.now() })); } catch (_) {}
+        }, function () { if (my === U.token) { U.load = false; uSchedule(); } });
+    }
+    function ruRow(a, u, ld) {
+        var cell = function (t, cls) { return '<td class="n' + (cls ? ' ' + cls : '') + (ld ? ' rp-ld' : '') + '">' + t + '</td>'; };
+        if (!u) return '';
+        var parts = [[u.commU, '#b9b9b9'], [u.resid, '#8a8a8a'], [u.log, '#5a5a5a'], [u.stoPen, '#3a3a3a'], [u.cost, '#d0d0d0'], [u.tax, '#7a7a7a']].map(function (p) { return '<i style="width:' + Math.max(0, p[0] / u.price * 100).toFixed(1) + '%;background:' + p[1] + '"></i>'; }).join('') +
+            '<i style="width:' + Math.max(0, u.profit / u.price * 100).toFixed(1) + '%;background:var(--text-primary)"></i>';
+        return '<tr data-nm="' + a.nm_id + '"><td class="ru-nm"><span class="ru-im">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span><div><b>' + esc(a.name || a.nm_id) + '</b><small>WB ' + a.nm_id + '</small></div></td>' +
+            cell(fmt(u.n)) + cell('<b>' + fmt(u.price) + '</b>') + cell(u.comm.toFixed(1).replace('.', ',') + '%') + cell(u.retPct.toFixed(0) + '%') + cell(fmt(u.log)) + cell(u.stoPen ? fmt(u.stoPen) : '—') + cell(fmt(u.cost)) +
+            cell('<b class="' + (u.profit <= 0 ? 'dn' : (u.margin >= 15 ? 'up' : '')) + '">' + fmt(u.profit) + '</b>') + cell('<span class="' + (u.margin < 10 ? 'dn' : '') + '">' + u.margin.toFixed(0) + '%</span>') + '<td class="ru-bar"><div class="ru-bw">' + parts + '</div></td></tr>';
+    }
+    function paintUnit() {
+        var pane = doc.getElementById('rnp-unit-pane'); if (!pane || S.view !== 'unit') return;
+        var legend = '<div class="ru-leg"><span><i style="background:#b9b9b9"></i>Комиссия WB</span><span><i style="background:#8a8a8a"></i>Возвраты и эквайринг</span><span><i style="background:#5a5a5a"></i>Логистика</span><span><i style="background:#3a3a3a"></i>Хранение и штрафы</span><span><i style="background:#d0d0d0"></i>Себестоимость</span><span><i style="background:var(--text-primary)"></i>Прибыль</span></div>';
+        if (!U.arts.length) {
+            pane.innerHTML = '<div class="ru-kp rp-ld"><div class="k"><b>0 000 тыс.</b><span>прибыль</span></div><div><b>00%</b><span>маржа</span></div></div>' + (U.load ? '<div class="rp-cat rp-ld">Загружаем артикулы</div>' : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b></div>');
+            return;
+        }
+        var cats = {}, rows = [], tot = { profit: 0, sales: 0, low: 0, best: 0, n: 0 }, none = 0;
+        U.arts.forEach(function (a) {
+            var u = unitOf(U.agg[a.nm_id], a.cost_price, U.tax); if (!u) { none++; return; }
+            u.noCost = !(Number(a.cost_price) > 0);
+            tot.profit += u.total; tot.sales += u.sales; tot.n++; if (u.n >= 5 && u.margin < 10) tot.low++; if (u.n >= 10 && u.profit > tot.best) tot.best = u.profit;
+            var c = catOf(a); (cats[c] = cats[c] || []).push({ a: a, u: u });
+        });
+        var order = CATS.filter(function (c) { return cats[c]; }).sort(function (x, y) {
+            var tx = cats[x].reduce(function (s, r) { return s + r.u.total; }, 0), ty = cats[y].reduce(function (s, r) { return s + r.u.total; }, 0); return ty - tx;
+        });
+        var head = '<thead><tr><th class="l">Артикул</th><th>Продаж</th><th>Цена</th><th>Комиссия WB</th><th>Возвраты</th><th>Логистика</th><th>Хран.+штрафы</th><th>Себест.</th><th>Прибыль/шт</th><th>Маржа</th><th class="l">Куда уходит цена</th></tr></thead>';
+        var html = order.map(function (c) {
+            var list = cats[c].sort(function (x, y) { return y.u.total - x.u.total; }), cp = 0, cs = 0, cn = 0;
+            list.forEach(function (r) { cp += r.u.total; cs += r.u.sales; cn += r.u.n; });
+            return '<div class="rp-cat">' + esc(c) + ' · ' + list.length + ' арт. · прибыль ' + fmt(cp) + '</div><div class="ru-stage"><table class="ru-tbl">' + head + '<tbody>' +
+                list.map(function (r) { return ruRow(r.a, r.u, U.load && !U.agg[r.a.nm_id]); }).join('') +
+                '<tr class="tot"><td class="l">Итого по группе</td><td class="n">' + fmt(cn) + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="n"><b>' + fmt(cn ? cp / cn : 0) + '</b></td><td class="n">' + (cs ? (cp / cs * 100).toFixed(0) : 0) + '%</td><td class="l">' + fmt(cp) + ' сом</td></tr></tbody></table></div>';
+        }).join('');
+        var kp = '<div class="ru-kp' + (U.load ? ' ru-stale' : '') + '"><div class="k"><b>' + fmt(tot.profit / 1000) + ' тыс.</b><span>прибыль за ' + UDAYS + ' дней, сом</span></div><div><b>' + (tot.sales ? (tot.profit / tot.sales * 100).toFixed(0) : 0) + '%</b><span>средняя маржа</span></div><div><b>' + tot.low + '</b><span>артикулов с маржой ниже 10%</span></div><div><b>' + fmt(tot.best) + '</b><span>лучшая прибыль с штуки</span></div></div>';
+        var sc = pane.scrollTop;
+        pane.innerHTML = kp + legend + html + '<div class="rp-foot">' + tot.n + ' артикулов с продажами' + (none ? ', ещё ' + none + ' без продаж за период' : '') + '. Расчёт как в РНП за ' + UDAYS + ' дней, без рекламы' + (U.tax > 0 ? ', налог ' + U.tax + '%' : '') + '.</div>';
+        pane.scrollTop = sc;
+    }
+
     /* ───── страница внутри вкладки РНП ───── */
     function setView(v) {
-        S.view = v; S.opened = v === 'prices' && !!doc.getElementById('tab-rnp') && doc.getElementById('tab-rnp').classList.contains('active'); try { root.localStorage.setItem('nr_rnp_view', v); } catch (_) {}
+        S.view = v; S.opened = (v === 'prices' || v === 'unit') && !!doc.getElementById('tab-rnp') && doc.getElementById('tab-rnp').classList.contains('active'); try { root.localStorage.setItem('nr_rnp_view', v); } catch (_) {}
         var tab = doc.getElementById('tab-rnp'); if (!tab) return;
-        tab.classList.toggle('rp-on', v === 'prices');
+        tab.classList.toggle('rp-on', v === 'prices'); tab.classList.toggle('ru-on', v === 'unit');
         Array.prototype.forEach.call(doc.querySelectorAll('#rnp-views [data-rv]'), function (b) { b.classList.toggle('is-on', b.getAttribute('data-rv') === v); b.setAttribute('aria-selected', b.getAttribute('data-rv') === v ? 'true' : 'false'); });
         if (v === 'prices') open();
+        else if (v === 'unit') openUnit();
         else if (root.RNP && typeof root.RNP.refreshLayout === 'function') { try { root.RNP.refreshLayout(); } catch (_) {} }
     }
     function goRnp(nm) {
@@ -324,16 +409,18 @@
         if (!watching && root.MutationObserver) {
             // модуль РНП иногда перерисовывает всю вкладку (смена кабинета): возвращаем полоску и страницу на место
             watching = true; var t = 0;
-            new MutationObserver(function () { if (t || doc.getElementById('rnp-views')) return; t = setTimeout(function () { t = 0; mount(); if (S.view === 'prices') paint(); }, 0); }).observe(tab, { childList: true });
+            new MutationObserver(function () { if (t || doc.getElementById('rnp-views')) return; t = setTimeout(function () { t = 0; mount(); if (S.view === 'prices') paint(); else if (S.view === 'unit') paintUnit(); }, 0); }).observe(tab, { childList: true });
         }
         if (doc.getElementById('rnp-views')) return;
         var bar = doc.createElement('div'); bar.id = 'rnp-views'; bar.setAttribute('role', 'tablist');
-        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" role="tab" aria-selected="true" data-rv="rnp">РНП</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="prices">Цены</button>';
+        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" role="tab" aria-selected="true" data-rv="rnp">РНП</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="prices">Цены</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="unit">Юнит-экономика</button>';
         var pane = doc.createElement('div'); pane.id = 'rnp-prices-pane'; pane.className = 'rp-pane';
-        tab.insertBefore(bar, tab.firstChild); tab.appendChild(pane);
+        var upane = doc.createElement('div'); upane.id = 'rnp-unit-pane'; upane.className = 'rp-pane';
+        tab.insertBefore(bar, tab.firstChild); tab.appendChild(pane); tab.appendChild(upane);
+        upane.addEventListener('click', function (e) { var r = e.target.closest('tr[data-nm]'); if (r) goRnp(r.getAttribute('data-nm')); });
         // после обновления страницы остаёмся на «Ценах», если были на них (открываем, когда вкладка РНП действительно показана)
-        try { if (root.localStorage.getItem('nr_rnp_view') === 'prices') { S.view = 'prices'; tab.classList.add('rp-on'); } } catch (_) {}
-        function kick() { if (S.view === 'prices' && tab.classList.contains('active') && !S.opened) { S.opened = true; setView('prices'); } }
+        try { var sv = root.localStorage.getItem('nr_rnp_view'); if (sv === 'prices') { S.view = 'prices'; tab.classList.add('rp-on'); } else if (sv === 'unit') { S.view = 'unit'; tab.classList.add('ru-on'); } } catch (_) {}
+        function kick() { if ((S.view === 'prices' || S.view === 'unit') && tab.classList.contains('active') && !S.opened) { S.opened = true; setView(S.view); } }
         if (root.MutationObserver) new MutationObserver(function () { if (!tab.classList.contains('active')) S.opened = false; kick(); }).observe(tab, { attributes: true, attributeFilter: ['class'] });
         setTimeout(kick, 0);
         bar.addEventListener('click', function (e) { var b = e.target.closest('[data-rv]'); if (b) setView(b.getAttribute('data-rv')); });
@@ -352,9 +439,9 @@
         doc.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.rail-btn[data-tab="rnp"]') && S.view !== 'rnp') setView('rnp'); }, true);
     }
     // Сайт сообщает о смене кабинета событием document «cabinet-changed» (кабинет к этому моменту уже выбран): сбрасываем чужие данные и грузим новые
-    function onCabinetChanged() { S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; closeModal(); if (S.view === 'prices') open(); }
+    function onCabinetChanged() { S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; U.cab = ''; U.arts = []; U.agg = {}; U.token++; closeModal(); if (S.view === 'prices') open(); else if (S.view === 'unit') openUnit(); }
     doc.addEventListener('cabinet-changed', onCabinetChanged);
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
 
-    root.NrRnpPrices = { open: open, setView: setView, _catOf: catOf, _build: build, _nextPrice: nextPrice, _beforeDiscount: beforeDiscount, _ratioPct: ratioPct };
+    root.NrRnpPrices = { open: open, setView: setView, _catOf: catOf, _build: build, _nextPrice: nextPrice, _beforeDiscount: beforeDiscount, _ratioPct: ratioPct, _unitOf: unitOf };
 })(typeof window !== 'undefined' ? window : globalThis);

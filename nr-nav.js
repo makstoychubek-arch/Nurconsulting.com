@@ -18,6 +18,7 @@
         cmp: '<path d="M12 4v16M6 8h12M5 8l-2 5h4zM19 8l-2 5h4z"/>',
         rev: '<path d="M4 5h16v11H9l-5 4z"/>',
         tbl: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M9.5 10v9.5"/>',
+        calc: '<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M8.5 8h7M8.5 12h2M13.5 12h2M8.5 16h2M13.5 16h2"/>',
         price: '<path d="M4 12.5V5h7.5l8.5 8.5-7.5 7.5L4 12.5z"/><circle cx="8.5" cy="9" r="1.3"/>'
     };
     // tab: вкладка сайта; el: кнопка/вкладка подраздела, на которую нажимаем; on: как узнать, что подраздел сейчас открыт
@@ -42,7 +43,8 @@
             fly: 'fly-rnp', title: 'РНП',
             items: [
                 { id: 'rnp', label: 'РНП', ico: 'tbl', sel: '#rnp-views [data-rv="rnp"]', on: '#rnp-views [data-rv="rnp"].is-on', dflt: true },
-                { id: 'prices', label: 'Цены', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' }
+                { id: 'prices', label: 'Цены', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' },
+                { id: 'unit', label: 'Юнит-экономика', ico: 'calc', sel: '#rnp-views [data-rv="unit"]', on: '#rnp-views [data-rv="unit"].is-on' }
             ]
         },
         analytics: {
