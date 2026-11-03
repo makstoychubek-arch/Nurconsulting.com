@@ -1785,6 +1785,28 @@ serve(async (req) => {
                 result = { status: data?.status ?? null, errors };
                 break;
             }
+            // Перенос карточек между склейками WB: targetIMT — куда присоединить, без него карточки отделяются. До 30 артикулов за раз.
+            case 'cards_move': {
+                const nmIDs = [...new Set(((params.nmIDs as unknown[]) || []).map(Number).filter((n) => n > 0))].slice(0, 30);
+                if (!nmIDs.length) return json({ error: 'nmIDs обязательны' }, 400);
+                const targetIMT = Number(params.targetIMT || 0);
+                const res = await wbSend('https://content-api.wildberries.ru/content/v2/cards/moveNm', WB_CONTENT_TOKEN, 'POST', targetIMT ? { targetIMT, nmIDs } : { nmIDs });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                const rr = (res.data || {}) as Record<string, any>;
+                if (rr.error) return json({ error: String(rr.errorText || 'WB не принял перенос') }, 400);
+                // обновляем номера склеек у себя, чтобы страница «Цены» сразу показала новый состав
+                let synced = 0;
+                for (const nm of nmIDs) {
+                    try {
+                        const cr = await wbSend('https://content-api.wildberries.ru/content/v2/get/cards/list', WB_CONTENT_TOKEN, 'POST', { settings: { cursor: { limit: 10 }, filter: { textSearch: String(nm), withPhoto: -1 } } });
+                        const card = (((cr.data as Record<string, any>)?.cards || []) as Record<string, any>[]).find((c) => Number(c.nmID) === nm);
+                        const imt = Number(card?.imtID || 0);
+                        if (imt) { await admin.from('rnp_articles').update({ imt_id: imt }).eq('cabinet_id', cabinet_id).eq('nm_id', nm); synced++; }
+                    } catch (e) { console.warn('[wb-proxy] cards_move sync:', String(e)); }
+                }
+                result = { ok: true, moved: nmIDs.length, synced };
+                break;
+            }
             // Группы РНП как в карточке WB: imtID, название карточки и предмет по каждому артикулу.
             case 'rnp_sync_cards': {
                 const cards: Record<string, any>[] = [];
