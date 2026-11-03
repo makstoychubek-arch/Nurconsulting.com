@@ -72,7 +72,7 @@
             cats[g.cat].groups.push(g); cats[g.cat].count += g.items.length; cats[g.cat].stock += st;
         });
         return CATS.filter(function (c) { return cats[c]; }).map(function (c) {
-            cats[c].groups.sort(function (a, b) { return b.orders - a.orders; });
+            cats[c].groups.sort(function (a, b) { return (b.stock - a.stock) || (b.orders - a.orders); });   // выше склейки с большим остатком
             return cats[c];
         });
     }
@@ -151,11 +151,13 @@
     /* ───── отрисовка ───── */
     var CROWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
     function schedule() { if (S.raf) return; S.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { S.raf = 0; paint(); }) : (paint(), 0); }
+    // Плитка 44×56: берём превью 246×328 (около 22 КБ) вместо «big» (около 170 КБ), иначе страница тормозит при прокрутке
+    function thumb(u) { return String(u || '').replace('/images/big/', '/images/c246x328/'); }
     function tile(a, loco) {
         var low = a._k < 60 && !S.load.stock ? ' rp-low' : '', sel = S.sel[a.nm_id] ? ' sel' : '';
         return '<div class="rp-it' + (loco ? ' l' : '') + low + sel + '" role="button" tabindex="0" data-nm="' + a.nm_id + '" aria-label="' + esc((a.name || '') + ' · WB ' + a.nm_id) + '">' +
             (loco ? '<span class="rp-cw">' + CROWN + '</span>' : '') +
-            '<span class="rp-ph">' + (a.photo_url ? '<img src="' + esc(a.photo_url) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
+            '<span class="rp-ph">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
             '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '" aria-label="Выбрать" data-ck="' + a.nm_id + '">' + (sel ? '✓' : '') + '</span>' +
             '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' + (a._p && buyerOf(a.nm_id, a._p) ? '<u class="rp-by" title="Для покупателя после скидки WB">' + fmt(buyerOf(a.nm_id, a._p)) + '</u>' : '') +
             '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s></div>';
