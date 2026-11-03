@@ -42,7 +42,7 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.rp-it[data-nm]').length), 7, 'на странице все 7 артикулов');
         console.log('ok   страница «Цены» показывает все артикулы');
         const cats = await page.evaluate(() => [...document.querySelectorAll('.rp-cat')].map((e) => e.textContent.split(' · ')[0]));
-        assert.deepStrictEqual(cats, ['Костюмы классические', 'Свитера', 'Пиджаки', 'Спортивные костюмы', 'Летние костюмы'], 'группы по порядку: ' + cats);
+        assert.deepStrictEqual(cats, ['Свитера', 'Костюмы классические', 'Пиджаки', 'Спортивные костюмы', 'Летние костюмы'], 'группы по общему остатку (больше выше): ' + cats);
         console.log('ok   группы: ' + cats.join(', '));
         const rows = await page.evaluate(() => document.querySelectorAll('.rp-row').length);
         assert.strictEqual(rows, 5, 'пять склеек: ' + rows);
