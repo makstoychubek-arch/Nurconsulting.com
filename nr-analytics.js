@@ -125,7 +125,7 @@
 
     /* ───── Расширенная аналитика отзывов: считаем только из загруженных отзывов WB и заказов ───── */
     var NEG_TOPICS = [
-        ['Размер: маломерит или велико', ['маломер', 'мал был', 'мала ', 'мало ', 'велик', 'большемер', 'не по размер', 'размер не', 'села', 'сел ', 'тесн', 'узк', 'широк', 'коротк']],
+        ['Размер: маломерит или велико', ['маломер', 'мал был', 'мала ', 'мало ', 'маленьк', 'велик', 'большой', 'большом', 'большемер', 'разбег', 'не по размер', 'размер не', 'села', 'сел ', 'тесн', 'узк', 'широк', 'коротк', 'не подош', 'не налез']],
         ['Ткань и качество', ['ткан', 'качеств', 'тонк', 'прозрачн', 'колюч', 'скатыв', 'синтет', 'пошив']],
         ['Цвет не как на фото', ['цвет', 'оттенок', 'не как на фото', 'не соответств']],
         ['Брак, шов, пятно', ['брак', 'шов', 'нитк', 'дыр', 'пятн', 'порв', 'торчат', 'молни', 'пуговиц']],
@@ -166,9 +166,16 @@
     }
     // сколько отзывов на 5★ нужно, чтобы средняя дошла до цели
     function needFive(avg, total, goal) { if (!(goal > avg) || goal >= 5) return 0; return Math.ceil(total * (goal - avg) / (5 - goal)); }
+    // Цвета в отзывах пишут по-разному (Айвори, айвори, beige): сводим к одному названию
+    var COLOR_EN = { beige: 'бежевый', black: 'чёрный', white: 'белый', brown: 'коричневый', blue: 'синий', red: 'красный', green: 'зелёный', gray: 'серый', grey: 'серый', pink: 'розовый', yellow: 'жёлтый', burgundy: 'бордовый', ivory: 'айвори', chocolate: 'шоколад' };
+    function colorName(c) {
+        var t = String(c || '').trim().toLowerCase().replace(/ё/g, 'е'); if (!t) return '';
+        t = COLOR_EN[t] || t; t = t.replace(/ё/g, 'е');
+        return t.charAt(0).toUpperCase() + t.slice(1);
+    }
     function groupBy(items, key) {
         var map = {};
-        items.forEach(function (f) { var k = String(f[key] || '').trim() || 'не указан'; var o = map[k] = map[k] || { name: k, n: 0, sum: 0, neg: 0 }; o.n++; o.sum += f.stars; if (f.stars <= 2) o.neg++; });
+        items.forEach(function (f) { var raw = key === 'color' ? colorName(f[key]) : String(f[key] || '').trim(); var k = raw || 'не указан'; var o = map[k] = map[k] || { name: k, n: 0, sum: 0, neg: 0 }; o.n++; o.sum += f.stars; if (f.stars <= 2) o.neg++; });
         return Object.keys(map).map(function (k) { var o = map[k]; return { name: o.name, n: o.n, avg: o.sum / o.n, negPct: Math.round(o.neg / o.n * 100) }; }).sort(function (a, b) { return b.n - a.n; });
     }
     function artRow(name, nm, items) {
