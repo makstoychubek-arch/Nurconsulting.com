@@ -53,8 +53,7 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         const t = await page.evaluate(() => [...document.querySelector('.rp-it[data-nm="2"]').querySelectorAll('i,s')].map((e) => e.textContent.replace(/\s/g, '')));
         assert.deepStrictEqual(t, ['3020', '300'], 'две строки: цена и остаток: ' + t);
         assert.ok(await page.evaluate(() => document.querySelector('.rp-it[data-nm="4"]').classList.contains('rp-low')), 'остаток меньше 60 красным');
-        await page.waitForFunction(() => !!document.querySelector('.rp-it[data-nm="2"] .rp-by'));
-        assert.strictEqual(await page.evaluate(() => document.querySelector('.rp-it[data-nm="2"] .rp-by').textContent.replace(/\s/g, '')), '2597', 'серым цена для покупателя после скидки WB (3020 × 0,86)');
+        assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.rp-it .rp-by').length), 0, 'на плитке только цена и остаток');
         console.log('ok   цена и остаток, серым цена для покупателя');
         assert.ok(await page.evaluate(() => !document.querySelector('.rp-leg')), 'подписи-ключа нет');
         assert.ok(await page.evaluate(() => !document.querySelector('.rnp-workspace').offsetParent), 'сам РНП скрыт, пока открыты цены');
