@@ -73,7 +73,7 @@ const tables = {
         assert.ok(await page.evaluate(() => /\+\d+/.test(document.querySelector('.rv-big').textContent)), 'калькулятор цели считает');
         console.log('ok   вкладка «Обзор»');
         await page.click('.rv-tab[data-view="colors"]');
-        assert.ok(await page.evaluate(() => /коричневый/.test(document.querySelector('.rv-tbl').textContent) && /не указан/.test(document.querySelector('.rv-tbl').textContent)), 'цвета в таблице');
+        assert.ok(await page.evaluate(() => /коричневый/i.test(document.querySelector('.rv-tbl').textContent) && /не указан/.test(document.querySelector('.rv-tbl').textContent)), 'цвета в таблице');
         assert.ok(await page.evaluate(() => document.querySelector('.rv-main').hidden), 'список скрыт на вкладке цветов');
         await page.click('.rv-tab[data-by="size"]');
         assert.ok(await page.evaluate(() => /46/.test(document.querySelector('.rv-tbl').textContent)), 'размеры в таблице');
