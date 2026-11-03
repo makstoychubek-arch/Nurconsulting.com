@@ -1268,3 +1268,11 @@ html body .rv-pill { display: inline-block; border: 1px solid var(--border); bor
 @media (max-width: 980px) { html body .rv-hero { grid-template-columns: 1fr 1fr; } html body .rv-rate { grid-column: 1 / -1; min-height: 0; } html body .rv-main { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { html body .rv-hero { grid-template-columns: 1fr; } html body .rv-rate b { font-size: 56px; } html body .rv-nums b { font-size: 26px; } }
 .rv-empty{padding:28px 24px;display:grid;gap:8px}.rv-empty b{font-size:20px;font-weight:900;letter-spacing:-.02em}
+/* телефон: сверху только выбранный подраздел аналитики, остальные раскрываются по нажатию */
+@media (max-width: 768px) {
+  html body #an-tabs { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; border: 0; overflow: visible; }
+  html body #an-tabs .an-tab:not(.on) { display: none; }
+  html body #an-tabs.open .an-tab:not(.on) { display: block; }
+  html body #an-tabs .an-tab.on::after { content: "▾"; margin-left: 8px; font-size: 12px; opacity: .6; }
+  html body #an-tabs.open .an-tab.on::after { content: "▴"; }
+}
