@@ -13055,17 +13055,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function cabinetDisplayName(name) {
         const raw = String(name || '').trim();
         if (!raw) return 'Кабинет';
-        if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО «Айлин Стиль»';
+        if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО Айлин Текстиль';
         if (/zevina|зевин|ailin|уркунбаев/i.test(raw)) return 'ИП Уркунбаев К.А.';
         if (/elium|элиум|айзада/i.test(raw)) return 'ИП Айзада';
         if (/^baza$|^baz\.a$/i.test(raw)) return 'ИП Бейшеев А.Д.';
         return raw;
     }
 
+    // Раньше Zevina 2 (Айлин) прятали из списков. Теперь кабинет показываем как «ОсОО Айлин Текстиль»; функция оставлена, чтобы можно было снова скрыть кабинет.
     function isHiddenCabinet(cab) {
-        const raw = String(cab && typeof cab === 'object' ? (cab.name || cab.cabinet_name || '') : (cab || '')).trim();
-        if (!raw) return false;
-        return /zevina\s*2|зевин[аa]?\s*2|айлин\s*стил|ос+оо.{0,20}айлин|ailin\s*style/i.test(raw);
+        return false;
     }
 
     function visibleCabinets(list) {
