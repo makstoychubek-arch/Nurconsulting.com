@@ -1833,6 +1833,36 @@ serve(async (req) => {
                 result = res.data;
                 break;
             }
+            case 'feedbacks_by_nm': {
+                // Отзывы одного артикула за период (только чтение): отвеченные и без ответа, до 1000 каждых.
+                const nmId = Number(params.nmId);
+                if (!nmId || nmId <= 0) return json({ error: 'Нужен артикул WB (nmId)' }, 400);
+                const dateFrom = Number(params.dateFrom) || 0, dateTo = Number(params.dateTo) || 0;
+                const items: Record<string, unknown>[] = [];
+                for (const answered of [false, true]) {
+                    for (let skip = 0; skip < 1000; skip += 200) {
+                        const q = `isAnswered=${answered}&nmId=${nmId}&take=200&skip=${skip}&order=dateDesc` + (dateFrom ? `&dateFrom=${dateFrom}` : '') + (dateTo ? `&dateTo=${dateTo}` : '');
+                        const res = await wbSend(`${FEEDBACKS_API}/api/v1/feedbacks?${q}`, WB_TOKEN);
+                        if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                        const list = (((res.data as Record<string, unknown>)?.data as Record<string, unknown>)?.feedbacks || []) as Record<string, unknown>[];
+                        for (const f of list) {
+                            const det = (f.productDetails || {}) as Record<string, unknown>;
+                            const ans = (f.answer || null) as Record<string, unknown> | null;
+                            const photos = ((f.photoLinks || []) as Record<string, unknown>[]).map((x) => String(x.miniSize || x.fullSize || '')).filter(Boolean);
+                            items.push({
+                                id: String(f.id || ''), nmId: Number(det.nmId || f.nmId || nmId), stars: Number(f.productValuation || 0),
+                                text: String(f.text || ''), pros: String(f.pros || ''), cons: String(f.cons || ''),
+                                at: String(f.createdDate || ''), size: String(det.size || ''), color: String(f.color || ''),
+                                photos, video: !!f.video, answered: answered || !!ans, answerText: ans ? String(ans.text || '') : '',
+                            });
+                        }
+                        if (list.length < 200) break;
+                        await new Promise((r) => setTimeout(r, 400));
+                    }
+                }
+                result = { feedbacks: items };
+                break;
+            }
             case 'feedbacks_answer': {
                 const id = String(params.id || '');
                 const text = String(params.text || '').trim();
