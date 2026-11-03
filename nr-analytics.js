@@ -44,6 +44,9 @@
             '</div>' + TABS.map(function (t, i) { return '<div class="an-pane" id="an-' + t.id + '"' + (i ? ' hidden' : '') + '>' + PANES[t.id] + '</div>'; }).join('');
         host.querySelector('#an-tabs').addEventListener('click', function (e) {
             var b = e.target.closest('[data-an]'); if (!b) return;
+            var tabs = host.querySelector('#an-tabs'), phone = root.matchMedia && root.matchMedia('(max-width: 768px)').matches;
+            if (phone && b.classList.contains('on')) { tabs.classList.toggle('open'); return; }
+            tabs.classList.remove('open');
             Array.prototype.forEach.call(host.querySelectorAll('.an-tab'), function (x) {
                 var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false');
                 var pane = doc.getElementById('an-' + x.getAttribute('data-an')); if (pane) pane.hidden = !on;
