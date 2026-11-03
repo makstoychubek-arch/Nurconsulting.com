@@ -1403,3 +1403,31 @@ html body .rp-opt span { color: var(--text-muted); font-size: 12px; white-space:
 html body .rp-it u.rp-by { display: block; text-decoration: none; font-size: 9px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 /* «Цены»: строки вне экрана не рисуем, прокрутка не лагает */
 html body .rp-row { content-visibility: auto; contain-intrinsic-size: auto 190px; }
+/* РНП → Юнит-экономика (rnp-prices.js) */
+html body #tab-rnp.ru-on > :not(#rnp-views):not(#rnp-unit-pane) { display: none !important; }
+html body #rnp-unit-pane { display: none; }
+html body #tab-rnp.ru-on #rnp-unit-pane { display: block; flex: 1; min-height: 0; overflow: auto; padding: 8px 0 24px; }
+html body .ru-kp { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin: 0 0 14px; }
+html body .ru-kp > div { border: 1.5px solid var(--text-primary); border-radius: 22px; padding: 14px 16px; }
+html body .ru-kp > div.k { background: var(--text-primary); color: var(--bg-primary, #fff); }
+html body .ru-kp b { display: block; font-size: 26px; font-weight: 900; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+html body .ru-kp span { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+html body .ru-stale b { opacity: .6; }
+html body .ru-leg { display: flex; gap: 6px 14px; flex-wrap: wrap; color: var(--text-muted); font-size: 11px; margin: 0 0 6px; }
+html body .ru-leg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+html body .ru-stage { border: 1.5px solid var(--text-primary); border-radius: 26px; padding: 4px 16px; overflow-x: auto; margin-bottom: 4px; }
+html body .ru-tbl { border-collapse: collapse; width: 100%; min-width: 980px; font-variant-numeric: tabular-nums; }
+html body .ru-tbl th { font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--mono-4, #d9d9d9); white-space: nowrap; }
+html body .ru-tbl th.l, html body .ru-tbl td.l { text-align: left; }
+html body .ru-tbl td { padding: 8px 6px; border-bottom: 1px solid var(--mono-4, #d9d9d9); text-align: right; white-space: nowrap; }
+html body .ru-tbl tbody tr[data-nm] { cursor: pointer; }
+html body .ru-tbl tr.tot td { border-top: 1.5px solid var(--text-primary); border-bottom: 0; font-weight: 900; }
+html body .ru-tbl td.ru-nm { display: flex; align-items: center; gap: 10px; text-align: left; white-space: normal; min-width: 240px; }
+html body .ru-im { width: 32px; height: 42px; border-radius: 7px; background: var(--mono-4, #e4e4e4); flex: none; overflow: hidden; }
+html body .ru-im img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html body .ru-nm b { display: block; font-size: 12px; line-height: 1.2; }
+html body .ru-nm small { color: var(--text-muted); }
+html body .ru-tbl .up { color: var(--green, #16803c); }
+html body .ru-tbl .dn { color: var(--red, #c42b1c); }
+html body .ru-bw { display: flex; height: 12px; border-radius: 7px; overflow: hidden; min-width: 200px; background: var(--mono-4, #e4e4e4); }
+html body .ru-bw i { display: block; height: 100%; }
