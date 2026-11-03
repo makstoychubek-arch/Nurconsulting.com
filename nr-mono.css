@@ -1400,3 +1400,4 @@ html body .rp-opt span { color: var(--text-muted); font-size: 12px; white-space:
 }
 /* РНП и «Цены»: левый и правый отступ такой же, как у дашборда */
 @media (min-width: 769px) { html body .main-rail .main-content.rnp-compact:not(#nr-x) { padding-left: 23px !important; padding-right: 23px !important; } }
+html body .rp-it u.rp-by { display: block; text-decoration: none; font-size: 9px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }

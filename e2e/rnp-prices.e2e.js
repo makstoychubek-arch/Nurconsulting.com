@@ -21,7 +21,7 @@ const tables = {
     rnp_articles: ARTS.map((a, i) => ({ id: 'a' + i, cabinet_id: CAB, nm_id: a.nm, name: 'арт_' + a.nm, imt_id: a.imt, card_title: a.title, subject_name: a.subj, photo_url: null, is_active: true, sort_order: i })),
     rnp_daily_data: ARTS.map((a) => ({ cabinet_id: CAB, nm_id: a.nm, date: new Date(Date.now() + 6 * 3600e3 - 86400e3).toISOString().slice(0, 10), funnel_orders: ORD[a.nm], sales_count: Math.floor(ORD[a.nm] / 2) })),
     wb_stocks: ARTS.map((a) => ({ cabinet_id: CAB, nm_id: a.nm, quantity: a.nm === 4 ? 20 : 300 })),
-    wb_orders: [],
+    wb_orders: ARTS.map((a) => ({ cabinet_id: CAB, nm_id: a.nm, order_date: new Date().toISOString(), pw: String(3000 + a.nm * 10), fp: String(Math.round((3000 + a.nm * 10) * 0.86)) })),
 };
 
 const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (fn()) return true; await new Promise((r) => setTimeout(r, 100)); } return false; };
@@ -50,10 +50,12 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         assert.ok(crown.includes('2') && crown.includes('3') && !crown.includes('6'), 'корона у локомотивов, у склейки без заказов её нет: ' + crown);
         console.log('ok   корона у локомотива склейки');
         await page.waitForFunction(() => !document.querySelector('.rp-it[data-nm="2"] .rp-ld'));
-        const t = await page.evaluate(() => [...document.querySelector('.rp-it[data-nm="2"]').querySelectorAll('i,s,u,em')].map((e) => e.textContent.replace(/\s/g, '')));
+        const t = await page.evaluate(() => [...document.querySelector('.rp-it[data-nm="2"]').querySelectorAll('i,s')].map((e) => e.textContent.replace(/\s/g, '')));
         assert.deepStrictEqual(t, ['3020', '300'], 'две строки: цена и остаток: ' + t);
         assert.ok(await page.evaluate(() => document.querySelector('.rp-it[data-nm="4"]').classList.contains('rp-low')), 'остаток меньше 60 красным');
-        console.log('ok   цена и остаток');
+        await page.waitForFunction(() => !!document.querySelector('.rp-it[data-nm="2"] .rp-by'));
+        assert.strictEqual(await page.evaluate(() => document.querySelector('.rp-it[data-nm="2"] .rp-by').textContent.replace(/\s/g, '')), '2597', 'серым цена для покупателя после скидки WB (3020 × 0,86)');
+        console.log('ok   цена и остаток, серым цена для покупателя');
         assert.ok(await page.evaluate(() => !document.querySelector('.rp-leg')), 'подписи-ключа нет');
         assert.ok(await page.evaluate(() => !document.querySelector('.rnp-workspace').offsetParent), 'сам РНП скрыт, пока открыты цены');
         await page.click('.rp-it[data-nm="3"]');
@@ -73,7 +75,7 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         await page.evaluate(() => document.querySelector('.rp-bar [data-act="price"]').click());
         await page.waitForSelector('#rp-modal #rp-val');
         await page.fill('#rp-val', '3300');
-        assert.ok(await page.evaluate(() => /3\s?300/.test(document.querySelector('#rp-modal .rp-tbl').textContent)), 'в окне видно «станет 3300»');
+        assert.ok(await page.evaluate(() => /3\s?300/.test(document.querySelector('#rp-modal .rp-tbl').textContent) && /Покупатель/.test(document.querySelector('#rp-modal .rp-tbl').textContent)), 'в окне видно «станет 3300» и колонку «Покупатель»');
         await page.evaluate(() => document.querySelector('#rp-modal [data-mc="apply"]').click());
         await page.waitForFunction(() => !document.getElementById('rp-modal'));
         await until(() => calls.some((c) => c.action === 'prices_set'));
