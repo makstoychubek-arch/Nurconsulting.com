@@ -94,6 +94,13 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         const mv = calls.filter((c) => c.action === 'cards_move').pop();
         assert.ok(mv && mv.params.targetIMT === 100 && mv.params.nmIDs.join() === '4', 'перенос ушёл в WB: ' + JSON.stringify(mv && mv.params));
         console.log('ok   перенос артикула в другую склейку');
+        // смена кабинета: страница сразу грузит данные нового кабинета
+        await page.evaluate(() => document.querySelector('#rnp-views [data-rv="prices"]').click());
+        await page.waitForSelector('.rp-it[data-nm="2"]');
+        const before = env.calls.filter((c) => c.kind === 'read' && c.table === 'rnp_articles').length;
+        await page.evaluate(() => { window.currentCabinetId = 'other-cab'; document.dispatchEvent(new CustomEvent('cabinet-changed', { detail: { cabinetId: 'other-cab' } })); });
+        await until(() => env.calls.filter((c) => c.kind === 'read' && c.table === 'rnp_articles').length > before);
+        console.log('ok   при смене кабинета данные перезагружаются');
         // пункт «Цены» в меню РНП
         await page.evaluate(() => document.querySelector('#fly-rnp [data-nrn="rnp:prices"]').click());
         await page.waitForSelector('.rp-it[data-nm="2"]', { timeout: 8000 });

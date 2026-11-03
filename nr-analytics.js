@@ -375,7 +375,8 @@
             refresh();
         });
     }
-    root.addEventListener && root.addEventListener('nr-cabinet-changed', function () { RV.arts = []; RV.empty = false; RV.cache = {}; RV.cab = ''; if (doc.getElementById('rv-root') && !doc.getElementById('an-reviews').hidden) open(); });
+    // Сайт сообщает о смене кабинета событием document «cabinet-changed»: сбрасываем чужие отзывы и грузим новые
+    doc.addEventListener('cabinet-changed', function () { RV.token++; RV.arts = []; RV.items = []; RV.funnel = null; RV.prev = null; RV.all = {}; RV.sizeOrd = null; RV.empty = false; RV.cache = {}; RV.cab = ''; if (doc.getElementById('rv-root') && doc.getElementById('an-reviews') && !doc.getElementById('an-reviews').hidden) open(); });
     root.NrReviews = { open: open, _suspicion: suspicion, _stats: ratingStats };
 
     root.NrAnalytics = { mount: mount };
