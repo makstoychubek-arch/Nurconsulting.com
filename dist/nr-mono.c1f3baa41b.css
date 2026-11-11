@@ -1431,3 +1431,10 @@ html body .ru-tbl .up { color: var(--green, #16803c); }
 html body .ru-tbl .dn { color: var(--red, #c42b1c); }
 html body .ru-bw { display: flex; height: 12px; border-radius: 7px; overflow: hidden; min-width: 200px; background: var(--mono-4, #e4e4e4); }
 html body .ru-bw i { display: block; height: 100%; }
+
+/* Дашборд: подсказка в карточке «Баланс WB» в одну строку, чтобы её не срезала рамка карточки высотой 140px */
+html body #tab-dashboard .pnl-grid.ff-row > .nrdb { gap: 5px; }
+html body #tab-dashboard .pnl-grid.ff-row > .nrdb .hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+/* Телефон, «Требует внимания»: линейные иконки вместо эмодзи */
+html body .nmd-att > span { display: grid; place-items: center; width: 28px; height: 28px; flex: none; color: var(--text-primary); }
+html body .nmd-att > span svg { width: 20px; height: 20px; }

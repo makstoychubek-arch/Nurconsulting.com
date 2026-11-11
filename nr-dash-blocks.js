@@ -114,7 +114,7 @@
         S.busy = true;
         var q = function (p) { return Promise.resolve(p).then(function (r) { return r && !r.error ? r.data : null; }, function () { return null; }); };
         Promise.all([
-            q(d.from('wb_balance_daily').select('date,current,for_withdraw').eq('cabinet_id', c).order('date', { ascending: false }).limit(1)),
+            q(d.from('wb_balance_daily').select('date,current,for_withdraw,currency').eq('cabinet_id', c).order('date', { ascending: false }).limit(1)),
             q(d.rpc('rnp_cabinet_payouts', { p_cabinet: c, p_weeks: 8 })),
             q(d.from('payout_history').select('pay_date,to_withdraw').eq('cabinet_id', c)),
             q(d.from('goods_shipments').select('article,product,qty,status,origin,sent_date,eta_date,cargo,batch,note').eq('cabinet_id', c).limit(1000)),
@@ -171,14 +171,17 @@
         });
         return row;
     }
+    function curSign(c) { c = String(c || 'KGS').toUpperCase(); return c === 'KGS' ? 'сом' : c === 'RUB' ? '₽' : c === 'KZT' ? '₸' : c === 'BYN' ? 'BYN' : c === 'UZS' ? 'сум' : ''; }
     function paint() {
         var row = ensure(), D = S.data;
         if (!row || !D) return;
         var today = todayBishkek();
-        var ly = D.ly ? '<div class="hint">В ' + MONTHS[D.ly.month - 1] + ' ' + D.ly.year + ' вывод был ≈ ' + fmt(D.ly.sum) + ' ₽</div>' : '';
+        // Валюта баланса приходит от WB вместе с суммой (у кабинетов Кыргызстана это сомы): раньше здесь всегда стоял знак рубля.
+        var cur = curSign(D.bal && D.bal.currency);
+        var ly = D.ly ? '<div class="hint" title="Вывод за тот же месяц год назад">В ' + MONTHS[D.ly.month - 1] + ' ' + D.ly.year + ': ≈ ' + fmt(D.ly.sum) + '</div>' : '';
         var set = function (k, html) { var el = doc.getElementById('nrdb-' + k); if (el && el.__h !== html) { el.innerHTML = html; el.__h = html; } };
-        set('bal', '<div class="l"><span>Баланс WB</span>' + (D.bal ? '<em class="chip">' + dm(D.bal.date) + '</em>' : '') + '</div><div class="v">' + (D.bal ? fmt(D.bal.current) : '—') + ' <small>₽</small></div>' +
-            (D.next ? '<div class="r hi"><span>К выводу ' + dm(D.next.date) + '</span><b>' + fmt(D.next.amount) + ' ₽</b></div>' : '<div class="r"><span>К выводу</span><b>—</b></div>') + ly);
+        set('bal', '<div class="l"><span>Баланс WB</span>' + (D.bal ? '<em class="chip">' + dm(D.bal.date) + '</em>' : '') + '</div><div class="v">' + (D.bal ? fmt(D.bal.current) : '—') + (D.bal && cur ? ' <small>' + cur + '</small>' : '') + '</div>' +
+            (D.next ? '<div class="r hi"><span>К выводу ' + dm(D.next.date) + '</span><b>' + fmt(D.next.amount) + '</b></div>' : '<div class="r"><span>К выводу</span><b>—</b></div>') + ly);
         var T = D.transit, W = D.wb || { total: 0, n: 0, byWh: {}, list: [] };
         var whRows = Object.keys(W.byWh).sort(function (a, b) { return W.byWh[b].qty - W.byWh[a].qty; }).slice(0, 3).map(function (k) { return '<div class="r"><span>→ ' + esc(k) + '</span><b>' + (W.byWh[k].qty ? fmt(W.byWh[k].qty) + ' шт' : W.byWh[k].n + ' пост.') + '</b></div>'; }).join('');
         var manual = ROUTES.map(function (r) { var n = T.routes[r[0]].reduce(function (a, x) { return a + x.qty; }, 0); return n ? '<div class="r"><span>' + r[1] + '</span><b>' + fmt(n) + ' шт</b></div>' : ''; }).join('');
