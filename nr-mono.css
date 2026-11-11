@@ -218,7 +218,7 @@ html body header.glass .app-header-main > div:first-child { flex: 1; min-width: 
 
 /* Шапка и основной блок в одной общей рамке: рамка начинается сверху, шапка лежит внутри неё */
 html body .main-rail, html#nr-root.nr-f-dash body .main-rail { padding-top: 10px !important; }
-html body .main-rail .main-content:not(#nr-x) { padding-top: 70px !important; }
+html body .main-rail .main-content:not(#nr-x) { padding-top: 62px !important; }
 html body header.glass.app-header { background: var(--surface-solid) !important; border-radius: 18px 18px 0 0 !important; clip-path: inset(1px 1px 0 1px round 17px 17px 0 0); }
 
 /* ===== Дотяжка по референсу: динамика в верхних карточках, полосы, высоты ===== */
@@ -588,7 +588,11 @@ html body .an-tab:not(.on) { border-bottom: 2px solid transparent !important; }
 html body .nr-crumbs { display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
 html body .nr-crumbs.on { display: flex; }
 /* шапка с цепочкой «Раздел › Подраздел» на одну строку выше: отступ одинаковый на всех страницах, чтобы содержимое не прыгало при смене раздела */
-@media (min-width: 769px) { html body .main-rail .main-content:not(#nr-x) { padding-top: 90px !important; } }
+/* ПК: содержимое страниц стоит выше. Заголовок занимает до 64px (с хлебными крошками до 84px), раньше под ним оставалось 41px и 21px пустоты. */
+@media (min-width: 769px) {
+  html body .main-rail .main-content:not(#nr-x) { padding-top: 62px !important; }
+  html body:has(.nr-crumbs.on) .main-rail .main-content:not(#nr-x) { padding-top: 82px !important; }
+}
 html body .nr-crumb { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: color .2s; }
 html body .nr-crumb:hover { color: var(--text-primary); text-decoration: underline; }
 html body .nr-crumb-cur { color: var(--text-primary); font-weight: 700; }
