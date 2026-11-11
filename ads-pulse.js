@@ -1416,6 +1416,29 @@
         setView(S.view);
     }
 
+    /**
+     * Колесо и тачпад над таблицей кампаний: одна ось за жест. Таблица шире экрана и прокручивается вбок сама;
+     * раньше любой лишний пиксель горизонтали в вертикальном жесте уводил всю прокрутку в таблицу, она ехала
+     * вбок, а страница стояла. Теперь вертикальный жест крутит страницу, горизонтальный таблицу.
+     */
+    function bindWheelAxis() {
+        if (!doc || bindWheelAxis.done) return; bindWheelAxis.done = true;
+        doc.addEventListener('wheel', function (e) {
+            if (e.ctrlKey || e.defaultPrevented) return;
+            var t = e.target, host = t && t.closest ? t.closest('#adv-pulse') : null;
+            if (!host) return;
+            var ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
+            if (!ax || !ay) return;
+            if (ax >= ay * 2.5) { e.preventDefault(); host.scrollLeft += e.deltaX; return; }
+            if (ay < ax * 2.5) return;
+            for (var p = host.parentElement; p && p !== doc.body; p = p.parentElement) {
+                var oy = root.getComputedStyle(p).overflowY;
+                if (/auto|scroll/.test(oy) && p.scrollHeight > p.clientHeight + 1) { e.preventDefault(); p.scrollTop += e.deltaY; return; }
+            }
+        }, { passive: false });
+    }
+    bindWheelAxis();
+
     var api = { init: init, setView: setView, render: render, payKind: payKind, kopToSom: kopToSom, somToKop: somToKop, stepSom: stepSom, clampKop: clampKop, badge: badge, fmtSom: fmtSom, parseAdvertInfo: parseAdvertInfo, effectiveNms: effectiveNms, _state: S };
     root.AdsPulse = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
