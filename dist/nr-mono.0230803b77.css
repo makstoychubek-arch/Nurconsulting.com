@@ -1438,3 +1438,9 @@ html body #tab-dashboard .pnl-grid.ff-row > .nrdb .hint { white-space: nowrap; o
 /* Телефон, «Требует внимания»: линейные иконки вместо эмодзи */
 html body .nmd-att > span { display: grid; place-items: center; width: 28px; height: 28px; flex: none; color: var(--text-primary); }
 html body .nmd-att > span svg { width: 20px; height: 20px; }
+/* Остатки на телефоне: число и «шт» в одну строку, карточки итогов не раздуваются */
+@media (max-width: 700px) {
+  html body .ggx-k { padding: 12px 14px; border-radius: 20px; }
+  html body .ggx-k small { font-size: 10px; letter-spacing: .05em; line-height: 1.25; }
+  html body .ggx-k b { display: block; font-size: 22px; white-space: nowrap; line-height: 1.15; margin-top: 4px; }
+}

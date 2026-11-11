@@ -4793,7 +4793,8 @@ const RNP = (() => {
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
         const syncSt = _syncStatus(art.nm_id);
         const moneySom = _articleMoneySom(kpi, er);
-        const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
+        // Целые доллары: «71,566» при русском формате читалось как 71 тысяча, хотя это 71 доллар 57 центов.
+        const moneyUsd = moneySom > 0 ? Math.round(moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru') : '0';
         const seller = _sellerArticle(art).replace(/"/g, '&quot;');
         const photoHtml = _isPhone()
             ? ''
@@ -4829,7 +4830,7 @@ const RNP = (() => {
               <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
               <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
               <div class="rnp-gs-money-lbl">В деньгах</div>
-              <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+              <div class="rnp-gs-money-val">${Math.round(v.moneySom).toLocaleString('ru')}</div>
               <div class="rnp-gs-usd-lbl">В долларах</div>
               <div class="rnp-gs-usd-val">$${v.moneyUsd}</div>
             </div>
@@ -4844,7 +4845,7 @@ const RNP = (() => {
             <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
             <div class="rnp-gs-money-lbl">В деньгах</div>
-            <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+            <div class="rnp-gs-money-val">${Math.round(v.moneySom).toLocaleString('ru')}</div>
             <div class="rnp-gs-usd-lbl">В долларах</div>
             <div class="rnp-gs-usd-val">$${v.moneyUsd}</div>
             <div class="rnp-gs-kpis">${_phoneCollapseHtml('kpi', 'Показатели', _phoneKpiOpen, _kpiGridHTML(v))}
