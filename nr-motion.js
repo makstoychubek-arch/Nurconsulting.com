@@ -223,12 +223,18 @@
             if (!sr || !sr.v.length) return '<div class="nmd-chart nmd-empty"></div>';
             var mx = Math.max.apply(null, sr.v.map(Math.abs)) || 1, n = sr.v.length;
             return '<div class="nmd-chart">' + sr.v.map(function (v, i) { return '<i class="' + (i >= n - 3 ? 'hl' : '') + '" style="height:' + Math.max(4, Math.round(Math.abs(v) / mx * 100)) + '%"></i>'; }).join('') + '</div>' +
-                '<div class="nmd-xl"><span>' + esc(sr.l[0] || '') + '</span><span>' + esc(sr.l[Math.floor(n / 2)] || '') + '</span><span>' + esc(sr.l[n - 1] || '') + '</span></div>';
+                '<div class="nmd-xl"><span>' + esc(dayLbl(sr.l[0])) + '</span><span>' + esc(dayLbl(sr.l[Math.floor(n / 2)])) + '</span><span>' + esc(dayLbl(sr.l[n - 1])) + '</span></div>';
         }
+        /** Подпись дня под графиком: «11-01» из графика показываем как «01.11». */
+        function dayLbl(l) { var m = String(l == null ? '' : l).match(/^(?:\d{4}-)?(\d{2})-(\d{2})$/); return m ? m[2] + '.' + m[1] : String(l == null ? '' : l); }
+        /** Доля без знака («88.8», «21») → «88,8%». */
+        function pctTxt(t) { return ok(t) && /^-?[\d\s.,]+$/.test(t) ? t.replace('.', ',') + '%' : t; }
         function tag(c, t) { return '<span class="nmd-tag nmd-' + c + '">' + esc(t) + '</span>'; }
         function trendTag(sel) {
             var t = txt(sel); if (!ok(t)) return '';
-            var n = num(t); return tag(isFinite(n) && n < 0 ? 'r' : 'g', t);
+            // Падение приходит как «↓ 12.8%» без минуса: раньше такое число считалось ростом и красилось зелёным.
+            var n = num(t), down = /[↓▼]/.test(t) || (isFinite(n) && n < 0);
+            return tag(down ? 'r' : 'g', t.replace(/(\d)\.(\d)/g, '$1,$2'));
         }
         function loadMoney() {
             var cab = cabId(), sb = root.supabase; if (!cab || !sb || viewer()) return;
@@ -262,7 +268,7 @@
             var tiles = [['rnp', 'РНП', 'chart'], ['advertising', 'РК', 'ad'], ['goods-groups', 'Остатки', 'box'], ['deductions', 'Штрафы', 'warn']].filter(function (x) { return allowed(x[0] === 'deductions' ? 'dashboard' : x[0]); });
             var pen = num(txt('#m-dash-penalty'));
             h += '<div class="nmd-sheet"><div class="nmd-tiles">' + tiles.map(function (x) { return '<div data-nmd="go:' + x[0] + '" class="nmd-tile">' + (x[0] === 'deductions' && pen > 0 ? '<em>!</em>' : '') + '<div class="nmd-sq">' + ICON[x[2]] + '</div><span>' + x[1] + '</span></div>'; }).join('') + '</div>';
-            var prof = txt('#pnl-profit'), marg = txt('#pnl-margin'), roi = txt('#m-roi');
+            var prof = txt('#pnl-profit'), marg = txt('#pnl-margin'), roi = pctTxt(txt('#m-roi'));
             h += '<div class="nmd-two"><div class="nmd-card nmd-green"><div class="nmd-lbl">Операц. прибыль</div><div class="nmd-big">' + esc(ok(prof) ? prof : '—') + '</div><div class="nmd-sm">' + (ok(marg) ? 'маржа ' + esc(marg) : '') + (ok(roi) ? ' · ROI ' + esc(roi) : '') + '</div></div>';
             if (!viewer()) {
                 var bal = M.bal ? fmt(M.bal.current) : '—', nx = M.next ? fmt(M.next.to_withdraw) : (M.bal && M.bal.for_withdraw != null ? fmt(M.bal.for_withdraw) : '—');
@@ -277,18 +283,18 @@
                     (left != null ? '<div class="nmd-sm">расход ≈ ' + fmt(perDay) + ' в день · хватит на <b class="' + (left < 3 ? 'nmd-neg' : '') + '">' + (left < 10 ? left.toFixed(1).replace('.', ',') : Math.round(left)) + ' дн.</b></div>' : '') + '</div>' +
                     '<div data-nmd="go:advertising" class="nmd-btn">+ Пополнить</div></div>';
             }
-            var k4 = [['Выкуп', txt('#m-conversion'), ''], ['ДРР', isFinite(drr) ? drr.toFixed(1).replace('.', ',') + '%' : '—', isFinite(drr) ? (drr > 12 ? tag('o', 'выше цели') : tag('g', 'норма')) : ''], ['ROI', roi, ''], ['Возвраты', txt('#m-returns'), '']];
+            var k4 = [['Выкуп', pctTxt(txt('#m-conversion')), ''], ['ДРР', isFinite(drr) ? drr.toFixed(1).replace('.', ',') + '%' : '—', isFinite(drr) ? (drr > 12 ? tag('o', 'выше цели') : tag('g', 'норма')) : ''], ['ROI', roi, ''], ['Возвраты', txt('#m-returns'), '']];
             h += '<div class="nmd-card nmd-k4">' + k4.map(function (x) { return '<div><div class="nmd-lbl">' + x[0] + '</div><b>' + esc(ok(x[1]) ? x[1] : '—') + '</b>' + x[2] + '</div>'; }).join('') + '</div>';
-            var real = num(txt('#pnl-real')), comm = Math.abs(num(txt('#tab-dashboard [data-metric="commission"]'))), lg = Math.abs(num(txt('#m-logistics'))), cs = Math.abs(num(txt('#tab-dashboard [data-metric="cost-of-sales"]'))), pr = num(prof);
+            var real = num(txt('#pnl-real')), pm = root.__pnlM, comm = pm ? Math.round((Number(pm.commissionSum) || 0) + (Number(pm.acquiringSum) || 0)) : Math.abs(num(txt('#tab-dashboard [data-metric="commission"]'))), lg = Math.abs(num(txt('#m-logistics'))), cs = Math.abs(num(txt('#tab-dashboard [data-metric="cost-of-sales"]'))), pr = num(prof);
             var parts = [['Комиссия WB', comm, '#f59e0b'], ['Логистика', lg, '#7dd3fc'], ['Реклама', ads, '#a855f7'], ['Себестоимость', cs, '#fb7185'], ['Остаётся', pr, '#22c55e']].filter(function (x) { return isFinite(x[1]) && x[1] > 0; });
             if (real > 0 && parts.length) {
                 h += '<div class="nmd-card"><div class="nmd-row"><b>Куда уходит выручка</b>' + tag('b', fmt(real)) + '</div><div class="nmd-seg">' + parts.map(function (x) { return '<i style="width:' + (x[1] / real * 100).toFixed(1) + '%;background:' + x[2] + '"></i>'; }).join('') + '</div>' +
                     parts.map(function (x) { return '<div class="nmd-leg"><u style="background:' + x[2] + '"></u>' + x[0] + '<b>' + fmt(x[1]) + '</b><em>' + Math.round(x[1] / real * 100) + '%</em></div>'; }).join('') + '</div>';
             }
             var at = [];
-            if (pen > 0) at.push(['⚠️', 'Штрафы ' + fmt(pen) + ' сом', 'удержания ' + txt('#m-dash-deduction'), tag('r', 'срочно')]);
-            if (isFinite(drr) && drr > 12) at.push(['📈', 'ДРР ' + drr.toFixed(1).replace('.', ',') + '%', 'выше цели 12%', tag('o', 'проверить')]);
-            if (M.adv != null && isFinite(ads) && d && ads / d > 0 && M.adv / (ads / d) < 3) at.push(['💸', 'Баланс рекламы заканчивается', 'пополните, чтобы РК не встали', tag('r', 'пополнить')]);
+            if (pen > 0) at.push([ICON.warn, 'Штрафы ' + fmt(pen) + ' сом', 'удержания ' + txt('#m-dash-deduction'), tag('r', 'срочно')]);
+            if (isFinite(drr) && drr > 12) at.push([ICON.chart, 'ДРР ' + drr.toFixed(1).replace('.', ',') + '%', 'выше цели 12%', tag('o', 'проверить')]);
+            if (M.adv != null && isFinite(ads) && d && ads / d > 0 && M.adv / (ads / d) < 3) at.push([ICON.ad, 'Баланс рекламы заканчивается', 'пополните, чтобы РК не встали', tag('r', 'пополнить')]);
             h += '<div class="nmd-card"><div class="nmd-row"><b>Требует внимания</b>' + (at.length ? tag('r', String(at.length)) : tag('g', 'всё хорошо')) + '</div>' +
                 at.map(function (x) { return '<div class="nmd-att"><span>' + x[0] + '</span><div><b>' + esc(x[1]) + '</b><div class="nmd-lbl">' + esc(x[2]) + '</div></div>' + x[3] + '</div>'; }).join('') + '</div>';
             return h;

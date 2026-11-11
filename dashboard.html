@@ -6136,7 +6136,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.46d68b4bbb.css">
+<link rel="stylesheet" href="/dist/nr-mono.c1f3baa41b.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8232,7 +8232,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ff.3d0e875323.min.js"></script>
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
-<script src="/dist/nr-motion.e002bff2bd.min.js"></script>
+<script src="/dist/nr-motion.c64e6af0d5.min.js"></script>
 <script src="/dist/nr-ui.30a18d5fe7.min.js"></script>
 <script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
 <script src="/dist/nr-analytics.a0f387ed7b.min.js"></script>
@@ -8240,7 +8240,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
 <script src="/dist/nr-nav.5db62fe511.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
-<script src="/dist/nr-dash-blocks.39e849bc12.min.js"></script>
+<script src="/dist/nr-dash-blocks.3aae47415f.min.js"></script>
 <script src="/dist/nr-foot.d23a3e9a01.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
@@ -13698,6 +13698,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (pass && !fromCache && !summaryErr && summary) { pass.bag.summary = summary; pass.bag.adsCur = adsCur; pass.bag.adsPrev = adsPrev; }
         if (summary && summary.cur) summary.cur.ads_sum = adsCur.spend;
         if (summary && summary.prev) summary.prev.ads_sum = adsPrev.spend;
+        _pnlMiniPrev = { orders: Number(summary && summary.prev && summary.prev.orders_sum || 0) };
         loadDashCabinetPlans();
 
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) {
@@ -13793,6 +13794,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     // не должны ждать ещё один запрос в базу.
                     const base = fromCache ? (pass.hit.base || null) : await loadFinanceTrendBase(snapshotCabinet, fin, settings);
                     if (base && finId === _loadRequestId && finCabinet === currentCabinetId) {
+                        _pnlMiniPrev = Object.assign({}, _pnlMiniPrev, { sales: Number(base.salesSum || 0), logistics: Number(base.logisticsSum || 0), ads: Number(base.adsSum || 0) });
+                        if (_pnlDailyArgs) { _pnlMiniOnly = true; try { renderPnlDaily.apply(null, _pnlDailyArgs); } catch (e) { console.warn('[pnl daily]', e && e.message); } _pnlMiniOnly = false; }
                         applyMetricTrends(metrics, base);
                         if (window.NrPnlDelta) NrPnlDelta(metrics, base);
                     }
@@ -14211,6 +14214,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     /** Нижний ряд как у Raskpro: Заказы, Продажи, Логистика, Реклама, Все услуги + график «Динамика показателей». */
     let _rubKgs = 0, _rubKgsAsked = false, _pnlDailyArgs = null;
+    /** Итоги прошлого периода для динамики на мини-карточках: заказы из сводки, остальное из финотчёта прошлого окна. */
+    let _pnlMiniPrev = {};
+    let _pnlMiniOnly = false; // обновить только четыре мини-карточки, график не перерисовывать
     try { _rubKgs = Number(localStorage.getItem('nr_rub_kgs_v1')) || 0; } catch (e) {}
     const somKeys = new Set(['orders', 'sales']);
     /** Курс ₽ → сом для карточек «Заказы» и «Выкупы»: из памяти сразу, свежий подтягиваем в фоне. */
@@ -14254,10 +14260,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         };
         const card = (title, total, key, color, costLike) => {
             const vals = days.map(x => x[key]);
-            const a = vals[vals.length - 1] || 0, b = vals[vals.length - 2] || 0;
+            // Сравниваем период с прошлым периодом той же длины. Раньше здесь стояло «последний день к предпоследнему»:
+            // сегодняшний неполный день давал «−53%» по заказам и «−100%» по выкупам, хотя период шёл ровно.
+            const a = Number(total) || 0, b = Number(_pnlMiniPrev[key]);
             const dyn = b > 0 ? Math.round((a - b) / b * 100) : null;
             const good = dyn == null ? '' : ((dyn >= 0) !== !!costLike ? 'up' : 'down');
-            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 ? n(total * _rubKgs) + ' с' : n(total)}</div>
+            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 ? n(total * _rubKgs) : n(total)}</div>
               <div class="pnl-mini-dyn ${good}">${dyn == null ? '' : (dyn >= 0 ? '▲ ' : '▼ ') + Math.abs(dyn) + '%'}</div>${spark(vals, color)}</div>`;
         };
         const m = totalMetrics;
@@ -14267,6 +14275,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             card('Логистика', m.logisticsSum, 'logistics', 'currentColor', true),
             card('Реклама', m.adsSum, 'ads', 'currentColor', true),
         ].join('');
+        if (_pnlMiniOnly) return;
 
         const cardEl = document.getElementById('pnl-chart-card');
         const cv = document.getElementById('pnl-chart');
