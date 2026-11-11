@@ -9138,6 +9138,28 @@ const RNP = (() => {
             });
     }
 
+    /**
+     * Колесо и тачпад над таблицей РНП: идёт только та ось, по которой двигаете пальцами.
+     * Раньше вертикальная прокрутка тачпадом давала ещё и сдвиг вбок (маленькая горизонтальная
+     * составляющая), и вся таблица плыла по диагонали. Если жест явно диагональный или нажат Shift,
+     * ничего не трогаем.
+     */
+    let _wheelLockBound = false;
+    function _bindSheetWheelLock() {
+        if (_wheelLockBound) return;
+        _wheelLockBound = true;
+        document.addEventListener('wheel', function (e) {
+            if (e.ctrlKey || e.defaultPrevented) return;
+            const t = e.target;
+            const body = t && t.closest ? t.closest('#rnp-sheet-body') : null;
+            if (!body) return;
+            const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
+            if (!ax || !ay) return;
+            if (ay >= ax * 2.5) { e.preventDefault(); body.scrollTop += e.deltaY; }
+            else if (ax >= ay * 2.5) { e.preventDefault(); body.scrollLeft += e.deltaX; }
+        }, { passive: false });
+    }
+
     async function init(supabase, cabId, proxyFn, opts) {
         ensureReady(supabase, cabId, proxyFn, opts);
         if (_initInflight) {
@@ -9975,6 +9997,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
+    _bindSheetWheelLock(); // колесо над таблицей: одна ось за жест, подключаем сразу
     return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
