@@ -85,7 +85,11 @@
 @media (prefers-reduced-motion:reduce){#tab-cabinets-hub .cbh-skel,#tab-cabinets-hub .cbh-icon-btn.is-loading svg{animation:none}}
 @media (max-width:900px){
 #tab-cabinets-hub .cbh-head{flex-wrap:wrap;gap:10px;padding:12px}
-#tab-cabinets-hub .cbh-head-kpis{order:3;flex-basis:100%;gap:12px;overflow-x:auto}
+/* Телефон: пять показателей помещаются в ширину карточки, «Бюджет РК» больше не обрезается справа */
+#tab-cabinets-hub .cbh-head-kpis{order:3;flex-basis:100%;display:grid;grid-template-columns:1fr 1.25fr .9fr .9fr 1.15fr;gap:6px;overflow:visible}
+#tab-cabinets-hub .cbh-hk{min-width:0}
+#tab-cabinets-hub .cbh-hk small{font-size:9px;letter-spacing:.02em;white-space:nowrap}
+#tab-cabinets-hub .cbh-hk b{font-size:13px}
 #tab-cabinets-hub .cbh-summary{grid-template-columns:1fr}
 #tab-cabinets-hub .cbh-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 #tab-cabinets-hub .cbh-toolbar h2{flex:1}
