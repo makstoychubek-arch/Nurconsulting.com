@@ -1444,3 +1444,7 @@ html body .nmd-att > span svg { width: 20px; height: 20px; }
   html body .ggx-k small { font-size: 10px; letter-spacing: .05em; line-height: 1.25; }
   html body .ggx-k b { display: block; font-size: 22px; white-space: nowrap; line-height: 1.15; margin-top: 4px; }
 }
+/* РНП на ПК: таблица стоит выше. Между заголовком страницы и панелью групп было 36px пустоты. */
+@media (min-width: 769px) {
+  html body .main-rail .main-content.rnp-compact:not(#nr-x) { padding-top: 62px !important; }
+}
