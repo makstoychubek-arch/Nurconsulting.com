@@ -39,6 +39,10 @@ assert.deepStrictEqual(J([p.qty, p.models, p.due, p.state]), [150, 2, '2026-10-0
 
 const s = B.stock([{ quantity: 10, stock_scheme: 'fbs' }, { quantity: 5, stock_scheme: 'fbo' }, { quantity: 3 }]);
 assert.deepStrictEqual(J([s.fbo, s.fbs, s.total]), [8, 10, 18]);
+// «Общий» как в РНП: склады плюс в пути к покупателю и возвраты
+const s2 = B.stock([{ quantity: 10, stock_scheme: 'fbs', in_way_to_client: 2, in_way_from_client: 1 }, { quantity: 5, stock_scheme: 'fbo', in_way_to_client: 4 }]);
+assert.deepStrictEqual(J([s2.total, s2.transit, s2.all]), [15, 7, 22], 'Общий = в стоке + в пути, одно число с РНП');
+assert.strictEqual(B.stock([{ quantity: 4 }]).all, 4, 'без полей «в пути» Общий равен «В стоке»');
 
 const pay = [{ pay_date: '2026-10-26', to_withdraw: 810450, closed: true }, { pay_date: '2026-11-02', to_withdraw: 719049.83, closed: true }, { pay_date: '2026-11-09', to_withdraw: 5, closed: false }];
 assert.deepStrictEqual(J(B.nextPayout(pay, '2026-10-26')), { date: '2026-11-02', amount: 719049.83 }, 'вывод на следующей неделе, не сегодняшний');

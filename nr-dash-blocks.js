@@ -60,13 +60,18 @@
     }
     // Партии «С FBS на FBO» в пути уже уехали со своего склада: вычитаем их из FBS, пока WB не принял и остатки не обновились.
     function stock(rows, ship) {
-        var o = { fbo: 0, fbs: 0, moved: 0 };
-        (rows || []).forEach(function (r) { if (r.stock_scheme === 'fbs') o.fbs += Number(r.quantity) || 0; else o.fbo += Number(r.quantity) || 0; });
+        var o = { fbo: 0, fbs: 0, moved: 0, transit: 0 };
+        (rows || []).forEach(function (r) {
+            if (r.stock_scheme === 'fbs') o.fbs += Number(r.quantity) || 0; else o.fbo += Number(r.quantity) || 0;
+            // В пути к покупателю и возвраты: в РНП они входят в «Общий», здесь показываем отдельной строкой
+            o.transit += (Number(r.in_way_to_client) || 0) + (Number(r.in_way_from_client) || 0);
+        });
         (ship || []).forEach(function (r) {
             if (String(r.status || '').toLowerCase() === 'в пути' && /fbs/i.test(String(r.origin || ''))) o.moved += Number(r.qty) || 0;
         });
         o.moved = Math.min(o.moved, o.fbs); o.fbs -= o.moved;
         o.total = o.fbo + o.fbs;
+        o.all = o.total + o.transit;
         return o;
     }
     function nextPayout(payouts, today) {
@@ -119,7 +124,7 @@
             q(d.from('payout_history').select('pay_date,to_withdraw').eq('cabinet_id', c)),
             q(d.from('goods_shipments').select('article,product,qty,status,origin,sent_date,eta_date,cargo,batch,note').eq('cabinet_id', c).limit(1000)),
             q(d.from('production_orders').select('id,grp,nm_id,qty,status,due_date').eq('cabinet_id', c).limit(1000)),
-            q(d.from('wb_stocks').select('quantity,stock_scheme').eq('cabinet_id', c).limit(5000)),
+            q(d.from('wb_stocks').select('quantity,stock_scheme,in_way_to_client,in_way_from_client').eq('cabinet_id', c).limit(5000)),
             q(d.from('ff_ledger').select('id,ff_name,kind,title,boxes,amount,entry_date').eq('cabinet_id', c).order('entry_date', { ascending: false }).limit(200))
         ]).then(function (r) {
             S.busy = false;
@@ -191,8 +196,10 @@
         set('prod', '<div class="l"><span>Производство</span><em class="chip">' + P.models + ' мод.</em></div><div class="v">' + fmt(P.qty) + ' <small>шт</small></div>' +
             (P.state ? '<div class="r"><span>Сейчас</span><b>' + P.state + '</b></div>' : '') + (P.due ? '<div class="r"><span>Срок</span><b>' + dm(P.due) + (P.due < today ? ' (просрочен)' : '') + '</b></div>' : '<div class="r"><span>Срок</span><b>не указан</b></div>'));
         var St = D.stock, fbo = St.total ? Math.round(St.fbo / St.total * 100) : 0;
-        set('stock', '<div class="l"><span>Остатки всего</span><em class="chip">ФБО + ФБС</em></div><div class="v">' + fmt(St.total) + ' <small>шт</small></div>' +
-            '<div class="r"><span>ФБО · склад WB</span><b>' + fmt(St.fbo) + ' шт</b></div><div class="r"><span>ФБС · свой склад</span><b>' + fmt(St.fbs) + ' шт</b></div>' + (St.moved ? '<div class="r"><span>Уехало с ФБС на ФБО</span><b>−' + fmt(St.moved) + ' шт</b></div>' : '') + '<div class="split"><i style="width:' + fbo + '%"></i></div>');
+        // Те же названия и числа, что в шапке артикула РНП: «В стоке» (склады), «В пути», «Общий».
+        set('stock', '<div class="l"><span>В стоке</span><em class="chip">ФБО + ФБС</em></div><div class="v">' + fmt(St.total) + ' <small>шт</small></div>' +
+            '<div class="r"><span>ФБО · склад WB</span><b>' + fmt(St.fbo) + ' шт</b></div><div class="r"><span>ФБС · свой склад</span><b>' + fmt(St.fbs) + ' шт</b></div>' + (St.moved ? '<div class="r"><span>Уехало с ФБС на ФБО</span><b>−' + fmt(St.moved) + ' шт</b></div>' : '') +
+            '<div class="r"><span>В пути</span><b>' + fmt(St.transit) + ' шт</b></div><div class="r hi"><span>Общий</span><b>' + fmt(St.all) + ' шт</b></div><div class="split"><i style="width:' + fbo + '%"></i></div>');
         ffExtra();
     }
     // В карточку «Фулфилмент» добавляем итог записей и кнопку окна; сам расчёт nr-ff.js не трогаем.
