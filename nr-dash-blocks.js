@@ -125,14 +125,15 @@
             q(d.from('goods_shipments').select('article,product,qty,status,origin,sent_date,eta_date,cargo,batch,note').eq('cabinet_id', c).limit(1000)),
             q(d.from('production_orders').select('id,grp,nm_id,qty,status,due_date').eq('cabinet_id', c).limit(1000)),
             q(d.from('wb_stocks').select('quantity,stock_scheme,in_way_to_client,in_way_from_client').eq('cabinet_id', c).limit(5000)),
-            q(d.from('ff_ledger').select('id,ff_name,kind,title,boxes,amount,entry_date').eq('cabinet_id', c).order('entry_date', { ascending: false }).limit(200))
+            q(d.from('ff_ledger').select('id,ff_name,kind,title,boxes,amount,entry_date').eq('cabinet_id', c).order('entry_date', { ascending: false }).limit(200)),
+            q(d.from('ff_settings').select('vacuum').eq('cabinet_id', c).limit(1))
         ]).then(function (r) {
             S.busy = false;
             if (c !== cab()) return;
             var today = todayBishkek();
             var data = {
                 bal: r[0] && r[0][0] || null, next: nextPayout(r[1], today), ly: lastYear(r[2], today),
-                transit: transit(r[3]), prod: production(r[4]), stock: stock(r[5], r[3]), ledger: r[6] || [], at: Date.now()
+                transit: transit(r[3]), prod: production(r[4]), stock: stock(r[5], r[3]), ledger: r[6] || [], vac: (r[7] && r[7][0] && r[7][0].vacuum) || { on: false, per_unit: 50 }, at: Date.now()
             };
             data.wb = S.data && S.data.wb || null;
             S.cab = c; S.data = data; S.ledger = data.ledger;
@@ -163,6 +164,7 @@
         '#nrdb-modal .pos{color:#16a34a}#nrdb-modal .neg{color:#dc2626}#nrdb-modal .del{background:none;border:0;color:var(--text-muted);cursor:pointer}#nrdb-modal .tabs{display:flex;gap:6px;flex-wrap:wrap}#nrdb-modal .tab{padding:7px 12px;border-radius:99px;background:var(--sel);border:0;font-weight:700;font-size:12.5px;color:var(--text-muted);cursor:pointer}#nrdb-modal .tab.on{background:var(--accent);color: var(--on-accent, #fff)}' +
         '#nrdb-modal .form{display:grid;grid-template-columns:120px 1fr 80px 110px auto;gap:8px;align-items:end;font-size:11px;color:var(--text-muted)}#nrdb-modal .form label{display:grid;gap:3px}#nrdb-modal .form input,#nrdb-modal .form select{background:var(--sel);border:1px solid var(--border);border-radius:10px;padding:8px 10px;color:var(--text-primary);font-size:12.5px;min-width:0}' +
         '#nrdb-modal .btn{background:var(--accent);color: var(--on-accent, #fff);border:0;border-radius:10px;padding:9px 14px;font-weight:700;font-size:12.5px;cursor:pointer}#nrdb-modal .empty{padding:14px;color:var(--text-muted);font-size:12.5px;text-align:center}' +
+        '#nrdb-modal .vac{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--border);border-radius:14px;padding:10px 14px}#nrdb-modal .sw{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text-primary);cursor:pointer}#nrdb-modal .sw input{position:absolute;opacity:0}#nrdb-modal .sw i{width:38px;height:22px;border-radius:999px;background:var(--border);position:relative;transition:background .12s}#nrdb-modal .sw i:after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:var(--bg-card,#fff);transition:transform .12s}#nrdb-modal .sw input:checked+i{background:var(--accent)}#nrdb-modal .sw input:checked+i:after{transform:translateX(16px)}#nrdb-modal .sw input:focus-visible+i{outline:2px solid var(--accent);outline-offset:2px}#nrdb-modal .vu{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}#nrdb-modal .vu input{width:70px;background:var(--sel);border:1px solid var(--border);border-radius:10px;padding:6px 8px;color:var(--text-primary);font-size:12.5px}' +
         '#nrdb-modal .hint{font-size:12px;color:var(--text-muted);line-height:1.4}@media(max-width:700px){#nrdb-modal .form{grid-template-columns:1fr 1fr}#nrdb-modal .sum{grid-template-columns:1fr}}';
 
     function ensure() {
@@ -228,12 +230,14 @@
         var list = S.ledger.length ? S.ledger.map(function (r) {
             return '<div class="li"><time>' + dm(r.entry_date) + '</time><span>' + esc(r.title || (r.kind === 'payment' ? 'Оплата' : 'Начислено')) + (r.boxes ? ' · ' + r.boxes + ' кор.' : '') + '</span><b class="' + (r.kind === 'payment' ? 'pos' : 'neg') + '">' + (r.kind === 'payment' ? '− ' : '+ ') + fmt(r.amount) + ' ₽</b>' + (ro ? '<span></span>' : '<button class="del" data-del="' + esc(r.id) + '" title="Удалить" aria-label="Удалить">×</button>') + '</div>';
         }).join('') : '<div class="empty">Записей пока нет</div>';
+        var vk = (S.data && S.data.vac) || { on: false, per_unit: 50 };
+        var vacBox = ro ? '' : '<div class="vac"><label class="sw"><input type="checkbox" id="nrdb-vac"' + (vk.on ? ' checked' : '') + '><i></i><span>Вакуумирование</span></label><label class="vu">₽ за штуку<input id="nrdb-vacu" inputmode="decimal" value="' + esc(String(vk.per_unit == null ? 50 : vk.per_unit)) + '"></label><span class="hint">' + (vk.on && vk.from ? 'Считается с ' + dm(vk.from) + ' за каждую отправку' : 'Выключено. Включите, и со дня включения начнёт считаться само') + '</span></div>';
         var price0 = ''; try { price0 = localStorage.getItem('nr_ff_box_price_' + cab()) || ''; } catch (e) { /* без памяти */ }
         var form = ro ? '' : '<div class="form"><label>Тип<select id="nrdb-kind"><option value="ship">Отгрузка (короба × цена)</option><option value="extra">Доп. услуга</option><option value="payment">Оплачено</option></select></label>' +
             '<label data-f="ship">Коробов<input id="nrdb-boxes" inputmode="numeric" placeholder="88"></label><label data-f="ship">Цена за короб, ₽<input id="nrdb-price" inputmode="decimal" placeholder="150" value="' + esc(price0) + '"></label>' +
             '<label data-f="text" hidden>Что<input id="nrdb-title" maxlength="120" placeholder="Формирование коробов"></label>' +
             '<label>Сумма, ₽<input id="nrdb-amt" inputmode="decimal" placeholder="0"></label><label>Дата<input id="nrdb-date" type="date" value="' + todayBishkek() + '"></label><button type="button" class="btn" data-add>Добавить</button></div>';
-        var m = modal('Фулфилмент: записи и оплаты', '<div class="sum"><div><small>Начислено</small><b>' + fmt(t.charge) + ' ₽</b></div><div><small>Оплачено</small><b>' + fmt(t.payment) + ' ₽</b></div><div><small>К выплате по записям</small><b>' + fmt(t.due) + ' ₽</b></div></div><div class="hint">Отправки, хранение и штрафы ФФ считаются сами каждое утро. Здесь вы добавляете отгрузки (короба × цена), доп. услуги и оплаты.</div><div class="list">' + list + '</div>' + form);
+        var m = modal('Фулфилмент: записи и оплаты', '<div class="sum"><div><small>Начислено</small><b>' + fmt(t.charge) + ' ₽</b></div><div><small>Оплачено</small><b>' + fmt(t.payment) + ' ₽</b></div><div><small>К выплате по записям</small><b>' + fmt(t.due) + ' ₽</b></div></div><div class="hint">Отправки, хранение и штрафы ФФ считаются сами каждое утро. Здесь вы добавляете отгрузки (короба × цена), доп. услуги и оплаты.</div>' + vacBox + '<div class="list">' + list + '</div>' + form);
         function sync() {
             var k = m.querySelector('#nrdb-kind'); if (!k) return;
             m.querySelectorAll('[data-f="ship"]').forEach(function (l) { l.hidden = k.value !== 'ship'; });
@@ -244,6 +248,15 @@
             }
         }
         m.addEventListener('input', sync); m.addEventListener('change', sync); sync();
+        m.addEventListener('change', function (e) {
+            if (e.target.id !== 'nrdb-vac' && e.target.id !== 'nrdb-vacu') return;
+            var on = m.querySelector('#nrdb-vac').checked, pu = parseFloat(String(m.querySelector('#nrdb-vacu').value).replace(/\s/g, '').replace(',', '.'));
+            if (!(pu >= 0) || !isFinite(pu)) pu = 50;
+            var prev = S.data.vac || { on: false, per_unit: 50 };
+            var next = { on: on, per_unit: pu, from: on ? (prev.on && prev.from ? prev.from : todayBishkek()) : (prev.from || null) };
+            S.data.vac = next; persist(); ffModal();
+            db().from('ff_settings').upsert({ cabinet_id: cab(), vacuum: next }, { onConflict: 'cabinet_id' }).then(function (r) { if (r && r.error) { S.data.vac = prev; persist(); ffModal(); say('Не получилось сохранить переключатель. Попробуйте ещё раз.'); } });
+        });
         m.addEventListener('click', function (e) {
             var del = e.target.closest('[data-del]'), add = e.target.closest('[data-add]');
             if (del) { var id = del.getAttribute('data-del'); S.ledger = S.ledger.filter(function (r) { return r.id !== id; }); S.data.ledger = S.ledger; persist(); ffModal(); paint(); db().from('ff_ledger').delete().eq('id', id).then(function (r) { if (r && r.error) load(cab()); }); }

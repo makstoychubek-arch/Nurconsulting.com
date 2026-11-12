@@ -19,8 +19,6 @@ const CORS = {
 };
 const FF_PREFIX = 'АМАН';
 const FF_NAME = 'АМАН ФФ';
-// Часть цены отправки ФФ выделяется отдельной доп. услугой: у ИП Бейшеева 150 ₽ за куртку = отправка 100 + вакуумирование 50.
-const SHIP_EXTRA: Record<string, { perUnit: number; label: string }> = { 'Baza': { perUnit: 50, label: 'Вакуумирование' } };
 const SINCE = '2026-10-27';   // с этой даты считается общий долг (до неё Бейшеев оплачен, у Уркунбаева стартовый долг лежит в записях)
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, 'Content-Type': 'application/json' } });
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -98,10 +96,13 @@ Deno.serve(async (req) => {
                 if (/^(\[auto|Старт счёта|Долг по ФФ)/.test(String(m.title))) continue;   // свои строки и стартовый долг в день не входят
                 if (m.boxes != null && Number(m.boxes) > 0) { boxes += Number(m.boxes); boxSum += Number(m.amount); } else extraSum += Number(m.amount);
             }
-            const sx = SHIP_EXTRA[name];
+            // Вакуумирование: переключатель на сайте (ff_settings.vacuum), сверху цены отправки, с даты включения
+            const { data: st } = await admin.from('ff_settings').select('vacuum').eq('cabinet_id', cabId).maybeSingle();
+            const vk = (st?.vacuum || {}) as { on?: boolean; per_unit?: number; from?: string };
+            const sx = vk.on && vk.from && vk.from <= date ? { perUnit: Number(vk.per_unit) || 0, label: 'Вакуумирование' } : null;
             const vac = sx ? r2(ship.count * sx.perUnit) : 0;
-            const shipOnly = r2(ship.sum - vac);
-            const dayTotal = r2(ship.sum + storage + boxSum + extraSum);
+            const shipOnly = ship.sum;
+            const dayTotal = r2(ship.sum + storage + boxSum + extraSum + vac);
             Object.assign(res, { date, shipCount: ship.count, ship: shipOnly, vac, storage, boxes, boxSum, extraSum, penalty, dayTotal });
 
             if (body.dry !== true && body.test !== true) {
@@ -110,7 +111,7 @@ Deno.serve(async (req) => {
                 await admin.from('ff_ledger').delete().eq('cabinet_id', cabId).like('title', tag + '%');
                 const rows: Record<string, unknown>[] = [];
                 const main = r2(dayTotal - vac);
-                if (main > 0) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'charge', title: `${tag} Отправки ${ship.count} шт${sx && ship.rate ? ' × ' + (ship.rate - sx.perUnit) : ''}, хранение`, amount: main, entry_date: date });
+                if (main > 0) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'charge', title: `${tag} Отправки ${ship.count} шт${ship.rate ? ' × ' + ship.rate : ''}, хранение`, amount: main, entry_date: date });
                 if (vac > 0 && sx) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'charge', title: `${tag} ${sx.label} ${ship.count} шт × ${sx.perUnit}`, amount: vac, entry_date: date });
                 if (penalty > 0) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'payment', title: `${tag} Штраф ФФ (зачёт)`, amount: penalty, entry_date: date });
                 if (rows.length) {
@@ -134,7 +135,7 @@ Deno.serve(async (req) => {
 
             const png = await renderFfAccountPng({
                 cabinet: legal, dateLabel: prettyDate(date), dayTotal,
-                shipSub: ship.count ? `${ship.count} шт${ship.rate ? ' × ' + (ship.rate - (sx?.perUnit || 0)) : ''}` : '0 шт', ship: shipOnly, storage,
+                shipSub: ship.count ? `${ship.count} шт${ship.rate ? ' × ' + ship.rate : ''}` : '0 шт', ship: shipOnly, storage,
                 boxSub: `${grp(boxes)} кор.`, box: boxSum, extra: extraSum + vac,
                 extraSub: sx && ship.count ? `${sx.label.toLowerCase()} ${ship.count} × ${sx.perUnit}` : '',
                 penalty, debt, sinceLabel: 'с ' + shortDate(SINCE),
