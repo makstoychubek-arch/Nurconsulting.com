@@ -2243,6 +2243,7 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
             function _imgHtml() { return '<img class="rnp-gs-photo-img">'; }
             function _phoneCollapseHtml(id, title, open, inner) { return inner; }
             function _copyMiniBtn() { return ''; }
+            function _mxHtml() { return '<div class="rnp-mx"></div>'; }
             ${grabFn(rnpSrc, '_collectKpiView')}
             ${grabFn(rnpSrc, '_kpiGridHTML')}
             ${grabFn(rnpSrc, '_buildKpiTopHTML')}

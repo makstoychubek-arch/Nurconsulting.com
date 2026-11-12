@@ -2536,7 +2536,7 @@ const RNP = (() => {
             : view === 'fbs'
                 ? '<div class="rnp-stock-scheme-cap is-fbs">Остатки · FBS · склад продавца</div>'
                 : '';
-        const whLabel = view === 'fbo' ? 'На WB' : view === 'fbs' ? 'На FBS' : 'На складе';
+        const whLabel = view === 'fbo' ? 'На WB' : view === 'fbs' ? 'На FBS' : 'В стоке';
         const blockCls = view === 'fbo' || view === 'fbs' ? ` rnp-stock-block--${view}` : '';
 
         return `<div class="rnp-stock-block${blockCls}">
@@ -4775,6 +4775,65 @@ const RNP = (() => {
     }
     function copyNmId(nmId, btn) { _copyMini(nmId, 'Артикул WB', btn); }
     function copySellerArticle(text, btn) { _copyMini(text, 'Артикул продавца', btn); }
+    // ─── Метрики шапки артикула: литраж, остаток в литрах, хранение в день, логистика за шт ───
+    // Считаем от габаритов карточки WB (rnp_articles.dim_*_cm) и тарифа WB (функция wb-tariffs, в сомах).
+    // Тариф берём из кэша браузера (6 часов), свежий подтягиваем в фоне и подставляем без перерисовки шапки.
+    let _tariff = null;
+    let _tariffAsked = false;
+    const _TARIFF_KEY = 'nr_wb_tariff_v1';
+    function _tariffInit() {
+        if (_tariffAsked) return;
+        _tariffAsked = true;
+        let fresh = false;
+        try {
+            const c = JSON.parse(localStorage.getItem(_TARIFF_KEY) || 'null');
+            if (c && c.body && c.body.ok) { _tariff = c.body; fresh = Date.now() - c.at < 6 * 3600e3; }
+        } catch (_) {}
+        if (fresh || !_db || !_db.functions) return;
+        _db.functions.invoke('wb-tariffs', { body: {} }).then(r => {
+            const b = r && r.data;
+            if (!b || !b.ok) return;
+            _tariff = b;
+            try { localStorage.setItem(_TARIFF_KEY, JSON.stringify({ at: Date.now(), body: b })); } catch (_) {}
+            _mxRefresh();
+        }).catch(() => {});
+    }
+
+    function _mxCells(art, factLogistics) {
+        const M = window.NrRnpMetrics;
+        if (!M) return [];
+        const wh = _stockTotals(_stockCache[art.nm_id] || {}).wh;
+        const v = M.forArticle(art, wh, _tariff);
+        const fact = Number(factLogistics) > 0 ? ` По факту за период: ${M.fmt(Number(factLogistics), 0)} сом.` : '';
+        const noDims = v.litres == null ? ' Нет габаритов в карточке WB.' : '';
+        return [
+            { key: 'lit', label: 'Литраж', val: M.fmt(v.litres), unit: 'л', title: 'Длина × ширина × высота карточки WB, литров на штуку.' + noDims },
+            { key: 'stk', label: 'Остаток', val: M.fmt(v.litresStock, 0), unit: 'л', title: 'Литраж штуки × «В стоке».' + noDims },
+            { key: 'day', label: 'Хранение', val: M.fmt(v.storageDay, 0), unit: 'сом/день', title: 'Тариф хранения WB за литр в день × литраж остатка.' + (v.storageUnit != null ? ` На штуку ${M.fmt(v.storageUnit, 2)} сом в день.` : '') },
+            { key: 'log', label: 'Логистика', val: M.fmt(v.logistics, 0), unit: 'сом/шт', title: 'Тариф WB на доставку по литражу карточки.' + fact }
+        ];
+    }
+
+    function _mxHtml(art, factLogistics) {
+        _tariffInit();
+        const cells = _mxCells(art, factLogistics);
+        if (!cells.length) return '';
+        return `<div class="rnp-mx" data-nm="${art.nm_id}" data-fact="${Number(factLogistics) || 0}">` + cells.map(c =>
+            `<div class="rnp-mx-c" title="${c.title}"><i>${c.label}</i><b data-mx="${c.key}">${c.val}<small>${c.unit}</small></b></div>`).join('') + '</div>';
+    }
+
+    // Подставляет свежие значения (пришёл тариф или остатки) в уже нарисованные шапки, не трогая остальное.
+    function _mxRefresh() {
+        document.querySelectorAll('.rnp-mx[data-nm]').forEach(el => {
+            const art = _articles.find(a => String(a.nm_id) === el.dataset.nm);
+            if (!art) return;
+            _mxCells(art, el.dataset.fact).forEach(c => {
+                const b = el.querySelector('[data-mx="' + c.key + '"]');
+                if (b) { const h = c.val + '<small>' + c.unit + '</small>'; if (b.innerHTML !== h) b.innerHTML = h; }
+            });
+        });
+    }
+
     function _copyMiniBtn(fn, arg, title) {
         const argJs = typeof arg === 'number' ? arg : `'${String(arg).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
         return `<button type="button" class="rnp-copy-mini" title="${title}" aria-label="${title}" onclick="event.stopPropagation();RNP.${fn}(${argJs},this)">
@@ -4829,10 +4888,7 @@ const RNP = (() => {
             <div class="rnp-layout-info-meta">
               <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
               <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
-              <div class="rnp-gs-money-lbl">В деньгах</div>
-              <div class="rnp-gs-money-val">${Math.round(v.moneySom).toLocaleString('ru')}</div>
-              <div class="rnp-gs-usd-lbl">В долларах</div>
-              <div class="rnp-gs-usd-val">$${v.moneyUsd}</div>
+              ${_mxHtml(art, v.kpi.logistics_per_unit)}
             </div>
           </div>`;
     }
@@ -4844,10 +4900,7 @@ const RNP = (() => {
             ${v.photoHtml}
             <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
-            <div class="rnp-gs-money-lbl">В деньгах</div>
-            <div class="rnp-gs-money-val">${Math.round(v.moneySom).toLocaleString('ru')}</div>
-            <div class="rnp-gs-usd-lbl">В долларах</div>
-            <div class="rnp-gs-usd-val">$${v.moneyUsd}</div>
+            ${_mxHtml(art, v.kpi.logistics_per_unit)}
             <div class="rnp-gs-kpis">${_phoneCollapseHtml('kpi', 'Показатели', _phoneKpiOpen, _kpiGridHTML(v))}
             </div>
           </div>

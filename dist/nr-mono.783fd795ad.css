@@ -1452,3 +1452,50 @@ html body .nmd-att > span svg { width: 20px; height: 20px; }
 @media (min-width: 769px) {
   html body .main-rail .main-content.rnp-compact:not(#nr-x) { padding-top: 62px !important; }
 }
+
+/* ── РНП: шапка артикула, вариант C (утверждён владельцем 12 ноября) ──
+   Цена и доллары убраны. Под артикулом рамка из четырёх метрик: литраж, остаток в литрах, хранение, логистика.
+   Остатки («В стоке / В пути / Общий») только чёрно-белые, без цветных ячеек. */
+html body .rnp-mx { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 6px 0 0; border: 1px solid var(--text-primary); border-radius: 14px; overflow: hidden; background: transparent; max-width: 400px; }
+html body .rnp-mx-c { padding: 5px 9px; min-width: 0; }
+html body .rnp-mx-c + .rnp-mx-c { border-left: 1px solid var(--text-primary); }
+html body .rnp-mx-c i { display: block; font-style: normal; font-size: 8.5px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--text-muted); line-height: 1.2; }
+html body .rnp-mx-c b { display: block; margin-top: 1px; font-size: 14px; font-weight: 900; letter-spacing: -.3px; line-height: 1.2; color: var(--text-primary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+html body .rnp-mx-c b small { font-size: 9px; font-weight: 600; color: var(--text-muted); margin-left: 2px; letter-spacing: 0; }
+
+/* ПК: колонка с названием шире, фото тянется по высоте блока в пропорции 3:4 */
+@media (min-width: 769px) {
+  html body .rnp-head-wide { grid-template-columns: minmax(340px, 410px) max-content minmax(0, 1fr); }
+  html body .rnp-head-wide-info { width: auto; max-width: none; overflow: visible; }
+  html body .rnp-head-wide-info .rnp-layout-info { grid-template-columns: auto minmax(0, 1fr); gap: 0 12px; align-items: stretch; }
+  html body .rnp-head-wide-info .rnp-gs-photo { height: 100%; width: auto; aspect-ratio: 3 / 4; min-width: 0; max-height: none; align-self: stretch; }
+  html body .rnp-head-wide-info .rnp-gs-photo img { width: 100%; height: 100%; max-height: none; object-fit: cover; object-position: center top; }
+  html body .rnp-head-wide-info .rnp-layout-info-meta { align-content: center; }
+}
+
+/* Остатки только чёрно-белые */
+html body .rnp-stock-table th,
+html body .rnp-stock-table td,
+html body .rnp-stock-table .rnp-size-has,
+html body .rnp-stock-table .rnp-size-zero,
+html body .rnp-stock-table tr.rnp-row-wh td,
+html body .rnp-stock-table tr.rnp-row-tr td,
+html body .rnp-stock-table tr.rnp-row-sum td,
+html body .rnp-stock-table tr.rnp-row-prod td,
+html body .rnp-stock-block--fbo .rnp-row-wh td,
+html body .rnp-stock-block--fbs .rnp-row-wh td { background: transparent !important; color: var(--text-primary) !important; }
+html body .rnp-stock-table tr.rnp-row-tr td:not(.rnp-stock-label),
+html body .rnp-stock-table tr.rnp-row-prod td:not(.rnp-stock-label) { color: var(--text-primary) !important; }
+html body .rnp-stock-table .rnp-size-zero { color: var(--text-muted) !important; font-weight: 500; }
+html body .rnp-stock-table .rnp-stock-label { white-space: nowrap; max-width: none; min-width: 64px; text-transform: uppercase; font-size: 9.5px; letter-spacing: .7px; font-weight: 700; color: var(--text-muted) !important; }
+html body .rnp-stock-table thead th { font-weight: 800; border-bottom: 1px solid var(--text-primary); }
+html body .rnp-stock-table tr.rnp-row-sum td { font-weight: 900; }
+html body .rnp-stock-table tbody td { border-bottom: 1px solid var(--border); }
+html body .rnp-stock-table tbody tr:last-child td { border-bottom: 0; }
+html body .rnp-stock-block--fbo, html body .rnp-stock-block--fbs { outline: 0; background: transparent; }
+html body .rnp-head-wide-info .rnp-gs-nmid { flex-direction: row; justify-content: flex-start; align-items: center; flex-wrap: nowrap; gap: 6px; white-space: nowrap; padding: 0; }
+html body .rnp-head-wide-info .rnp-gs-name { justify-content: flex-start; padding: 0; }
+/* Подписи схем у кольца остатков: тоже чёрные, различаются точкой (чёрная / серая), а не цветом */
+html body .rnp-stock-donut-leg.is-fbo .rnp-stock-donut-leg-name, html body .rnp-stock-donut-leg.is-fbo .rnp-stock-donut-leg-pct,
+html body .rnp-stock-donut-leg.is-fbs .rnp-stock-donut-leg-name, html body .rnp-stock-donut-leg.is-fbs .rnp-stock-donut-leg-pct,
+html body .rnp-stock-scheme-cap.is-fbo, html body .rnp-stock-scheme-cap.is-fbs { color: var(--text-primary) !important; }
