@@ -152,6 +152,19 @@ body { background: var(--bg); }
 .ffm-empty { color: var(--text-muted); font-size: 13px; padding: 24px 0; }
 @media (max-width: 760px) { .ffm-top, .ffm-row { grid-template-columns: minmax(0, 1fr); } }
 #tab-dashboard #ff-sum :is(.nrff-add, .nrff-due, .ff-chips) { display: none !important; }
+/* Окно «Фулфилмент» в «Минимализме»: одна чёрная карточка с общим долгом, остальное в контуре */
+html body .ffm { border: 1px solid var(--text-primary); box-shadow: none; }
+html body .ffm-h { align-items: center; }
+html body .ffm-hero { background: var(--accent); color: var(--on-accent, #fff); border-radius: 26px; padding: 22px 24px; display: grid; gap: 6px; margin: 14px 0; }
+html body .ffm-hero .ffm-k { color: inherit; opacity: .65; }
+html body .ffm-hero b { font-size: clamp(34px, 8vw, 48px); font-weight: 900; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+html body .ffm-hero b small { font-size: 16px; font-weight: 700; opacity: .65; }
+html body .ffm-hero span { opacity: .65; font-size: 12px; }
+html body .ffm-top > div { background: transparent; border: 1px solid var(--text-primary); border-radius: 26px; }
+html body .ffl-tiles > div { border-radius: 26px; }
+html body .ffm .ffl-tiles > .ffl-due { background: transparent; border-color: var(--text-primary); color: var(--text-primary); }
+html body .ffm .ffl-tiles > .ffl-due span { color: var(--text-muted); opacity: 1; }
+html body .ffl-li { grid-template-columns: 52px 1fr auto 24px; }
 
 /* ===== Ж3: контурные карточки дашборда (утверждено владельцем) ===== */
 html body #tab-dashboard :is(#dash-pnl > .pnl-card, .pnl-mini-grid > .pnl-mini, .pnl-grid.ff-row > .pnl-card, .pnl-grid.ff-row > .nrdb) {

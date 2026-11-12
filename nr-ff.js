@@ -200,11 +200,22 @@
         (S.ledger || []).forEach(function (r) { var x = lgParse(r); if (!lgInPeriod(x)) return; if (x.kind === 'payment') pay += x.amount; else extra += x.amount; });
         return { pay: pay, extra: extra };
     }
+    // Общий счёт (ff_ledger с 27.10): те же цифры, что в утренней карточке Telegram. Включается, когда в журнале есть стартовая запись или автоначисления.
+    var ACCT_SINCE = '2026-10-27';
+    function acct() {
+        var has = false, c = 0, p = 0;
+        (S.ledger || []).forEach(function (r) {
+            if (/^(\[auto|Старт счёта)/.test(String(r.title || ''))) has = true;
+            if (String(r.entry_date || '').slice(0, 10) < ACCT_SINCE) return;
+            if (r.kind === 'payment') p += Number(r.amount) || 0; else c += Number(r.amount) || 0;
+        });
+        return { has: has, charge: c, pay: p, due: c - p };
+    }
     function somOf(rub) { return S.rate > 0 ? ' <small>≈ ' + fmt(rub * S.rate) + ' сом</small>' : ''; }
     function amtLabel(x) { return x.som != null ? fmt(x.som) + ' сом' : fmt(x.amount) + ' ₽'; }
     async function loadLedger(db, cab) {
         try {
-            var r = await db.from('ff_ledger').select('id,ff_name,kind,title,amount,entry_date').eq('cabinet_id', cab).order('entry_date', { ascending: false }).range(0, 199);
+            var r = await db.from('ff_ledger').select('id,ff_name,kind,title,amount,entry_date').eq('cabinet_id', cab).order('entry_date', { ascending: false }).range(0, 999);
             if (r.error || cab !== S.cab) return;
             S.ledger = r.data || [];
             renderSummary();
@@ -215,13 +226,13 @@
         var el = $('ff-sum');
         if (!el) return;
         var t = S.total || blank();
-        var base = hasDepAll() ? Math.abs(t.payableRub) : t.payableRub, lg = lgTotals(), sum = base + lg.extra - lg.pay;
+        var base = hasDepAll() ? Math.abs(t.payableRub) : t.payableRub, lg = lgTotals(), A = acct(), sum = A.has ? A.due : base + lg.extra - lg.pay;
         el.setAttribute('data-ff', 'open'); el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
         el.innerHTML =
             '<div class="pnl-title">Фулфилмент</div>' +
             '<div class="pnl-big ff-pay">' + fmt(sum) + ' ₽</div>' +
             (S.rate > 0 ? '<div class="ff-som" title="По актуальному курсу НБКР: 1 ₽ = ' + S.rate.toFixed(4).replace(/0+$/, '').replace('.', ',') + ' сом">К выплате · ≈ ' + fmt(sum * S.rate) + ' сом</div>' : '') +
-            ((lg.pay || lg.extra) ? '<div class="ff-dets">Начислено ' + fmt(base + lg.extra) + ' · оплачено ' + fmt(lg.pay) + '</div>' : '') +
+            (A.has ? '<div class="ff-dets">Начислено ' + fmt(A.charge) + ' · оплачено ' + fmt(A.pay) + '</div>' : ((lg.pay || lg.extra) ? '<div class="ff-dets">Начислено ' + fmt(base + lg.extra) + ' · оплачено ' + fmt(lg.pay) + '</div>' : '')) +
             ((t.missing || t.boxMissing) ? '<div class="ff-warn" title="Нет цены у ' + fmt((t.missing || 0) + (t.boxMissing || 0)) + ' заказов или коробов: укажите в «Логистика → FBS»">Нет цены у ' + fmt((t.missing || 0) + (t.boxMissing || 0)) + ' заказов или коробов: укажите в «Логистика → FBS»</div>' : '');
         if ($('ffm-ov')) paintFfModal();
     }
@@ -265,9 +276,10 @@
             var x = S.byFf[id]; if (!x) return '';
             return '<tr><td>' + esc(ffName(id)) + '</td><td>' + fmt(x.shipCnt) + '</td><td>' + fmt(x.storageRub) + ' ₽</td><td>' + fmt(x.payableRub) + ' ₽</td></tr>';
         }).join('');
-        var pen = (t.swap || 0) + (t.cancel || 0), lgt = lgTotals(), due = t.payableRub + lgt.extra - lgt.pay;
-        return '<div class="ffm-h"><div><div class="ffm-k">Фулфилмент</div><h2>К выплате ' + fmt(due) + ' ₽' + (rate ? ' <small>≈ ' + fmt(due * rate) + ' сом</small>' : '') + '</h2></div>' +
+        var pen = (t.swap || 0) + (t.cancel || 0), lgt = lgTotals(), A = acct(), due = A.has ? A.due : t.payableRub + lgt.extra - lgt.pay;
+        return '<div class="ffm-h"><div class="ffm-k">Фулфилмент' + (A.has ? ' · общий счёт' : '') + '</div>' +
             '<button type="button" class="ffm-x" data-ff="ffclose" aria-label="Закрыть">✕</button></div>' +
+            '<div class="ffm-hero"><div class="ffm-k">' + (A.has ? 'Общий долг' : 'К выплате') + '</div><b>' + fmt(due) + ' <small>₽</small></b>' + (rate ? '<span>≈ ' + fmt(due * rate) + ' сом</span>' : '') + '</div>' +
             '<div class="ffm-top"><div><div class="ffm-k">Отправки</div><b>' + fmt(t.shipCnt) + ' шт</b></div><div><div class="ffm-k">Хранение</div><b>' + fmt(t.storageDays) + ' дн</b></div>' +
             '<div class="ffm-tile" data-ff="adj" data-kind="swap" role="button" tabindex="0"><div class="ffm-k">Подмены и отмены</div><b>' + fmt(pen) + ' ₽</b></div></div>' +
             '<div class="ffm-row"><div><div class="ffm-k">По складам</div><table class="ffm-tbl"><thead><tr><th>Склад</th><th>Отправки</th><th>Хранение</th><th>Выплатить</th></tr></thead><tbody>' + rows +
@@ -277,8 +289,8 @@
     }
     function dmy(d) { return d ? d.slice(8, 10) + '.' + d.slice(5, 7) : ''; }
     function ledgerHtml() {
-        var t = S.total || blank(), lgt = lgTotals(), ro = S.readonly;
-        var accrued = t.payableRub + lgt.extra, due = accrued - lgt.pay;
+        var t = S.total || blank(), lgt = lgTotals(), ro = S.readonly, A = acct();
+        var accrued = A.has ? A.charge : t.payableRub + lgt.extra, paid = A.has ? A.pay : lgt.pay, due = accrued - paid;
         var provs = (S.providers || []).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('');
         var to0 = S.to > today() ? today() : S.to;
         var form = ro ? '' : '<div class="ffl-form" id="ffl-form"><div class="ffl-row">' +
@@ -291,12 +303,14 @@
             '<label>Валюта<select id="ffl-cur"><option value="som">сом</option><option value="rub">₽</option></select></label>' +
             '<label class="ffl-w2">Комментарий (например, забор груза)<input type="text" id="ffl-note" maxlength="120"></label>' +
             '<button type="button" class="ffl-btn" data-ff="lgadd">Записать</button></div></div>';
-        var rows = (S.ledger || []).map(lgParse).filter(function (x) { return lgInPeriod(x); }).map(function (x) {
-            var pay = x.kind === 'payment';
-            var what = pay ? 'Оплата' + (x.from ? ' за ' + dmy(x.from) + '–' + dmy(x.to) : '') : 'Доп. услуга';
-            return '<div class="ffl-li"><time>' + dmy(x.date) + '</time><span>' + esc(what) + (x.text && !/^(Оплата|Доп\. услуга)$/.test(x.text) ? ' · ' + esc(x.text) : '') + (x.ff ? ' · ' + esc(x.ff) : '') + '</span><b class="' + (pay ? 'ffl-g' : '') + '">' + (pay ? '−' : '+') + amtLabel(x) + '</b>' + (ro ? '' : '<button type="button" class="ffl-x" data-ff="lgdel" data-id="' + esc(x.id) + '" aria-label="Удалить">×</button>') + '</div>';
-        }).join('') || '<div class="ffl-empty">За этот период записей нет</div>';
-        return '<div class="ffm-led"><div class="ffm-k">Оплаты и доп. услуги</div><div class="ffl-tiles"><div><span>Начислено</span><b>' + fmt(accrued) + ' ₽' + somOf(accrued) + '</b></div><div><span>Оплачено</span><b class="ffl-g">' + fmt(lgt.pay) + ' ₽' + somOf(lgt.pay) + '</b></div><div class="ffl-due"><span>К выплате</span><b>' + fmt(due) + ' ₽' + somOf(due) + '</b></div></div>' + form + '<div class="ffl-list">' + rows + '</div></div>';
+        var rows = (S.ledger || []).map(lgParse).filter(function (x) { return A.has ? x.date >= ACCT_SINCE : lgInPeriod(x); }).map(function (x) {
+            var pay = x.kind === 'payment', auto = /^\[auto [\d-]+\]\s*/.test(x.text || '');
+            if (auto) x.text = x.text.replace(/^\[auto [\d-]+\]\s*/, '');
+            var generic = /^(Оплата|Доп\. услуга)?$/.test(x.text || '');
+            var what = pay ? (/^Оплата|^Штраф|^Корректировка/.test(x.text || '') ? '' : 'Оплата' + (x.from ? ' за ' + dmy(x.from) + '–' + dmy(x.to) : '')) : (generic ? 'Доп. услуга' : '');
+            return '<div class="ffl-li"><time>' + dmy(x.date) + '</time><span>' + esc(what) + (x.text && !generic ? (what ? ' · ' : '') + esc(x.text) : '') + (x.ff && !A.has ? ' · ' + esc(x.ff) : '') + '</span><b class="' + (pay ? 'ffl-g' : '') + '">' + (pay ? '−' : '+') + amtLabel(x) + '</b>' + (ro ? '' : '<button type="button" class="ffl-x" data-ff="lgdel" data-id="' + esc(x.id) + '" aria-label="Удалить">×</button>') + '</div>';
+        }).join('') || '<div class="ffl-empty">Записей нет</div>';
+        return '<div class="ffm-led"><div class="ffm-k">' + (A.has ? 'Ход счёта' : 'Оплаты и доп. услуги') + '</div><div class="ffl-tiles"><div><span>Начислено</span><b>' + fmt(accrued) + ' ₽' + somOf(accrued) + '</b></div><div><span>Оплачено</span><b class="ffl-g">' + fmt(paid) + ' ₽' + somOf(paid) + '</b></div><div class="ffl-due"><span>К выплате</span><b>' + fmt(due) + ' ₽' + somOf(due) + '</b></div></div>' + form + '<div class="ffl-list">' + rows + '</div></div>';
     }
     function paintFfModal() { var m = document.querySelector('#ffm-ov .ffm'); if (m) m.innerHTML = ffModalHtml(); }
     function openFf() {
