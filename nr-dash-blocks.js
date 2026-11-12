@@ -228,15 +228,37 @@
         var list = S.ledger.length ? S.ledger.map(function (r) {
             return '<div class="li"><time>' + dm(r.entry_date) + '</time><span>' + esc(r.title || (r.kind === 'payment' ? 'Оплата' : 'Начислено')) + (r.boxes ? ' · ' + r.boxes + ' кор.' : '') + '</span><b class="' + (r.kind === 'payment' ? 'pos' : 'neg') + '">' + (r.kind === 'payment' ? '− ' : '+ ') + fmt(r.amount) + ' ₽</b>' + (ro ? '<span></span>' : '<button class="del" data-del="' + esc(r.id) + '" title="Удалить" aria-label="Удалить">×</button>') + '</div>';
         }).join('') : '<div class="empty">Записей пока нет</div>';
-        var form = ro ? '' : '<div class="form"><label>Тип<select id="nrdb-kind"><option value="charge">Начислено</option><option value="payment">Оплачено</option></select></label><label>Что (например, отгрузка 50 коробов на Казань)<input id="nrdb-title" maxlength="120" placeholder="Отгрузка 50 коробов, Казань"></label><label>Коробов<input id="nrdb-boxes" inputmode="numeric" placeholder="50"></label><label>Сумма, ₽<input id="nrdb-amt" inputmode="decimal" placeholder="50 000"></label><button type="button" class="btn" data-add>Добавить</button></div>';
-        var m = modal('Фулфилмент: записи и оплаты', '<div class="sum"><div><small>Начислено</small><b>' + fmt(t.charge) + ' ₽</b></div><div><small>Оплачено</small><b>' + fmt(t.payment) + ' ₽</b></div><div><small>К выплате по записям</small><b>' + fmt(t.due) + ' ₽</b></div></div><div class="hint">Подмены, отмены, хранение и отправки считаются автоматически в карточке «Фулфилмент». Здесь записи, которые вы вносите сами.</div><div class="list">' + list + '</div>' + form);
+        var price0 = ''; try { price0 = localStorage.getItem('nr_ff_box_price_' + cab()) || ''; } catch (e) { /* без памяти */ }
+        var form = ro ? '' : '<div class="form"><label>Тип<select id="nrdb-kind"><option value="ship">Отгрузка (короба × цена)</option><option value="extra">Доп. услуга</option><option value="payment">Оплачено</option></select></label>' +
+            '<label data-f="ship">Коробов<input id="nrdb-boxes" inputmode="numeric" placeholder="88"></label><label data-f="ship">Цена за короб, ₽<input id="nrdb-price" inputmode="decimal" placeholder="150" value="' + esc(price0) + '"></label>' +
+            '<label data-f="text" hidden>Что<input id="nrdb-title" maxlength="120" placeholder="Формирование коробов"></label>' +
+            '<label>Сумма, ₽<input id="nrdb-amt" inputmode="decimal" placeholder="0"></label><label>Дата<input id="nrdb-date" type="date" value="' + todayBishkek() + '"></label><button type="button" class="btn" data-add>Добавить</button></div>';
+        var m = modal('Фулфилмент: записи и оплаты', '<div class="sum"><div><small>Начислено</small><b>' + fmt(t.charge) + ' ₽</b></div><div><small>Оплачено</small><b>' + fmt(t.payment) + ' ₽</b></div><div><small>К выплате по записям</small><b>' + fmt(t.due) + ' ₽</b></div></div><div class="hint">Отправки, хранение и штрафы ФФ считаются сами каждое утро. Здесь вы добавляете отгрузки (короба × цена), доп. услуги и оплаты.</div><div class="list">' + list + '</div>' + form);
+        function sync() {
+            var k = m.querySelector('#nrdb-kind'); if (!k) return;
+            m.querySelectorAll('[data-f="ship"]').forEach(function (l) { l.hidden = k.value !== 'ship'; });
+            m.querySelectorAll('[data-f="text"]').forEach(function (l) { l.hidden = k.value === 'ship'; });
+            if (k.value === 'ship') {
+                var n = parseInt(m.querySelector('#nrdb-boxes').value, 10), pr = parseFloat(String(m.querySelector('#nrdb-price').value).replace(/\s/g, '').replace(',', '.'));
+                if (n > 0 && pr >= 0) m.querySelector('#nrdb-amt').value = String(Math.round(n * pr * 100) / 100);
+            }
+        }
+        m.addEventListener('input', sync); m.addEventListener('change', sync); sync();
         m.addEventListener('click', function (e) {
             var del = e.target.closest('[data-del]'), add = e.target.closest('[data-add]');
             if (del) { var id = del.getAttribute('data-del'); S.ledger = S.ledger.filter(function (r) { return r.id !== id; }); S.data.ledger = S.ledger; persist(); ffModal(); paint(); db().from('ff_ledger').delete().eq('id', id).then(function (r) { if (r && r.error) load(cab()); }); }
             if (add) {
-                var amt = parseFloat(String(m.querySelector('#nrdb-amt').value).replace(/\s/g, '').replace(',', '.')), title = m.querySelector('#nrdb-title').value.trim(), boxes = parseInt(m.querySelector('#nrdb-boxes').value, 10) || null, kind = m.querySelector('#nrdb-kind').value;
+                var num = function (id) { return parseFloat(String(m.querySelector(id).value).replace(/\s/g, '').replace(',', '.')); };
+                var kind0 = m.querySelector('#nrdb-kind').value, title = (m.querySelector('#nrdb-title').value || '').trim(), boxes = null, amt, kind = kind0 === 'payment' ? 'payment' : 'charge';
+                var dt = m.querySelector('#nrdb-date').value || todayBishkek();
+                if (kind0 === 'ship') {
+                    boxes = parseInt(m.querySelector('#nrdb-boxes').value, 10), amt = num('#nrdb-amt');
+                    if (!(boxes > 0)) { m.querySelector('#nrdb-boxes').focus(); return; }
+                    var pr = num('#nrdb-price'); if (isFinite(pr) && pr > 0) { try { localStorage.setItem('nr_ff_box_price_' + cab(), String(pr)); } catch (e) { /* без памяти */ } }
+                    title = 'Отгрузка ' + boxes + ' кор.' + (isFinite(pr) && pr > 0 ? ' × ' + pr + ' ₽' : '');
+                } else { amt = num('#nrdb-amt'); if (kind0 === 'extra' && !title) title = 'Доп. услуга'; }
                 if (!(amt >= 0) || !isFinite(amt)) { m.querySelector('#nrdb-amt').focus(); return; }
-                var row = { id: 'tmp' + Date.now(), cabinet_id: cab(), kind: kind, title: title, boxes: boxes, amount: amt, entry_date: todayBishkek() };
+                var row = { id: 'tmp' + Date.now(), cabinet_id: cab(), kind: kind, title: title, boxes: boxes, amount: amt, entry_date: dt };
                 S.ledger = [row].concat(S.ledger); S.data.ledger = S.ledger; persist(); ffModal(); paint();
                 db().from('ff_ledger').insert({ cabinet_id: row.cabinet_id, kind: kind, title: title, boxes: boxes, amount: amt, entry_date: row.entry_date }).then(function (r) { if (r && r.error) { S.ledger = S.ledger.filter(function (x) { return x.id !== row.id; }); S.data.ledger = S.ledger; persist(); paint(); say('Не получилось сохранить запись. Попробуйте ещё раз.'); } else load(cab()); });
             }
