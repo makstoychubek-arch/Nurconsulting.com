@@ -80,17 +80,24 @@ Deno.serve(async (req) => {
             const stock = byDay.get(date) ?? (lastDay ? byDay.get(lastDay)! : 0);
             const storage = storageForDay(terms, cabId, date, stock);
 
-            // Штраф ФФ за день (сом → ₽)
+            // Штраф ФФ за день (сом → ₽), по дате удержания в финотчёте
             const { data: pen } = await admin.from('raw_finance_report').select('penalty, bonus_type_name, sale_dt, rr_dt')
                 .eq('cabinet_id', cabId).neq('penalty', 0).ilike('bonus_type_name', 'Штраф МП. Невыполненный заказ%')
-                .or(`sale_dt.eq.${date},and(sale_dt.is.null,rr_dt.eq.${date})`).limit(5000);
+                .eq('rr_dt', date)   // «удержано за» дату: так же, как в карточке штрафов.limit(5000);
             const penKgs = ((pen || []) as { penalty: number | string; bonus_type_name: string }[])
                 .filter((p) => /отправка товара отличного от заявленного|отмена продавцом/i.test(p.bonus_type_name))
                 .reduce((s, p) => s + Math.abs(Number(p.penalty) || 0), 0);
             const penalty = rate ? r2(penKgs / rate) : 0;
 
-            const dayTotal = r2(ship.sum + storage);
-            Object.assign(res, { date, shipCount: ship.count, ship: ship.sum, storage, penalty, dayTotal });
+            // Отгрузки (короба) и доп. услуги за день: ручные записи владельца на сайте (коробá: boxes заполнено)
+            const { data: manual } = await admin.from('ff_ledger').select('title, boxes, amount').eq('cabinet_id', cabId).eq('kind', 'charge').eq('entry_date', date).limit(500);
+            let boxes = 0, boxSum = 0, extraSum = 0;
+            for (const m of (manual || []) as { title: string; boxes: number | null; amount: number | string }[]) {
+                if (/^(\[auto|Старт счёта|Долг по ФФ)/.test(String(m.title))) continue;   // свои строки и стартовый долг в день не входят
+                if (m.boxes != null && Number(m.boxes) > 0) { boxes += Number(m.boxes); boxSum += Number(m.amount); } else extraSum += Number(m.amount);
+            }
+            const dayTotal = r2(ship.sum + storage + boxSum + extraSum);
+            Object.assign(res, { date, shipCount: ship.count, ship: ship.sum, storage, boxes, boxSum, extraSum, penalty, dayTotal });
 
             if (body.dry !== true && body.test !== true) {
                 // Запись в общий счёт: повторный запуск за ту же дату пересчитывает свои строки
@@ -118,13 +125,11 @@ Deno.serve(async (req) => {
                 if (dupes?.length) { res.skipped = 'already_sent'; results.push(res); continue; }
             }
 
-            const storageStops = terms.some((t) => t.cabinet_id === cabId && t.kind === 'storage' && t.date_to && t.date_to >= date);
             const png = await renderFfAccountPng({
                 cabinet: legal, dateLabel: prettyDate(date), dayTotal,
-                shipLine: ship.count ? `${ship.count} шт${ship.rate ? ' × ' + ship.rate : ''} = ${grp(ship.sum)} ₽` : '0 отправок',
-                storageLine: storage > 0 ? `${grp(storage)} ₽` : '0 ₽',
+                shipSub: ship.count ? `${ship.count} шт${ship.rate ? ' × ' + ship.rate : ''}` : '0 шт', ship: ship.sum, storage,
+                boxSub: `${grp(boxes)} кор.`, box: boxSum, extra: extraSum,
                 penalty, debt, sinceLabel: 'с ' + shortDate(SINCE),
-                note: storageStops ? 'Оплаты и штрафы ФФ уже вычтены. Оплаты вводите на сайте.' : 'Хранение не начисляется. Оплаты и штрафы ФФ вычтены.',
             });
             const form = new FormData();
             form.append('chat_id', chatId);

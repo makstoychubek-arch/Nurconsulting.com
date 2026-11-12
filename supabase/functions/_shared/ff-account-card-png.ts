@@ -6,8 +6,8 @@ import { ensureFonts, fitText, NR_LOGO_PNG_B64, reportFonts, roundRect, textW } 
 
 export interface FfAccountCard {
     cabinet: string; dateLabel: string; dayTotal: number;
-    shipLine: string; storageLine: string; penalty: number;
-    debt: number; sinceLabel: string; note: string;
+    shipSub: string; ship: number; storage: number; boxSub: string; box: number; extra: number; penalty: number;
+    debt: number; sinceLabel: string;
 }
 
 const grp = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -20,8 +20,8 @@ const numW = (t: string, px: number): number =>
 export async function renderFfAccountPng(inp: FfAccountCard): Promise<Uint8Array> {
     await ensureFonts();
     const S = 2, width = 580, pad = 20, logoS = 36, headerH = logoS + 16, inner = 26;
-    const cardW = width - pad * 2, heroH = 112, rowH = 46, debtH = 78, footH = 44;
-    const cardH = inner + heroH + rowH * 3 + debtH + footH;
+    const cardW = width - pad * 2, heroH = 112, rowH = 42, debtH = 82;
+    const cardH = inner + heroH + rowH * 5 + debtH;
     const height = pad + headerH + cardH + pad;
 
     const canvas = createCanvas(width * S, height * S);
@@ -66,37 +66,38 @@ export async function renderFfAccountPng(inp: FfAccountCard): Promise<Uint8Array
     const top = cardY + inner + heroH - 14;
     ctx.fillStyle = '#0B0B0B'; ctx.fillRect(L, top, innerW, 1);
     const pen = inp.penalty;
-    const rows: Array<[string, string, boolean]> = [
-        ['ОТПРАВКИ', inp.shipLine, false],
-        ['ХРАНЕНИЕ', inp.storageLine, false],
-        ['ШТРАФ С СЧЁТА ЗА ВЧЕРА', pen > 0 ? '−' + grp(pen) + ' ₽' : '0 ₽', pen > 0],
+    const rows: Array<[string, string, string, boolean]> = [
+        ['ОТПРАВКИ', inp.shipSub, grp(inp.ship) + ' ₽', false],
+        ['ХРАНЕНИЕ', '', grp(inp.storage) + ' ₽', false],
+        ['ОТГРУЗКИ (КОРОБА)', inp.boxSub, grp(inp.box) + ' ₽', false],
+        ['ДОП. УСЛУГИ', '', grp(inp.extra) + ' ₽', false],
+        ['ШТРАФ С СЧЁТА ЗА ВЧЕРА', '', pen > 0 ? '−' + grp(pen) + ' ₽' : '0 ₽', pen > 0],
     ];
-    rows.forEach(([label, val, pill], i) => {
+    rows.forEach(([label, sub, val, pill], i) => {
         const ry = top + i * rowH;
         if (i) { ctx.fillStyle = '#E6E6E6'; ctx.fillRect(L, ry, innerW, 1); }
         ctx.fillStyle = '#6B6B6B'; ctx.font = 'bold 10px DejaVu';
-        ctx.fillText(label, L, ry + 28);
+        ctx.fillText(label, L, ry + 26);
+        if (sub) { ctx.font = '12px DejaVu'; ctx.fillText(sub, L + rw(ctx, label.replace(/./g, 'W'), true) * 0 + 160, ry + 26); }
         ctx.font = 'bold 15px DejaVu';
-        const vw = rw(ctx, val);
+        const vw = numW(val.replace('−', '0'), 15) + (val.startsWith('−') ? 0.2 * 15 : 0);
         if (pill) {
-            roundRect(ctx, R - vw - 24, ry + 10, vw + 24, 26, 13);
+            roundRect(ctx, R - vw - 24, ry + 8, vw + 24, 26, 13);
             ctx.fillStyle = '#E2F6E8'; ctx.fill();
-            ctx.fillStyle = '#1B7A3A'; ctx.fillText(val, R - vw - 12, ry + 28);
+            ctx.fillStyle = '#1B7A3A'; ctx.fillText(val, R - vw - 12, ry + 26);
         } else {
-            ctx.fillStyle = '#0B0B0B'; ctx.fillText(val, R - vw * 0.94, ry + 28);
+            ctx.fillStyle = '#0B0B0B'; ctx.fillText(val, R - vw, ry + 26);
         }
     });
 
     // Общий долг
-    const dy = top + rowH * 3;
+    const dy = top + rowH * 5;
     ctx.fillStyle = '#0B0B0B'; ctx.fillRect(L, dy, innerW, 1);
     ctx.fillStyle = '#6B6B6B'; ctx.font = 'bold 11px DejaVu';
-    ctx.fillText('ОБЩИЙ ДОЛГ ' + inp.sinceLabel.toUpperCase(), L, dy + 44);
+    ctx.fillText('ОБЩИЙ ДОЛГ ' + inp.sinceLabel.toUpperCase(), L, dy + 50);
     const debt = grp(inp.debt) + ' ₽';
     ctx.fillStyle = '#0B0B0B'; ctx.font = 'bold 26px DejaVu';
-    ctx.fillText(debt, R - (numW(grp(inp.debt), 26) + 26 * 0.9), dy + 48);
+    ctx.fillText(debt, R - (numW(grp(inp.debt), 26) + 26 * 0.9), dy + 54);
 
-    ctx.fillStyle = '#9A9A9A'; ctx.font = '11px DejaVu';
-    ctx.fillText(fitText(ctx, inp.note, innerW), L, cardY + cardH - 18);
     return canvas.toBuffer('image/png');
 }
