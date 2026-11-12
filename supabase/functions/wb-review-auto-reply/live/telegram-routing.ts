@@ -7,9 +7,7 @@
 //   TELEGRAM_CHAT_PENALTIES     — штрафы и удержания
 //   TELEGRAM_CHAT_ADS           — реклама: пауза/старт, баланс РК
 //   TELEGRAM_CHAT_AB_TESTS      — завершение А/Б тестов
-//   TELEGRAM_CHAT_NEWS          — новости портала продавца WB
 //   TELEGRAM_CHAT_REVIEWS       — автоответы на отзывы WB
-//   TELEGRAM_CHAT_BLOCKINGS     — блокировки карточек (NR / Блокировки)
 //   TELEGRAM_CHAT_WAREHOUSE     — склад: хранение, возвраты (NR / Склад)
 //
 // Обратная совместимость: TELEGRAM_CHANNEL_ID → ab_tests, если TELEGRAM_CHAT_AB_TESTS пуст.
@@ -18,9 +16,7 @@ export const TELEGRAM_CHANNEL_LABELS = {
   penalties: 'Штрафы',
   ads: 'Реклама',
   ab_tests: 'А/Б тесты',
-  news: 'Новости WB',
   reviews: 'Отзывы',
-  blockings: 'Блокировки',
   warehouse: 'Склад'
 };
 const CHANNEL_ENV = {
@@ -28,9 +24,7 @@ const CHANNEL_ENV = {
   penalties: 'TELEGRAM_CHAT_PENALTIES',
   ads: 'TELEGRAM_CHAT_ADS',
   ab_tests: 'TELEGRAM_CHAT_AB_TESTS',
-  news: 'TELEGRAM_CHAT_NEWS',
   reviews: 'TELEGRAM_CHAT_REVIEWS',
-  blockings: 'TELEGRAM_CHAT_BLOCKINGS',
   warehouse: 'TELEGRAM_CHAT_WAREHOUSE'
 };
 const LEGACY_ENV = {
@@ -41,9 +35,7 @@ const ALL_CHANNELS = [
   'penalties',
   'ads',
   'ab_tests',
-  'news',
   'reviews',
-  'blockings',
   'warehouse'
 ];
 export function getTelegramToken() {

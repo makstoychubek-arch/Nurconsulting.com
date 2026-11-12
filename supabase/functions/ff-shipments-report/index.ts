@@ -1,5 +1,5 @@
 // ff-shipments-report: ежедневная карточка «Отправки FBS» в Telegram для фулфилмента (АМАН ФФ).
-// Каждый день в 20:00 по Бишкеку (14:00 UTC): сколько заказов FBS ушло за сегодня по каждому кабинету и сколько это стоит
+// Каждое утро в 07:00 по Бишкеку (01:00 UTC): сколько заказов FBS ушло за вчера по каждому кабинету и сколько это стоит
 // в рублях по тарифам ФФ (ff_terms). Куда слать: канал «FBS» (TELEGRAM_CHAT_FBS). Кабинеты без тарифа ФФ и кабинеты,
 // у которых канал FBS выключен, в карточку не попадают.
 // Тело (необязательно): { date: 'YYYY-MM-DD', test: true (не пишет в журнал), force: true (слать повторно), dry: true (только расчёт) }.
@@ -21,7 +21,8 @@ const FF_LABEL = 'АМАН ФФ';
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, 'Content-Type': 'application/json' } });
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 const prettyDate = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; };
-const todayBishkek = () => new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10);
+// Утренний отчёт за вчера: день закрыт целиком, цифры окончательные (счёт ФФ считается по ним).
+const yesterdayBishkek = () => new Date(Date.now() + 6 * 3600 * 1000 - 24 * 3600 * 1000).toISOString().slice(0, 10);
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
     if (!await isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
-    const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : todayBishkek();
+    const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : yesterdayBishkek();
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
 
     try {
