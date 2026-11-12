@@ -32,7 +32,7 @@ const FN_DISTRICT = [
     ['ab', /^ab-/],
     ['content', /^content-/],
     ['rnp', /^(rnp-|auto-sync|sync-daily|sync-queue|orders-|goods-|daily-sales|cleanup-)/],
-    ['warehouse', /^(warehouse-|wb-restock|wb-news|daily-fbs|daily-penalties|penalties-|blockings-|marketplace-news|morning-digest|namaz-|agent-morning|diag-)/],
+    ['warehouse', /^(warehouse-|wb-restock|daily-fbs|daily-penalties|penalties-|morning-digest|namaz-|agent-morning|diag-)/],
     ['telegram', /^(telegram-|tg-)/],
     ['access', /^(admin-space|delete-user|onboard-cabinet|cabinet-features)/],
     ['core', /^(wb-proxy)/],

@@ -6,9 +6,7 @@ export type TelegramGateChannel =
     | 'penalties'
     | 'ads'
     | 'ab_tests'
-    | 'news'
     | 'reviews'
-    | 'blockings'
     | 'fbs';
 
 // deno-lint-ignore no-explicit-any

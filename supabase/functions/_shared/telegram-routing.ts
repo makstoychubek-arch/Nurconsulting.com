@@ -7,9 +7,7 @@
 //   TELEGRAM_CHAT_PENALTIES     — штрафы и удержания
 //   TELEGRAM_CHAT_ADS           — реклама: пауза/старт, баланс РК
 //   TELEGRAM_CHAT_AB_TESTS      — завершение А/Б тестов
-//   TELEGRAM_CHAT_NEWS          — новости портала продавца WB
 //   TELEGRAM_CHAT_REVIEWS       — автоответы на отзывы WB
-//   TELEGRAM_CHAT_BLOCKINGS     — блокировки карточек (NR / Блокировки)
 //   TELEGRAM_CHAT_FBS           — FBS отчёты
 //
 // Обратная совместимость: TELEGRAM_CHANNEL_ID → ab_tests, если TELEGRAM_CHAT_AB_TESTS пуст.
@@ -19,9 +17,7 @@ export type TelegramChannel =
   | 'penalties'
   | 'ads'
   | 'ab_tests'
-  | 'news'
   | 'reviews'
-  | 'blockings'
   | 'fbs'
   | 'team';
 
@@ -30,9 +26,7 @@ export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
     penalties: 'Штрафы',
     ads: 'Реклама',
     ab_tests: 'А/Б тесты',
-    news: 'Новости WB',
     reviews: 'Отзывы',
-    blockings: 'Блокировки',
     fbs: 'FBS',
     team: 'Тим',
 };
@@ -42,9 +36,7 @@ export const TELEGRAM_CHANNEL_PURPOSE: Record<TelegramChannel, string> = {
     penalties: 'Штрафы и удержания WB',
     ads: 'Реклама: пауза, старт и баланс РК',
     ab_tests: 'Завершение А/Б тестов карточек',
-    news: 'Новости кабинета продавца WB',
     reviews: 'Отзывы и автоответы',
-    blockings: 'Блокировки карточек',
     fbs: 'Отчёты FBS',
     team: 'Общий чат команды',
 };
@@ -54,9 +46,7 @@ const CHANNEL_ENV: Record<TelegramChannel, string> = {
     penalties: 'TELEGRAM_CHAT_PENALTIES',
     ads: 'TELEGRAM_CHAT_ADS',
     ab_tests: 'TELEGRAM_CHAT_AB_TESTS',
-    news: 'TELEGRAM_CHAT_NEWS',
     reviews: 'TELEGRAM_CHAT_REVIEWS',
-    blockings: 'TELEGRAM_CHAT_BLOCKINGS',
     fbs: 'TELEGRAM_CHAT_FBS',
     team: 'TEAM_TELEGRAM_CHAT_ID',
 };
@@ -76,9 +66,7 @@ const ALL_CHANNELS: TelegramChannel[] = [
     'penalties',
     'ads',
     'ab_tests',
-    'news',
     'reviews',
-    'blockings',
     'fbs',
     'team',
 ];
