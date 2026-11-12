@@ -19,8 +19,8 @@ const CORS = {
 };
 const FF_PREFIX = 'АМАН';
 const FF_NAME = 'АМАН ФФ';
-// Часть цены отправки ФФ выделяется отдельной доп. услугой: у ИП Бейшеева 150 ₽ за куртку = отправка 100 + вакуумирование 50.
-const SHIP_EXTRA: Record<string, { perUnit: number; label: string }> = { 'Baza': { perUnit: 50, label: 'Вакуумирование' } };
+// Доп. услуга к цене отправки (по имени кабинета). У ИП Бейшеева вакуумирование 50 ₽ отменено со вторника 10.11: список пуст, отправка 100 ₽ идёт из ff_terms.
+const SHIP_EXTRA: Record<string, { perUnit: number; label: string }> = {};
 const SINCE = '2026-10-27';   // с этой даты считается общий долг (до неё Бейшеев оплачен, у Уркунбаева стартовый долг лежит в записях)
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, 'Content-Type': 'application/json' } });
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
