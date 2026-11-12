@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
             const { data: manual } = await admin.from('ff_ledger').select('title, boxes, amount').eq('cabinet_id', cabId).eq('kind', 'charge').eq('entry_date', date).limit(500);
             let boxes = 0, boxSum = 0, extraSum = 0;
             for (const m of (manual || []) as { title: string; boxes: number | null; amount: number | string }[]) {
-                if (/^(\[auto|Старт счёта|Долг по ФФ)/.test(String(m.title))) continue;   // свои строки и стартовый долг в день не входят
+                if (/^(\[auto|Старт счёта|Долг по ФФ|Расчёт ФФ)/.test(String(m.title))) continue;   // свои строки и стартовый долг в день не входят
                 if (m.boxes != null && Number(m.boxes) > 0) { boxes += Number(m.boxes); boxSum += Number(m.amount); } else extraSum += Number(m.amount);
             }
             // Вакуумирование: переключатель на сайте (ff_settings.vacuum), сверху цены отправки, с даты включения
@@ -109,10 +109,13 @@ Deno.serve(async (req) => {
                 // Запись в общий счёт: повторный запуск за ту же дату пересчитывает свои строки
                 const tag = `[auto ${date}]`;
                 await admin.from('ff_ledger').delete().eq('cabinet_id', cabId).like('title', tag + '%');
+                // Если ФФ сам посчитал общий долг на дату («Расчёт ФФ на …»), дни до неё включительно уже в нём: начисления за них не пишем, штрафы вычитаем
+                const { data: op } = await admin.from('ff_ledger').select('entry_date').eq('cabinet_id', cabId).like('title', 'Расчёт ФФ на%').order('entry_date', { ascending: false }).limit(1);
+                const covered = !!op?.length && date <= String(op[0].entry_date).slice(0, 10);
                 const rows: Record<string, unknown>[] = [];
                 const main = r2(dayTotal - vac);
-                if (main > 0) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'charge', title: `${tag} Отправки ${ship.count} шт${ship.rate ? ' × ' + ship.rate : ''}, хранение`, amount: main, entry_date: date });
-                if (vac > 0 && sx) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'charge', title: `${tag} ${sx.label} ${ship.count} шт × ${sx.perUnit}`, amount: vac, entry_date: date });
+                if (main > 0 && !covered) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'charge', title: `${tag} Отправки ${ship.count} шт${ship.rate ? ' × ' + ship.rate : ''}, хранение`, amount: main, entry_date: date });
+                if (vac > 0 && sx && !covered) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'charge', title: `${tag} ${sx.label} ${ship.count} шт × ${sx.perUnit}`, amount: vac, entry_date: date });
                 if (penalty > 0) rows.push({ cabinet_id: cabId, ff_name: FF_NAME, kind: 'payment', title: `${tag} Штраф ФФ (зачёт)`, amount: penalty, entry_date: date });
                 if (rows.length) {
                     const { error: iErr } = await admin.from('ff_ledger').insert(rows);
