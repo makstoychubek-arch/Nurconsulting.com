@@ -6,7 +6,7 @@ import { ensureFonts, fitText, NR_LOGO_PNG_B64, reportFonts, roundRect, textW } 
 
 export interface FfAccountCard {
     cabinet: string; dateLabel: string; dayTotal: number;
-    shipSub: string; ship: number; storage: number; boxSub: string; box: number; extra: number; penalty: number;
+    shipSub: string; ship: number; storage: number; boxSub: string; box: number; extra: number; extraSub?: string; penalty: number;
     debt: number; sinceLabel: string;
 }
 
@@ -70,7 +70,7 @@ export async function renderFfAccountPng(inp: FfAccountCard): Promise<Uint8Array
         ['ОТПРАВКИ', inp.shipSub, grp(inp.ship) + ' ₽', false],
         ['ХРАНЕНИЕ', '', grp(inp.storage) + ' ₽', false],
         ['ОТГРУЗКИ (КОРОБА)', inp.boxSub, grp(inp.box) + ' ₽', false],
-        ['ДОП. УСЛУГИ', '', grp(inp.extra) + ' ₽', false],
+        ['ДОП. УСЛУГИ', inp.extraSub || '', grp(inp.extra) + ' ₽', false],
         ['ШТРАФ С СЧЁТА ЗА ВЧЕРА', '', pen > 0 ? '−' + grp(pen) + ' ₽' : '0 ₽', pen > 0],
     ];
     rows.forEach(([label, sub, val, pill], i) => {
