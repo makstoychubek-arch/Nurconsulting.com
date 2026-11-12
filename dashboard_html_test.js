@@ -1256,6 +1256,10 @@ assert.ok(html.includes('function saveOzonForCabinet') && html.includes('ozon_cl
         'Ozon key is saved through the cabinet-token function, which checks it in Ozon');
     assert.ok(!/from\('cabinets'\)\.update/.test(fn), 'Ozon key is not written from the browser straight into the table');
     assert.ok(fn.includes('Проверяем ключ') && fn.includes('restore()'), 'Ozon save button answers at once and comes back to normal');
+    const api = html.slice(html.indexOf('id="settings-api"'), html.indexOf('id="tab-telegram-bots"'));
+    assert.ok(api.includes('id="ozon-token-list"') && api.includes('Ключи Ozon'), 'Ozon keys are entered in Settings, API tab, below the WB cabinets');
+    assert.equal((html.match(/id="ozon-token-list"/g) || []).length, 1, 'only one Ozon key list exists (input ids must stay unique)');
+    assert.ok(/section === 'api'\) \{ loadCabinetsAPIList\(\); if \(typeof loadOzonTokenPage/.test(html), 'opening the API tab loads the Ozon key list');
 }
 assert.ok(/class="settings-section-tab" id="settings-tab-btn-api"[^>]*>API Wildberries</.test(html),
     'settings shows the API Wildberries tab to regular users, not only Super Admin');

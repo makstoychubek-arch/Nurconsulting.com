@@ -7674,6 +7674,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                     <div id="cabinets-api-list" class="space-y-2"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка…</div></div>
                 </div>
+                <div class="widget-card p-6">
+                    <div class="mb-4">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Ключи Ozon</h3>
+                        <p class="text-xs mt-1" style="color:var(--text-muted)">Client-Id и Api-Key из кабинета продавца Ozon (Настройки → Seller API). Один кабинет, одна пара. Ключ проверяется в Ozon при сохранении и дальше не показывается.</p>
+                    </div>
+                    <div id="ozon-token-list"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кабинетов...</div></div>
+                </div>
             </div>
         </div>
 
@@ -7832,7 +7839,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                     <button class="ui-btn ui-btn-secondary" onclick="showTab('settings'); showSettingsSection('api', document.getElementById('settings-tab-btn-api'))">Кабинеты WB</button>
                 </div>
-                <div id="ozon-token-list"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кабинетов...</div></div>
+                <div class="text-sm" style="color:var(--text-secondary)">Ключи Ozon теперь вводятся в Настройки → API Wildberries, ниже кабинетов WB.</div>
             </div>
         </div>
 
@@ -9883,7 +9890,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (name === 'rnp') bootRnpTab(true);
             if (name === 'planning' && hasUserCabinets) loadPlanningTab();
             if (name === 'telegram-bots') loadTelegramBotsPage();
-            if (name === 'ozon') loadOzonTokenPage();
+            if (name === 'ozon') setTimeout(() => { showTab('settings'); showSettingsSection('api', document.getElementById('settings-tab-btn-api')); }, 0);
             if (name === 'agents') loadAgentsPage();
             if (name === 'akylai') window.loadAkylaiPage?.();
             if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
@@ -16427,7 +16434,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         document.getElementById('settings-' + section)?.classList.remove('hidden');
         if (section === 'profile' || section === 'integrations') { try { window.NrAccess?.card?.(); } catch (_) {} }
         if (section === 'profile') loadSettingsProfile();
-        if (section === 'api') loadCabinetsAPIList();
+        if (section === 'api') { loadCabinetsAPIList(); if (typeof loadOzonTokenPage === 'function') loadOzonTokenPage(); }
         if (section === 'security') {
             loadSecuritySessions();
             if (isSuperAdmin) {
