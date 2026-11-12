@@ -693,7 +693,6 @@ html body .ab-new-dialog .ab-selected-card.hidden { display: none !important; }
 
 /* ===== Единые окна «Минимализма»: все .nr-win выглядят как «Новый А/Б тест» =====
    Белый лист с контуром, без светофора macOS, без затемнения и размытия под окном, размеры S/M/L задаёт CSS. */
-html body :is(.rnp-settings-overlay, .rnp-plan-fact-overlay, #premium-modal, #add-cabinet-modal, #autobidder-modal, #supply-detail-modal, .nru-ov) { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 html body .nr-win:not(.nr-win-photo):not(.nw-modal) { --w: 560px; width: min(var(--w), calc(100vw - 24px)) !important; height: auto !important; max-height: calc(100dvh - 32px) !important; background: var(--surface-solid, #fff) !important; border: 1.5px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important; }
 html body .nr-win.rnp-settings-dialog:not(.ab-edit-dialog) { --w: 720px; height: min(820px, calc(100dvh - 32px)) !important; }
 html body .nr-win.ab-report-dialog, html body .nr-win.gg-settings-dialog { --w: 900px; height: min(860px, calc(100dvh - 32px)) !important; }
@@ -718,7 +717,6 @@ html body .nr-win button.rounded-xl, html body .nr-win button.rounded-lg { borde
 html body .nru-toast.sticky .nru-bar { display: none; }
 
 /* окна, собранные скриптами: тот же вид (прозрачная подложка, контур 1,5px, радиус 26px) */
-html body :is(.ffm-ov, .adx-gp-ov, .adp2-ov, .shv-ov, #nrdb-modal, .tg-overlay, .nw-ov, .nx-ov, .gc-overlay) { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp, .rnp-plan-panel.rnp-modal-panel, #nrdb-modal > *) { background: var(--surface-solid, #fff) !important; border: 1.5px solid var(--text-primary) !important; border-radius: 26px !important; box-shadow: none !important; }
 html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp) h3, html body :is(.adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp) h4 { font-weight: 900; letter-spacing: -.02em; }
 
@@ -1000,7 +998,6 @@ html body #adv-pulse .adp2-mclose { margin-left: auto; width: 34px; height: 34px
 /* Окна и подложки: размытие заднего плана на весь экран дорого рисуется на каждом кадре (особенно на телефоне), поэтому на телефоне его нет, на ПК лёгкое */
 html body :is(#autobidder-modal, #supply-detail-modal, .rnp-plan-fact-overlay, .rnp-settings-overlay, .gc-overlay, .rnp-photo-lightbox, #premium-modal, #add-cabinet-modal, .bottom-beta-overlay, .mobile-overlay, .rnp-plan-overlay, .rnp-lightbox, .rnp-ded-overlay, .tg-overlay) { -webkit-backdrop-filter: blur(6px) !important; backdrop-filter: blur(6px) !important; }
 @media (max-width: 768px) {
-  html body :is(#autobidder-modal, #supply-detail-modal, .rnp-plan-fact-overlay, .rnp-settings-overlay, .gc-overlay, .rnp-photo-lightbox, #premium-modal, #add-cabinet-modal, .bottom-beta-overlay, .mobile-overlay, .rnp-plan-overlay, .rnp-lightbox, .rnp-ded-overlay, .tg-overlay) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   /* высота экрана на телефоне без прыжков при появлении и скрытии адресной строки */
   html body #tab-logistics.tab-content.active { height: calc(100dvh - 132px); }
   html body .gg-table-scroll { max-height: calc(100dvh - 168px); }
@@ -1512,3 +1509,9 @@ html body .rnp-head-wide-info .rnp-gs-name { justify-content: flex-start; paddin
 html body .rnp-stock-donut-leg.is-fbo .rnp-stock-donut-leg-name, html body .rnp-stock-donut-leg.is-fbo .rnp-stock-donut-leg-pct,
 html body .rnp-stock-donut-leg.is-fbs .rnp-stock-donut-leg-name, html body .rnp-stock-donut-leg.is-fbs .rnp-stock-donut-leg-pct,
 html body .rnp-stock-scheme-cap.is-fbo, html body .rnp-stock-scheme-cap.is-fbs { color: var(--text-primary) !important; }
+
+/* ===== Правило сайта: у КАЖДОЙ модалки размывается и затемняется фон (владелец, 13 ноября 2026) ===== */
+html body :is(.ffm-ov, .adx-gp-ov, .adp2-ov, .shv-ov, #nrdb-modal, .tg-overlay, .nw-ov, .nx-ov, .gc-overlay, .nru-ov, .rnp-settings-overlay, .rnp-plan-fact-overlay, #premium-modal, #add-cabinet-modal, #autobidder-modal, #supply-detail-modal, .bottom-beta-overlay, .rnp-photo-lightbox, .rnp-lightbox, .rnp-ded-overlay, .rnp-plan-overlay, #rp-modal, #ab-edit-modal, #ab-report-modal, [data-nr-blur]) {
+  background: rgba(10, 10, 12, .28) !important; -webkit-backdrop-filter: blur(8px) !important; backdrop-filter: blur(8px) !important;
+}
+html body :is([popover], dialog)::backdrop { background: rgba(10, 10, 12, .28); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }

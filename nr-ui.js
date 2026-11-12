@@ -214,5 +214,21 @@
         return confirmDlg({ title: title, text: text, danger: o.danger != null ? o.danger : !!verb, confirmLabel: o.confirmLabel || (verb ? verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase() : 'Подтвердить'), cancelLabel: o.cancelLabel });
     }
 
+    // Правило сайта: у каждой модалки размывается фон. Любой новый полноэкранный слой, добавленный в <body>, получает метку data-nr-blur (CSS в nr-mono.css).
+    (function blurSafetyNet() {
+        var d = root.document;
+        if (!d || !root.MutationObserver || !d.body) return;
+        function check(el) {
+            if (!el || el.nodeType !== 1 || el.hasAttribute('data-nr-blur') || el.id === 'nr-splash' || el.classList.contains('nra')) return;
+            try {
+                var cs = root.getComputedStyle(el);
+                if (cs.position !== 'fixed' || (parseInt(cs.zIndex, 10) || 0) < 100) return;
+                var r = el.getBoundingClientRect();
+                if (r.width >= root.innerWidth * 0.95 && r.height >= root.innerHeight * 0.95) el.setAttribute('data-nr-blur', '');
+            } catch (e) { /* без метки */ }
+        }
+        new root.MutationObserver(function (list) { list.forEach(function (m) { m.addedNodes.forEach(check); }); }).observe(d.body, { childList: true });
+    })();
+
     root.NrUi = { toast: toast, confirm: confirmDlg, dialog: dialog, alert: alertFn, ask: ask, notice: notice };
 })(typeof window !== 'undefined' ? window : globalThis);
