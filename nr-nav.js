@@ -407,12 +407,20 @@
             try { doc.dispatchEvent(new CustomEvent('nr-mp-change', { detail: { mp: m } })); } catch (_) { /* старый браузер */ }
         }
         root.NrMp = { get: function () { return cur; }, set: set, onChange: function (f) { subs.push(f); }, label: function (m) { return LBL[m || cur]; } };
+        // ПК: в шапке сразу справа от даты. Телефон: шапка тесная, поэтому отдельной строкой над содержимым.
+        function place(bar) {
+            var phone = root.matchMedia && root.matchMedia('(max-width: 768px)').matches;
+            var date = doc.getElementById('header-date-chip-wrap'), host = doc.querySelector('.main-content');
+            if (phone && host) { if (bar.parentNode !== host || host.firstChild !== bar) host.insertBefore(bar, host.firstChild); }
+            else if (date && date.parentNode) { if (date.nextSibling !== bar) date.parentNode.insertBefore(bar, date.nextSibling); }
+        }
+        if (root.addEventListener) root.addEventListener('resize', function () { var b = doc.getElementById('nr-mp'); if (b) place(b); });
         function mount() {
-            var host = doc.querySelector('.main-content'); if (!host || doc.getElementById('nr-mp')) { paint(); return; }
+            var anchor = doc.getElementById('header-date-chip-wrap') || doc.getElementById('nr-zoom'); if (!anchor || doc.getElementById('nr-mp')) { paint(); return; }
             var bar = doc.createElement('div'); bar.id = 'nr-mp'; bar.className = 'nr-mp'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Площадка');
             bar.innerHTML = MODES.map(function (m) { return '<button type="button" data-mp="' + m + '">' + LBL[m] + '</button>'; }).join('');
             bar.addEventListener('click', function (e) { var b = e.target.closest('button[data-mp]'); if (b) set(b.getAttribute('data-mp')); });
-            host.insertBefore(bar, host.firstChild); paint();
+            place(bar); paint();
         }
         if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
         var mt = 0; new MutationObserver(function () { if (mt || doc.getElementById('nr-mp')) return; mt = setTimeout(function () { mt = 0; mount(); }, 200); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true });
