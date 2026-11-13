@@ -1605,3 +1605,26 @@ html body .cc-qrbox { width: 96px; height: 96px; border: 1px dashed var(--text-p
 html body .cc-qr p { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
 @media (max-width: 980px) { html body .cc-hero { grid-template-columns: 72px minmax(0, 1fr); } html body .cc-ph { width: 72px; } html body .cc-hero .cc-tiles { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; } html body .cc-two, html body .cc-leak { grid-template-columns: 1fr; } html body .cc-slides { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 480px) { html body .cc-top { justify-content: flex-start; } html body .cc-sel { width: 100%; } html body .cc-slides { grid-template-columns: repeat(2, minmax(0, 1fr)); } html body .cc-pay b { font-size: 28px; } }
+/* Сравнение контента: данные из таблицы (фото конкурентов, длинные тексты, слова и запросы) */
+html body .cc-th { width: 42px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); display: block; background: var(--sel); }
+html body .cc-t.cc-tr td { padding-top: 6px; padding-bottom: 6px; }
+html body .cc-a { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+html body .cc-a:hover { text-decoration-color: var(--text-primary); }
+html body .cc-tile b small { font-size: 13px; font-weight: 700; opacity: .6; letter-spacing: 0; }
+html body .cc-t.cc-t3 td { vertical-align: top; font-weight: 600; line-height: 1.45; }
+html body .cc-t.cc-t3 td:first-child { font-weight: 800; width: 210px; white-space: normal; }
+html body .cc-t.cc-t3 td:nth-child(2) { color: var(--text-muted); width: 38%; }
+html body .cc-t.cc-t3 tr.cc-ch td:nth-child(3) { color: var(--text-primary); font-weight: 700; }
+html body .cc-new { display: inline-block; border: 1px solid #16a34a; color: #16a34a; border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 800; white-space: nowrap; vertical-align: middle; }
+html body .cc-more summary { cursor: pointer; list-style: none; }
+html body .cc-more summary::-webkit-details-marker { display: none; }
+html body .cc-more summary::after { content: " показать"; font-weight: 800; color: var(--text-primary); text-decoration: underline; text-underline-offset: 3px; }
+html body .cc-more[open] summary { display: none; }
+html body .cc-scroll { max-height: 520px; overflow: auto; }
+html body .cc-scroll thead th { position: sticky; top: 0; background: var(--bg, #fff); z-index: 1; padding-top: 4px; }
+html body .cc-it { display: grid; gap: 6px; border-top: 1px solid var(--border); padding-top: 12px; font-size: 13px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+html body .cc-pill:not(.up):not(.dn) { color: var(--text-muted); }
+@media (max-width: 480px) { html body .cc-t.cc-t3 td:first-child { width: 120px; } }
+html body .cc-tiles .cc-tile b { font-size: clamp(18px, 1.9vw, 26px); white-space: nowrap; }
+html body .cc-pill { white-space: nowrap; }
+html body .cc-th.cc-nophoto { color: transparent; }
