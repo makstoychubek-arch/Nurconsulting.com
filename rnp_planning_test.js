@@ -22,3 +22,19 @@ for (const col of ['planned_orders', 'planned_sales', 'planned_drr', 'planned_ad
     assert.ok(src.includes(`'${col}'`), `есть показатель ${col}`);
 }
 console.log('rnp_planning_test: ok');
+
+// Листы «План продаж» и «План вывода денег»: формулы
+const P = ctx.NrPlanning;
+const c = P.calcWeek({ units: 100, price: 2000, wb: 30, cogs: 600, mkt: 10000, sup: 50 });
+assert.strictEqual(c.rev, 200000, 'выручка = шт × цена');
+assert.strictEqual(c.pay, 140000, 'к перечислению = выручка − удержания WB');
+assert.strictEqual(c.profit, 70000, 'ЧП = к перечислению − себестоимость × шт − маркетинг');
+assert.strictEqual(P.calcWeek({}).any, false, 'пустая неделя пустая');
+const wk = P.sheetWeeks('2026-11-04', 3);
+assert.strictEqual(wk[0].start, '2026-11-02', 'неделя начинается с понедельника');
+assert.strictEqual(wk[1].end, '2026-11-15');
+const plan = P.moneyPlan([{ id: 'a', data: { '2026-11-02': { units: 10, price: 1000 } } }, { id: 'b', data: { '2026-11-02': { units: 5, price: 2000, mkt: 500 } } }], wk);
+assert.strictEqual(plan[0].rev, 20000, 'вывод денег суммирует блоки');
+assert.strictEqual(plan[0].mkt, 500);
+assert.strictEqual(P.sumPlan(plan).pay, 20000, 'итого по всем неделям');
+console.log('rnp_planning sheets: ok');

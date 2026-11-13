@@ -106,7 +106,7 @@
             '<button type="button" class="rnp-plan-fill" data-fill data-nm="' + a.nm_id + '" data-w="' + w.n + '" title="Поставить это значение на все недели месяца">⇉</button></div>' + tot + '</td>';
     }
 
-    function render() {
+    function renderRnp() {
         var host = st.host;
         var m = metric();
         var q = (st.query || '').toLowerCase();
@@ -132,6 +132,161 @@
             (body || '<tr><td colspan="' + (st.weeks.length + 1) + '" class="rnp-plan-empty">Нет артикулов</td></tr>') + '</tbody></table></div>';
     }
 
+
+    // ===== Листы как в Excel: «План продаж» (по артикулам и неделям) и «План вывода денег» (считается формулами) =====
+    var MSHORT = ['янв.', 'фев.', 'мар.', 'апр.', 'май', 'июн.', 'июл.', 'авг.', 'сен.', 'окт.', 'ноя.', 'дек.'];
+    var SROWS = [
+        { k: 'units', label: 'План продаж, шт', input: 1 },
+        { k: 'price', label: 'Цена продажи, ₽', input: 1 },
+        { k: 'rev', label: 'Выручка, ₽' },
+        { k: 'wb', label: 'Удержания WB, %', input: 1 },
+        { k: 'pay', label: 'План к перечислению, ₽', bold: 1 },
+        { k: 'cogs', label: 'Себестоимость ед., ₽', input: 1 },
+        { k: 'mkt', label: 'Затраты на маркетинг, ₽', input: 1 },
+        { k: 'sup', label: 'Поставки, шт', input: 1 },
+        { k: 'profit', label: 'План ЧП, ₽', bold: 1 },
+    ];
+    function num(v) { var n = Number(v); return Number.isFinite(n) ? n : 0; }
+    function has(v) { return v !== undefined && v !== null && v !== ''; }
+    // формулы одной недели одного артикула: выручка = шт × цена; к перечислению = выручка − удержания WB;
+    // ЧП = к перечислению − себестоимость × шт − маркетинг
+    function calcWeek(d) {
+        d = d || {};
+        var rev = num(d.units) * num(d.price);
+        var pay = rev * (1 - num(d.wb) / 100);
+        var cogs = num(d.units) * num(d.cogs);
+        var any = has(d.units) || has(d.price) || has(d.mkt) || has(d.sup);
+        return { rev: rev, pay: pay, cogs: cogs, profit: pay - cogs - num(d.mkt), mkt: num(d.mkt), sup: num(d.sup), any: any };
+    }
+    function sheetWeeks(startYmd, count) {
+        var out = [], cur = mondayOnOrBefore(startYmd);
+        for (var i = 0; i < count; i++) { out.push({ start: cur, end: addDays(cur, 6), month: Number(cur.slice(5, 7)) - 1, year: Number(cur.slice(0, 4)) }); cur = addDays(cur, 7); }
+        return out;
+    }
+    // итог недели по всем блокам: это и есть вторая страница
+    function moneyPlan(blocks, weeks) {
+        return weeks.map(function (w) {
+            var t = { pay: 0, profit: 0, mkt: 0, sup: 0, rev: 0, any: false };
+            blocks.forEach(function (b) {
+                var c = calcWeek((b.data || {})[w.start]);
+                t.pay += c.pay; t.profit += c.profit; t.mkt += c.mkt; t.sup += c.sup; t.rev += c.rev; if (c.any) t.any = true;
+            });
+            return t;
+        });
+    }
+    function sumPlan(rows) {
+        return rows.reduce(function (a, r) { a.pay += r.pay; a.profit += r.profit; a.mkt += r.mkt; a.sup += r.sup; a.rev += r.rev; return a; }, { pay: 0, profit: 0, mkt: 0, sup: 0, rev: 0 });
+    }
+    function sheetKey() { return 'nr_plansheet_' + (st && st.cab); }
+    function loadSheet() {
+        var sh = null;
+        try { sh = JSON.parse(localStorage.getItem(sheetKey()) || 'null'); } catch (e) { sh = null; }
+        if (!sh || !Array.isArray(sh.blocks) || !sh.blocks.length) sh = { blocks: [{ id: 'b1', nm: '', data: {} }] };
+        if (!sh.start) sh.start = mondayOnOrBefore(new Date().toISOString().slice(0, 8) + '01');
+        sh.count = 52;
+        return sh;
+    }
+    function saveSheet() { try { localStorage.setItem(sheetKey(), JSON.stringify({ blocks: st.sheet.blocks, start: st.sheet.start })); } catch (e) { /* без памяти */ } }
+    function fnum(v, any) { return any ? Math.round(v).toLocaleString('ru') : ''; }
+
+    function viewTabs() {
+        var V = [['sales', 'План продаж'], ['money', 'План вывода денег'], ['rnp', 'План для РНП']];
+        return '<div class="ps-tabs">' + V.map(function (x) { return '<button type="button" class="ps-tab' + (st.view === x[0] ? ' is-on' : '') + '" data-view="' + x[0] + '">' + x[1] + '</button>'; }).join('') +
+            (st.view === 'rnp' ? '' : '<button type="button" class="rnp-plan-close ps-back" data-close>‹ РНП</button>') + '</div>';
+    }
+    function monthSpans(weeks) {
+        var out = [], last = null;
+        weeks.forEach(function (w) {
+            var key = w.year + '-' + w.month;
+            if (last && last.key === key) last.n++; else { last = { key: key, n: 1, label: MSHORT[w.month] }; out.push(last); }
+        });
+        return out;
+    }
+    function inCell(b, w, r) {
+        var v = ((b.data || {})[w.start] || {})[r.k];
+        return '<td class="ps-c' + (w.first ? ' ps-m' : '') + '"><input class="ps-in" type="text" inputmode="decimal" data-b="' + b.id + '" data-w="' + w.start + '" data-k="' + r.k + '" value="' + esc(has(v) ? v : '') + '"></td>';
+    }
+    function calcCell(b, w, r) {
+        var c = calcWeek((b.data || {})[w.start]);
+        return '<td class="ps-c ps-calc' + (w.first ? ' ps-m' : '') + (r.bold ? ' ps-bold' : '') + '" data-calc="' + b.id + '|' + w.start + '|' + r.k + '">' + fnum(c[r.k], c.any) + '</td>';
+    }
+    function renderSales() {
+        var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), spans = monthSpans(weeks);
+        var seen = {}; weeks.forEach(function (w) { var k = w.year + '-' + w.month; w.first = !seen[k]; seen[k] = 1; });
+        var head = '<tr class="ps-h1"><th class="ps-l"></th>' + spans.map(function (m) { return '<th colspan="' + m.n + '" class="ps-m">' + m.label + '</th>'; }).join('') + '</tr>' +
+            '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>' +
+            '<tr class="ps-h3"><th class="ps-l">по</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.end) + '</th>'; }).join('') + '</tr>';
+        var total = moneyPlan(sh.blocks, weeks);
+        var top = '<tr class="ps-all"><th class="ps-l">Все артикулы · Выручка, ₽</th>' + total.map(function (t, i) { return '<td class="ps-c ps-calc' + (weeks[i].first ? ' ps-m' : '') + '" data-all="' + weeks[i].start + '">' + fnum(t.rev, t.any) + '</td>'; }).join('') + '</tr>';
+        var opts = function (b) {
+            return '<option value="">Выберите артикул</option>' + st.articles.map(function (a) { return '<option value="' + a.nm_id + '"' + (String(a.nm_id) === String(b.nm) ? ' selected' : '') + '>' + esc(a.name) + ' · ' + a.nm_id + '</option>'; }).join('');
+        };
+        var body = sh.blocks.map(function (b) {
+            return '<tr class="ps-bh"><th class="ps-l" colspan="' + (weeks.length + 1) + '"><select class="ps-art" data-ps-art="' + b.id + '">' + opts(b) + '</select>' +
+                (sh.blocks.length > 1 ? '<button type="button" class="ps-del" data-ps-del="' + b.id + '" aria-label="Убрать блок">×</button>' : '') + '</th></tr>' +
+                SROWS.map(function (r) {
+                    return '<tr class="ps-r' + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w) { return r.input ? inCell(b, w, r) : calcCell(b, w, r); }).join('') + '</tr>';
+                }).join('');
+        }).join('');
+        st.host.innerHTML = viewTabs() +
+            '<div class="ps-note">Заполняйте перед запуском: продажи, цену, удержания WB, себестоимость, маркетинг и поставки по неделям. Выручка, к перечислению и ЧП считаются сами, лист «План вывода денег» собирается из этих блоков.</div>' +
+            '<div class="ps-scroll"><table class="ps-table"><thead>' + head + '</thead><tbody>' + top + body + '</tbody></table></div>' +
+            '<div class="ps-foot"><button type="button" class="ps-add" data-ps-add>+ Добавить артикул</button></div>';
+    }
+    function renderMoney() {
+        var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), plan = moneyPlan(sh.blocks, weeks), tot = sumPlan(plan);
+        var rows = weeks.map(function (w, i) {
+            var t = plan[i], first = i === 0 || weeks[i - 1].month !== w.month;
+            return '<tr class="' + (first ? 'ps-mrow' : '') + '"><td class="ps-mo">' + MSHORT[w.month] + '</td><td>' + ddmm(w.start) + '</td><td>' + fnum(t.pay, t.any) + '</td><td>' + fnum(t.profit, t.any) + '</td><td>' + fnum(t.mkt, t.any) + '</td><td>' + fnum(t.sup, t.any) + '</td></tr>';
+        }).join('');
+        var any = plan.some(function (t) { return t.any; });
+        st.host.innerHTML = viewTabs() +
+            '<div class="ps-note">Считается само из листа «План продаж»: ничего вводить не нужно.</div>' +
+            '<div class="ps-scroll ps-money"><table class="ps-table ps-mt"><thead><tr><th colspan="6" class="ps-title">Приблизительный план вывода денег</th></tr>' +
+            '<tr class="ps-mh"><th>Месяц</th><th>Неделя</th><th>План к перечислению, ₽</th><th>План ЧП, ₽</th><th>Затраты на маркетинг, ₽</th><th>Поставки, шт</th></tr></thead><tbody>' + rows +
+            '<tr class="ps-tot"><td colspan="2">Итого</td><td>' + fnum(tot.pay, any) + '</td><td>' + fnum(tot.profit, any) + '</td><td>' + fnum(tot.mkt, any) + '</td><td>' + fnum(tot.sup, any) + '</td></tr></tbody></table></div>';
+    }
+    // пересчёт на месте после ввода: фокус и прокрутка не сбиваются
+    function refreshCalc() {
+        var weeks = sheetWeeks(st.sheet.start, st.sheet.count);
+        st.host.querySelectorAll('[data-calc]').forEach(function (el) {
+            var p = el.getAttribute('data-calc').split('|'), b = st.sheet.blocks.filter(function (x) { return x.id === p[0]; })[0];
+            var c = calcWeek(b && (b.data || {})[p[1]]); el.textContent = fnum(c[p[2]], c.any);
+        });
+        var total = moneyPlan(st.sheet.blocks, weeks);
+        st.host.querySelectorAll('[data-all]').forEach(function (el, i) { el.textContent = fnum(total[i].rev, total[i].any); });
+    }
+    function onSheetEvent(e) {
+        var t = e.target;
+        if (e.type === 'change' && t.classList && t.classList.contains('ps-in')) {
+            var b = st.sheet.blocks.filter(function (x) { return x.id === t.dataset.b; })[0]; if (!b) return true;
+            var raw = String(t.value).trim().replace(/\s/g, '').replace(',', '.'), v = raw === '' ? '' : Number(raw);
+            if (raw !== '' && !Number.isFinite(v)) { t.classList.add('is-err'); return true; }
+            t.classList.remove('is-err');
+            b.data = b.data || {}; var wk = (b.data[t.dataset.w] = b.data[t.dataset.w] || {});
+            if (v === '') delete wk[t.dataset.k]; else wk[t.dataset.k] = v;
+            saveSheet(); refreshCalc(); return true;
+        }
+        if (e.type === 'change' && t.matches && t.matches('.ps-art')) {
+            var bb = st.sheet.blocks.filter(function (x) { return x.id === t.dataset.psArt; })[0]; if (bb) { bb.nm = t.value; saveSheet(); } return true;
+        }
+        if (e.type !== 'click') return false;
+        var btn = t.closest && t.closest('button'); if (!btn) return false;
+        if (btn.dataset.view) { st.view = btn.dataset.view; render(); if (st.view === 'rnp') loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* без планов */ }); return true; }
+        if (btn.hasAttribute('data-ps-add')) { st.sheet.blocks.push({ id: 'b' + Date.now().toString(36), nm: '', data: {} }); saveSheet(); keepScroll(renderSales); return true; }
+        if (btn.dataset.psDel) { st.sheet.blocks = st.sheet.blocks.filter(function (x) { return x.id !== btn.dataset.psDel; }); saveSheet(); keepScroll(renderSales); return true; }
+        return false;
+    }
+    function keepScroll(fn) {
+        var sc = st.host.querySelector('.ps-scroll'), x = sc ? sc.scrollLeft : 0, y = sc ? sc.scrollTop : 0;
+        fn(); sc = st.host.querySelector('.ps-scroll'); if (sc) { sc.scrollLeft = x; sc.scrollTop = y; }
+    }
+    function render() {
+        if (st.pageHost && st.view !== 'rnp') { if (!st.sheet) st.sheet = loadSheet(); if (st.view === 'money') renderMoney(); else renderSales(); return; }
+        renderRnp();
+        if (st.pageHost) st.host.insertAdjacentHTML('afterbegin', viewTabs());
+    }
+
     async function saveWeek(nm, week, raw, silent) {
         var col = st.metric;
         var t = String(raw == null ? '' : raw).trim().replace(',', '.');
@@ -155,6 +310,7 @@
 
     function onEvent(e) {
         var t = e.target;
+        if (st && st.pageHost && onSheetEvent(e)) return;
         if (e.type === 'change' && t.matches('.rnp-plan-cell input')) {
             var w = st.weeks[Number(t.dataset.w) - 1];
             saveWeek(t.dataset.nm, w, t.value).then(function (ok) {
@@ -214,7 +370,7 @@
         }
         var key = String(opts.monthKey || '').slice(0, 7);
         if (!/^\d{4}-\d{2}$/.test(key)) key = new Date().toISOString().slice(0, 7);
-        st = { db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: (overlay || ph).firstChild, pageHost: ph, onSaved: opts.onSaved };
+        st = { db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: (overlay || ph).firstChild, pageHost: ph, view: ph ? 'sales' : 'rnp', onSaved: opts.onSaved };
         var evHost = overlay || ph;
         st._h = onEvent;
         if (overlay) overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
@@ -222,10 +378,11 @@
         evHost.addEventListener('change', onEvent);
         evHost.addEventListener('input', onEvent);
         document.addEventListener('keydown', onKey, true);
+        if (ph) { render(); loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* планы РНП подгрузятся при открытии вкладки */ }); return; }
         st.host.innerHTML = '<div class="rnp-plan-loading">Загрузка…</div>';
         try { await loadPlans(); } catch (e) { st.host.innerHTML = '<div class="rnp-plan-loading">Не удалось загрузить планы: ' + esc(e && e.message) + '</div>'; return; }
         render();
     }
 
-    root.NrPlanning = { open: open, close: close, weeksOf: weeksOf };
+    root.NrPlanning = { open: open, close: close, weeksOf: weeksOf, calcWeek: calcWeek, sheetWeeks: sheetWeeks, moneyPlan: moneyPlan, sumPlan: sumPlan };
 })(typeof window !== 'undefined' ? window : globalThis);
