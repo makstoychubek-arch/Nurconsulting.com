@@ -650,8 +650,73 @@ const RNP = (() => {
     }
 
     /** Aggregated orders from SQL — never pulls wb_orders.data to the client. */
+    // ── Площадка: WB / Ozon / Вместе (window.NrMp). Ozon-данные приходят из SQL-функций в тех же формах, что у WB.
+    const _mp = () => (window.NrMp && window.NrMp.get()) || 'wb';
+    const _ozMem = new Map();
+    function _ozCacheKey(fn, args) { return 'nr_oz_' + fn + '_' + _cab + '_' + JSON.stringify(args); }
+    /** Ozon-строки: сразу из кэша устройства, свежие тянем в фоне и подставляем без перерисовки каркаса. */
+    async function _ozCall(fn, args) {
+        const key = _ozCacheKey(fn, args);
+        const cab = _cab;
+        let cached = _ozMem.get(key);
+        if (cached === undefined) { try { const raw = localStorage.getItem(key); if (raw) cached = JSON.parse(raw); } catch (_) { cached = undefined; } }
+        const fresh = async () => {
+            const { data, error } = await _db.rpc(fn, Object.assign({ p_cabinet: cab }, args));
+            if (error) throw new Error(error.message);
+            const rows = Array.isArray(data) ? data : [];
+            const prev = _ozMem.get(key);
+            _ozMem.set(key, rows);
+            try { localStorage.setItem(key, JSON.stringify(rows)); } catch (_) { /* место кончилось: останется память */ }
+            return { rows, changed: prev !== undefined ? JSON.stringify(prev) !== JSON.stringify(rows) : (cached !== undefined && JSON.stringify(cached) !== JSON.stringify(rows)) };
+        };
+        if (cached !== undefined) {
+            _ozMem.set(key, cached);
+            fresh().then((r) => { if (r.changed && cab === _cab && _mp() !== 'wb') _mpRefreshSoon(); }).catch(() => { /* старое остаётся на экране */ });
+            return cached.slice();
+        }
+        return (await fresh()).rows.slice();
+    }
+    let _mpRefreshT = 0;
+    function _mpRefreshSoon() {
+        clearTimeout(_mpRefreshT);
+        _mpRefreshT = setTimeout(() => { if (document.querySelector('#tab-rnp.active')) { window._rnpLoadedForCabinet = null; openMain(true); } }, 400);
+    }
+    function _ozRange(filters) {
+        const f = filters || [];
+        const g = (op) => (f.find((x) => x.column === 'date' && x.op === op) || {}).value;
+        const to = g('lte') || _wbTodayStr();
+        const from = g('gte') || new Date(Date.parse(to) - 120 * 864e5).toISOString().slice(0, 10);
+        return { p_from: from, p_to: to };
+    }
+    async function _ozRows(table, filters) {
+        let rows = [];
+        if (table === 'rnp_articles') rows = await _ozCall('ozon_rnp_articles', {});
+        else if (table === 'wb_stocks') rows = await _ozCall('ozon_stock_rows', {});
+        else if (table === 'rnp_daily_data') rows = await _ozCall('ozon_finance_daily', _ozRange(filters));
+        else return [];
+        const nm = (filters || []).find((x) => x.column === 'nm_id' && x.op === 'eq');
+        if (nm) rows = rows.filter((r) => Number(r.nm_id) === Number(nm.value));
+        const sch = (filters || []).find((x) => x.column === 'stock_scheme' && x.op === 'eq');
+        if (sch) rows = rows.filter((r) => r.stock_scheme === sch.value);
+        return rows;
+    }
+    const _MP_TABLES = { rnp_articles: 1, wb_stocks: 1, rnp_daily_data: 1, advertising_daily_stats: 1 };
+
     async function _fetchOrdersDaily(from, to, snapCab, snapReq) {
         if (!_db || !_cab) return [];
+        const mp = _mp();
+        if (mp !== 'wb') {
+            const oz = await _ozCall('ozon_orders_daily', { p_from: from, p_to: to });
+            if (_isStaleLoad(snapReq, snapCab)) return null;
+            if (mp === 'ozon') return oz;
+            const wb = await _fetchOrdersDailyWb(from, to, snapCab, snapReq);
+            if (wb === null) return null;
+            return (Array.isArray(wb) ? wb : []).concat(oz);
+        }
+        return _fetchOrdersDailyWb(from, to, snapCab, snapReq);
+    }
+
+    async function _fetchOrdersDailyWb(from, to, snapCab, snapReq) {
         const { data, error } = await _db.rpc('rnp_orders_daily', {
             p_cabinet_id: _cab,
             p_from: from,
@@ -712,7 +777,7 @@ const RNP = (() => {
     function _fetchAllRows(table, filters, columns = '*') {
         if (!_db) return Promise.resolve([]);
         let key = '';
-        try { key = table + '|' + columns + '|' + JSON.stringify(filters || []) + '|' + _cab; } catch (e) { key = ''; }
+        try { key = table + '|' + columns + '|' + JSON.stringify(filters || []) + '|' + _cab + '|' + _mp(); } catch (e) { key = ''; }
         if (key && _fetchInflight.has(key)) return _fetchInflight.get(key).then(rows => rows.slice());
         const pr = _fetchAllRowsRaw(table, filters, columns);
         if (key) {
@@ -725,6 +790,14 @@ const RNP = (() => {
     }
 
     async function _fetchAllRowsRaw(table, filters, columns = '*') {
+        const mp = _mp();
+        if (mp === 'wb' || !_MP_TABLES[table]) return _fetchAllRowsWb(table, filters, columns);
+        const oz = await _ozRows(table, filters).catch((e) => { console.warn('[RNP] Ozon ' + table + ':', e.message); return []; });
+        if (mp === 'ozon') return oz;
+        return (await _fetchAllRowsWb(table, filters, columns)).concat(oz);
+    }
+
+    async function _fetchAllRowsWb(table, filters, columns = '*') {
         // Сначала упакованная выгрузка с кэшем устройства (nr-snap.js): одна компактная загрузка вместо десятков страниц.
         // null = не получилось / не подходит, идём прежним постраничным путём.
         if (window.NrSnap) {
@@ -1518,6 +1591,7 @@ const RNP = (() => {
      * переключил кабинет посреди синка — прерываемся, ничего не пишем в чужой.
      */
     async function _syncFromOrders(opts = {}) {
+        if (_mp() !== 'wb') return { ok: true, added: 0 };
         const { silent = false, activateNew = false, prune = true } = opts;
         const snapReq = _loadRequestId();
         const cab = _cab;
@@ -3358,7 +3432,7 @@ const RNP = (() => {
 
     // Шапка и итоги «Общего» запоминаются на устройстве по кабинету: после обновления страницы и при смене кабинета
     // сразу видны последние верные цифры именно этого кабинета, свежие подставляются без перерисовки с нуля.
-    const GH_CACHE_KEY = (cab) => 'nr_rnp_gh_v1_' + cab;
+    const GH_CACHE_KEY = (cab) => 'nr_rnp_gh_v1_' + cab + (_mp() !== 'wb' ? '_' + _mp() : '');
     function _ghCacheSave() {
         if (!_cab) return;
         try { localStorage.setItem(GH_CACHE_KEY(_cab), JSON.stringify({ h: _ghHealth, l: _ghLogi, p: _ghPayouts, b: _ghBalance, t: _cabTotals, at: Date.now() })); } catch (e) { /* нет места: просто без кэша */ }
@@ -3380,6 +3454,8 @@ const RNP = (() => {
         const ids = _rnpVisibleArticles().map(a => Number(a.nm_id));
         _ghKey = _generalKey(cal);
         const cab = _cab;
+        // Здоровье кабинета, логистика, выплаты и баланс есть только у WB: для Ozon блок остаётся пустым.
+        if (_mp() === 'ozon') { _ghHealth = []; _ghLogi = []; _ghPayouts = []; _ghBalance = null; return; }
         const [h, l, p, b] = await Promise.all([
             _db.rpc('rnp_cabinet_health', { p_cabinet: cab, p_from: per.from, p_to: per.to }),
             _db.rpc('rnp_logistics_split', { p_cabinet: cab, p_from: per.from, p_to: per.to, p_nm_ids: ids }),
@@ -5030,6 +5106,7 @@ const RNP = (() => {
     }
 
     async function _syncToday(nmId) {
+        if (_mp() !== 'wb') return;
         const today = _wbTodayStr();
         try {
             const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count, basket_count, funnel_order_conv, funnel_orders')
@@ -5348,7 +5425,7 @@ const RNP = (() => {
             const FT = (typeof window !== 'undefined' && window.FfTerms) || null;
             const lastDate = allDates[allDates.length - 1];
             const [splitRes, setRes, rateRes, termRes, fbsStocks, fbsOrders] = await Promise.all([
-                _db.rpc('rnp_fbs_split', { p_cabinet: _cab, p_from: allDates[0], p_to: lastDate }),
+                _mp() === 'ozon' ? Promise.resolve({ data: [] }) : _db.rpc('rnp_fbs_split', { p_cabinet: _cab, p_from: allDates[0], p_to: lastDate }),
                 Promise.resolve(_db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle()).catch(() => null),
                 Promise.resolve(_db.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).range(0, 120)).catch(() => null),
                 FT ? Promise.resolve(_db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', _cab).range(0, 999)).catch(e => ({ error: e })) : null,
@@ -6051,6 +6128,7 @@ const RNP = (() => {
     }
 
     async function _syncFinanceRange(nmId) {
+        if (_mp() !== 'wb') return;
         if (!_callProxy) return;
         try {
             const rows = await _fetchFinanceAgg(nmId);
@@ -6111,6 +6189,7 @@ const RNP = (() => {
     // ─── SALES FUNNEL (Analytics API v3) ─────────────────────────────────────
     // WB limit: only the last 7 days. Older days stay in rnp_daily_data cache.
     async function _syncFunnelHistory(nmIdOrIds, onProgress) {
+        if (_mp() !== 'wb') return;
         if (!_callProxy) return;
         const nmIds = (Array.isArray(nmIdOrIds) ? nmIdOrIds : [nmIdOrIds])
             .map(Number).filter(n => n > 0);
@@ -6398,6 +6477,7 @@ const RNP = (() => {
     async function _loadCabinetTotals(cal) {
         _cabTotalsKey = _generalKey(cal);
         if (!_db || !_cab) return;
+        if (_mp() === 'ozon') { Object.keys(_cabTotals).forEach((k) => delete _cabTotals[k]); return; }
         const cab0 = _cab, fresh = {};
         const allDates = _calAllDates(cal);
         if (!allDates.length) return;
@@ -7270,7 +7350,10 @@ const RNP = (() => {
         const hasPhotos = !!body.querySelector('.rnp-head-wide-photos, .rnp-head-marquee, .rnp-marquee-wrap, .rnp-phone-hero-slides, img[data-nmid]');
         const domCab = body.getAttribute('data-rnp-cab') || '';
         const ownSheet = !domCab || !_cab || domCab === _cab;
-        const sameArticle = ownSheet && _sameArticleSheet(body);
+        // Сменили площадку: шапка с виджетами и таблица целиком из других данных, подправлять старое нельзя.
+        const mpSame = (body.getAttribute('data-rnp-mp') || 'wb') === _mp();
+        body.setAttribute('data-rnp-mp', _mp());
+        const sameArticle = ownSheet && mpSame && _sameArticleSheet(body);
         if (sameArticle && hasTable && _patchLockedSheet(body, nextHtml)) {
             body.setAttribute('data-rnp-lock', lock);
             _markPaintedCab(body);
@@ -7368,7 +7451,7 @@ const RNP = (() => {
     }
 
     function _rnpShellKey(cab) {
-        return 'rnp_shell_' + (cab || '');
+        return 'rnp_shell_' + (cab || '') + (_mp() !== 'wb' ? '_' + _mp() : '');
     }
 
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
@@ -9937,6 +10020,72 @@ const RNP = (() => {
 
     let _cabinetListenerBound = false;
     let _autoRefreshBound = false;
+
+    function _onMpChange() {
+        if (!_cab) return;
+        _initGen++; _initDoneCab = null; _abortPendingLoad(); _mainRenderGen++;
+        window._rnpLastLoadedAt = 0; window._rnpLoadedForCabinet = null;
+        _mainInflight = null; _mainInflightCab = null; _initInflight = null; _fetchInflight.clear();
+        _clearCabinetState();
+        if (document.querySelector('#tab-rnp.active')) {
+            const el = document.getElementById('tab-rnp');
+            if (el && !el.querySelector('.rnp-workspace')) el.innerHTML = _workspaceChromeHtml([]);
+            _loadArticles(_cab).then(() => openMain(true)).catch(() => openMain(true));
+        }
+    }
+    document.addEventListener('nr-mp-change', _onMpChange);
+
+    // ── Дашборд: блок Ozon (режимы «Ozon» и «Вместе»). Показываем сразу из кэша устройства, свежее подставляем без перерисовки каркаса.
+    function _mpDashEsc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+    function _mpDashNum(v) { return Math.round(Number(v) || 0).toLocaleString('ru-RU').replace(/ /g, ' '); }
+    function _mpDashCompute(orders, fin, arts) {
+        const name = {}; (arts || []).forEach((a) => { name[a.nm_id] = a.name; });
+        const by = {}; let o = 0, os = 0, sc = 0, ss = 0, cc = 0, tr = 0;
+        (orders || []).forEach((r) => { o += +r.orders_count || 0; os += +r.orders_sum || 0; sc += +r.sales_count || 0; ss += +r.sales_sum || 0; cc += +r.cancels_count || 0;
+            const b = by[r.nm_id] || (by[r.nm_id] = { n: name[r.nm_id] || String(r.nm_id), o: 0, s: 0, sum: 0 }); b.o += +r.orders_count || 0; b.s += +r.sales_count || 0; b.sum += +r.sales_sum || 0; });
+        (fin || []).forEach((r) => { tr += +r.to_transfer || 0; });
+        return { o, os, sc, ss, cc, tr, top: Object.values(by).sort((a, b) => b.sum - a.sum).slice(0, 5) };
+    }
+    function _mpDashHtml(m, loading) {
+        const kp = (l, v, sub) => `<div class="nr-mp-k"><span>${l}</span><b>${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
+        const buy = m.o ? Math.round(m.sc * 100 / m.o) : 0;
+        return `<div class="nr-mp-h"><b>OZON</b><span>за 30 дней · оценка по заказам Ozon</span></div>
+          <div class="nr-mp-kp${loading ? ' nr-mp-blur' : ''}">${kp('Заказы', _mpDashNum(m.o), _mpDashNum(m.os) + ' сом')}${kp('Продажи', _mpDashNum(m.sc), _mpDashNum(m.ss) + ' сом')}${kp('Выкуп', buy + '%', 'отмен ' + _mpDashNum(m.cc))}${kp('К перечислению ≈', _mpDashNum(m.tr), 'комиссия и логистика учтены оценкой')}</div>
+          <div class="nr-mp-top${loading ? ' nr-mp-blur' : ''}"><div class="nr-mp-t">Топ товаров по продажам</div>${m.top.length ? m.top.map((t, i) => `<div class="nr-mp-r"><em>${i + 1}</em><span>${_mpDashEsc(t.n)}</span><b>${_mpDashNum(t.sum)}</b><small>${_mpDashNum(t.s)} шт</small></div>`).join('') : '<div class="nr-mp-r"><span>Продаж за период нет</span></div>'}</div>`;
+    }
+    let _mpDashBusy = false;
+    async function _mpDashRender() {
+        const tab = document.getElementById('tab-dashboard');
+        if (!tab) return;
+        let box = document.getElementById('nr-mp-dash');
+        if (_mp() === 'wb') { if (box) box.remove(); return; }
+        if (!tab.classList.contains('active') || !_db || !_cab) return;
+        if (!box) { box = document.createElement('section'); box.id = 'nr-mp-dash'; box.className = 'nr-mp-dash'; tab.insertBefore(box, tab.firstChild); }
+        if (_mpDashBusy) return; _mpDashBusy = true;
+        const cab = _cab;
+        try {
+            const to = _wbTodayStr(), from = new Date(Date.parse(to) - 29 * 864e5).toISOString().slice(0, 10);
+            const args = { p_from: from, p_to: to };
+            const mem = (fn, a) => { try { return JSON.parse(localStorage.getItem(_ozCacheKey(fn, a)) || 'null'); } catch (_) { return null; } };
+            const c = [mem('ozon_orders_daily', args), mem('ozon_finance_daily', args), mem('ozon_rnp_articles', {})];
+            if (c[0] && !box.dataset.done) { box.innerHTML = _mpDashHtml(_mpDashCompute(c[0], c[1], c[2])); }
+            else if (!box.dataset.done) box.innerHTML = _mpDashHtml(_mpDashCompute([], [], []), true);
+            const [o, f, a] = await Promise.all([_ozCall('ozon_orders_daily', args), _ozCall('ozon_finance_daily', args), _ozCall('ozon_rnp_articles', {})]);
+            if (cab !== _cab || _mp() === 'wb') return;
+            box.innerHTML = _mpDashHtml(_mpDashCompute(o, f, a)); box.dataset.done = '1';
+        } catch (e) {
+            if (!box.dataset.done) box.innerHTML = '<div class="nr-mp-h"><b>OZON</b><span>Не удалось загрузить данные Ozon.</span><button type="button" class="rnp-action-btn" onclick="window.NrMpDash.render()">Повторить</button></div>';
+        } finally { _mpDashBusy = false; }
+    }
+    window.NrMpDash = { render: _mpDashRender };
+    document.addEventListener('nr-mp-change', () => { const b = document.getElementById('nr-mp-dash'); if (b) delete b.dataset.done; _mpDashRender(); });
+    document.addEventListener('cabinet-changed', () => { const b = document.getElementById('nr-mp-dash'); if (b) b.remove(); setTimeout(_mpDashRender, 300); });
+    (function watchDash() {
+        const t = document.getElementById('tab-dashboard');
+        if (!t) { document.addEventListener('DOMContentLoaded', watchDash, { once: true }); return; }
+        new MutationObserver(() => { if (t.classList.contains('active')) _mpDashRender(); }).observe(t, { attributes: true, attributeFilter: ['class'] });
+        if (t.classList.contains('active')) setTimeout(_mpDashRender, 600);
+    })();
 
     function _bindCabinetListener() {
         if (_cabinetListenerBound) return;
