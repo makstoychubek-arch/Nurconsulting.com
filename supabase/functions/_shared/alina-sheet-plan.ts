@@ -743,14 +743,13 @@ export type ActiveSheet = {
   cabinet_name: string | null;
 };
 
-/** Активная таблица: env → alina_campaign.sheet_id → alina_cabinet_sheets.is_active */
+/** Активная таблица: alina_campaign.sheet_id → alina_cabinet_sheets.is_active → env */
 export async function resolveActiveSheet(
   // deno-lint-ignore no-explicit-any
   db: { from: (t: string) => any },
 ): Promise<ActiveSheet | null> {
   const envId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
   const envCab = (Deno.env.get('ALINA_CABINET_KEY') || 'active').trim();
-  if (envId) return { sheet_id: envId, cabinet_key: envCab, cabinet_name: null };
 
   try {
     const { data: camp } = await db
@@ -785,7 +784,7 @@ export async function resolveActiveSheet(
     }
   } catch { /* optional */ }
 
-  return null;
+  return envId ? { sheet_id: envId, cabinet_key: envCab, cabinet_name: null } : null;
 }
 
 export async function fetchSheetPlan(
@@ -822,15 +821,16 @@ export async function fetchSheetPlan(
     };
   }
   const discovered = await discoverTabs(sheetId, token);
-  const leadsGid = (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
+  const mars = cabinetKey === 'mars';
+  const leadsGid = mars ? '1641065187' : (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
     ELIUM_RAZDACHI_FALLBACK).trim();
 
-  const extraGids = (Deno.env.get('ALINA_GRAPH_GIDS') || '')
+  const extraGids = (mars ? '' : Deno.env.get('ALINA_GRAPH_GIDS') || '')
     .split(/[,\s]+/)
     .filter(Boolean);
   // Если явно заданы GRAPH_GIDS — только они (текущая раздача).
   // Иначе автодетект; можно сузить ALINA_GRAPH_FILTER=фонарь|вырез
-  const filterRe = (Deno.env.get('ALINA_GRAPH_FILTER') || '').trim();
+  const filterRe = mars ? '' : (Deno.env.get('ALINA_GRAPH_FILTER') || '').trim();
   let tabs: { gid: string; name: string }[] = [];
   if (extraGids.length) {
     tabs = extraGids.map((gid) => {
@@ -838,7 +838,7 @@ export async function fetchSheetPlan(
       return { gid, name: known?.name || `gid:${gid}` };
     });
   } else {
-    tabs = discovered.graphs.length ? [...discovered.graphs] : [...ELIUM_GRAPH_FALLBACK];
+    tabs = discovered.graphs.length || mars ? [...discovered.graphs] : [...ELIUM_GRAPH_FALLBACK];
     if (filterRe) {
       try {
         const re = new RegExp(filterRe, 'i');
