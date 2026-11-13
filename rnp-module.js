@@ -8223,32 +8223,45 @@ const RNP = (() => {
         if (!art || !_callProxy) return;
         const up = dir > 0;
         const group = art.imt_id ? _articles.filter(a => a.is_active && Number(a.imt_id) === Number(art.imt_id)) : [art];
-        const body = _rnpModal(up ? 'Поднять цену' : 'Снизить цену', _sellerArticle(art), '<div class="rnp-pr-load">Загружаю цены из WB…</div>');
-        _priceCtx = { nm: nmId, dir: up ? 1 : -1, group, prices: {}, amount: 1, all: false };
+        // Цены прошлого открытия показываем сразу, свежие из WB подтягиваем в фоне (правило сайта: без «загрузки» на экране).
+        const ckey = 'nr_rnp_pr_' + _cab;
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(ckey) || 'null'); } catch (_) { cached = null; }
+        const ready = !!(cached && cached.p && group.every(a => cached.p[a.nm_id]));
+        const body = _rnpModal(up ? 'Поднять цену' : 'Снизить цену', _sellerArticle(art), ready ? '' : '<div class="rnp-pr-load">Цены из WB…</div>');
+        const ctx = { nm: nmId, dir: up ? 1 : -1, group, prices: ready ? cached.p : {}, amount: 1, all: false, currency: ready ? cached.c : 'сом', spp: ready ? (cached.s || {}) : {} };
+        _priceCtx = ctx;
+        if (ready) _renderPrice();
+        const ids = group.map(a => a.nm_id);
         try {
-            const res = await _callProxy('prices_get', { nmIds: group.map(a => a.nm_id) }, _cab);
-            (res?.items || []).forEach(i => { _priceCtx.prices[i.nmID] = i; });
-            _priceCtx.currency = res?.currency || 'сом';
-            // Цена покупателя с СПП берётся из последнего заказа (finishedPrice к priceWithDisc) — как в кабинете WB.
-            try {
-                const ids = group.map(a => a.nm_id);
-                const { data: ord } = await _db.from('wb_orders').select('nm_id,data').eq('cabinet_id', _cab).in('nm_id', ids).order('order_date', { ascending: false }).limit(60);
-                _priceCtx.spp = {};
-                (ord || []).forEach(o => {
-                    if (_priceCtx.spp[o.nm_id]) return;
-                    const pw = Number(o.data?.priceWithDisc) || 0, fp = Number(o.data?.finishedPrice) || 0;
-                    if (pw > 0 && fp > 0 && fp <= pw) _priceCtx.spp[o.nm_id] = fp / pw;
-                });
-            } catch (e) { _priceCtx.spp = {}; }
+            const [res, spp] = await Promise.all([
+                _callProxy('prices_get', { nmIds: ids }, _cab),
+                // Цена покупателя с СПП берётся из последнего заказа (finishedPrice к priceWithDisc) — как в кабинете WB.
+                (async () => {
+                    const out = {};
+                    try {
+                        const { data: ord } = await _db.from('wb_orders').select('nm_id,data').eq('cabinet_id', _cab).in('nm_id', ids).order('order_date', { ascending: false }).limit(60);
+                        (ord || []).forEach(o => {
+                            if (out[o.nm_id]) return;
+                            const pw = Number(o.data?.priceWithDisc) || 0, fp = Number(o.data?.finishedPrice) || 0;
+                            if (pw > 0 && fp > 0 && fp <= pw) out[o.nm_id] = fp / pw;
+                        });
+                    } catch (e) { /* без СПП */ }
+                    return out;
+                })(),
+            ]);
+            if (_priceCtx !== ctx) return;
+            const fresh = {};
+            (res?.items || []).forEach(i => { fresh[i.nmID] = i; });
+            const changed = JSON.stringify(fresh) !== JSON.stringify(ctx.prices);
+            ctx.prices = fresh; ctx.currency = res?.currency || 'сом'; ctx.spp = spp;
+            try { localStorage.setItem(ckey, JSON.stringify({ p: fresh, c: ctx.currency, s: spp })); } catch (_) { /* без кэша */ }
+            if (!ctx.prices[nmId]) { if (!ready) body.innerHTML = '<div class="rnp-pr-err">WB не вернул цену этого артикула.</div>'; return; }
+            if (!ready || changed) _renderPrice();
         } catch (e) {
-            body.innerHTML = `<div class="rnp-pr-err">Не удалось получить цену из WB: ${_ghEsc(String(e?.message || e).slice(0, 200))}.<br>Для этого нужен токен с доступом «Цены и скидки».</div>`;
-            return;
+            if (ready || _priceCtx !== ctx) return; // старые цены на экране остаются
+            body.innerHTML = `<div class="rnp-pr-err">Не удалось получить цену из WB: ${_ghEsc(String(e?.message || e).slice(0, 200))}.<br>Для этого нужен токен WB с доступом к ценам. <button type="button" class="rnp-action-btn" onclick="RNP.openPrice(${nmId},${dir})">Повторить</button></div>`;
         }
-        if (!_priceCtx.prices[nmId]) {
-            body.innerHTML = '<div class="rnp-pr-err">WB не вернул цену этого артикула.</div>';
-            return;
-        }
-        _renderPrice();
     }
 
     function _priceRows() {
@@ -8349,45 +8362,47 @@ const RNP = (() => {
 
     async function priceSend() {
         const c = _priceCtx;
-        const host = document.querySelector('#rnp-modal .rnp-modal-body');
-        if (!c || !host) return;
+        if (!c) return;
         const up = c.dir > 0;
         const rows = _priceRows().filter(r => !r.skip);
         if (!rows.length || !(c.amount > 0)) return;
-        const btn = host.querySelector('.rnp-pr-send');
-        if (btn) { btn.disabled = true; btn.textContent = 'Отправляю в WB…'; }
         const old = {};
         rows.forEach(r => { old[r.a.nm_id] = { price: r.p.price, discount: r.d, delta: r.newDisc - r.nowDisc }; });
-        try {
-            const res = await _callProxy('prices_set', { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.nd })), old }, _cab);
-            let status = '';
-            if (res?.uploadId) {
-                for (let i = 0; i < 4 && !status; i++) {
-                    await new Promise(r => setTimeout(r, 2500));
-                    try {
-                        const st = await _callProxy('prices_status', { uploadId: res.uploadId }, _cab);
-                        if (st?.status === 3) status = 'ok';
-                        else if (st?.status === 5 || st?.status === 6) status = 'err:' + (st.errors || []).map(e => `${e.nmID}: ${e.text}`).join('; ');
-                    } catch (e) {}
+        // Окно закрываем сразу, WB подтверждает в фоне; итог и «Повторить» приходят тостом.
+        document.getElementById('rnp-modal')?.remove();
+        const T = window.NrUi && window.NrUi.toast;
+        const h = T ? window.NrUi.toast('info', 'Цена уходит в WB…', rows.length + ' арт.', { loading: true, key: 'rnp-price' }) : null;
+        const say = (kind, title, text, opts) => { if (h && h.update && !opts) h.update(kind, title, text || ''); else if (T) window.NrUi.toast(kind, title, text || '', opts || {}); };
+        (async () => {
+            try {
+                const res = await _callProxy('prices_set', { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.nd })), old }, _cab);
+                let status = '';
+                if (res?.uploadId) {
+                    for (let i = 0; i < 4 && !status; i++) {
+                        await new Promise(r => setTimeout(r, 2500));
+                        try {
+                            const st = await _callProxy('prices_status', { uploadId: res.uploadId }, _cab);
+                            if (st?.status === 3) status = 'ok';
+                            else if (st?.status === 5 || st?.status === 6) status = 'err:' + (st.errors || []).map(e => `${e.nmID}: ${e.text}`).join('; ');
+                        } catch (e) {}
+                    }
                 }
+                if (status.startsWith('err:')) say('error', 'WB принял, но есть ошибки', status.slice(4) || 'см. кабинет WB');
+                else say('success', status === 'ok' ? 'Цена применена' : 'Отправлено в WB', status === 'ok' ? rows.length + ' арт.' : 'Обработка у WB идёт, цена появится через пару минут.');
+                try { localStorage.removeItem('nr_rnp_pr_' + _cab); } catch (_) { /* нет памяти */ }
+                // Заметка за сегодня — иначе в «Заметках по дням» не видно, что и почему поменялось. Не пишем за артикулы с ошибкой.
+                const failed = new Set();
+                if (status.startsWith('err:')) status.slice(4).split('; ').forEach(s => { const id = Number(s.split(':')[0]); if (id) failed.add(id); });
+                const today = _wbTodayStr();
+                rows.forEach(r => {
+                    if (failed.has(r.a.nm_id)) return;
+                    const text = (up ? 'Цена поднята' : 'Цена снижена') + ': ' + r.nowDisc + '→' + r.newDisc + ' сом (' + r.d + '%→' + r.nd + '%)';
+                    saveNote(r.a.nm_id, today, text.slice(0, 100)).catch(() => {});
+                });
+            } catch (e) {
+                if (T) window.NrUi.toast('error', 'Цена не поменялась', String(e?.message || 'WB не принял запрос.').slice(0, 160), { key: 'rnp-price', action: { label: 'Повторить', onClick: () => { _priceCtx = c; priceSend(); } } });
             }
-            const msg = status.startsWith('err:')
-                ? `<div class="rnp-pr-err">WB принял загрузку, но есть ошибки: ${_ghEsc(status.slice(4) || 'см. кабинет WB')}</div>`
-                : `<div class="rnp-pr-ok"><b>${status === 'ok' ? 'Цена применена' : 'Отправлено в WB'}</b><br>${rows.length} арт.${status === 'ok' ? '' : ' Обработка занимает несколько минут — в РНП новая цена отобразится после следующей синхронизации.'}</div>`;
-            host.innerHTML = msg;
-            // Заметка за сегодня — иначе в «Заметках по дням» не видно, что и почему поменялось.
-            // Не пишем за те артикулы, по которым WB вернул ошибку.
-            const failed = new Set();
-            if (status.startsWith('err:')) status.slice(4).split('; ').forEach(s => { const id = Number(s.split(':')[0]); if (id) failed.add(id); });
-            const today = _wbTodayStr();
-            rows.forEach(r => {
-                if (failed.has(r.a.nm_id)) return;
-                const text = (up ? 'Цена поднята' : 'Цена снижена') + ': ' + r.nowDisc + '→' + r.newDisc + ' сом (' + r.d + '%→' + r.nd + '%)';
-                saveNote(r.a.nm_id, today, text.slice(0, 100)).catch(() => {});
-            });
-        } catch (e) {
-            host.innerHTML = `<div class="rnp-pr-err">WB отклонил запрос: ${_ghEsc(String(e?.message || e).slice(0, 240))}</div>`;
-        }
+        })();
     }
 
     const PRODUCT_STATUSES = ['Локомотив', 'Новинка', 'Стабильный', 'Затухающий', 'Выведен из ассортимента'];

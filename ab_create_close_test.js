@@ -16,7 +16,7 @@ const bg = html.slice(mid, end);
 assert.ok(ui.indexOf('hideNewTestForm()') > 0 && ui.indexOf('runABCreate(snap)') > ui.indexOf('hideNewTestForm()'),
     'the form closes first, then the background creation starts');
 assert.ok(!/await /.test(ui.slice(ui.indexOf('hideNewTestForm()'))), 'nothing is awaited before the form is closed');
-assert.ok(ui.includes("showPremiumModal('success', 'Тест создан'"), 'the user sees "Тест создан" immediately');
+assert.ok(ui.includes("abOk('Тест создан'"), 'the user sees "Тест создан" immediately');
 
 const variantsInsert = bg.indexOf("from('ab_test_variants').insert");
 const rotate = bg.indexOf('await rotateTestPhoto(');
