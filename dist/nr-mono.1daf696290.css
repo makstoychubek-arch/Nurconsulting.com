@@ -1902,3 +1902,6 @@ html body .ps-table .ps-in, html body .ps-h1 th, html body .ps-h2 th, html body 
 html body .ps-tabs .ps-back, html body .ps-tabs .rnp-plan-close { overflow: visible; line-height: 1; font-size: 13px; min-width: 76px; justify-content: center; text-indent: 0; }
 @media (max-width: 640px) { html body .ps-table .ps-in { font-size: 16px; } html body .ps-tabs .ps-back { margin-left: 0; } }
 html body .ps-tabs { padding-right: 6px; } html body .ps-tabs .ps-back { margin-right: 4px; }
+html body .ps-save { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+html body .ps-save[data-s="error"] { color: var(--dn, #dc2626); }
+html body .ps-save + .ps-back { margin-left: 10px !important; }

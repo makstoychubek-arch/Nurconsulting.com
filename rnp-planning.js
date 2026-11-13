@@ -186,13 +186,48 @@
         sh.count = 52;
         return sh;
     }
-    function saveSheet() { try { localStorage.setItem(sheetKey(), JSON.stringify({ blocks: st.sheet.blocks, start: st.sheet.start })); } catch (e) { /* без памяти */ } }
+    var saveTimer = null, saveState = 'saved';
+    function setSaveState(v) {
+        saveState = v;
+        var el = st && st.host && st.host.querySelector('.ps-save');
+        if (el) { el.textContent = v === 'saved' ? 'Сохранено' : v === 'saving' ? 'Сохраняю…' : 'Не сохранилось, повторю'; el.setAttribute('data-s', v); }
+    }
+    // сразу в память браузера (экран не ждёт), в базу уходит через долю секунды одним запросом
+    function saveSheet() {
+        try { localStorage.setItem(sheetKey(), JSON.stringify({ blocks: st.sheet.blocks, start: st.sheet.start })); } catch (e) { /* без памяти */ }
+        setSaveState('saving');
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(flushSheet, 700);
+    }
+    async function flushSheet() {
+        clearTimeout(saveTimer); saveTimer = null;
+        var cur = st; if (!cur || !cur.sheet || !cur.db) return;
+        var res = await cur.db.from('rnp_plan_sheet').upsert({ cabinet_id: cur.cab, data: { blocks: cur.sheet.blocks }, start_week: cur.sheet.start, updated_at: new Date().toISOString() }, { onConflict: 'cabinet_id' });
+        if (res && res.error) { if (root.console) console.warn('[planning] sheet save', res.error.message); if (st === cur) { setSaveState('error'); saveTimer = setTimeout(flushSheet, 5000); } return; }
+        if (st === cur && !saveTimer) setSaveState('saved');
+    }
+    // с сервера: показываем то, что в памяти браузера, и тихо подменяем свежим из базы (если не печатают)
+    async function pullSheet() {
+        var cur = st; if (!cur || !cur.db) return;
+        var res = await cur.db.from('rnp_plan_sheet').select('data,start_week').eq('cabinet_id', cur.cab).maybeSingle();
+        if (st !== cur || (res && res.error)) return;
+        var row = res && res.data;
+        if (row && row.data && Array.isArray(row.data.blocks) && row.data.blocks.length) {
+            if (saveTimer) return; // свои правки ещё не ушли, они главнее
+            cur.sheet.blocks = row.data.blocks; if (row.start_week) cur.sheet.start = row.start_week;
+            try { localStorage.setItem(sheetKey(), JSON.stringify({ blocks: cur.sheet.blocks, start: cur.sheet.start })); } catch (e) { /* без памяти */ }
+            var typing = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('ps-in');
+            if (!typing && cur.view !== 'rnp') keepScroll(render);
+        } else if (cur.sheet.blocks.some(function (b) { return b.nm || Object.keys(b.data || {}).length; })) {
+            flushSheet(); // в базе пусто, а в этом браузере уже есть планы: переносим
+        }
+    }
     function fnum(v, any) { return any ? Math.round(v).toLocaleString('ru') : ''; }
 
     function viewTabs() {
         var V = [['sales', 'План продаж'], ['money', 'План вывода денег'], ['rnp', 'План для РНП']];
         return '<div class="ps-tabs">' + V.map(function (x) { return '<button type="button" class="ps-tab' + (st.view === x[0] ? ' is-on' : '') + '" data-view="' + x[0] + '">' + x[1] + '</button>'; }).join('') +
-            (st.view === 'rnp' ? '' : '<button type="button" class="rnp-plan-close ps-back" data-close>‹ РНП</button>') + '</div>';
+            (st.view === 'rnp' ? '' : '<span class="ps-save" data-s="' + saveState + '">' + (saveState === 'saved' ? 'Сохранено' : saveState === 'saving' ? 'Сохраняю…' : 'Не сохранилось, повторю') + '</span><button type="button" class="rnp-plan-close ps-back" data-close>‹ РНП</button>') + '</div>';
     }
     function monthSpans(weeks) {
         var out = [], last = null;
@@ -349,6 +384,7 @@
         document.removeEventListener('keydown', onKey, true);
         if (st && st.pageHost && st._h) { ['click', 'change', 'input'].forEach(function (t) { st.pageHost.removeEventListener(t, st._h); }); }
         var wasPage = pageMode; pageMode = false;
+        if (saveTimer && st && st.sheet) flushSheet();
         st = null;
         if (wasPage && typeof root.showTab === 'function') root.showTab('rnp');
     }
@@ -378,7 +414,7 @@
         evHost.addEventListener('change', onEvent);
         evHost.addEventListener('input', onEvent);
         document.addEventListener('keydown', onKey, true);
-        if (ph) { render(); loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* планы РНП подгрузятся при открытии вкладки */ }); return; }
+        if (ph) { render(); pullSheet().catch(function () { /* останется память браузера */ }); loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* планы РНП подгрузятся при открытии вкладки */ }); return; }
         st.host.innerHTML = '<div class="rnp-plan-loading">Загрузка…</div>';
         try { await loadPlans(); } catch (e) { st.host.innerHTML = '<div class="rnp-plan-loading">Не удалось загрузить планы: ' + esc(e && e.message) + '</div>'; return; }
         render();
