@@ -1679,7 +1679,7 @@ html body .sq .sq-band > * { background: var(--accent); color: var(--on-accent, 
 html body .sq .sq-band .sq-l { background: var(--accent); border-right-color: var(--accent); }
 html body .sq .sq-fn > * { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); text-align: center; border-bottom: 1px solid var(--text-primary); position: sticky; top: 0; background: var(--bg, #fff); z-index: 1; }
 html body .sq .sq-fn .sq-l { z-index: 3; }
-html body .sq td:nth-child(even) .sq-c { color: var(--text-muted); }
+html body .sq td.sq-f .sq-c { color: var(--text-muted); }
 html body .sq-c.sq-new { color: var(--text-primary) !important; font-weight: 800; }
 html body .sq-c.sq-long, html body .sq-box { max-height: 260px; overflow: auto; }
 html body .sq-box { font-weight: 600; }
@@ -1739,3 +1739,10 @@ html body .ms-col .cs-ph { height: 150px; }
 html body .ms-cell { height: 150px; border-top: 1px solid var(--border); display: grid; place-items: center; }
 html body .ms-col .cs-art { border-bottom: 1px solid var(--text-primary); height: 56px; }
 @media (max-width: 480px) { html body .ms-side { flex-basis: 250px; } html body .ms-sh, html body .ms-row { grid-template-columns: 70px 1fr; } html body .ms-im { width: 56px; height: 76px; } }
+/* Сравнение контента: ограждение между склейками карточек WB */
+html body .cs-gap { flex: 0 0 22px; align-self: stretch; background: var(--sel); border-left: 2px solid var(--text-primary); border-right: 2px solid var(--text-primary); position: relative; }
+html body .cs-gap span { position: sticky; top: 8px; display: block; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 0; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; color: var(--text-primary); }
+html body .cs-sheet > .cs-gap:first-of-type, html body .ms-sheet > .cs-gap:first-of-type { border-left-width: 0; }
+html body .sq .sq-gap { width: 22px; min-width: 22px; max-width: 22px; padding: 0; background: var(--sel); border-left: 2px solid var(--text-primary); border-right: 2px solid var(--text-primary); }
+html body .sq th.sq-gap { position: relative; }
+html body .sq .sq-gap span { position: absolute; top: 8px; left: 50%; writing-mode: vertical-rl; transform: translateX(-50%) rotate(180deg); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; color: var(--text-primary); }

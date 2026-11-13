@@ -106,6 +106,20 @@
         var place = list.length ? list.filter(function (v) { return v > our; }).length + 1 : null;
         return { our: our, median: med, leader: lead, place: place, of: list.length + 1 };
     }
+    // Склейки карточек WB (imt_id): колонки одной склейки стоят рядом, между склейками ограждение с названием
+    function grpKey(a) { return a && Number(a.imt_id) ? Number(a.imt_id) : 0; }
+    function grpName(arr) { var a = arr.filter(Boolean)[0]; return a ? String(a.card_title || a.subject_name || '').trim() || 'Склейка' : 'Без склейки'; }
+    // list: элементы с полем nm; возвращает группы [{key, name, items}], порядок склеек как у первого появившегося артикула
+    function groups(list, byArt) {
+        var order = [], by = {};
+        list.forEach(function (x) {
+            var a = byArt[Number(x.nm)], k = grpKey(a);
+            if (!by[k]) { by[k] = { key: k, arts: [], items: [] }; order.push(k); }
+            by[k].items.push(x); by[k].arts.push(a);
+        });
+        return order.map(function (k) { var g = by[k]; g.name = k ? grpName(g.arts) : 'Без склейки'; return g; });
+    }
+    function gapHtml(g) { return '<div class="cs-gap" aria-hidden="true"><span>' + esc(g.name) + ' · ' + g.items.length + '</span></div>'; }
     function ratio(rev, our) {
         if (!(our > 0) || rev == null) return '<span class="cc-mut">—</span>';
         var k = rev / our, t = k >= 10 ? Math.round(k) : Math.round(k * 10) / 10;
@@ -133,7 +147,7 @@
         S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
                 var nums = function (from, n) { var o = ''; for (var i = 0; i < n; i++) o += '<div class="cs-n">' + (from + i) + '</div>'; return o; };
         all = all && all.filter(function (d) { return (d.similar && d.similar.length) || (d.top && d.top.length); });
-        var blocks = all && all.length ? all.map(function (d) { return blockHtml(d, byArt[Number(d.nm)], Number(d.nm) === S.nm); }).join('')
+        var blocks = all && all.length ? groups(all, byArt).map(function (g) { return gapHtml(g) + g.items.map(function (d) { return blockHtml(d, byArt[Number(d.nm)], Number(d.nm) === S.nm); }).join(''); }).join('')
             : (S.arts.length ? S.arts.slice(0, 6) : [null, null, null, null]).map(function (a) { return blockHtml(null, a, a && Number(a.nm_id) === S.nm); }).join('');
         return '<div class="cs-wrap"><div class="cs-sheet"><div class="cs-side"><div class="cs-side-top"><span>Название</span><span>Наше фото</span><span>Артикул</span></div><div class="cs-h"><span>№</span></div>' + nums(1, 15) + '<div class="cs-sep">&nbsp;</div>' + nums(1, 10) + '</div>' + blocks + '</div></div>';
     }
@@ -177,37 +191,41 @@
         var list = (S.all || []).filter(function (d) { return d.seo; });
         if (!list.length) return seoOne();
         var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
+        var gs = groups(list, byArt); list = [].concat.apply([], gs.map(function (g) { return g.items; }));
+        // разделитель-колонка стоит перед первым артикулом каждой склейки; в ячейке шапки пишем название склейки
+        var gstart = {}; gs.forEach(function (g) { gstart[g.items[0].nm] = g; });
+        var sp = function (d, tag, inner) { var g = gstart[d.nm]; return g ? '<' + tag + ' class="sq-gap">' + (inner ? '<span>' + esc(g.name) + ' · ' + g.items.length + '</span>' : '') + '</' + tag + '>' : ''; };
         var labels = list[0].labels && list[0].labels.length ? list[0].labels : FIELDS;
         var cls = function (d) { return Number(d.nm) === S.nm ? ' class="on"' : ''; };
         var maps = list.map(function (d) { var m = {}; (d.seo.fields || []).forEach(function (x) { m[x.k] = x; }); return m; });
         var cell = function (t, strong) { t = String(t == null ? '' : t); return t ? '<div class="sq-c' + (t.length > 160 ? ' sq-long' : '') + (strong ? ' sq-new' : '') + '">' + nl(t) + '</div>' : '<span class="cc-mut">—</span>'; };
-        var head = '<tr class="sq-names"><th class="sq-l">Артикул продавца</th>' + list.map(function (d) { var a = byArt[Number(d.nm)]; return '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + esc(d.name || (a && a.seller_article) || '') + '</th>'; }).join('') + '</tr>' +
-            '<tr class="sq-photos"><th class="sq-l">Фото</th>' + list.map(function (d) { var a = byArt[Number(d.nm)]; return '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + (a && a.photo_url ? '<img class="cs-ph" src="' + esc(a.photo_url) + '" alt="" loading="lazy">' : wbImg(d.nm).replace('cc-th', 'cs-ph')) + '</th>'; }).join('') + '</tr>' +
-            '<tr class="sq-arts"><th class="sq-l">Артикул ВБ</th>' + list.map(function (d) { return '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + d.nm + '</th>'; }).join('') + '</tr>' +
-            '<tr class="sq-band"><th class="sq-l"></th>' + list.map(function () { return '<th colspan="2">СЕО оптимизация</th>'; }).join('') + '</tr>' +
-            '<tr class="sq-fn"><th class="sq-l">Поле</th>' + list.map(function () { return '<th>Факт вариант</th><th>Новый вариант</th>'; }).join('') + '</tr>';
+        var head = '<tr class="sq-names"><th class="sq-l">Артикул продавца</th>' + list.map(function (d) { var a = byArt[Number(d.nm)]; return sp(d, 'th', 1) + '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + esc(d.name || (a && a.seller_article) || '') + '</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-photos"><th class="sq-l">Фото</th>' + list.map(function (d) { var a = byArt[Number(d.nm)]; return sp(d, 'th') + '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + (a && a.photo_url ? '<img class="cs-ph" src="' + esc(a.photo_url) + '" alt="" loading="lazy">' : wbImg(d.nm).replace('cc-th', 'cs-ph')) + '</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-arts"><th class="sq-l">Артикул ВБ</th>' + list.map(function (d) { return sp(d, 'th') + '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + d.nm + '</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-band"><th class="sq-l"></th>' + list.map(function (d) { return sp(d, 'th') + '<th colspan="2">СЕО оптимизация</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-fn"><th class="sq-l">Поле</th>' + list.map(function (d) { return sp(d, 'th') + '<th>Факт вариант</th><th>Новый вариант</th>'; }).join('') + '</tr>';
         var rows = labels.map(function (k) {
             return '<tr><td class="sq-l">' + esc(k) + '</td>' + list.map(function (d, i) {
                 var x = maps[i][k], fv = x ? x.fact : '', nv = x ? x.new : '';
                 if (k === 'Артикул WB') { fv = fv || d.nm; nv = nv || d.nm; }
-                return '<td>' + cell(fv) + '</td><td>' + cell(nv, x && x.ch) + '</td>';
+                return sp(d, 'td') + '<td class="sq-f">' + cell(fv) + '</td><td>' + cell(nv, x && x.ch) + '</td>';
             }).join('') + '</tr>';
         }).join('');
-        var words = '<tr class="sq-band"><td class="sq-l"></td>' + list.map(function () { return '<td>СЕО Уникальные слова</td><td>Все уникальные слова для создания СЕО описания</td>'; }).join('') + '</tr>' +
+        var words = '<tr class="sq-band"><td class="sq-l"></td>' + list.map(function (d) { return sp(d, 'td') + '<td>СЕО Уникальные слова</td><td>Все уникальные слова для создания СЕО описания</td>'; }).join('') + '</tr>' +
             '<tr class="sq-words"><td class="sq-l">Слова</td>' + list.map(function (d) {
                 var w = (d.seo.words || []).map(function (x) { return '<div class="sq-w"><b>' + esc(x.w) + '</b> — ' + esc(x.freq) + ' — <span class="' + (VERD[x.verdict] ? 'sq-' + VERD[x.verdict] : '') + '">' + esc(x.verdict) + '</span> — ' + esc(x.note) + '</div>'; }).join('');
                 var it = d.seo.itog || {};
                 var itog = (it.keep ? '<p><b>ИТОГ ДЛЯ ОПИСАНИЯ:</b><br>' + nl(it.keep) + '</p>' : '') + (it.remove ? '<p><b>УБРАТЬ ИЗ ТЕКУЩЕГО ОПИСАНИЯ:</b> ' + nl(it.remove) + '</p>' : '') + (it.doubt ? '<p><b>ПОД ВОПРОСОМ:</b> ' + nl(it.doubt) + '</p>' : '');
-                return '<td><div class="sq-box">' + (w || '<span class="cc-mut">—</span>') + '</div></td><td><div class="sq-box">' + (itog || '<span class="cc-mut">—</span>') + '</div></td>';
+                return sp(d, 'td') + '<td><div class="sq-box">' + (w || '<span class="cc-mut">—</span>') + '</div></td><td><div class="sq-box">' + (itog || '<span class="cc-mut">—</span>') + '</div></td>';
             }).join('') + '</tr>';
         var maxQ = list.reduce(function (m, d) { return Math.max(m, (d.seo.queries || []).length); }, 0);
-        var qhead = '<tr class="sq-band"><td class="sq-l"></td>' + list.map(function () { return '<td colspan="2">Ключевые запросы</td>'; }).join('') + '</tr>' +
-            '<tr class="sq-fn"><td class="sq-l">№</td>' + list.map(function () { return '<td colspan="2"><div class="sq-q sq-qh"><span>Запрос</span><span>Частотность</span><span>Качество запроса</span><span>Ср. цена первых 25 после СПП</span></div></td>'; }).join('') + '</tr>';
+        var qhead = '<tr class="sq-band"><td class="sq-l"></td>' + list.map(function (d) { return sp(d, 'td') + '<td colspan="2">Ключевые запросы</td>'; }).join('') + '</tr>' +
+            '<tr class="sq-fn"><td class="sq-l">№</td>' + list.map(function (d) { return sp(d, 'td') + '<td colspan="2"><div class="sq-q sq-qh"><span>Запрос</span><span>Частотность</span><span>Качество запроса</span><span>Ср. цена первых 25 после СПП</span></div></td>'; }).join('') + '</tr>';
         var qrows = '';
         for (var r = 0; r < maxQ; r++) {
             qrows += '<tr class="sq-qr"><td class="sq-l">' + (r + 1) + '</td>' + list.map(function (d) {
                 var x = (d.seo.queries || [])[r];
-                return '<td colspan="2">' + (x ? '<div class="sq-q"><span>' + esc(x.q) + '</span><span>' + (x.freq == null ? '—' : fmt(x.freq)) + '</span><span class="sq-k sq-k' + x.quality + '">' + QUALITY[x.quality] + '</span><span>' + (x.price == null ? '—' : fmt(x.price)) + '</span></div>' : '') + '</td>';
+                return sp(d, 'td') + '<td colspan="2">' + (x ? '<div class="sq-q"><span>' + esc(x.q) + '</span><span>' + (x.freq == null ? '—' : fmt(x.freq)) + '</span><span class="sq-k sq-k' + x.quality + '">' + QUALITY[x.quality] + '</span><span>' + (x.price == null ? '—' : fmt(x.price)) + '</span></div>' : '') + '</td>';
             }).join('') + '</tr>';
         }
         return '<div class="cs-wrap sq-wrap"><table class="sq"><thead>' + head + '</thead><tbody>' + rows + words + qhead + qrows + '</tbody></table></div>';
@@ -275,12 +293,12 @@
         var left = '<div class="ms-side"><div class="ms-sh"><span>Референс</span><span>ТЗ для создания фотоворонки</span></div>' + br.map(function (b, i) {
             return '<div class="ms-row' + (b.hot ? ' ms-hot' : '') + '"><div class="ms-ref">' + (ref ? wbImg(ref, i + 1).replace('cc-th', 'cc-th ms-im') : '<div class="ms-im cc-nophoto"></div>') + '</div><div class="ms-tz"><b>' + b.n + '. ' + esc(b.title) + (b.hot ? ' <span class="cc-new">приоритет</span>' : '') + '</b>' + esc(b.text) + '</div></div>';
         }).join('') + '</div>';
-        var cols = list.map(function (x) {
+        var cols = groups(list, byArt).map(function (g) { return gapHtml(g) + g.items.map(function (x) {
             var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
             var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
             return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' +
                 br.map(function (b, i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1).replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
-        }).join('');
+        }).join(''); }).join('');
         var bar = '<div class="ms-bar"><button type="button" class="cc-btn cc-btn-b" data-cc-act="gen">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button><button type="button" class="cc-btn" data-cc-act="send" disabled title="Сначала нужна генерация новых фото">Отправить на WB</button><button type="button" class="cc-btn" data-cc-act="copy">Скопировать ТЗ</button></div>';
         return bar + '<div class="cs-wrap ms-wrap"><div class="ms-sheet">' + left + cols + '</div></div>';
     }
@@ -299,7 +317,9 @@
     function paint() {
         var host = shell(); if (!host) return;
         var sel = host.querySelector('#cc-art');
-        var opts = S.arts.length ? S.arts.map(function (a) { return '<option value="' + esc(a.nm_id) + '"' + (Number(a.nm_id) === S.nm ? ' selected' : '') + '>' + esc(a.name || a.seller_article || a.nm_id) + '</option>'; }).join('') : '<option>Товары загружаются</option>';
+        var optOf = function (a) { return '<option value="' + esc(a.nm_id) + '"' + (Number(a.nm_id) === S.nm ? ' selected' : '') + '>' + esc(a.seller_article || a.name || a.nm_id) + '</option>'; };
+        var byArt0 = {}; S.arts.forEach(function (a) { byArt0[Number(a.nm_id)] = a; });
+        var opts = S.arts.length ? groups(S.arts.map(function (a) { return { nm: a.nm_id }; }), byArt0).map(function (g) { return '<optgroup label="' + esc(g.name + ' · ' + g.items.length) + '">' + g.items.map(function (x) { return optOf(byArt0[Number(x.nm)]); }).join('') + '</optgroup>'; }).join('') : '<option>Товары загружаются</option>';
         if (sel.__h !== opts) { sel.innerHTML = opts; sel.__h = opts; }
         Array.prototype.forEach.call(host.querySelectorAll('.cc-chip'), function (b) { var on = b.getAttribute('data-cc') === S.sec; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
         var body = host.querySelector('#cc-body'), sec = S.sec, heavy = (sec === 'rivals' || sec === 'seo' || sec === 'media') && S.all && S.all.length > 10;
@@ -319,7 +339,7 @@
     // ───── данные ─────
     function loadArts(cab) {
         if (!sb()) return Promise.resolve([]);
-        return Promise.resolve(sb().from('rnp_articles').select('nm_id,name,seller_article,photo_url').eq('cabinet_id', cab).eq('is_active', true).order('name').range(0, 999))
+        return Promise.resolve(sb().from('rnp_articles').select('nm_id,name,seller_article,photo_url,imt_id,card_title,subject_name').eq('cabinet_id', cab).eq('is_active', true).order('name').range(0, 999))
             .then(function (r) { return (r && r.data) || []; }).catch(function () { return []; });
     }
     function loadFunnel() {
