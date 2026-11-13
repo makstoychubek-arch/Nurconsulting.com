@@ -1819,3 +1819,13 @@ html body .nr-zoom button { font-size: 12px; }
 html body .nr-zoom-b { font-size: 15px !important; }
 /* Карточки поднимаются на 1px при наведении: верхняя линия первого ряда не должна обрезаться краем вкладки */
 html body .main-content > .tab-content { padding-top: 3px; }
+
+/* Сравнение контента: все кадры одного формата 3:4 и одного размера, номера строго напротив строк, листы крутятся только по одной оси */
+html body #cc-root { --cc-w: 180px; --cc-row: 66px; }
+html body #cc-root .ms-side, html body #cc-root .ms-col { flex: 0 0 var(--cc-w); width: var(--cc-w); box-sizing: border-box; }
+html body #cc-root .ms-row, html body #cc-root .ms-cell { height: auto; aspect-ratio: 3 / 4; box-sizing: border-box; }
+html body #cc-root .ms-im, html body #cc-root img.ms-im, html body #cc-root .cc-th.ms-im { width: 100%; height: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: center; border-radius: 0; }
+html body #cc-root .ms-col .cs-ph { height: 150px; width: 112.5px; aspect-ratio: 3 / 4; object-fit: cover; }
+html body #cc-root .cs-r, html body #cc-root .cs-n { height: var(--cc-row); box-sizing: border-box; }
+html body #cc-root .cs-side-top { height: 300px; grid-template-rows: 48px 150px 30px 1fr; }
+html body #cc-root .cs-wrap, html body #cc-root .sq-wrap { overscroll-behavior: contain; }
