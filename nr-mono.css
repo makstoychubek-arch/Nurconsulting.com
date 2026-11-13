@@ -1768,3 +1768,45 @@ html body .ms-act .cc-btn:disabled:not(.ms-send) { opacity: .6; cursor: default;
   html body .cc-tile b { font-size: 22px; }
   html body .cc-acts { gap: 8px; }
 }
+
+/* ===== Сравнение контента: дизайн листов. Читаемые разделы, широкие линии между блоками, лист на всю высоту экрана ===== */
+html body #cc-root { --cc-h: calc((100vh - 170px) / var(--nr-zoom, 1)); --cc-line: 2px solid var(--text-primary); --cc-thin: 1px solid color-mix(in srgb, var(--text-primary) 30%, transparent); }
+html body #cc-root .cs-wrap { height: var(--cc-h); max-height: none; border: 0; border-top: var(--cc-line); border-bottom: var(--cc-line); border-radius: 0; }
+html body #cc-root .sq-wrap, html body #cc-root .ms-wrap { max-height: none; }
+/* линии: между блоками артикулов 2px чёрные, между строками 1px заметные */
+html body #cc-root .cs-b, html body #cc-root .ms-col { border-right: var(--cc-line); }
+html body #cc-root .cs-b:last-child, html body #cc-root .ms-col:last-child { border-right: 0; }
+html body #cc-root .cs-r, html body #cc-root .ms-cell, html body #cc-root .ms-row, html body #cc-root .cs-n { border-top: var(--cc-thin); }
+html body #cc-root .cs-h { border-top: var(--cc-line); border-bottom: var(--cc-line); height: 34px; }
+html body #cc-root .cs-h span { font-size: 11px; color: var(--text-primary); }
+html body #cc-root .cs-side { flex-basis: 56px; border-right: var(--cc-line); }
+html body #cc-root .cs-n { font-size: 13px; color: var(--text-primary); }
+/* склейки: широкая чёрная полоса с названием */
+html body #cc-root .cs-gap, html body #cc-root .sq .sq-gap { flex: 0 0 46px; width: 46px; min-width: 46px; max-width: 46px; background: var(--accent); border: 0; }
+html body #cc-root .cs-gap span, html body #cc-root .sq .sq-gap span { color: var(--on-accent, #fff); font-size: 12px; letter-spacing: .1em; }
+html body #cc-root .ms-grp { border-right: 0; }
+html body #cc-root .ms-side { border-right: var(--cc-line); flex-basis: 150px; }
+html body #cc-root .ms-sh b { font-size: 13px; }
+html body #cc-root .ms-leak .ms-sh { height: 224px; }
+/* типографика крупнее */
+html body #cc-root .cs-name, html body #cc-root .ms-name { font-size: 13.5px; height: 48px; }
+html body #cc-root .cs-r { font-size: 13.5px; }
+html body #cc-root .cs-rev b { font-size: 16px; }
+html body #cc-root .cs-sep { height: 34px; font-size: 11px; letter-spacing: .12em; }
+html body #cc-root .cs-art, html body #cc-root .ms-col .cs-art { font-size: 13px; color: var(--text-primary); font-weight: 700; }
+/* СЕО: разделы листа хорошо видны */
+html body #cc-root .sq { font-size: 13.5px; line-height: 1.5; }
+html body #cc-root .sq th, html body #cc-root .sq td { border-right: var(--cc-thin); border-bottom: var(--cc-thin); padding: 10px 12px; }
+html body #cc-root .sq td.sq-f, html body #cc-root .sq th[colspan="2"], html body #cc-root .sq td[colspan="2"] { border-left: var(--cc-line); }
+html body #cc-root .sq .sq-l { width: 180px; min-width: 180px; max-width: 180px; font-size: 12.5px; border-right: var(--cc-line); border-bottom: var(--cc-thin); }
+html body #cc-root .sq .sq-band > * { font-size: 12.5px; padding: 12px; letter-spacing: .1em; border-top: var(--cc-line); border-bottom: var(--cc-line); }
+html body #cc-root .sq .sq-fn > * { font-size: 11px; color: var(--text-primary); border-bottom: var(--cc-line); }
+html body #cc-root .sq-names th { font-size: 14.5px; }
+html body #cc-root .sq-box { font-size: 13px; line-height: 1.55; max-height: 320px; }
+html body #cc-root .sq td.sq-f .sq-c { color: color-mix(in srgb, var(--text-primary) 62%, transparent); }
+@media (max-width: 640px) { html body #cc-root { --cc-h: calc(100vh - 150px); } html body #cc-root .sq .sq-l { width: 110px; min-width: 110px; max-width: 110px; } }
+html body #cc-root .ms-sh { height: 304px; }
+html body #cc-root .ms-leak .ms-sh { height: 228px; }
+html body #cc-root .ms-grp { border-left: 18px solid var(--accent); }
+html body #cc-root .ms-grp:first-child { border-left-width: 0; }
+html body #cc-root .ms-row { border-top: var(--cc-thin); }
