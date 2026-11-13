@@ -6,6 +6,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { applyRestockTelegramReply } from '../_shared/wb-restock-apply.ts';
 import { setTelegramReaction, unwrapTelegramMessage } from '../_shared/wb-restock-reply.ts';
+import { alinaWebhookSecret } from '../_shared/alina-webhook-secret.ts';
+import { processAlinaTelegramUpdate } from '../_shared/alina-telegram.ts';
 import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 
 const CORS = {
@@ -47,13 +49,25 @@ Deno.serve(async (req) => {
         return json({ ok: true, bot: botId, restock: true });
     }
 
-    const expectedSecret = (Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '').trim();
+    const alinaBot = botId === 'alina' || botId === 'alina2' ? botId : null;
+    const sharedSecret = (Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '').trim();
     const gotSecret = (req.headers.get('X-Telegram-Bot-Api-Secret-Token') ?? '').trim();
-    if (expectedSecret && gotSecret !== expectedSecret) {
+    const update = await req.json().catch(() => null);
+    if (alinaBot && (update?.business_message || update?.business_connection || update?.edited_business_message)) {
+        try {
+            if (gotSecret !== await alinaWebhookSecret(alinaBot)) {
+                return json({ ok: false, error: 'bad_secret' }, 401);
+            }
+            await processAlinaTelegramUpdate(alinaBot, (Deno.env.get(BOT_TOKEN_ENV[alinaBot]) || '').trim(), update);
+            return json({ ok: true });
+        } catch {
+            console.error('[telegram-router] Alina could not accept an update');
+            return json({ ok: false, error: 'alina_unavailable' }, 503);
+        }
+    }
+    if (sharedSecret && gotSecret !== sharedSecret && (!alinaBot || gotSecret !== await alinaWebhookSecret(alinaBot))) {
         return json({ ok: false, error: 'bad_secret' }, 401);
     }
-
-    const update = await req.json().catch(() => null);
     const msg = unwrapTelegramMessage(update);
     if (!msg) return json({ ok: true, ignored: true });
 
