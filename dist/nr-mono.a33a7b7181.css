@@ -1810,3 +1810,12 @@ html body #cc-root .ms-leak .ms-sh { height: 228px; }
 html body #cc-root .ms-grp { border-left: 18px solid var(--accent); }
 html body #cc-root .ms-grp:first-child { border-left-width: 0; }
 html body #cc-root .ms-row { border-top: var(--cc-thin); }
+
+/* ===== Шапка: дата, масштаб и кабинет одного размера (владелец, 13 ноября 2026) ===== */
+html body #header-date-chip-wrap, html body .nr-zoom, html body #cabinet-picker-btn { height: 32px; box-sizing: border-box; border: 1px solid var(--text-primary); border-radius: 999px; }
+html body #cabinet-picker-btn { padding: 0 14px; display: inline-flex; align-items: center; background: transparent; }
+html body #cabinet-picker-btn .cabinet-picker-label, html body #header-date-chip-wrap #date-range { font-size: 12px; font-weight: 700; }
+html body .nr-zoom button { font-size: 12px; }
+html body .nr-zoom-b { font-size: 15px !important; }
+/* Карточки поднимаются на 1px при наведении: верхняя линия первого ряда не должна обрезаться краем вкладки */
+html body .main-content > .tab-content { padding-top: 3px; }
