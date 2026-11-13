@@ -1837,3 +1837,19 @@ html body .nr-win.rnp-plan-fact-dialog:not(.nr-win-photo):not(.nw-modal) { --w: 
 html body .rnp-plan-fact-dialog > .nr-win-scroll, html body #rnp-plan-fact-body { flex: 1 1 auto; min-height: 0; }
 html body #rnp-planning-overlay { padding: 12px; }
 html body #rnp-planning-overlay .rnp-plan-panel { width: calc(100vw - 24px) !important; max-width: none !important; height: calc(100dvh - 24px) !important; max-height: none !important; }
+
+/* План/факт и Планирование: полноценные страницы (вкладки РНП), не окна */
+html body .rnp-pfp-host { min-height: calc((100dvh - 150px) / var(--nr-zoom, 1)); display: flex; flex-direction: column; }
+html body .rnp-pfp-host > .pf-bar { display: flex !important; align-items: center; gap: 12px; padding: 0 0 12px; }
+html body .rnp-pfp-host .pf-close { display: none !important; }
+html body .rnp-pfp-host .pf-back { border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); border-radius: 999px; padding: 6px 14px; font-weight: 800; cursor: pointer; }
+html body .rnp-pfp-host .pf-bar-title { font-size: 20px; font-weight: 900; color: var(--text-primary); }
+html body .rnp-pfp-host .pf-scroll { flex: 1 1 auto; max-height: calc((100dvh - 230px) / var(--nr-zoom, 1)); overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
+html body .rnp-pfp-host .rnp-plan-panel.rnp-plan-page { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; box-shadow: none !important; border: 1px solid var(--text-primary) !important; border-radius: 26px; padding: 18px; display: flex; flex-direction: column; background: var(--surface-solid, var(--bg, #fff)); }
+html body .rnp-pfp-host .rnp-plan-page .rnp-plan-scroll { max-height: calc((100dvh - 330px) / var(--nr-zoom, 1)); overflow: auto; }
+html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { display: inline-flex; }
+html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { width: auto; height: auto; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 800; }
+html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { white-space: nowrap; width: auto !important; min-width: 0; height: 32px !important; display: inline-flex; align-items: center; margin-left: auto; }
+html body .rnp-pfp-host .pf-back { display: inline-flex !important; align-items: center; white-space: nowrap; }
+html body .rnp-pfp-host .pf-bar-title { display: none; }
+html body .rnp-pfp-host .pf-scroll { flex: 0 1 auto; }

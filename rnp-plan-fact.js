@@ -431,7 +431,7 @@
 
     function shellHtml(model) {
         return '<div class="pf-bar">'
-            + '<button type="button" class="pf-back" onclick="RnpPlanFact.close()" aria-label="Назад">‹ Назад</button>'
+            + '<button type="button" class="pf-back" onclick="RnpPlanFact.close()" aria-label="Назад">‹ РНП</button>'
             + '<div class="pf-bar-title" id="rnp-plan-fact-title">' + esc(model.title) + '</div>'
             + '<button type="button" class="pf-close" onclick="RnpPlanFact.close()" aria-label="Закрыть">×</button>'
             + '</div>'
@@ -496,9 +496,21 @@
         if (e.key === 'Escape') close();
     }
 
+    var pageHost = null;
     function open(opts) {
         if (typeof document === 'undefined') return build(opts);
         var model = build(opts);
+        if (opts && opts.host) {
+            // страница: лист рисуется прямо во вкладке, без окна и подложки
+            pageHost = opts.host;
+            var pg = pageHost.querySelector('.pf-scroll');
+            var px = pg ? pg.scrollLeft : 0, py = pg ? pg.scrollTop : 0;
+            pageHost.innerHTML = shellHtml(model);
+            var pc = pageHost.querySelector('.pf-scroll');
+            if (pc && (px || py)) { pc.scrollLeft = px; pc.scrollTop = py; }
+            bindAxisLock(pc);
+            return model;
+        }
         var overlay = ensureOverlay();
         var body = document.getElementById('rnp-plan-fact-body');
         // Перерисовка после догрузки данных не должна сбрасывать прокрутку.
@@ -517,6 +529,7 @@
     }
 
     function close() {
+        if (pageHost) { pageHost = null; if (typeof root.showTab === 'function') root.showTab('rnp'); return; }
         var overlay = document.getElementById('rnp-plan-fact-overlay');
         if (overlay) overlay.classList.remove('is-open');
         if (typeof document !== 'undefined') {
