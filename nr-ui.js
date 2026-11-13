@@ -214,28 +214,24 @@
         return confirmDlg({ title: title, text: text, danger: o.danger != null ? o.danger : !!verb, confirmLabel: o.confirmLabel || (verb ? verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase() : 'Подтвердить'), cancelLabel: o.cancelLabel });
     }
 
-    // Масштаб страницы: «−» и «+» рядом с кабинетом меняют масштаб только содержимого вкладок (меню и шапка остаются), один на все страницы, помним между заходами
+    // Масштаб страницы: ползунок рядом с кабинетом меняет масштаб только содержимого вкладок (меню и шапка остаются), один на все страницы.
     (function pageZoom() {
-        var STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2], KEY = 'nr_page_zoom';
+        var KEY = 'nr_page_zoom';
         var d = root.document; if (!d) return;
         function get() { var z = 1; try { z = Number(root.localStorage.getItem(KEY)) || 1; } catch (_) { /* без памяти */ } return z >= 0.25 && z <= 2 ? z : 1; }
-        function idx(z) { var b = 0; STEPS.forEach(function (s, i) { if (Math.abs(s - z) < Math.abs(STEPS[b] - z)) b = i; }); return b; }
+        var raf = 0;
         function apply(z) {
             d.documentElement.style.setProperty('--nr-zoom', String(z));
-            var v = d.getElementById('nr-zoom-v'); if (v) { v.textContent = Math.round(z * 100) + '%'; v.classList.toggle('on', z !== 1); }
-            Array.prototype.forEach.call(d.querySelectorAll('#nr-zoom [data-z]'), function (b) { var k = Number(b.getAttribute('data-z')); b.disabled = (k < 0 && z <= STEPS[0]) || (k > 0 && z >= STEPS[STEPS.length - 1]); });
-            // графики и таблицы пересчитывают размеры под новое место
-            try { root.dispatchEvent(new root.Event('resize')); } catch (_) { /* старый браузер */ }
+            var r = d.getElementById('nr-zoom-r'); if (r) { r.value = String(Math.round(z * 100)); r.title = 'Масштаб ' + Math.round(z * 100) + '% (двойной клик — 100%)'; r.style.setProperty('--p', ((z * 100 - 25) / 175 * 100) + '%'); }
+            if (raf) return;
+            raf = root.requestAnimationFrame(function () { raf = 0; try { root.dispatchEvent(new root.Event('resize')); } catch (_) { /* старый браузер */ } });
         }
         function set(z) { try { root.localStorage.setItem(KEY, String(z)); } catch (_) { /* без памяти */ } apply(z); }
         function init() {
-            var box = d.getElementById('nr-zoom'); if (!box || box.__z) return; box.__z = 1;
+            var r = d.getElementById('nr-zoom-r'); if (!r || r.__z) return; r.__z = 1;
             apply(get());
-            box.addEventListener('click', function (e) {
-                var b = e.target.closest('[data-z]'); if (!b || b.disabled) return;
-                var k = Number(b.getAttribute('data-z')), i = idx(get());
-                set(k === 0 ? 1 : STEPS[Math.max(0, Math.min(STEPS.length - 1, i + k))]);
-            });
+            r.addEventListener('input', function () { set(Number(r.value) / 100); });
+            r.addEventListener('dblclick', function () { set(1); });
         }
         if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', init); else init();
     })();
