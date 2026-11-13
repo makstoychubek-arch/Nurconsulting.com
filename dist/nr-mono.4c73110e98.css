@@ -1905,3 +1905,15 @@ html body .ps-tabs { padding-right: 6px; } html body .ps-tabs .ps-back { margin-
 html body .ps-save { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text-muted); }
 html body .ps-save[data-s="error"] { color: var(--dn, #dc2626); }
 html body .ps-save + .ps-back { margin-left: 10px !important; }
+html body .ps-block { margin: 0 0 22px; border: 1px solid var(--text-primary); border-radius: 26px; padding: 16px; background: var(--bg, #fff); }
+html body .ps-block .ps-scroll { border: 0; border-top: 1px solid var(--text-primary); border-radius: 0; max-height: none; margin-top: 12px; }
+html body .ps-bh2 { display: flex; align-items: center; gap: 8px; }
+html body .ps-pars { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 10px; margin-top: 12px; }
+html body .ps-par { display: grid; gap: 3px; }
+html body .ps-par span { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+html body .ps-pin { height: 32px; border: 1px solid var(--text-primary) !important; border-radius: 12px !important; background: transparent !important; color: var(--text-primary); padding: 0 10px; font: inherit; font-weight: 700; box-shadow: none !important; width: 100%; }
+html body .ps-pin:focus { background: var(--sel) !important; outline: 2px solid var(--text-primary); outline-offset: 1px; }
+html body .ps-pin.is-err { color: var(--dn, #dc2626); }
+html body .ps-h1 th { top: 0; } 
+html body .ps-bh2 .ps-art { height: 40px !important; line-height: 38px !important; padding-top: 0 !important; padding-bottom: 0 !important; min-width: 300px; }
+html body .ps-tabs { margin-right: 10px; }
