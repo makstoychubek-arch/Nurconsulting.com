@@ -283,24 +283,27 @@
     // «Медиа» как лист «ФОТОВОРОНКА» из таблицы владельца: слева РЕФЕРЕНС (кадр лучшего конкурента) и ТЗ для создания фотоворонки по каждому кадру,
     // дальше колонки артикулов: название, фото, артикул и кадры карточки по порядку. Сейчас в колонках фото, что стоят на WB; новые появятся после генерации.
     var ROWS = 8;
+    // Задания (промты) на кадры людям не показываем: картинки делает сайт сам. Здесь только референс и сами кадры.
     function mediaHtml() {
-        var a = art(), w = S.fun && S.fun.worst, d = S.cmp, name = (a && (a.name || a.seller_article)) || '';
-        var br = slideBriefs(w, d && d.seo, name);
+        var a = art(), d = S.cmp;
         var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
         var list = (S.all && S.all.length ? S.all : S.arts.map(function (x) { return { nm: Number(x.nm_id), name: x.seller_article || x.name }; })).slice();
         var ref = 0, best = -1;
         ((d && d.similar) || []).concat((d && d.top) || []).forEach(function (x) { if ((Number(x.rev) || 0) > best) { best = Number(x.rev) || 0; ref = x.nm; } });
-        var left = '<div class="ms-side"><div class="ms-sh"><span>Референс</span><span>ТЗ для создания фотоворонки</span></div>' + br.map(function (b, i) {
-            return '<div class="ms-row' + (b.hot ? ' ms-hot' : '') + '"><div class="ms-ref">' + (ref ? wbImg(ref, i + 1).replace('cc-th', 'cc-th ms-im') : '<div class="ms-im cc-nophoto"></div>') + '</div><div class="ms-tz"><b>' + b.n + '. ' + esc(b.title) + (b.hot ? ' <span class="cc-new">приоритет</span>' : '') + '</b>' + esc(b.text) + '</div></div>';
+        var rows = []; for (var i = 0; i < ROWS; i++) rows.push(i);
+        var left = '<div class="ms-side"><div class="ms-sh"><span>Референс</span></div>' + rows.map(function (i) {
+            return '<div class="ms-row"><div class="ms-ref">' + (ref ? wbImg(ref, i + 1).replace('cc-th', 'cc-th ms-im') : '<div class="ms-im cc-nophoto"></div>') + '</div><div class="ms-n">' + (i + 1) + '</div></div>';
         }).join('') + '</div>';
         var cols = groups(list, byArt).map(function (g) { return gapHtml(g) + g.items.map(function (x) {
             var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
             var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
-            return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' +
-                br.map(function (b, i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1).replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
+            // «Отправить на WB» у каждой готовой карточки своя и заперта, пока для неё нет новых фото: на все сразу отправить нельзя
+            var act = '<div class="ms-act"><button type="button" class="cc-btn cc-btn-b" data-cc-gen="' + x.nm + '">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button>' +
+                '<button type="button" class="cc-btn ms-send" disabled aria-disabled="true" title="Откроется, когда для этой карточки будут готовы новые фото"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Отправить на WB</button></div>';
+            return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' + act +
+                rows.map(function (i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1).replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
         }).join(''); }).join('');
-        var bar = '<div class="ms-bar"><button type="button" class="cc-btn cc-btn-b" data-cc-act="gen">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button><button type="button" class="cc-btn" data-cc-act="send" disabled title="Сначала нужна генерация новых фото">Отправить на WB</button><button type="button" class="cc-btn" data-cc-act="copy">Скопировать ТЗ</button></div>';
-        return bar + '<div class="cs-wrap ms-wrap"><div class="ms-sheet">' + left + cols + '</div></div>';
+        return '<div class="cs-wrap ms-wrap"><div class="ms-sheet">' + left + cols + '</div></div>';
     }
     var VIEW = { rivals: rivalsHtml, seo: seoHtml, leak: leakHtml, media: mediaHtml };
 
@@ -402,9 +405,9 @@
 
     // ───── окно оплаты ─────
     function closePay() { var m = doc.getElementById('cc-ov'); if (m) m.remove(); }
-    function openPay() {
+    function openPay(nm) {
         closePay();
-        var a = art(), m = doc.createElement('div');
+        var a = nm ? S.arts.filter(function (x) { return Number(x.nm_id) === Number(nm); })[0] || art() : art(), m = doc.createElement('div');
         m.id = 'cc-ov'; m.className = 'cc-ov'; m.setAttribute('data-nr-blur', ''); m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
         m.innerHTML = '<div class="cc-m"><div class="cc-mh"><div class="cc-cap">Генерация фото</div><button type="button" class="cc-x" data-cc-close aria-label="Закрыть">×</button></div>' +
             '<div class="cc-tile cc-dark"><div class="cc-cap">К оплате</div><b>' + fmt(PRICE_SOM) + ' сом</b><span>' + esc(a ? (a.name || a.nm_id) : '') + '</span></div>' +
@@ -416,23 +419,18 @@
     }
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePay(); });
 
-    function copyBrief() {
-        var a = art(), w = S.fun && S.fun.worst, txt = briefText((a && (a.name || a.seller_article)) || '', w, slideBriefs(w, S.cmp && S.cmp.seo, ''));
-        var ok = function () { say('Задание скопировано', 'Можно отдать дизайнеру или вставить в генератор'); };
-        try { root.navigator.clipboard.writeText(txt).then(ok, function () { say('Не удалось скопировать', 'Выделите текст вручную'); }); } catch (_) { say('Не удалось скопировать', 'Выделите текст вручную'); }
-    }
     function bind(host) {
         if (S.bound) return; S.bound = true;
         host.addEventListener('click', function (e) {
             var b;
-            if ((b = e.target.closest('.cs-b, .ms-col, .sq thead th[data-nm]')) && !e.target.closest('a') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
+            if ((b = e.target.closest('.cs-b, .ms-col, .sq thead th[data-nm]')) && !e.target.closest('a, button') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
+            if ((b = e.target.closest('[data-cc-gen]'))) { var gn = Number(b.getAttribute('data-cc-gen')); if (gn && gn !== S.nm) { S.nm = gn; try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} } openPay(gn); return; }
             if ((b = e.target.closest('[data-cc-nm]'))) { S.nm = Number(b.getAttribute('data-cc-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} loadFunnel(); return; }
             if ((b = e.target.closest('[data-cc-sec]'))) { S.sec = b.getAttribute('data-cc-sec'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); return; }
             if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); scrollToSel(); return; }
             if ((b = e.target.closest('[data-cc-act]'))) {
                 var act = b.getAttribute('data-cc-act');
                 if (act === 'gen') openPay();
-                else if (act === 'copy') copyBrief();
                 else if (act === 'find') say('Автоподбор подключается', 'Сейчас данные берутся из вашей таблицы. Сбор с WB и MPStats прямо с сайта появится следующим шагом');
                 else if (act === 'seo') say('Автосбор СЕО подключается', 'Сейчас данные берутся из вашей таблицы. Сбор запросов прямо с сайта появится следующим шагом');
                 else if (act === 'send') say('Отправлять пока нечего', 'Сначала нужна генерация новых фото');
