@@ -1693,3 +1693,15 @@ html body .sq-qr td { padding-top: 5px; padding-bottom: 5px; }
 html body .sq-k { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 10.5px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html body .sq-k0 { border-color: #16a34a; color: #16a34a; } html body .sq-k3 { border-color: #dc2626; color: #dc2626; } html body .sq-k2 { color: var(--text-muted); }
 @media (max-width: 480px) { html body .sq .sq-l { width: 96px; min-width: 96px; max-width: 96px; } }
+/* Сравнение контента → Утечка и Медиа */
+html body .cc-t tr.cc-hot td { background: var(--sel); }
+html body .cc-t tr.cc-pick { cursor: pointer; }
+html body .cc-t tr.cc-pick:hover td { background: var(--sel); }
+html body .cc-two.cc-two-m { grid-template-columns: 1fr; }
+html body .cc-briefs { display: grid; gap: 10px; }
+html body .cc-brief { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: start; border-top: 1px solid var(--border); padding-top: 10px; }
+html body .cc-brief .cc-sl { width: 56px; aspect-ratio: 3 / 4; font-size: 16px; border-radius: 10px; }
+html body .cc-brief b { font-size: 13px; font-weight: 800; }
+html body .cc-brief p { margin: 3px 0 0; font-size: 12.5px; font-weight: 600; color: var(--text-muted); line-height: 1.45; }
+html body .cc-brief.cc-hotb .cc-sl { border-color: var(--text-primary); }
+html body .cc-slides .cc-sl.cc-th { width: 100%; height: auto; aspect-ratio: 3 / 4; }

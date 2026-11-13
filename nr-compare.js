@@ -14,7 +14,7 @@
     var FIELDS = ['Артикул продавца', 'Артикул WB', 'Наименование', 'Категория продавца', 'Бренд', 'Описание', 'Материал верха', 'Пол', 'Состав', 'Цвет', 'Баркод', 'Размер', 'Рос. размер', 'Вид застежки', 'Возрастные ограничения', 'Вырез горловины', 'Декоративные элементы', 'ИКПУ', 'Код ТРУ 1', 'Код ТРУ 2', 'Код упаковки', 'Количество штук в товаре по ЭС', 'Коллекция', 'Комплектация', 'Любимые герои', 'Назначение', 'ОКПД 2', 'Особенности модели', 'Параметры модели на фото (ОГ-ОТ-ОБ)', 'Покрой', 'Размер на модели', 'Рисунок', 'Рост модели на фото', 'Сезон', 'Стиль', 'Страна производства', 'ТНВЭД', 'Тип ростовки', 'Тип рукава', 'Уход за вещами', 'Фактура материала', 'Форма рукава'];
     var QUALITY = ['Супер релевантно', 'Релевантно', 'Нерелевантно но пусть будет', 'Исключить из карточки'];
     var SLIDES = ['Обложка', 'Главная выгода', 'Посадка и крой', 'Размеры и замеры', 'Состав и ткань', 'Детали', 'С чем носить', 'Доверие и отзывы'];
-    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, cmp: null, all: null, token: 0, bound: false };
+    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, cmp: null, all: null, allFun: null, token: 0, bound: false };
 
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -72,12 +72,12 @@
         if (vol >= 15444) h = 48 + Math.round((vol - 15444) / 760);
         return h;
     }
-    function wbUrl(nm, host) { var h = host < 10 ? '0' + host : String(host); return 'https://basket-' + h + '.wbbasket.ru/vol' + Math.floor(nm / 1e5) + '/part' + Math.floor(nm / 1e3) + '/' + nm + '/images/c246x328/1.webp'; }
+    function wbUrl(nm, host, idx) { var h = host < 10 ? '0' + host : String(host); return 'https://basket-' + h + '.wbbasket.ru/vol' + Math.floor(nm / 1e5) + '/part' + Math.floor(nm / 1e3) + '/' + nm + '/images/c246x328/' + (idx || 1) + '.webp'; }
     var HOSTS = lsGet('nr_cc_wbhost_v2') || {};
-    function wbImg(nm) {
+    function wbImg(nm, idx) {
         nm = Number(nm); if (!nm) return '<div class="cc-th cc-nophoto"></div>';
         var vol = Math.floor(nm / 1e5), h = HOSTS[vol] || wbHost(vol);
-        return '<img class="cc-th" data-wb="' + nm + '" data-h="' + h + '" data-try="0" src="' + wbUrl(nm, h) + '" alt="" loading="lazy">';
+        return '<img class="cc-th" data-wb="' + nm + '" data-h="' + h + '" data-i="' + (idx || 1) + '" data-try="0" src="' + wbUrl(nm, h, idx) + '" alt="" loading="lazy">';
     }
     // не загрузилось: пробуем соседние корзины (+1, −1, +2, −2 …), после 16 попыток показываем заглушку
     doc.addEventListener('error', function (e) {
@@ -87,7 +87,7 @@
         var h = base + (n % 2 ? 1 : -1) * Math.ceil(n / 2);
         im.setAttribute('data-try', String(n));
         if (h < 1) { im.dispatchEvent(new root.Event('error')); return; }
-        im.src = wbUrl(nm, h);
+        im.src = wbUrl(nm, h, Number(im.getAttribute('data-i')) || 1);
     }, true);
     doc.addEventListener('load', function (e) {
         var im = e.target; if (!im || !im.getAttribute || !im.getAttribute('data-wb') || !Number(im.getAttribute('data-try'))) return;
@@ -218,6 +218,30 @@
         return '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="seo">Обновить СЕО</button><span class="cc-note">' + list.length + ' артикулов из вашей таблицы. Лист листается вбок, жирным выделено то, что отличается от текущей карточки.</span></div>' +
             '<div class="cs-wrap sq-wrap"><table class="sq"><thead>' + head + '</thead><tbody>' + rows + words + qhead + qrows + '</tbody></table></div>';
     }
+    // Задание на слайды: какой кадр чинит какой шаг воронки и что на нём показать. Признаки берутся из СЕО (строка «Признаки с фото»).
+    var FOCUS = { ctr: [0], cart: [1, 2, 3, 4], order: [5, 6, 7], buyout: [3, 7] };
+    function slideBriefs(worst, seo, name) {
+        var feats = '', keep = seo && seo.itog && seo.itog.keep || '';
+        var m = /Признаки с фото:\s*([^\n]+)/.exec(keep); if (m) feats = m[1].trim();
+        var kw = (/Супер:\s*([^\n]+)/.exec(keep) || [])[1] || '';
+        kw = kw.split(',').slice(0, 3).map(function (x) { return x.trim(); }).filter(Boolean).join(', ');
+        var base = [
+            'Крупный первый кадр, модель в движении, чистый светлый фон, название товара крупно' + (kw ? ' («' + kw.split(',')[0] + '»)' : '') + ', одна главная выгода.',
+            'Главная выгода одной строкой и три иконки преимуществ' + (feats ? ': ' + feats.split(',').slice(0, 3).map(function (x) { return x.trim(); }).join(', ') : '') + '.',
+            'Посадка и крой: фото спереди, сбоку и сзади, подписи длины, рукава и линии плеча.',
+            'Таблица размеров и замеров, рост и параметры модели, подсказка «как выбрать размер».',
+            'Состав и ткань: крупный план материала, состав в процентах, уход за вещью.',
+            'Детали: застёжка, манжеты, швы, декор, по одному кадру на деталь.',
+            'С чем носить: два-три образа с этим товаром (брюки, юбка, верхняя одежда).',
+            'Доверие: отзывы с фото, рейтинг, страна производства, «как на фото».'
+        ];
+        var hot = worst ? (FOCUS[worst.id] || []) : [];
+        return SLIDES.map(function (t, i) { return { n: i + 1, title: t, text: base[i], hot: hot.indexOf(i) >= 0, kw: i === 0 ? kw : '' }; });
+    }
+    function briefText(name, worst, briefs) {
+        return 'Переделать все фото карточки «' + name + '».' + (worst ? ' Главная утечка воронки: ' + worst.from + ' → ' + worst.to + ' (' + worst.fix + ').' : '') + '\n' +
+            briefs.map(function (b) { return b.n + '. ' + b.title + (b.hot ? ' [приоритет]' : '') + ': ' + b.text; }).join('\n') + '\nСтиль: «Минимализм», чёрно-белая подача, без цветных заливок, крупный читаемый текст.';
+    }
     function leakHtml() {
         var f = S.fun || funnel([]), has = !!S.fun, t = f.total;
         var vals = [['Показы', t.imp], ['Клики', t.clk], ['Корзина', t.cart], ['Заказ', t.ord], ['Выкуп', t.buy]];
@@ -229,21 +253,34 @@
         }).join('');
         var rows = f.steps.map(function (s) {
             var gap = s.gap == null ? '<span class="cc-mut">нет данных конкурентов</span>' : '<span class="cc-pill ' + (s.gap < 0 ? 'dn' : 'up') + '">' + (s.gap < 0 ? '−' : '+') + pct(Math.abs(s.gap)).replace('%', ' п.п.') + '</span>';
-            return '<tr><td>' + s.from + ' → ' + s.to + '</td><td>' + (has ? pct(s.ours) : '<span class="cc-g"></span>') + '</td><td>' + (has ? pct(s.rival) : '<span class="cc-g"></span>') + '</td><td>' + (has ? gap : '<span class="cc-g"></span>') + '</td><td class="cc-fix">' + s.fix + '</td></tr>';
+            return '<tr' + (w && s === w ? ' class="cc-hot"' : '') + '><td>' + s.from + ' → ' + s.to + '</td><td>' + (has ? pct(s.ours) : '<span class="cc-g"></span>') + '</td><td>' + (has ? pct(s.rival) : '<span class="cc-g"></span>') + '</td><td>' + (has ? gap : '<span class="cc-g"></span>') + '</td><td class="cc-fix">' + s.fix + '</td></tr>';
         }).join('');
-        return '<div class="cc-leak"><div class="cc-tile cc-dark"><div class="cc-cap">Главная утечка</div><b>' + (w ? w.from + ' → ' + w.to : '—') + '</b><span>' + (w ? 'наша конверсия ' + pct(w.ours) + ', у конкурентов ' + pct(w.rival) : (has ? 'по данным конкурентов отставания нет или их пока нет' : 'считаем воронку за 30 дней')) + '</span></div><div class="cc-chain">' + chain + '</div></div>' +
-            '<div class="cc-card"><div class="cc-h"><h3>Где теряем покупателя</h3><span>наша воронка за 30 дней против конкурентов</span></div><div class="cc-tw"><table class="cc-t cc-t5"><thead><tr><th>Шаг</th><th>У нас</th><th>У конкурентов</th><th>Разница</th><th>Что переделать в фото</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+        // все артикулы кабинета: где у каждого главная утечка (клик по строке выбирает товар)
+        var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
+        var list = S.allFun ? Object.keys(S.allFun).map(function (k) { var ff = S.allFun[k], a = byArt[Number(k)]; return { nm: Number(k), name: a ? (a.seller_article || a.name) : k, f: ff }; })
+            .filter(function (x) { return x.f.total.imp > 0; }).sort(function (x, y) { return y.f.total.rev - x.f.total.rev; }) : null;
+        var all = list ? '<div class="cc-card"><div class="cc-h"><h3>Все артикулы кабинета</h3><span>главная утечка и сколько денег в ней · клик выбирает товар</span></div><div class="cc-tw cc-scroll"><table class="cc-t cc-t5"><thead><tr><th>Артикул</th><th>Заказы, ₽</th><th>Показы</th><th>Главная утечка</th><th>Конверсия</th></tr></thead><tbody>' +
+            (list.length ? list.map(function (x) {
+                var ww = x.f.worst;
+                return '<tr class="cc-pick' + (x.nm === S.nm ? ' cc-hot' : '') + '" data-cc-nm="' + x.nm + '"><td>' + esc(x.name) + '</td><td>' + fmt(x.f.total.rev) + '</td><td>' + fmt(x.f.total.imp) + '</td><td>' + (ww ? ww.from + ' → ' + ww.to : '<span class="cc-mut">нет отставания</span>') + '</td><td>' + (ww ? pct(ww.ours) + ' <span class="cc-mut">против ' + pct(ww.rival) + '</span>' : '—') + '</td></tr>';
+            }).join('') : '<tr><td colspan="5" class="cc-mut">За 30 дней показов нет</td></tr>') + '</tbody></table></div></div>' : '';
+        return '<div class="cc-leak"><div class="cc-tile cc-dark"><div class="cc-cap">Главная утечка</div><b>' + (w ? w.from + ' → ' + w.to : '—') + '</b><span>' + (w ? 'наша конверсия ' + pct(w.ours) + ', у конкурентов ' + pct(w.rival) + '. Исправить: ' + w.fix.toLowerCase() : (has ? 'по данным конкурентов отставания нет или их пока нет' : 'считаем воронку за 30 дней')) + '</span></div><div class="cc-chain">' + chain + '</div></div>' +
+            '<div class="cc-card"><div class="cc-h"><h3>Где теряем покупателя</h3><span>наша воронка за 30 дней против конкурентов</span></div><div class="cc-tw"><table class="cc-t cc-t5"><thead><tr><th>Шаг</th><th>У нас</th><th>У конкурентов</th><th>Разница</th><th>Что переделать в фото</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' + all +
+            '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-sec="media">Перейти к фото под эту утечку</button></div>';
     }
     function mediaHtml() {
-        var a = art(), w = S.fun && S.fun.worst;
-        var frames = function (label, withPhoto) {
-            return '<div class="cc-card"><div class="cc-h"><h3>' + label + '</h3><span>' + SLIDES.length + ' слайдов</span></div><div class="cc-slides">' + SLIDES.map(function (s, i) {
-                return '<figure>' + (withPhoto && i === 0 ? photo(a, 'cc-sl') : '<div class="cc-sl cc-nophoto">' + (i + 1) + '</div>') + '<figcaption>' + (i + 1) + '. ' + s + '</figcaption></figure>';
-            }).join('') + '</div></div>';
-        };
+        var a = art(), w = S.fun && S.fun.worst, nm = a ? Number(a.nm_id) : 0, seo = S.cmp && S.cmp.seo;
+        var name = (a && (a.name || a.seller_article)) || '';
+        var br = slideBriefs(w, seo, name);
+        var cur = '<div class="cc-card"><div class="cc-h"><h3>Сейчас в карточке</h3><span>первые 8 фото WB</span></div><div class="cc-slides">' + SLIDES.map(function (t, i) {
+            return '<figure>' + (nm ? wbImg(nm, i + 1).replace('cc-th', 'cc-th cc-sl') : '<div class="cc-sl cc-nophoto">' + (i + 1) + '</div>') + '<figcaption>' + (i + 1) + '. ' + t + '</figcaption></figure>';
+        }).join('') + '</div></div>';
+        var neu = '<div class="cc-card"><div class="cc-h"><h3>Новый вариант</h3><span>задание на каждый кадр' + (w ? ' · приоритет под шаг «' + w.from + ' → ' + w.to + '»' : '') + '</span></div><div class="cc-briefs">' + br.map(function (b) {
+            return '<div class="cc-brief' + (b.hot ? ' cc-hotb' : '') + '"><div class="cc-sl cc-nophoto">' + b.n + '</div><div><b>' + b.n + '. ' + b.title + (b.hot ? ' <span class="cc-new">приоритет</span>' : '') + '</b><p>' + esc(b.text) + '</p></div></div>';
+        }).join('') + '</div><div class="cc-acts"><button type="button" class="cc-btn" data-cc-act="copy">Скопировать задание</button><span class="cc-note">Картинки появятся после оплаты и генерации. Задание уже можно отдать дизайнеру.</span></div></div>';
         return '<div class="cc-pay"><div><div class="cc-cap">Все фото карточки под утечку воронки</div><b>' + fmt(PRICE_SOM) + ' сом <small>за карточку</small></b><span>' + (w ? 'Упор на шаг «' + w.from + ' → ' + w.to + '». ' : '') + 'В подарок 1 А/Б тест обложки и СЕО.</span></div>' +
-            '<div class="cc-pay-b"><button type="button" class="cc-btn cc-btn-b" data-cc-act="gen">Сгенерировать</button><button type="button" class="cc-btn" data-cc-act="send">Отправить на WB</button></div></div>' +
-            frames('Сейчас', true) + frames('Новый вариант', false);
+            '<div class="cc-pay-b"><button type="button" class="cc-btn cc-btn-b" data-cc-act="gen">Сгенерировать</button><button type="button" class="cc-btn" data-cc-act="send" disabled title="Сначала нужна генерация новых фото">Отправить на WB</button></div></div>' +
+            '<div class="cc-two cc-two-m">' + cur + neu + '</div>';
     }
     var VIEW = { rivals: rivalsHtml, seo: seoHtml, leak: leakHtml, media: mediaHtml };
 
@@ -263,7 +300,17 @@
         var opts = S.arts.length ? S.arts.map(function (a) { return '<option value="' + esc(a.nm_id) + '"' + (Number(a.nm_id) === S.nm ? ' selected' : '') + '>' + esc(a.name || a.seller_article || a.nm_id) + '</option>'; }).join('') : '<option>Товары загружаются</option>';
         if (sel.__h !== opts) { sel.innerHTML = opts; sel.__h = opts; }
         Array.prototype.forEach.call(host.querySelectorAll('.cc-chip'), function (b) { var on = b.getAttribute('data-cc') === S.sec; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-        var body = host.querySelector('#cc-body'), h = VIEW[S.sec]();
+        var body = host.querySelector('#cc-body'), sec = S.sec, heavy = (sec === 'rivals' || sec === 'seo') && S.all && S.all.length > 10;
+        // Тяжёлые листы (десятки артикулов в ряд) собираются сразу после нажатия, но не в самом нажатии:
+        // вкладка переключается мгновенно, а лист появляется в следующем кадре, без «зависания» кнопки
+        if (heavy && body.__sec !== sec) {
+            body.__sec = sec; body.__h = null;
+            body.innerHTML = '<div class="cc-card"><div class="cc-note">Собираем лист…</div></div>';
+            root.setTimeout(function () { if (S.sec === sec) { var h = VIEW[sec](); body.innerHTML = h; body.__h = h; scrollToSel(); } }, 0);
+            return;
+        }
+        body.__sec = sec;
+        var h = VIEW[sec]();
         if (body.__h !== h) { body.innerHTML = h; body.__h = h; }
     }
 
@@ -309,6 +356,20 @@
                 paint(); scrollToSel();
             }).catch(function () { /* остаётся каркас */ });
     }
+    function loadAllFun(cab) {
+        var p = period(), key = 'nr_cc_allfun_' + cab, c = lsGet(key);
+        S.allFun = c && c.to === p.to ? c.map : null;
+        if (S.allFun) Object.keys(S.allFun).forEach(function (k) { S.allFun[k] = funnel(S.allFun[k]); });
+        if (!sb()) return;
+        Promise.resolve(sb().from('rnp_daily_data').select('nm_id,impressions,clicks,basket_count,funnel_orders,orders_count,orders_sum,sales_count,competitor_ctr,competitor_basket,competitor_cro').eq('cabinet_id', cab).gte('date', p.from).lte('date', p.to).range(0, 4999))
+            .then(function (r) {
+                if (cab !== S.cab || !r || r.error) return;
+                var g = {}; (r.data || []).forEach(function (x) { (g[x.nm_id] = g[x.nm_id] || []).push(x); });
+                lsSet(key, { to: p.to, map: g });
+                S.allFun = {}; Object.keys(g).forEach(function (k) { S.allFun[k] = funnel(g[k]); });
+                if (S.sec === 'leak') paint();
+            }).catch(function () { /* без общей таблицы */ });
+    }
     function scrollToSel() {
         var host = doc.getElementById('cc-root'), b = host && host.querySelector('.cs-b.on, .sq-names th.on'), w = host && host.querySelector('.cs-wrap');
         if (b && w) w.scrollLeft = Math.max(0, b.offsetLeft - (b.tagName === 'TH' ? 200 : 70));
@@ -330,15 +391,23 @@
     }
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePay(); });
 
+    function copyBrief() {
+        var a = art(), w = S.fun && S.fun.worst, txt = briefText((a && (a.name || a.seller_article)) || '', w, slideBriefs(w, S.cmp && S.cmp.seo, ''));
+        var ok = function () { say('Задание скопировано', 'Можно отдать дизайнеру или вставить в генератор'); };
+        try { root.navigator.clipboard.writeText(txt).then(ok, function () { say('Не удалось скопировать', 'Выделите текст вручную'); }); } catch (_) { say('Не удалось скопировать', 'Выделите текст вручную'); }
+    }
     function bind(host) {
         if (S.bound) return; S.bound = true;
         host.addEventListener('click', function (e) {
             var b;
             if ((b = e.target.closest('.cs-b, .sq thead th[data-nm]')) && !e.target.closest('a') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
+            if ((b = e.target.closest('[data-cc-nm]'))) { S.nm = Number(b.getAttribute('data-cc-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} loadFunnel(); return; }
+            if ((b = e.target.closest('[data-cc-sec]'))) { S.sec = b.getAttribute('data-cc-sec'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); return; }
             if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); scrollToSel(); return; }
             if ((b = e.target.closest('[data-cc-act]'))) {
                 var act = b.getAttribute('data-cc-act');
                 if (act === 'gen') openPay();
+                else if (act === 'copy') copyBrief();
                 else if (act === 'find') say('Автоподбор подключается', 'Сейчас данные берутся из вашей таблицы. Сбор с WB и MPStats прямо с сайта появится следующим шагом');
                 else if (act === 'seo') say('Автосбор СЕО подключается', 'Сейчас данные берутся из вашей таблицы. Сбор запросов прямо с сайта появится следующим шагом');
                 else if (act === 'send') say('Отправлять пока нечего', 'Сначала нужна генерация новых фото');
@@ -361,7 +430,7 @@
         try { var s = root.localStorage.getItem('nr_cc_sec'); if (s && VIEW[s]) S.sec = s; } catch (_) {}
         var cab = cabId();
         if (cab && cab === S.cab && S.arts.length) { paint(); return; }
-        S.cab = cab; S.arts = lsGet('nr_cc_arts_' + cab) || []; S.fun = null; S.cmp = null; S.all = null; if (cab) loadAll(cab);
+        S.cab = cab; S.arts = lsGet('nr_cc_arts_' + cab) || []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; if (cab) { loadAll(cab); loadAllFun(cab); }
         pickNm(); paint();
         if (S.nm) loadFunnel();
         // Кабинет ещё не выбран (страница только открылась): каркас уже на экране, данные подтянем, как только кабинет появится
@@ -375,10 +444,10 @@
         });
     }
     doc.addEventListener('cabinet-changed', function () {
-        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.cmp = null; S.all = null; S.nm = 0; closePay();
+        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; S.nm = 0; closePay();
         var host = doc.getElementById('cc-root'), pane = doc.getElementById('an-content');
         if (host && pane && !pane.hidden) open();
     });
 
-    root.NrCompare = { open: open, _funnel: funnel, _rivalStats: rivalStats, _wbHost: wbHost };
+    root.NrCompare = { open: open, _funnel: funnel, _briefs: slideBriefs, _rivalStats: rivalStats, _wbHost: wbHost };
 })(typeof window !== 'undefined' ? window : globalThis);
