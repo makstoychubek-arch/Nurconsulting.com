@@ -392,7 +392,7 @@
     function weeklyHtml(b, weeks, calc, keys, ci) {
         var isColor = ci !== undefined && ci !== null, attr = isColor ? 'data-ccalc' : 'data-calc', pre = isColor ? b.id + '|' + ci + '|' : b.id + '|';
         var cols = keys.map(colDef), heat = heatRanges(calc, cols.filter(function (c) { return c.heat; }).map(function (c) { return c.k; }));
-        var tot = '<tr class="ps-totrow"><th class="ps-t0" colspan="3">Итого</th>' + cols.slice(3).map(function (c) { return '<td data-tot="' + pre + c.k + '">' + totalOf(calc, c.k) + '</td>'; }).join('') + '</tr>';
+        var tot = '<tr class="ps-totrow"><th class="ps-t0" colspan="3">Итого</th>' + cols.slice(3).map(function (c) { return '<td class="ps-g-' + c.g + '" data-tot="' + pre + c.k + '">' + totalOf(calc, c.k) + '</td>'; }).join('') + '</tr>';
         var head = '<tr class="ps-hrow">' + cols.map(function (c, j) { return '<th class="ps-gh-' + c.g + ' ps-cj' + j + '"' + (c.w ? ' style="min-width:' + c.w + 'px"' : '') + '>' + c.label + '</th>'; }).join('') + '</tr>';
         var body = weeks.map(function (w, i) {
             var c = calc[i], alt = w.alt ? ' ps-malt' : '';
@@ -513,6 +513,18 @@
             planFactChart('План / факт ЧП', 'profit', 'fProfit', calc, weeks) + planFactChart('План / факт заказов', 'orders', 'fOrders', calc, weeks) +
             '<div class="ps-leg ps-chl"><span><i class="psc-kp"></i>План</span><span><i class="psc-kf"></i>Факт</span></div></div>';
     }
+    // скрыть или показать группы колонок недельной таблицы (как группировка столбцов в Excel), выбор запоминается
+    var GROUPS = [['per', 'Период'], ['ord', 'Заказы и продажи'], ['price', 'Цена'], ['money', 'Расходы'], ['res', 'Результат'], ['stock', 'Остатки'], ['fact', 'Факт']];
+    function hiddenGroups() { try { return JSON.parse(localStorage.getItem('nr_plan_hide') || '[]'); } catch (e) { return []; } }
+    function groupBar() {
+        var h = hiddenGroups();
+        return '<div class="ps-gbar"><span>Колонки:</span>' + GROUPS.map(function (g) { return '<button type="button" class="ps-gt' + (h.indexOf(g[0]) >= 0 ? '' : ' is-on') + '" data-ps-gt="' + g[0] + '">' + g[1] + '</button>'; }).join('') + '</div>';
+    }
+    function applyGroups() {
+        var h = hiddenGroups();
+        st.host.querySelectorAll('.ps-wtab').forEach(function (t) { GROUPS.forEach(function (g) { t.classList.toggle('hide-' + g[0], h.indexOf(g[0]) >= 0); }); });
+        st.host.querySelectorAll('.ps-gt').forEach(function (b) { b.classList.toggle('is-on', h.indexOf(b.dataset.psGt) < 0); });
+    }
     function blockHtml(b, weeks, spans) {
         var calc = calcBlock(b, weeks, factsOf(b, st.facts));
         var opts = '<option value="">Выберите артикул</option>' + st.articles.map(function (a) { return '<option value="' + a.nm_id + '"' + (String(a.nm_id) === String(b.nm) ? ' selected' : '') + '>' + esc(a.name) + ' · ' + a.nm_id + '</option>'; }).join('');
@@ -521,7 +533,7 @@
             '<button type="button" class="ps-wb" data-ps-wb="' + b.id + '"' + (b.nm ? '' : ' disabled') + '>Подтянуть с WB</button><span class="ps-wbn" data-wbn="' + b.id + '"></span>' + (st.sheet.blocks.length > 1 ? '<button type="button" class="ps-del" data-ps-del="' + b.id + '" aria-label="Убрать блок">×</button>' : '') + '</div>' +
             suppliesHtml(b, weeks, spans) +
             '<div class="ps-mid"><div class="ps-pw">' + paramsHtml(b) + '</div><div class="ps-cw" data-charts="' + b.id + '">' + chartsHtml(calc, weeks) + '</div></div>' +
-            weeklyHtml(b, weeks, calc, keys) +
+            groupBar() + weeklyHtml(b, weeks, calc, keys) +
             '<div class="ps-colsec">' + (b.colors || []).map(function (c, ci) { return colorSectionHtml(b, ci, weeks, spans); }).join('') + '</div></section>';
     }
     function weekCtx() {
@@ -545,6 +557,7 @@
             '<div class="ps-note">Один блок на артикул. Вверху константы артикула, ниже недели. Вводите план заказов, цену, ДРР, раздачи и поставки: продажи, возвраты, расходы, перечисление и ЧП считаются сами по формулам вашей таблицы. План заказов и продаж сам попадает в строки «План заказов» и «План продаж» РНП (неделя ÷ 7 на день). Внизу блока факт недель подтягивается из РНП (заказы, продажи, к перечислению, ЧП по финотчёту WB) и сравнивается с планом: зелёный от 100% плана, оранжевый 80–99%, красный ниже.</div>' +
             sh.blocks.map(function (b) { return blockHtml(b, weeks, spans); }).join('') +
             '<div class="ps-foot"><button type="button" class="ps-add" data-ps-add>+ Добавить артикул</button></div>';
+        applyGroups();
     }
     // Факт недель из РНП (заказы, продажи, к перечислению, ЧП по финотчёту): подтягивается сам, в фоне
     var factsTimer = null;
@@ -817,9 +830,15 @@
             if (tb && tb.colors[Number(kp[1])]) {
                 st.open = st.open || {}; st.open[btn.dataset.psCtoggle] = !st.open[btn.dataset.psCtoggle];
                 var cxx = weekCtx(), box = st.host.querySelector('[data-cs="' + btn.dataset.psCtoggle + '"]');
-                if (box) { var tmp = document.createElement('div'); tmp.innerHTML = colorSectionHtml(tb, Number(kp[1]), cxx.weeks, cxx.spans); box.replaceWith(tmp.firstChild); }
+                if (box) { var tmp = document.createElement('div'); tmp.innerHTML = colorSectionHtml(tb, Number(kp[1]), cxx.weeks, cxx.spans); box.replaceWith(tmp.firstChild); applyGroups(); }
             }
             return true;
+        }
+        if (btn.dataset.psGt) {
+            var hg = hiddenGroups(), gi = hg.indexOf(btn.dataset.psGt);
+            if (gi >= 0) hg.splice(gi, 1); else hg.push(btn.dataset.psGt);
+            try { localStorage.setItem('nr_plan_hide', JSON.stringify(hg)); } catch (e) { /* без памяти */ }
+            applyGroups(); return true;
         }
         if (btn.hasAttribute('data-ps-xlsx')) { exportMoney(); return true; }
         if (btn.dataset.psColor) { var ab = findBlock(btn.dataset.psColor); if (ab && ab.colors.length < 12) { ab.colors.push({ name: '', nm: '', qty: {} }); saveSheet(); keepScroll(renderSales); } return true; }
