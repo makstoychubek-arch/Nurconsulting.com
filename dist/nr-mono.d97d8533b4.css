@@ -1938,3 +1938,34 @@ html body .ps-leg .psc-k2 { border-top-style: dashed; opacity: .7; } html body .
 html body .ps-money { max-width: 1120px; }
 html body .ps-fh { color: var(--text-primary) !important; border-left: 2px solid var(--text-primary); }
 html body .ps-fc { font-weight: 700; } html body .ps-fc:nth-last-child(2) { border-left: 2px solid var(--text-primary); }
+html body .ps-colsec { display: grid; gap: 10px; margin-top: 14px; }
+html body .ps-cs { border: 1px solid var(--border); border-radius: 18px; padding: 10px 12px; }
+html body .ps-csh { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+html body .ps-cst { border: 0; background: transparent; color: var(--text-primary); font: inherit; font-weight: 800; font-size: 13px; cursor: pointer; padding: 4px 2px; }
+html body .ps-cst span { color: var(--text-muted); font-weight: 700; margin-left: 6px; }
+html body .ps-cart { height: 32px; min-width: 240px; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; background: var(--bg, #fff) !important; color: var(--text-primary); padding: 0 12px; font-weight: 700; font-size: 12px; box-shadow: none !important; margin-left: auto; }
+html body .ps-cs .ps-scroll { margin-top: 8px; border: 0; border-top: 1px solid var(--text-primary); border-radius: 0; }
+/* Планирование: цвет только у чисел, как в РНП (зелёный, красный, оранжевый, серый) */
+html body .ps-pos { color: var(--green) !important; } html body .ps-neg { color: var(--red) !important; } html body .ps-mid { color: var(--amber) !important; }
+html body .ps-bgp { background: var(--green-soft) !important; } html body .ps-bgn { background: var(--red-soft) !important; } html body .ps-bgm { background: var(--amber-soft) !important; }
+html body .ps-fact { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+html body .ps-secf th { color: var(--text-muted) !important; }
+html body .ps-mt td.ps-pos, html body .ps-mt td.ps-neg, html body .ps-mt td.ps-mid { font-weight: 800; }
+html body .ps-mt .ps-tot td { color: var(--on-accent, #fff) !important; background: var(--accent) !important; }
+@media (max-width: 640px) {
+  html body .ps-l { min-width: 150px; max-width: 150px; padding: 0 8px !important; font-size: 12px; }
+  html body .ps-cr .ps-l { min-width: 150px; flex-wrap: wrap; gap: 2px 6px; }
+  html body .ps-block { padding: 12px 10px; border-radius: 20px; }
+  html body .ps-pars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html body .ps-art, html body .ps-bh2 .ps-art { min-width: 0 !important; width: 100%; }
+  html body .ps-bh2 { flex-wrap: wrap; }
+  html body .ps-cart { min-width: 0; width: 100%; margin-left: 0; }
+  html body .ps-table .ps-in, html body .ps-h1 th, html body .ps-h2 th, html body .ps-h3 th { min-width: 72px; }
+  html body .ps-chart { padding: 10px 8px 6px; border-radius: 20px; }
+  html body .ps-money { max-width: 100%; }
+  html body .ps-mt th, html body .ps-mt td { padding: 0 8px; font-size: 12px; }
+}
+html body .ps-startl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--text-muted); margin-left: auto; }
+html body .ps-start { height: 32px; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; background: transparent !important; color: var(--text-primary); padding: 0 10px; font: inherit; font-weight: 700; box-shadow: none !important; }
+html body .ps-startl + .ps-save { margin-left: 8px !important; }
+html body .ps-exp { margin: 0 0 10px; }
