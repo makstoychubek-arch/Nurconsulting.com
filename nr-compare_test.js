@@ -35,4 +35,6 @@ assert.equal(rs.of, 5);
 assert.equal(globalThis.NrCompare._rivalStats(null).place, null, 'нет данных: место не выдумываем');
 assert.equal(globalThis.NrCompare._wbHost(100), 1);
 assert.equal(globalThis.NrCompare._wbHost(2000), 13);
+assert.equal(globalThis.NrCompare._wbHost(12187), 44, 'артикул 1218799336 (vol 12187): корзина 44, как в РНП');
+assert.equal(globalThis.NrCompare._wbHost(2962), 18);
 console.log('nr-compare_test: ok');

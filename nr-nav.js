@@ -181,7 +181,8 @@
         } else if (tab === 'ab-testing') { secTitle = 'Инструменты'; label = 'А/Б тесты'; }
         else if (tab === 'agents' || tab === 'akylai') { secTitle = 'Инструменты'; label = 'Агенты'; }
         else if (tab === 'tariffs') { secTitle = 'Настройки'; label = 'Тарифы'; go1 = '*settings'; }
-        if (!label) { el.innerHTML = ''; el.classList.remove('on'); return; }
+        // Подраздела нет (например, основной РНП): забываем подраздел прошлой вкладки, иначе наблюдатель вернёт его в заголовок
+        if (!label) { desired = ''; el.innerHTML = ''; el.classList.remove('on'); return; }
         el.classList.add('on');
         el.innerHTML = '<button type="button" class="nr-crumb" data-nrc="' + (go1 ? (go1.charAt(0) === '*' ? go1 : tab + ':' + go1) : '') + '">' + esc(secTitle) + '</button><span class="nr-crumb-sep">›</span><span class="nr-crumb-cur">' + esc(label) + '</span>';
         desired = (s && label !== secTitle) ? label : '';
