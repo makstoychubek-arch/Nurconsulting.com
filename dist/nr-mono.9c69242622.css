@@ -1946,11 +1946,11 @@ html body .ps-cst span { color: var(--text-muted); font-weight: 700; margin-left
 html body .ps-cart { height: 32px; min-width: 240px; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; background: var(--bg, #fff) !important; color: var(--text-primary); padding: 0 12px; font-weight: 700; font-size: 12px; box-shadow: none !important; margin-left: auto; }
 html body .ps-cs .ps-scroll { margin-top: 8px; border: 0; border-top: 1px solid var(--text-primary); border-radius: 0; }
 /* Планирование: цвет только у чисел, как в РНП (зелёный, красный, оранжевый, серый) */
-html body .ps-pos { color: var(--green) !important; } html body .ps-neg { color: var(--red) !important; } html body .ps-mid { color: var(--ps-or) !important; }
+html body .ps-pos { color: var(--green) !important; } html body .ps-neg { color: var(--red) !important; } html body .ps-amb { color: var(--ps-or) !important; }
 html body .ps-bgp { background: var(--green-soft) !important; } html body .ps-bgn { background: var(--red-soft) !important; } html body .ps-bgm { background: var(--ps-or-soft) !important; }
 html body .ps-fact { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
 html body .ps-secf th { color: var(--text-muted) !important; }
-html body .ps-mt td.ps-pos, html body .ps-mt td.ps-neg, html body .ps-mt td.ps-mid { font-weight: 800; }
+html body .ps-mt td.ps-pos, html body .ps-mt td.ps-neg, html body .ps-mt td.ps-amb { font-weight: 800; }
 html body .ps-mt .ps-tot td { color: var(--on-accent, #fff) !important; background: var(--accent) !important; }
 @media (max-width: 640px) {
   html body .ps-l { min-width: 150px; max-width: 150px; padding: 0 8px !important; font-size: 12px; }
@@ -2016,3 +2016,71 @@ html body .ps-g-res th.ps-l { background: color-mix(in srgb, var(--text-primary)
 /* оранжевый для листов «Планирование» (в Минимализме общий --amber серый, а здесь оранжевый разрешён владельцем) */
 html body #tab-rnp-planning { --ps-or: #F59E0B; --ps-or-soft: rgba(245, 158, 11, .17); }
 html[data-theme="neon"] body #tab-rnp-planning { --ps-or: #FFB454; --ps-or-soft: rgba(255, 180, 84, .16); }
+/* ===== Планирование: вид как в вашей таблице. Недели строками, полная сетка линий, цветные группы заголовков, тепловая заливка, строка «Итого» сверху ===== */
+html body #tab-rnp-planning .ps-table { --ln: color-mix(in srgb, var(--text-primary) 42%, transparent); border-collapse: collapse; font-size: 12px; }
+html body #tab-rnp-planning .ps-table th, html body #tab-rnp-planning .ps-table td { border: 1px solid var(--ln); }
+html body #tab-rnp-planning .ps-scroll { border: 2px solid var(--text-primary); border-radius: 14px; }
+html body .ps-block { border: 2px solid var(--text-primary); border-radius: 22px; }
+/* недельная таблица */
+html body .ps-wtab thead th, html body .ps-wtab thead td { position: sticky; z-index: 4; }
+html body .ps-wtab .ps-totrow td, html body .ps-wtab .ps-totrow th { top: 0; height: 28px; background: color-mix(in srgb, var(--text-primary) 82%, var(--bg, #fff)); color: var(--bg, #fff); font-weight: 800; font-size: 12px; }
+html body .ps-wtab .ps-totrow .ps-t0 { background: var(--red); color: #fff; text-align: center; left: 0; z-index: 7; }
+html body .ps-wtab .ps-hrow th { top: 28px; height: 54px; white-space: normal; font-weight: 800; font-size: 11.5px; line-height: 1.15; padding: 4px 5px; color: var(--text-primary); border-bottom: 2px solid var(--text-primary); }
+html body .ps-gh-per { background: color-mix(in srgb, var(--green) 18%, var(--bg, #fff)); }
+html body .ps-gh-ord { background: color-mix(in srgb, var(--green) 52%, var(--bg, #fff)); }
+html body .ps-gh-price { background: color-mix(in srgb, var(--ps-or) 46%, var(--bg, #fff)); }
+html body .ps-gh-money { background: color-mix(in srgb, var(--text-primary) 24%, var(--bg, #fff)); }
+html body .ps-gh-res { background: color-mix(in srgb, var(--green) 34%, var(--bg, #fff)); }
+html body .ps-gh-stock { background: color-mix(in srgb, var(--green) 14%, var(--bg, #fff)); }
+html body .ps-gh-fact { background: color-mix(in srgb, var(--ps-or) 22%, var(--bg, #fff)); }
+html body .ps-wtab tbody th { font-weight: 700; text-align: center; padding: 0 6px; white-space: nowrap; background: color-mix(in srgb, var(--green) 7%, var(--bg, #fff)); }
+html body .ps-wtab tbody th.ps-malt { background: color-mix(in srgb, var(--text-primary) 12%, var(--bg, #fff)); }
+html body .ps-wtab tbody td { text-align: center; padding: 0 4px; height: 26px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+html body .ps-wtab tr.ps-mfirst > * { border-top: 2px solid var(--text-primary); }
+html body .ps-wtab .ps-st { font-size: 11px; font-weight: 800; color: var(--text-muted); }
+/* закреплённые первые три колонки */
+html body .ps-wtab .ps-cj0 { position: sticky; left: 0; z-index: 3; min-width: 58px; max-width: 58px; }
+html body .ps-wtab .ps-cj1 { position: sticky; left: 58px; z-index: 3; min-width: 54px; max-width: 54px; }
+html body .ps-wtab .ps-cj2 { position: sticky; left: 112px; z-index: 3; min-width: 112px; border-right: 2px solid var(--text-primary); }
+html body .ps-wtab thead .ps-cj0, html body .ps-wtab thead .ps-cj1, html body .ps-wtab thead .ps-cj2 { z-index: 6; }
+html body .ps-wtab td .ps-in { width: 100%; min-width: 66px; height: 24px; text-align: center; font-weight: 700; }
+html body .ps-wtab td .ps-txt { text-align: left; min-width: 150px; font-weight: 600; }
+html body .ps-wtab td.ps-g-ord { background-color: color-mix(in srgb, var(--green) 4%, transparent); }
+html body .ps-wtab td.ps-g-price { background-color: color-mix(in srgb, var(--ps-or) 4%, transparent); }
+html body .ps-wtab td.ps-g-res { background-color: color-mix(in srgb, var(--green) 6%, transparent); }
+html body .ps-wtab td.ps-g-stock { background-color: color-mix(in srgb, var(--green) 4%, transparent); }
+html body .ps-wtab td.ps-fact { background-color: color-mix(in srgb, var(--ps-or) 12%, transparent); }
+/* таблица поставок «цвет × неделя» */
+html body .ps-sup { margin-top: 12px; }
+html body .ps-suptab th, html body .ps-suptab td { text-align: center; padding: 0 5px; height: 26px; white-space: nowrap; }
+html body .ps-suptab thead th { background: color-mix(in srgb, var(--green) 18%, var(--bg, #fff)); font-weight: 800; min-width: 64px; }
+html body .ps-suptab .ps-sh2 th, html body .ps-suptab .ps-sh3 th { background: color-mix(in srgb, var(--green) 10%, var(--bg, #fff)); color: var(--text-muted); font-weight: 700; font-size: 11px; }
+html body .ps-suptab .ps-sh4 th { background: color-mix(in srgb, var(--green) 40%, var(--bg, #fff)); border-bottom: 2px solid var(--text-primary); }
+html body .ps-suptab .ps-shl { background: color-mix(in srgb, var(--green) 18%, var(--bg, #fff)) !important; min-width: 210px; }
+html body .ps-suptab .ps-cname { min-width: 210px; text-align: left; padding: 0 4px; }
+html body .ps-suptab .ps-cn { width: 100%; border: 0 !important; background: transparent !important; text-align: center; border-radius: 0 !important; }
+html body .ps-suptab .ps-cq, html body .ps-suptab .ps-cp { font-weight: 800; min-width: 62px; }
+html body .ps-suptab .ps-cr .ps-in { width: 100%; min-width: 60px; height: 24px; text-align: center; }
+html body .ps-suptab .ps-sf td { background: color-mix(in srgb, var(--green) 42%, var(--bg, #fff)); font-weight: 900; border-top: 2px solid var(--text-primary); }
+html body .ps-suptab .ps-addrow td { border: 0 !important; text-align: left; }
+html body .ps-suptab .ps-m { border-left: 2px solid var(--text-primary); }
+/* константы и графики */
+html body .ps-mid { display: grid; grid-template-columns: minmax(250px, 330px) minmax(0, 1fr); gap: 16px; margin-top: 14px; align-items: start; }
+html body .ps-ptab { width: 100%; }
+html body .ps-ptab th { text-align: left; padding: 3px 8px; font-weight: 800; font-size: 11.5px; background: color-mix(in srgb, var(--text-primary) 9%, var(--bg, #fff)); width: 58%; }
+html body .ps-ptab td { padding: 0; height: 28px; text-align: center; font-weight: 700; }
+html body .ps-ptab tr.ps-pk th { background: color-mix(in srgb, var(--green) 78%, #000); color: #fff; }
+html body .ps-ptab tr.ps-pc th { background: color-mix(in srgb, var(--text-primary) 14%, var(--bg, #fff)); }
+html body .ps-ptab .ps-pin { width: 100%; height: 28px; border: 0 !important; border-radius: 0 !important; background: transparent !important; text-align: center; padding: 0 6px; box-shadow: none !important; }
+html body .ps-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+html body .ps-ch { border: 1px solid var(--ln, var(--border)); border-radius: 12px; padding: 8px 10px 4px; background: var(--bg, #fff); }
+html body .ps-cht { font-size: 12px; font-weight: 800; margin-bottom: 2px; }
+html body .ps-ch svg { width: 100%; height: auto; display: block; }
+html body .ps-che { color: var(--text-muted); font-size: 12px; padding: 30px 0; text-align: center; }
+html body .psc-bp { fill: var(--ps-or); opacity: .55; } html body .psc-bf { fill: var(--text-primary); opacity: .8; }
+html body .ps-chl { grid-column: 1 / -1; }
+html body .ps-leg .psc-kp { border-top-color: var(--ps-or); border-top-width: 6px; opacity: .6; } html body .ps-leg .psc-kf { border-top-color: var(--text-primary); border-top-width: 6px; opacity: .8; }
+@media (max-width: 900px) { html body .ps-mid { grid-template-columns: minmax(0, 1fr); } html body .ps-charts { grid-template-columns: minmax(0, 1fr); } }
+html body .ps-cs .ps-scroll { margin-top: 8px; }
+html body .ps-wtab { width: max-content; min-width: 100%; }
+html body .ps-wtab td.ps-bgm, html body .ps-wtab td.ps-bgn, html body .ps-wtab td.ps-bgp { box-shadow: none; }
