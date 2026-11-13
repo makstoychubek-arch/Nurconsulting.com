@@ -26,9 +26,7 @@
         niches: tools(['Категория или ключевое слово'], ['За 3 месяца', 'Выручка от 5 млн', 'Продавцов до 300']) +
             '<div class="an-tiles">' + tile('Лучшая ниша сейчас', '—', true) + tile('Выручка ниши', '—') + tile('Продавцов', '—') + tile('Доля топ 10', '—') + '</div>' +
             '<div class="an-two">' + col('Топ 5 товаров ниши', [['1.', '—'], ['2.', '—'], ['3.', '—']]) + col('Что показывает ниша', [['Сезонность', '—'], ['Средний чек', '—'], ['Выкуп', '—']]) + '</div>' + NOTE,
-        content: tools(['Ваш артикул WB', 'Артикул конкурента'], []) +
-            '<div class="an-tw"><table class="an-table"><thead><tr><th>Показатель</th><th>Ваш</th><th>Конкурент</th><th>Разница</th></tr></thead><tbody>' +
-            ['Количество фото', 'Видео', 'Инфографика', 'Фото с моделью'].map(function (r) { return '<tr><td>' + r + '</td><td>—</td><td>—</td><td>—</td></tr>'; }).join('') + '</tbody></table></div>' + NOTE,
+        content: '<div id="cc-root" class="cc-root"></div>',
         card: tools(['Ваш артикул WB', 'Артикул конкурента'], []) +
             '<div class="an-tiles">' + tile('Главное отличие', '—', true) + tile('Цена', '—') + tile('Описание', '—') + tile('Характеристики', '—') + '</div>' +
             '<div class="an-two">' + col('Ключевые слова конкурента, которых нет у вас', [['—', '']]) + col('Что поправить в первую очередь', [['1.', '—'], ['2.', '—'], ['3.', '—']]) + '</div>' + NOTE,
@@ -49,6 +47,7 @@
                 var pane = doc.getElementById('an-' + x.getAttribute('data-an')); if (pane) pane.hidden = !on;
             });
             if (b.getAttribute('data-an') === 'reviews' && root.NrReviews) root.NrReviews.open();
+            if (b.getAttribute('data-an') === 'content' && root.NrCompare) root.NrCompare.open();
         });
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
