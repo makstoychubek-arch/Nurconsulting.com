@@ -2102,3 +2102,28 @@ html body .ps-wtab.hide-res .ps-g-res, html body .ps-wtab.hide-res .ps-gh-res,
 html body .ps-wtab.hide-stock .ps-g-stock, html body .ps-wtab.hide-stock .ps-gh-stock,
 html body .ps-wtab.hide-fact .ps-g-fact, html body .ps-wtab.hide-fact .ps-gh-fact { display: none; }
 html body .ps-wtab.hide-per .ps-gh-per, html body .ps-wtab.hide-per .ps-g-per { position: static; }
+
+/* Переключатель площадки WB | Ozon | Вместе: только на РНП и Дашборде, чёрно-белый, без цвета */
+.nr-mp { display: none; align-self: flex-start; width: fit-content; margin: 0 0 12px; padding: 3px; gap: 2px; border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 999px; background: transparent; }
+.main-content:has(> #tab-rnp.active) > .nr-mp, .main-content:has(> #tab-dashboard.active) > .nr-mp { display: inline-flex; }
+.nr-mp button { appearance: none; border: 0; background: transparent; color: var(--text-muted, #777); font: 800 11px/1 inherit; letter-spacing: .08em; text-transform: uppercase; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: background .08s, color .08s; }
+.nr-mp button.on { background: var(--accent, #000); color: var(--on-accent, #fff); }
+@media (max-width: 760px) { .nr-mp { margin: 0 0 8px; } .nr-mp button { padding: 9px 14px; } }
+
+/* Дашборд: блок Ozon и скрытие WB-части в режиме «Ozon» */
+html[data-mp="ozon"] #tab-dashboard > :not(#nr-mp-dash) { display: none !important; }
+.nr-mp-dash { border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 26px; padding: 22px 24px; margin-bottom: 16px; }
+.nr-mp-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.nr-mp-h b { font-weight: 800; font-size: 13px; letter-spacing: .1em; }
+.nr-mp-h span { color: var(--text-muted, #777); font-size: 12px; }
+.nr-mp-kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.nr-mp-k { border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.nr-mp-k span { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted, #777); }
+.nr-mp-k b { font-size: 30px; font-weight: 900; line-height: 1.1; }
+.nr-mp-k em { font-style: normal; font-size: 12px; color: var(--text-muted, #777); }
+.nr-mp-top { margin-top: 16px; }
+.nr-mp-t { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted, #777); margin-bottom: 6px; }
+.nr-mp-r { display: grid; grid-template-columns: 22px 1fr auto 70px; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border, rgba(0,0,0,.1)); font-size: 13px; align-items: center; }
+.nr-mp-r em { font-style: normal; color: var(--text-muted, #777); } .nr-mp-r small { color: var(--text-muted, #777); text-align: right; }
+.nr-mp-blur { filter: blur(6px); opacity: .6; transition: filter .15s, opacity .15s; }
+@media (max-width: 760px) { .nr-mp-dash { padding: 16px; border-radius: 20px; } .nr-mp-kp { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nr-mp-k b { font-size: 24px; } }

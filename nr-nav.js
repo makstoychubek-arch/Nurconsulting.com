@@ -386,4 +386,35 @@
         }, true);
         var mt = 0; new MutationObserver(function () { if (mt) return; mt = setTimeout(function () { mt = 0; mark(); }, 300); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true });
     })();
+
+    // ── Переключатель площадки «WB | Ozon | Вместе» (РНП и Дашборд). По умолчанию WB; выбор помнится на устройстве.
+    (function () {
+        var KEY = 'nr_mp', MODES = ['wb', 'ozon', 'all'], LBL = { wb: 'WB', ozon: 'Ozon', all: 'Вместе' };
+        var cur = 'wb', subs = [];
+        try { var v = localStorage.getItem(KEY); if (MODES.indexOf(v) >= 0) cur = v; } catch (_) { /* без памяти */ }
+        function paint() {
+            var bar = doc.getElementById('nr-mp'); if (!bar) return;
+            Array.prototype.forEach.call(bar.querySelectorAll('button'), function (b) {
+                var on = b.getAttribute('data-mp') === cur; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            doc.documentElement.setAttribute('data-mp', cur);
+        }
+        function set(m) {
+            if (MODES.indexOf(m) < 0 || m === cur) return;
+            cur = m; try { localStorage.setItem(KEY, m); } catch (_) { /* без памяти */ }
+            paint();
+            subs.slice().forEach(function (f) { try { f(m); } catch (e) { if (root.console) console.error('[NrMp]', e); } });
+            try { doc.dispatchEvent(new CustomEvent('nr-mp-change', { detail: { mp: m } })); } catch (_) { /* старый браузер */ }
+        }
+        root.NrMp = { get: function () { return cur; }, set: set, onChange: function (f) { subs.push(f); }, label: function (m) { return LBL[m || cur]; } };
+        function mount() {
+            var host = doc.querySelector('.main-content'); if (!host || doc.getElementById('nr-mp')) { paint(); return; }
+            var bar = doc.createElement('div'); bar.id = 'nr-mp'; bar.className = 'nr-mp'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Площадка');
+            bar.innerHTML = MODES.map(function (m) { return '<button type="button" data-mp="' + m + '">' + LBL[m] + '</button>'; }).join('');
+            bar.addEventListener('click', function (e) { var b = e.target.closest('button[data-mp]'); if (b) set(b.getAttribute('data-mp')); });
+            host.insertBefore(bar, host.firstChild); paint();
+        }
+        if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
+        var mt = 0; new MutationObserver(function () { if (mt || doc.getElementById('nr-mp')) return; mt = setTimeout(function () { mt = 0; mount(); }, 200); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true });
+    })();
 })(typeof window !== 'undefined' ? window : globalThis);
