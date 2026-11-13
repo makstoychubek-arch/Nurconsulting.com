@@ -289,40 +289,12 @@
         return 'Переделать все фото карточки «' + name + '».' + (worst ? ' Главная утечка воронки: ' + worst.from + ' → ' + worst.to + ' (' + worst.fix + ').' : '') + '\n' +
             briefs.map(function (b) { return b.n + '. ' + b.title + (b.hot ? ' [приоритет]' : '') + ': ' + b.text; }).join('\n') + '\nСтиль: «Минимализм», чёрно-белая подача, без цветных заливок, крупный читаемый текст.';
     }
-    function leakHtml() {
-        var f0 = S.fun || funnel([]), has = !!S.fun, pr = has ? peersFor(S.nm) : { list: [], label: '' };
-        var f = has ? withBench(f0, pr.list, pr.label) : f0, t = f.total;
-        var benchLabel = (f.steps.filter(function (x) { return x.bench; })[0] || {}).bench;
-        var vals = (f.realImp ? [['Показы', t.imp]] : []).concat([['Переходы', t.clk], ['Корзина', t.cart], ['Заказ', t.ord], ['Выкуп', t.buy]]);
-        var w = f.worst;
-        var chain = vals.map(function (v, i) {
-            var st = f.steps[i - 1];
-            var conv = i && st ? '<em>' + pct(st.ours) + '</em>' : '';
-            return (i ? '<div class="cc-arr">' + conv + '</div>' : '') + '<div class="cc-step' + (w && st && st === w ? ' cc-bad' : '') + '"><div class="cc-cap">' + v[0] + '</div><b class="' + (has ? '' : 'cc-blur') + '">' + (has ? fmt(v[1]) : '0') + '</b></div>';
-        }).join('');
-        var rows = f.steps.map(function (s) {
-            var gap = s.gap == null ? '<span class="cc-mut">нет данных для сравнения</span>' : '<span class="cc-pill ' + (s.gap < 0 ? 'dn' : 'up') + '">' + (s.gap < 0 ? '−' : '+') + pct(Math.abs(s.gap)).replace('%', ' п.п.') + '</span>';
-            return '<tr' + (w && s === w ? ' class="cc-hot"' : '') + '><td>' + s.from + ' → ' + s.to + '</td><td>' + (has ? pct(s.ours) : '<span class="cc-g"></span>') + '</td><td>' + (has ? pct(s.rival) : '<span class="cc-g"></span>') + '</td><td>' + (has ? gap : '<span class="cc-g"></span>') + '</td><td class="cc-fix">' + s.fix + '</td></tr>';
-        }).join('');
-        // все артикулы кабинета: где у каждого главная утечка (клик по строке выбирает товар)
-        var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
-        var list = S.allFun ? Object.keys(S.allFun).map(function (k) { var ff = S.allFun[k], a = byArt[Number(k)]; return { nm: Number(k), name: a ? (a.seller_article || a.name) : k, f: ff }; })
-            .map(function (x) { var p2 = peersFor(x.nm); return { nm: x.nm, name: x.name, f: withBench(x.f, p2.list, p2.label) }; })
-            .filter(function (x) { return x.f.total.clk > 0; }).sort(function (x, y) { return y.f.total.rev - x.f.total.rev; }) : null;
-        var all = list ? '<div class="cc-card"><div class="cc-h"><h3>Все артикулы кабинета</h3><span>главная утечка и сколько денег в ней · клик выбирает товар</span></div><div class="cc-tw cc-scroll"><table class="cc-t cc-t5"><thead><tr><th>Артикул</th><th>Заказы, ₽</th><th>Переходы</th><th>Главная утечка</th><th>Конверсия</th></tr></thead><tbody>' +
-            (list.length ? list.map(function (x) {
-                var ww = x.f.worst;
-                return '<tr class="cc-pick' + (x.nm === S.nm ? ' cc-hot' : '') + '" data-cc-nm="' + x.nm + '"><td>' + esc(x.name) + '</td><td>' + fmt(x.f.total.rev) + '</td><td>' + fmt(x.f.total.clk) + '</td><td>' + (ww ? ww.from + ' → ' + ww.to : '<span class="cc-mut">нет отставания</span>') + '</td><td>' + (ww ? pct(ww.ours) + ' <span class="cc-mut">против ' + pct(ww.rival) + '</span>' : '—') + '</td></tr>';
-            }).join('') : '<tr><td colspan="5" class="cc-mut">За 30 дней показов нет</td></tr>') + '</tbody></table></div></div>' : '';
-        return '<div class="cc-leak"><div class="cc-tile cc-dark"><div class="cc-cap">Главная утечка</div><b>' + (w ? w.from + ' → ' + w.to : '—') + '</b><span>' + (w ? 'наша конверсия ' + pct(w.ours) + ', эталон ' + pct(w.rival) + (benchLabel ? ' (' + benchLabel + ')' : '') + '. Исправить: ' + w.fix.toLowerCase() : (has ? 'по данным конкурентов отставания нет или их пока нет' : 'считаем воронку за 30 дней')) + '</span></div><div class="cc-chain">' + chain + '</div></div>' +
-            '<div class="cc-card"><div class="cc-h"><h3>Где теряем покупателя</h3><span>наша воронка за 30 дней против ' + (benchLabel ? 'эталона: ' + benchLabel : 'конкурентов') + '</span></div><div class="cc-tw"><table class="cc-t cc-t5"><thead><tr><th>Шаг</th><th>У нас</th><th>' + (benchLabel ? benchLabel.charAt(0).toUpperCase() + benchLabel.slice(1) : 'У конкурентов') + '</th><th>Разница</th><th>Что переделать в фото</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' + all +
-            '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-sec="media">Перейти к фото под эту утечку</button></div>';
-    }
-    // «Медиа» как лист «ФОТОВОРОНКА» из таблицы владельца: слева РЕФЕРЕНС (кадр лучшего конкурента) и ТЗ для создания фотоворонки по каждому кадру,
-    // дальше колонки артикулов: название, фото, артикул и кадры карточки по порядку. Сейчас в колонках фото, что стоят на WB; новые появятся после генерации.
+    // «Утечка»: наши текущие кадры карточки рядом с референсом (кадры лучшего конкурента склейки). Без цифр и конверсий: сразу видно, чего не хватает нам.
+    function leakHtml() { return mediaHtml('leak'); }
     var ROWS = 8;
     // Задания (промты) на кадры людям не показываем: картинки делает сайт сам. Здесь только референс и сами кадры.
-    function mediaHtml() {
+    function mediaHtml(mode) {
+        var leak = mode === 'leak';
         var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
         var list = (S.all && S.all.length ? S.all : S.arts.map(function (x) { return { nm: Number(x.nm_id), name: x.seller_article || x.name }; })).slice();
         var rows = []; for (var i = 0; i < ROWS; i++) rows.push(i);
@@ -337,15 +309,15 @@
                 var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
                 var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
                 return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' +
-                    actHtml(x.nm, x.name || (ar && (ar.seller_article || ar.name)) || String(x.nm)) +
+                    (leak ? '' : actHtml(x.nm, x.name || (ar && (ar.seller_article || ar.name)) || String(x.nm))) +
                     rows.map(function (i) {
-                        var js = jobSlides(S.jobs[x.nm])[i], url = js && js.status === 'ready' && js.path ? jobUrl(js.path) : '';
+                        var js = leak ? null : jobSlides(S.jobs[x.nm])[i], url = js && js.status === 'ready' && js.path ? jobUrl(js.path) : '';
                         return '<div class="ms-cell">' + (url ? '<img class="ms-im" src="' + esc(url) + '" alt="" loading="lazy">' : wbImg(x.nm, i + 1, 'c516x688').replace('cc-th', 'cc-th ms-im')) + '</div>';
                     }).join('') + '</section>';
             }).join('');
             return '<div class="ms-grp">' + side + cols + '</div>';
         }).join('');
-        return '<div class="cs-wrap ms-wrap"><div class="ms-sheet">' + out + '</div></div>';
+        return '<div class="cs-wrap ms-wrap' + (leak ? ' ms-leak' : '') + '"><div class="ms-sheet">' + out + '</div></div>';
     }
     var VIEW = { rivals: rivalsHtml, seo: seoHtml, leak: leakHtml, media: mediaHtml };
 
