@@ -2091,3 +2091,14 @@ html body .psc-lv { fill: none; stroke: var(--green); stroke-width: 2.4; } html 
 html body .psc-pl { fill: none; stroke: var(--ps-or); stroke-width: 2; opacity: .95; }
 html body .ps-leg .psc-kv { border-top-color: var(--green); border-top-width: 3px; opacity: 1; } html body .ps-leg .psc-ks { border-top-color: var(--ps-or); border-top-width: 3px; opacity: 1; }
 html body #tab-rnp-planning .ps-table, html body #tab-rnp-planning .ps-table input { font-family: Arial, Helvetica, sans-serif; }
+/* скрытие групп колонок */
+html body .ps-gbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 8px; font-size: 12px; font-weight: 800; color: var(--text-muted); }
+html body .ps-gt { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--text-primary); background: transparent; color: var(--text-muted); font-weight: 800; font-size: 12px; cursor: pointer; }
+html body .ps-gt.is-on { background: var(--accent); color: var(--on-accent, #fff); }
+html body .ps-wtab.hide-ord .ps-g-ord, html body .ps-wtab.hide-ord .ps-gh-ord:not(.ps-cj0):not(.ps-cj1):not(.ps-cj2),
+html body .ps-wtab.hide-price .ps-g-price, html body .ps-wtab.hide-price .ps-gh-price,
+html body .ps-wtab.hide-money .ps-g-money, html body .ps-wtab.hide-money .ps-gh-money,
+html body .ps-wtab.hide-res .ps-g-res, html body .ps-wtab.hide-res .ps-gh-res,
+html body .ps-wtab.hide-stock .ps-g-stock, html body .ps-wtab.hide-stock .ps-gh-stock,
+html body .ps-wtab.hide-fact .ps-g-fact, html body .ps-wtab.hide-fact .ps-gh-fact { display: none; }
+html body .ps-wtab.hide-per .ps-gh-per, html body .ps-wtab.hide-per .ps-g-per { position: static; }
