@@ -296,16 +296,15 @@
             // референс общий на склейку: кадры самого выручающего конкурента среди всех артикулов склейки
             var ref = 0, best = -1;
             g.items.forEach(function (d) { (d.similar || []).concat(d.top || []).forEach(function (x) { if ((Number(x.rev) || 0) > best) { best = Number(x.rev) || 0; ref = x.nm; } }); });
-            // карточка WB = склейка: «Сгенерировать» и «Отправить на WB» одни на всю склейку, отправка заперта, пока для неё нет готовых фото
-            var side = '<div class="ms-side"><div class="ms-sh"><b title="' + esc(g.name) + '">' + esc(g.name) + '</b><span>' + g.items.length + ' арт.</span>' +
-                '<button type="button" class="cc-btn cc-btn-b" data-cc-gen="' + g.items[0].nm + '" data-cc-gname="' + esc(g.name) + '">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button>' +
-                '<button type="button" class="cc-btn ms-send" disabled aria-disabled="true" title="Откроется, когда для этой карточки будут готовы новые фото"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Отправить на WB</button>' +
-                '<i>Референс</i></div>' +
+            // Референс общий на склейку (как делают конкуренты), а генерация и отправка на WB у каждой расцветки (артикула) свои: 1 000 сом за расцветку
+            var side = '<div class="ms-side"><div class="ms-sh"><b title="' + esc(g.name) + '">' + esc(g.name) + '</b><span>' + g.items.length + ' арт.</span><i>Референс</i></div>' +
                 rows.map(function (i) { return '<div class="ms-row">' + (ref ? wbImg(ref, i + 1, 'c516x688').replace('cc-th', 'cc-th ms-im') : '<div class="ms-im cc-nophoto"></div>') + '<em>' + (i + 1) + '</em></div>'; }).join('') + '</div>';
             var cols = g.items.map(function (x) {
                 var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
                 var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
                 return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' +
+                    '<div class="ms-act"><button type="button" class="cc-btn cc-btn-b" data-cc-gen="' + x.nm + '" data-cc-gname="' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button>' +
+                    '<button type="button" class="cc-btn ms-send" disabled aria-disabled="true" title="Откроется, когда для этой расцветки будут готовы новые фото"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Отправить на WB</button></div>' +
                     rows.map(function (i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1, 'c516x688').replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
             }).join('');
             return '<div class="ms-grp">' + side + cols + '</div>';
