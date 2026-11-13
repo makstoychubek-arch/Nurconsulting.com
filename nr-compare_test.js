@@ -26,4 +26,13 @@ assert.equal(z.steps[0].ours, null);
 assert.equal(z.worst, null);
 // Конкурентов нет: утечку не называем
 assert.equal(f([{ impressions: 100, clicks: 1 }]).worst, null);
+// Сводка по конкурентам: медиана похожих, лидер, наше место
+const rs = globalThis.NrCompare._rivalStats({ rev: 300, similar: [{ nm: 1, rev: 100 }, { nm: 2, rev: 500 }, { nm: 3, rev: 900 }], top: [{ nm: 3, rev: 900 }, { nm: 4, rev: 2000 }] });
+assert.equal(rs.median, 500);
+assert.equal(rs.leader, 2000);
+assert.equal(rs.place, 4, 'трое продают больше нас; один артикул в обоих списках считается один раз');
+assert.equal(rs.of, 5);
+assert.equal(globalThis.NrCompare._rivalStats(null).place, null, 'нет данных: место не выдумываем');
+assert.equal(globalThis.NrCompare._wbHost(100), 1);
+assert.equal(globalThis.NrCompare._wbHost(2000), 13);
 console.log('nr-compare_test: ok');

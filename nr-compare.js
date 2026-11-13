@@ -11,10 +11,10 @@
     var SECS = [['rivals', 'Конкуренты'], ['seo', 'СЕО'], ['leak', 'Утечка'], ['media', 'Медиа']];
     var PRICE_SOM = 1000, DAYS = 30;
     // Поля карточки из листа «СЕО» (строки «ФАКТ ВАРИАНТ / НОВЫЙ ВАРИАНТ»)
-    var FIELDS = ['Артикул продавца', 'Артикул WB', 'Наименование', 'Категория продавца', 'Бренд', 'Описание', 'Материал верха', 'Пол', 'Состав', 'Цвет', 'Баркод', 'Размер', 'Рос. размер', 'Вид застежки', 'Вырез горловины', 'Декоративные элементы', 'ИКПУ', 'Код ТРУ 1', 'Код ТРУ 2', 'Код упаковки', 'Коллекция', 'Комплектация', 'Форма рукава'];
+    var FIELDS = ['Артикул продавца', 'Артикул WB', 'Наименование', 'Категория продавца', 'Бренд', 'Описание', 'Материал верха', 'Пол', 'Состав', 'Цвет', 'Баркод', 'Размер', 'Рос. размер', 'Вид застежки', 'Возрастные ограничения', 'Вырез горловины', 'Декоративные элементы', 'ИКПУ', 'Код ТРУ 1', 'Код ТРУ 2', 'Код упаковки', 'Количество штук в товаре по ЭС', 'Коллекция', 'Комплектация', 'Любимые герои', 'Назначение', 'ОКПД 2', 'Особенности модели', 'Параметры модели на фото (ОГ-ОТ-ОБ)', 'Покрой', 'Размер на модели', 'Рисунок', 'Рост модели на фото', 'Сезон', 'Стиль', 'Страна производства', 'ТНВЭД', 'Тип ростовки', 'Тип рукава', 'Уход за вещами', 'Фактура материала', 'Форма рукава'];
     var QUALITY = ['Супер релевантно', 'Релевантно', 'Нерелевантно но пусть будет', 'Исключить из карточки'];
     var SLIDES = ['Обложка', 'Главная выгода', 'Посадка и крой', 'Размеры и замеры', 'Состав и ткань', 'Детали', 'С чем носить', 'Доверие и отзывы'];
-    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, token: 0, bound: false };
+    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, cmp: null, token: 0, bound: false };
 
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -61,28 +61,102 @@
     function photo(a, cls) {
         return a && a.photo_url ? '<img class="' + cls + '" src="' + esc(a.photo_url) + '" alt="" loading="lazy">' : '<div class="' + cls + ' cc-nophoto">нет фото</div>';
     }
-    function rivalsHtml() {
-        var a = art(), p = period(), f = S.fun;
-        var tbl = function (title, sub, n) {
-            return '<div class="cc-card"><div class="cc-h"><h3>' + title + '</h3><span>' + sub + '</span></div><div class="cc-tw"><table class="cc-t"><thead><tr><th>№</th><th>Фото</th><th>Артикул</th><th>Выручка</th><th>К нам</th></tr></thead><tbody>' + ghostRows(n, 5) + '</tbody></table></div></div>';
-        };
-        return '<div class="cc-hero">' + photo(a, 'cc-ph') +
-            '<div class="cc-me"><div class="cc-cap">Наш товар</div><b>' + esc(a ? (a.name || a.seller_article || '') : '—') + '</b><span>Артикул ' + esc(a ? a.nm_id : '—') + ' · период ' + dm(p.from) + '–' + dm(p.to) + '</span></div>' +
-            '<div class="cc-tiles"><div class="cc-tile cc-dark"><div class="cc-cap">Наша выручка</div><b id="cc-rev"' + (f ? '' : ' class="cc-blur"') + '>' + (f ? fmt(f.total.rev) : '0') + '</b></div>' +
-            '<div class="cc-tile"><div class="cc-cap">Медиана похожих</div><b>—</b></div><div class="cc-tile"><div class="cc-cap">Лидер предмета</div><b>—</b></div><div class="cc-tile"><div class="cc-cap">Наше место из 25</div><b>—</b></div></div></div>' +
-            '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="find">Подобрать конкурентов</button><span class="cc-note">15 похожих по фото (фасон 1 в 1, сначала нашего цвета) и 10 топов по выручке в нашем предмете, с фото и выручкой за период.</span></div>' +
-            '<div class="cc-two">' + tbl('Похожие', '15 · фасон 1 в 1, наш цвет', 15) + tbl('Топы по выручке', '10 · наш предмет', 10) + '</div>';
+    // ───── фото товара WB по артикулу: адрес корзины зависит от номера, подбираем перебором и запоминаем ─────
+    function wbHost(vol) {
+        var T = [143, 287, 431, 719, 1007, 1061, 1115, 1169, 1313, 1601, 1655, 1919, 2045, 2189, 2405, 2621, 2837, 3053, 3269, 3485, 3701, 3917, 4133, 4349, 4565, 4877, 5189, 5501, 5813, 6125, 6437];
+        for (var i = 0; i < T.length; i++) if (vol <= T[i]) return i + 1;
+        return 32 + Math.floor((vol - 6438) / 312);
     }
+    function wbUrl(nm, host) { var h = host < 10 ? '0' + host : String(host); return 'https://basket-' + h + '.wbbasket.ru/vol' + Math.floor(nm / 1e5) + '/part' + Math.floor(nm / 1e3) + '/' + nm + '/images/c246x328/1.webp'; }
+    var HOSTS = lsGet('nr_cc_wbhost') || {};
+    function wbImg(nm) {
+        nm = Number(nm); if (!nm) return '<div class="cc-th cc-nophoto"></div>';
+        var vol = Math.floor(nm / 1e5), h = HOSTS[vol] || wbHost(vol);
+        return '<img class="cc-th" data-wb="' + nm + '" data-h="' + h + '" data-try="0" src="' + wbUrl(nm, h) + '" alt="" loading="lazy">';
+    }
+    // не загрузилось: пробуем соседние корзины (+1, −1, +2, −2 …), после 16 попыток показываем заглушку
+    doc.addEventListener('error', function (e) {
+        var im = e.target; if (!im || !im.getAttribute || !im.getAttribute('data-wb')) return;
+        var nm = Number(im.getAttribute('data-wb')), base = Number(im.getAttribute('data-h')), n = Number(im.getAttribute('data-try')) + 1;
+        if (n > 16) { im.removeAttribute('data-wb'); im.classList.add('cc-nophoto'); im.removeAttribute('src'); return; }
+        var h = base + (n % 2 ? 1 : -1) * Math.ceil(n / 2);
+        im.setAttribute('data-try', String(n));
+        if (h < 1) { im.dispatchEvent(new root.Event('error')); return; }
+        im.src = wbUrl(nm, h);
+    }, true);
+    doc.addEventListener('load', function (e) {
+        var im = e.target; if (!im || !im.getAttribute || !im.getAttribute('data-wb') || !Number(im.getAttribute('data-try'))) return;
+        var m = /basket-(\d+)\./.exec(im.src); if (!m) return;
+        HOSTS[Math.floor(Number(im.getAttribute('data-wb')) / 1e5)] = Number(m[1]); lsSet('nr_cc_wbhost', HOSTS);
+    }, true);
+
+    // ───── сводка по конкурентам (чистая функция, проверяется тестом) ─────
+    function rivalStats(d) {
+        var sim = (d && d.similar) || [], top = (d && d.top) || [], our = Number(d && d.rev) || 0;
+        var revs = sim.map(function (x) { return Number(x.rev) || 0; }).sort(function (x, y) { return x - y; });
+        var med = revs.length ? (revs.length % 2 ? revs[(revs.length - 1) / 2] : (revs[revs.length / 2 - 1] + revs[revs.length / 2]) / 2) : null;
+        var all = {}; sim.concat(top).forEach(function (x) { all[x.nm] = Number(x.rev) || 0; });
+        var list = Object.keys(all).map(function (k) { return all[k]; });
+        var lead = list.length ? Math.max.apply(null, list) : null;
+        var place = list.length ? list.filter(function (v) { return v > our; }).length + 1 : null;
+        return { our: our, median: med, leader: lead, place: place, of: list.length + 1 };
+    }
+    function ratio(rev, our) {
+        if (!(our > 0) || rev == null) return '<span class="cc-mut">—</span>';
+        var k = rev / our, t = k >= 10 ? Math.round(k) : Math.round(k * 10) / 10;
+        return '<span class="cc-pill ' + (k > 1 ? 'dn' : 'up') + '">×' + String(t).replace('.', ',') + '</span>';
+    }
+    function rivalsHtml() {
+        var a = art(), d = S.cmp, f = S.fun, p = period(), st = rivalStats(d);
+        var per = d && d.period_from ? d.period_from.slice(8, 10) + '.' + d.period_from.slice(5, 7) + '–' + d.period_to.slice(8, 10) + '.' + d.period_to.slice(5, 7) + '.' + d.period_to.slice(0, 4) : dm(p.from) + '–' + dm(p.to);
+        var tbl = function (title, sub, n, list) {
+            var body = list && list.length ? list.map(function (x, i) {
+                return '<tr><td>' + (i + 1) + '</td><td>' + wbImg(x.nm) + '</td><td><a class="cc-a" href="https://www.wildberries.ru/catalog/' + x.nm + '/detail.aspx" target="_blank" rel="noopener">' + x.nm + '</a></td><td>' + (x.rev == null ? '—' : fmt(x.rev)) + '</td><td>' + ratio(x.rev, st.our) + '</td></tr>';
+            }).join('') : ghostRows(n, 5);
+            return '<div class="cc-card"><div class="cc-h"><h3>' + title + '</h3><span>' + sub + '</span></div><div class="cc-tw"><table class="cc-t cc-tr"><thead><tr><th>№</th><th>Фото</th><th>Артикул</th><th>Выручка, ₽</th><th>К нам</th></tr></thead><tbody>' + body + '</tbody></table></div></div>';
+        };
+        var rev = d && d.rev != null ? fmt(d.rev) : (f ? fmt(f.total.rev) : '0'), ready = !!(d && d.rev != null) || !!f;
+        var v = function (x) { return x == null ? '—' : fmt(x); };
+        return '<div class="cc-hero">' + photo(a, 'cc-ph') +
+            '<div class="cc-me"><div class="cc-cap">Наш товар</div><b>' + esc(a ? (a.name || a.seller_article || '') : '—') + '</b><span>Артикул ' + esc(a ? a.nm_id : '—') + ' · период ' + per + '</span></div>' +
+            '<div class="cc-tiles"><div class="cc-tile cc-dark"><div class="cc-cap">Наша выручка' + (d && d.rev != null ? ', ₽' : '') + '</div><b' + (ready ? '' : ' class="cc-blur"') + '>' + rev + '</b></div>' +
+            '<div class="cc-tile"><div class="cc-cap">Медиана похожих</div><b>' + v(st.median) + '</b></div><div class="cc-tile"><div class="cc-cap">Лидер</div><b>' + v(st.leader) + '</b></div><div class="cc-tile"><div class="cc-cap">Наше место</div><b>' + (st.place ? st.place + ' <small>из ' + st.of + '</small>' : '—') + '</b></div></div></div>' +
+            '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="find">' + (d ? 'Обновить конкурентов' : 'Подобрать конкурентов') + '</button><span class="cc-note">' + (d ? 'Данные перенесены из вашей таблицы: выручка MPStats за ' + per + '.' : '15 похожих по фото (фасон 1 в 1, сначала нашего цвета) и 10 топов по выручке в нашем предмете, с фото и выручкой за период.') + '</span></div>' +
+            '<div class="cc-two">' + tbl('Похожие', '15 · фасон 1 в 1, наш цвет', 15, d && d.similar) + tbl('Топы по выручке', '10 · наш предмет', 10, d && d.top) + '</div>';
+    }
+    function nl(t) { return esc(t).replace(/\n/g, '<br>'); }
+    function longCell(t) {
+        t = String(t || ''); if (!t) return '<span class="cc-mut">—</span>';
+        return t.length > 220 ? '<details class="cc-more"><summary>' + esc(t.slice(0, 200)) + '…</summary><div>' + nl(t) + '</div></details>' : nl(t);
+    }
+    var VERD = { 'наш': 'up', 'НЕТ': 'dn' };
     function seoHtml() {
-        var a = art(), fact = { 'Артикул продавца': a && a.seller_article, 'Артикул WB': a && a.nm_id, 'Наименование': a && a.name };
-        var rows = FIELDS.map(function (f) { return '<tr><td>' + f + '</td><td>' + (fact[f] ? esc(fact[f]) : '<span class="cc-g"></span>') + '</td><td><span class="cc-g"></span></td></tr>'; }).join('');
+        var a = art(), d = S.cmp, seo = d && d.seo, labels = (d && d.labels) || FIELDS, by = {};
+        ((seo && seo.fields) || []).forEach(function (x) { by[x.k] = x; });
+        var fact = { 'Артикул продавца': a && a.seller_article, 'Артикул WB': a && a.nm_id, 'Наименование': a && a.name };
+        var rows = labels.map(function (k) {
+            var x = by[k], fv = x ? x.fact : (fact[k] || ''), nv = x ? x.new : (k === 'Артикул WB' && seo ? (a && a.nm_id) : '');
+            if (k === 'Артикул WB' && !fv) fv = a && a.nm_id;
+            var empty = seo ? '<span class="cc-mut">—</span>' : '<span class="cc-g"></span>';
+            return '<tr' + (x && x.ch ? ' class="cc-ch"' : '') + '><td>' + esc(k) + '</td><td>' + (fv ? longCell(fv) : empty) + '</td><td>' + (nv ? longCell(nv) + (x && x.ch ? ' <span class="cc-new">новое</span>' : '') : empty) + '</td></tr>';
+        }).join('');
         var q = QUALITY.map(function (x, i) { return '<span class="cc-q cc-q' + i + '">' + x + '</span>'; }).join('');
-        return '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="seo">Собрать СЕО</button><span class="cc-note">Идёт бонусом к карточке. Запросы размечаются строго одной из четырёх оценок.</span></div>' +
-            '<div class="cc-card"><div class="cc-h"><h3>СЕО оптимизация</h3><span>поля карточки</span></div><div class="cc-tw"><table class="cc-t cc-t3"><thead><tr><th>Поле</th><th>Факт вариант</th><th>Новый вариант</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
-            '<div class="cc-two"><div class="cc-card"><div class="cc-h"><h3>СЕО уникальные слова</h3><span>слово · частотность · вердикт</span></div><div class="cc-tw"><table class="cc-t"><thead><tr><th>№</th><th>Слово</th><th>Частотность</th><th>Вердикт</th></tr></thead><tbody>' + ghostRows(8, 4) + '</tbody></table></div></div>' +
-            '<div class="cc-card"><div class="cc-h"><h3>СЕО описания</h3><span>слова для нового описания</span></div>' +
-            ['Итог для описания', 'Убрать из текущего описания', 'Под вопросом'].map(function (k) { return '<div class="cc-kv"><span>' + k + '</span><span class="cc-g cc-gw"></span></div>'; }).join('') + '</div></div>' +
-            '<div class="cc-card"><div class="cc-h"><h3>Ключевые запросы</h3><span>' + q + '</span></div><div class="cc-tw"><table class="cc-t"><thead><tr><th>№</th><th>Запрос</th><th>Частотность</th><th>Качество запроса</th><th>Средняя цена первых 25 после СПП</th></tr></thead><tbody>' + ghostRows(8, 5) + '</tbody></table></div></div>';
+        var words = seo && seo.words && seo.words.length ? seo.words.map(function (w, i) {
+            return '<tr><td>' + (i + 1) + '</td><td>' + esc(w.w) + '</td><td>' + esc(w.freq) + '</td><td><span class="cc-pill ' + (VERD[w.verdict] || '') + '">' + esc(w.verdict) + '</span></td><td class="cc-fix">' + esc(w.note) + '</td></tr>';
+        }).join('') : ghostRows(8, 5);
+        var it = (seo && seo.itog) || {};
+        var itog = [['Итог для описания', it.keep], ['Убрать из текущего описания', it.remove], ['Под вопросом', it.doubt]].map(function (x) {
+            return '<div class="cc-it"><div class="cc-cap">' + x[0] + '</div><div>' + (x[1] ? nl(x[1]) : (seo ? '<span class="cc-mut">—</span>' : '<span class="cc-g cc-gw"></span>')) + '</div></div>';
+        }).join('');
+        var qs = seo && seo.queries && seo.queries.length ? seo.queries.map(function (x, i) {
+            return '<tr><td>' + (i + 1) + '</td><td>' + esc(x.q) + '</td><td>' + (x.freq == null ? '—' : fmt(x.freq)) + '</td><td><span class="cc-q cc-q' + x.quality + '">' + QUALITY[x.quality] + '</span></td><td>' + (x.price == null ? '—' : fmt(x.price)) + '</td></tr>';
+        }).join('') : ghostRows(8, 5);
+        var cnt = seo && seo.queries ? seo.queries.length : 0;
+        return '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="seo">' + (seo ? 'Обновить СЕО' : 'Собрать СЕО') + '</button><span class="cc-note">' + (seo ? 'Перенесено из вашей таблицы. Строки с пометкой «новое» отличаются от текущей карточки.' : 'Идёт бонусом к карточке. Запросы размечаются строго одной из четырёх оценок.') + '</span></div>' +
+            '<div class="cc-card"><div class="cc-h"><h3>СЕО оптимизация</h3><span>' + labels.length + ' полей карточки</span></div><div class="cc-tw"><table class="cc-t cc-t3"><thead><tr><th>Поле</th><th>Факт вариант</th><th>Новый вариант</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
+            '<div class="cc-two"><div class="cc-card"><div class="cc-h"><h3>СЕО уникальные слова</h3><span>слово · частотность · вердикт</span></div><div class="cc-tw cc-scroll"><table class="cc-t"><thead><tr><th>№</th><th>Слово</th><th>Частотность</th><th>Вердикт</th><th>Пример запроса</th></tr></thead><tbody>' + words + '</tbody></table></div></div>' +
+            '<div class="cc-card"><div class="cc-h"><h3>СЕО описания</h3><span>слова для нового описания</span></div>' + itog + '</div></div>' +
+            '<div class="cc-card"><div class="cc-h"><h3>Ключевые запросы' + (cnt ? ' · ' + cnt : '') + '</h3><span>' + q + '</span></div><div class="cc-tw cc-scroll"><table class="cc-t"><thead><tr><th>№</th><th>Запрос</th><th>Частотность</th><th>Качество запроса</th><th>Средняя цена первых 25 после СПП</th></tr></thead><tbody>' + qs + '</tbody></table></div></div>';
     }
     function leakHtml() {
         var f = S.fun || funnel([]), has = !!S.fun, t = f.total;
@@ -140,9 +214,10 @@
             .then(function (r) { return (r && r.data) || []; }).catch(function () { return []; });
     }
     function loadFunnel() {
-        var cab = S.cab, nm = S.nm, my = ++S.token, p = period(), key = 'nr_cc_fun_' + cab + '_' + nm;
+        var cab = S.cab, nm = S.nm, my = ++S.token, p = period(), key = 'nr_cc_fun_' + cab + '_' + nm, ckey = 'nr_cc_cmp_' + cab + '_' + nm;
         var cached = lsGet(key);
         S.fun = cached && cached.to === p.to ? funnel(cached.rows) : null;
+        S.cmp = lsGet(ckey);
         paint();
         if (!sb() || !nm) return;
         Promise.resolve(sb().from('rnp_daily_data').select('impressions,clicks,basket_count,funnel_orders,orders_count,orders_sum,sales_count,competitor_ctr,competitor_basket,competitor_cro').eq('cabinet_id', cab).eq('nm_id', nm).gte('date', p.from).lte('date', p.to).range(0, 199))
@@ -150,6 +225,13 @@
                 if (my !== S.token || !r || r.error) return;
                 lsSet(key, { to: p.to, rows: r.data || [] });
                 S.fun = funnel(r.data || []); paint();
+            }).catch(function () { /* остаётся каркас */ });
+        // Конкуренты и СЕО, перенесённые из таблицы владельца (content_compare)
+        Promise.resolve(sb().from('content_compare').select('data,period_from,period_to').eq('cabinet_id', cab).eq('nm_id', nm).limit(1))
+            .then(function (r) {
+                if (my !== S.token || !r || r.error) return;
+                var row = r.data && r.data[0], d = row ? Object.assign({}, row.data, { period_from: row.period_from, period_to: row.period_to }) : null;
+                S.cmp = d; lsSet(ckey, d); paint();
             }).catch(function () { /* остаётся каркас */ });
     }
 
@@ -177,8 +259,8 @@
             if ((b = e.target.closest('[data-cc-act]'))) {
                 var act = b.getAttribute('data-cc-act');
                 if (act === 'gen') openPay();
-                else if (act === 'find') say('Подбор конкурентов подключается', 'Похожие по фото WB и выручка MPStats появятся следующим шагом');
-                else if (act === 'seo') say('Сбор СЕО подключается', 'Запросы, слова и новый вариант карточки появятся следующим шагом');
+                else if (act === 'find') say('Автоподбор подключается', 'Сейчас данные берутся из вашей таблицы. Сбор с WB и MPStats прямо с сайта появится следующим шагом');
+                else if (act === 'seo') say('Автосбор СЕО подключается', 'Сейчас данные берутся из вашей таблицы. Сбор запросов прямо с сайта появится следующим шагом');
                 else if (act === 'send') say('Отправлять пока нечего', 'Сначала нужна генерация новых фото');
             }
         });
@@ -199,7 +281,7 @@
         try { var s = root.localStorage.getItem('nr_cc_sec'); if (s && VIEW[s]) S.sec = s; } catch (_) {}
         var cab = cabId();
         if (cab && cab === S.cab && S.arts.length) { paint(); return; }
-        S.cab = cab; S.arts = lsGet('nr_cc_arts_' + cab) || []; S.fun = null;
+        S.cab = cab; S.arts = lsGet('nr_cc_arts_' + cab) || []; S.fun = null; S.cmp = null;
         pickNm(); paint();
         if (S.nm) loadFunnel();
         // Кабинет ещё не выбран (страница только открылась): каркас уже на экране, данные подтянем, как только кабинет появится
@@ -213,10 +295,10 @@
         });
     }
     doc.addEventListener('cabinet-changed', function () {
-        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.nm = 0; closePay();
+        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.cmp = null; S.nm = 0; closePay();
         var host = doc.getElementById('cc-root'), pane = doc.getElementById('an-content');
         if (host && pane && !pane.hidden) open();
     });
 
-    root.NrCompare = { open: open, _funnel: funnel };
+    root.NrCompare = { open: open, _funnel: funnel, _rivalStats: rivalStats, _wbHost: wbHost };
 })(typeof window !== 'undefined' ? window : globalThis);
