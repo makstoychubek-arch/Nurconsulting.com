@@ -6620,7 +6620,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </div>
         <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
         <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
-        <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
         <div id="tab-dds" class="tab-content space-y-4">
             <div class="widget-card p-5">
                 <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -8258,7 +8257,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-compare.818d837050.min.js"></script>
 <script src="/dist/rnp-prices.7ddcd596ca.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
-<script src="/dist/nr-nav.8be6b00eb2.min.js"></script>
+<script src="/dist/nr-nav.fafbfb4085.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.1650b70cb4.min.js"></script>
 <script src="/dist/nr-foot.3aa9e16910.min.js"></script>
@@ -9667,6 +9666,18 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         });
     }
 
+    function bootRnpSubPage(name, n) {
+        const pf = name === 'rnp-planfact', host = document.getElementById(pf ? 'rnp-pfp-host' : 'rnp-plp-host'), rnp = getRnp();
+        if (window._rnpSub === name || !host || host.firstElementChild) return;
+        if (!rnp || !hasUserCabinets || !currentCabinetId) { if ((n || 0) < 40) setTimeout(() => getCurrentActiveTab() === name && bootRnpSubPage(name, (n || 0) + 1), 400); return; }
+        window._rnpSub = name;
+        rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+        Promise.resolve(rnp.setDateRange && rnp.setDateRange(activeDateFrom, activeDateTo)).catch(() => {}).then(() => {
+            window._rnpSub = null;
+            if (getCurrentActiveTab() === name) pf ? rnp.openPlanFact() : rnp.openPlanning();
+        });
+    }
+
     function bootRnpTab(force) {
         const rnpEl = document.getElementById('tab-rnp');
             if (rnpEl && (rnpEl.classList.contains('active') || getCurrentActiveTab() === 'rnp')) {
@@ -9919,6 +9930,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             syncRailGroup(name);
             syncModuleUrl(name);
             try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
+            if (name === 'rnp-planfact' || name === 'rnp-planning') bootRnpSubPage(name);
             updateEmptyCabinetState();
         };
         // При первой отрисовке вкладку ставим сразу: анимация перехода откладывала её на несколько сотен миллисекунд,
@@ -13222,13 +13234,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         closeMobileMenu();
     }
 
-    function nrOpenRnp(id) {
-        try { if (typeof closeBetaSheet === 'function') closeBetaSheet(); else if (typeof closeMobileMenu === 'function') closeMobileMenu(); } catch (e) { /* шторка уже закрыта */ }
-        try { if (getCurrentActiveTab() !== 'rnp') showTab('rnp'); } catch (e) { showTab('rnp'); }
-        var go = function () { if (window.NrNav) NrNav.go('rnp', id); };
-        go(); setTimeout(go, 700);
-    }
-    window.nrOpenRnp = nrOpenRnp;
     function toggleMobileMenu() {
         if (window.innerWidth <= 768) {
             toggleBetaSheet();

@@ -64,6 +64,14 @@
     function curTab() { try { return typeof getCurrentActiveTab === 'function' ? getCurrentActiveTab() : ''; } catch (e) { return ''; } }
     function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
+    // шторка телефона: пункты РНП открывают страницы План/факт и Планирование
+    root.nrOpenRnp = function (id) {
+        try { if (typeof root.closeBetaSheet === 'function') root.closeBetaSheet(); else if (typeof root.closeMobileMenu === 'function') root.closeMobileMenu(); } catch (e) { /* шторка уже закрыта */ }
+        var go = function () { if (root.NrNav) root.NrNav.go('rnp', id); };
+        if (curTab() !== 'rnp') root.showTab('rnp');
+        go(); setTimeout(go, 700);
+    };
+
     function buildFlyouts() {
         var app = doc.getElementById('sidebar-app');
         if (!app) return;
