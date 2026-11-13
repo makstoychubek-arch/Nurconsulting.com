@@ -129,6 +129,7 @@
         S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
         var per = all && all.length && all[0].period_from ? all[0].period_from.split('-').reverse().join('.') + ' – ' + all[0].period_to.split('-').reverse().join('.') : dm(p.from) + '–' + dm(p.to);
         var nums = function (from, n) { var o = ''; for (var i = 0; i < n; i++) o += '<div class="cs-n">' + (from + i) + '</div>'; return o; };
+        all = all && all.filter(function (d) { return (d.similar && d.similar.length) || (d.top && d.top.length); });
         var blocks = all && all.length ? all.map(function (d) { return blockHtml(d, byArt[Number(d.nm)], Number(d.nm) === S.nm); }).join('')
             : (S.arts.length ? S.arts.slice(0, 6) : [null, null, null, null]).map(function (a) { return blockHtml(null, a, a && Number(a.nm_id) === S.nm); }).join('');
         return '<div class="cc-acts"><div class="cs-per"><span class="cc-cap">Период</span><b>' + per + '</b></div>' +
@@ -142,7 +143,7 @@
         return t.length > 220 ? '<details class="cc-more"><summary>' + esc(t.slice(0, 200)) + '…</summary><div>' + nl(t) + '</div></details>' : nl(t);
     }
     var VERD = { 'наш': 'up', 'НЕТ': 'dn' };
-    function seoHtml() {
+    function seoOne() {
         var a = art(), d = S.cmp, seo = d && d.seo, labels = (d && d.labels) || FIELDS, by = {};
         ((seo && seo.fields) || []).forEach(function (x) { by[x.k] = x; });
         var fact = { 'Артикул продавца': a && a.seller_article, 'Артикул WB': a && a.nm_id, 'Наименование': a && a.name };
@@ -169,6 +170,48 @@
             '<div class="cc-two"><div class="cc-card"><div class="cc-h"><h3>СЕО уникальные слова</h3><span>слово · частотность · вердикт</span></div><div class="cc-tw cc-scroll"><table class="cc-t"><thead><tr><th>№</th><th>Слово</th><th>Частотность</th><th>Вердикт</th><th>Пример запроса</th></tr></thead><tbody>' + words + '</tbody></table></div></div>' +
             '<div class="cc-card"><div class="cc-h"><h3>СЕО описания</h3><span>слова для нового описания</span></div>' + itog + '</div></div>' +
             '<div class="cc-card"><div class="cc-h"><h3>Ключевые запросы' + (cnt ? ' · ' + cnt : '') + '</h3><span>' + q + '</span></div><div class="cc-tw cc-scroll"><table class="cc-t"><thead><tr><th>№</th><th>Запрос</th><th>Частотность</th><th>Качество запроса</th><th>Средняя цена первых 25 после СПП</th></tr></thead><tbody>' + qs + '</tbody></table></div></div>';
+    }
+    // «СЕО» как в таблице владельца: блоки артикулов в ряд, в каждом «ФАКТ ВАРИАНТ | НОВЫЙ ВАРИАНТ» по всем полям карточки,
+    // ниже «СЕО Уникальные слова | Все уникальные слова для создания СЕО ОПИСАНИЯ» и «Ключевые запросы». Названия полей закреплены слева.
+    function seoHtml() {
+        var list = (S.all || []).filter(function (d) { return d.seo; });
+        if (!list.length) return seoOne();
+        var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
+        var labels = list[0].labels && list[0].labels.length ? list[0].labels : FIELDS;
+        var cls = function (d) { return Number(d.nm) === S.nm ? ' class="on"' : ''; };
+        var maps = list.map(function (d) { var m = {}; (d.seo.fields || []).forEach(function (x) { m[x.k] = x; }); return m; });
+        var cell = function (t, strong) { t = String(t == null ? '' : t); return t ? '<div class="sq-c' + (t.length > 160 ? ' sq-long' : '') + (strong ? ' sq-new' : '') + '">' + nl(t) + '</div>' : '<span class="cc-mut">—</span>'; };
+        var head = '<tr class="sq-names"><th class="sq-l">Артикул продавца</th>' + list.map(function (d) { var a = byArt[Number(d.nm)]; return '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + esc(d.name || (a && a.seller_article) || '') + '</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-photos"><th class="sq-l">Фото</th>' + list.map(function (d) { var a = byArt[Number(d.nm)]; return '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + (a && a.photo_url ? '<img class="cs-ph" src="' + esc(a.photo_url) + '" alt="" loading="lazy">' : wbImg(d.nm).replace('cc-th', 'cs-ph')) + '</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-arts"><th class="sq-l">Артикул ВБ</th>' + list.map(function (d) { return '<th colspan="2"' + cls(d) + ' data-nm="' + d.nm + '">' + d.nm + '</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-band"><th class="sq-l"></th>' + list.map(function () { return '<th colspan="2">СЕО оптимизация</th>'; }).join('') + '</tr>' +
+            '<tr class="sq-fn"><th class="sq-l">Поле</th>' + list.map(function () { return '<th>Факт вариант</th><th>Новый вариант</th>'; }).join('') + '</tr>';
+        var rows = labels.map(function (k) {
+            return '<tr><td class="sq-l">' + esc(k) + '</td>' + list.map(function (d, i) {
+                var x = maps[i][k], fv = x ? x.fact : '', nv = x ? x.new : '';
+                if (k === 'Артикул WB') { fv = fv || d.nm; nv = nv || d.nm; }
+                return '<td>' + cell(fv) + '</td><td>' + cell(nv, x && x.ch) + '</td>';
+            }).join('') + '</tr>';
+        }).join('');
+        var words = '<tr class="sq-band"><td class="sq-l"></td>' + list.map(function () { return '<td>СЕО Уникальные слова</td><td>Все уникальные слова для создания СЕО описания</td>'; }).join('') + '</tr>' +
+            '<tr class="sq-words"><td class="sq-l">Слова</td>' + list.map(function (d) {
+                var w = (d.seo.words || []).map(function (x) { return '<div class="sq-w"><b>' + esc(x.w) + '</b> — ' + esc(x.freq) + ' — <span class="' + (VERD[x.verdict] ? 'sq-' + VERD[x.verdict] : '') + '">' + esc(x.verdict) + '</span> — ' + esc(x.note) + '</div>'; }).join('');
+                var it = d.seo.itog || {};
+                var itog = (it.keep ? '<p><b>ИТОГ ДЛЯ ОПИСАНИЯ:</b><br>' + nl(it.keep) + '</p>' : '') + (it.remove ? '<p><b>УБРАТЬ ИЗ ТЕКУЩЕГО ОПИСАНИЯ:</b> ' + nl(it.remove) + '</p>' : '') + (it.doubt ? '<p><b>ПОД ВОПРОСОМ:</b> ' + nl(it.doubt) + '</p>' : '');
+                return '<td><div class="sq-box">' + (w || '<span class="cc-mut">—</span>') + '</div></td><td><div class="sq-box">' + (itog || '<span class="cc-mut">—</span>') + '</div></td>';
+            }).join('') + '</tr>';
+        var maxQ = list.reduce(function (m, d) { return Math.max(m, (d.seo.queries || []).length); }, 0);
+        var qhead = '<tr class="sq-band"><td class="sq-l"></td>' + list.map(function () { return '<td colspan="2">Ключевые запросы</td>'; }).join('') + '</tr>' +
+            '<tr class="sq-fn"><td class="sq-l">№</td>' + list.map(function () { return '<td colspan="2"><div class="sq-q sq-qh"><span>Запрос</span><span>Частотность</span><span>Качество запроса</span><span>Ср. цена первых 25 после СПП</span></div></td>'; }).join('') + '</tr>';
+        var qrows = '';
+        for (var r = 0; r < maxQ; r++) {
+            qrows += '<tr class="sq-qr"><td class="sq-l">' + (r + 1) + '</td>' + list.map(function (d) {
+                var x = (d.seo.queries || [])[r];
+                return '<td colspan="2">' + (x ? '<div class="sq-q"><span>' + esc(x.q) + '</span><span>' + (x.freq == null ? '—' : fmt(x.freq)) + '</span><span class="sq-k sq-k' + x.quality + '">' + QUALITY[x.quality] + '</span><span>' + (x.price == null ? '—' : fmt(x.price)) + '</span></div>' : '') + '</td>';
+            }).join('') + '</tr>';
+        }
+        return '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="seo">Обновить СЕО</button><span class="cc-note">' + list.length + ' артикулов из вашей таблицы. Лист листается вбок, жирным выделено то, что отличается от текущей карточки.</span></div>' +
+            '<div class="cs-wrap sq-wrap"><table class="sq"><thead>' + head + '</thead><tbody>' + rows + words + qhead + qrows + '</tbody></table></div>';
     }
     function leakHtml() {
         var f = S.fun || funnel([]), has = !!S.fun, t = f.total;
@@ -251,17 +294,19 @@
         var key = 'nr_cc_all_' + cab;
         S.all = lsGet(key);
         if (!sb()) return;
-        Promise.resolve(sb().from('content_compare').select('nm:nm_id,period_from,period_to,rev:data->rev,name:data->name,similar:data->similar,top:data->top').eq('cabinet_id', cab).order('updated_at').range(0, 299))
+        Promise.resolve(sb().from('content_compare').select('nm_id,period_from,period_to,data').eq('cabinet_id', cab).order('updated_at').range(0, 299))
             .then(function (r) {
                 if (cab !== S.cab || !r || r.error) return;
-                var order = {}; S.arts.forEach(function (a, i) { order[Number(a.nm_id)] = i; });
-                S.all = (r.data || []).filter(function (d) { return (d.similar && d.similar.length) || (d.top && d.top.length); });
-                lsSet(key, S.all); paint();
+                S.all = (r.data || []).map(function (x) { return Object.assign({}, x.data, { nm: Number(x.nm_id), period_from: x.period_from, period_to: x.period_to }); })
+                    .filter(function (d) { return (d.similar && d.similar.length) || (d.top && d.top.length) || d.seo; });
+                // в кэш кладём только лист конкурентов (СЕО большой, он остаётся в памяти)
+                lsSet(key, S.all.map(function (d) { return { nm: d.nm, name: d.name, rev: d.rev, similar: d.similar, top: d.top, period_from: d.period_from, period_to: d.period_to }; }));
+                paint(); scrollToSel();
             }).catch(function () { /* остаётся каркас */ });
     }
     function scrollToSel() {
-        var host = doc.getElementById('cc-root'), b = host && host.querySelector('.cs-b.on'), w = host && host.querySelector('.cs-wrap');
-        if (b && w) w.scrollLeft = Math.max(0, b.offsetLeft - 70);
+        var host = doc.getElementById('cc-root'), b = host && host.querySelector('.cs-b.on, .sq-names th.on'), w = host && host.querySelector('.cs-wrap');
+        if (b && w) w.scrollLeft = Math.max(0, b.offsetLeft - (b.tagName === 'TH' ? 200 : 70));
     }
 
     // ───── окно оплаты ─────
@@ -284,8 +329,8 @@
         if (S.bound) return; S.bound = true;
         host.addEventListener('click', function (e) {
             var b;
-            if ((b = e.target.closest('.cs-b')) && !e.target.closest('a') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
-            if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); return; }
+            if ((b = e.target.closest('.cs-b, .sq thead th[data-nm]')) && !e.target.closest('a') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
+            if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); scrollToSel(); return; }
             if ((b = e.target.closest('[data-cc-act]'))) {
                 var act = b.getAttribute('data-cc-act');
                 if (act === 'gen') openPay();

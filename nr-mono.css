@@ -1660,3 +1660,34 @@ html body .cs-im { width: 42px; height: 56px; margin: 0 auto; }
 html body .cs-sep { height: 26px; display: grid; place-items: center; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; background: var(--accent); color: var(--on-accent, #fff); }
 html body .cs-side .cs-sep { background: var(--accent); }
 @media (max-width: 480px) { html body .cs-b { flex-basis: 236px; } }
+/* Сравнение контента → СЕО: лист как в таблице (блоки «факт | новый» по артикулам в ряд, названия полей закреплены слева) */
+html body .sq-wrap { max-height: calc(100vh - 210px); overflow: auto; }
+html body .sq { border-collapse: separate; border-spacing: 0; font-size: 12.5px; line-height: 1.4; }
+html body .sq th, html body .sq td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; text-align: left; width: 250px; min-width: 250px; max-width: 250px; font-weight: 600; overflow-wrap: anywhere; }
+html body .sq .sq-l { position: sticky; left: 0; z-index: 2; width: 150px; min-width: 150px; max-width: 150px; background: var(--bg, #fff); border-right: 1px solid var(--text-primary); font-weight: 800; font-size: 11.5px; }
+html body .sq thead th { background: var(--bg, #fff); text-align: center; }
+html body .sq thead th[data-nm] { cursor: pointer; }
+html body .sq thead th.on { background: var(--sel); }
+html body .sq-names th { font-size: 13px; font-weight: 800; }
+html body .sq-photos .cs-ph { height: 130px; }
+html body .sq-arts th { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+html body .sq .sq-band > * { background: var(--accent); color: var(--on-accent, #fff); text-align: center; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 7px 10px; border-color: var(--accent); }
+html body .sq .sq-band .sq-l { background: var(--accent); border-right-color: var(--accent); }
+html body .sq .sq-fn > * { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); text-align: center; border-bottom: 1px solid var(--text-primary); position: sticky; top: 0; background: var(--bg, #fff); z-index: 1; }
+html body .sq .sq-fn .sq-l { z-index: 3; }
+html body .sq td:nth-child(even) .sq-c { color: var(--text-muted); }
+html body .sq-c.sq-new { color: var(--text-primary) !important; font-weight: 800; }
+html body .sq-c.sq-long, html body .sq-box { max-height: 260px; overflow: auto; }
+html body .sq-box { font-weight: 600; }
+html body .sq-box p { margin: 0 0 10px; }
+html body .sq-w { padding: 3px 0; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+html body .sq-w b { color: var(--text-primary); }
+html body .sq-up { color: #16a34a; font-weight: 800; } html body .sq-dn { color: #dc2626; font-weight: 800; }
+html body .sq td[colspan="2"], html body .sq th[colspan="2"] { width: 500px; min-width: 500px; max-width: 500px; }
+html body .sq-q { display: grid; grid-template-columns: minmax(0, 1.7fr) 78px 150px 70px; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+html body .sq-q span:nth-child(2), html body .sq-q span:nth-child(4) { text-align: right; }
+html body .sq-qh { font-size: 9.5px; }
+html body .sq-qr td { padding-top: 5px; padding-bottom: 5px; }
+html body .sq-k { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 10.5px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body .sq-k0 { border-color: #16a34a; color: #16a34a; } html body .sq-k3 { border-color: #dc2626; color: #dc2626; } html body .sq-k2 { color: var(--text-muted); }
+@media (max-width: 480px) { html body .sq .sq-l { width: 96px; min-width: 96px; max-width: 96px; } }
