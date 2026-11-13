@@ -1935,3 +1935,6 @@ html body .psc-l3 { stroke: var(--text-primary); stroke-width: 1.6; opacity: .35
 html body .ps-leg { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; font-weight: 700; margin-top: 6px; }
 html body .ps-leg i { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--text-primary); vertical-align: middle; margin-right: 6px; }
 html body .ps-leg .psc-k2 { border-top-style: dashed; opacity: .7; } html body .ps-leg .psc-k3 { border-top-width: 2px; opacity: .35; }
+html body .ps-money { max-width: 1120px; }
+html body .ps-fh { color: var(--text-primary) !important; border-left: 2px solid var(--text-primary); }
+html body .ps-fc { font-weight: 700; } html body .ps-fc:nth-last-child(2) { border-left: 2px solid var(--text-primary); }

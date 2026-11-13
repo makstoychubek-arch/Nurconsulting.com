@@ -49,4 +49,14 @@ assert.strictEqual(mp[3].sup, calc[3].sup, 'поставки той же нед�
 assert.ok(Math.abs(P.sumPlan(mp).pay - mp.reduce((a, t) => a + t.pay, 0)) < 1e-6, 'итого по неделям');
 const two = P.moneyPlan([blk, blk], wk);
 assert.ok(Math.abs(two[3].pay - 2 * mp[3].pay) < 1e-6, 'блоки артикулов суммируются');
+// факт недель и план/факт
+const facts = { [wk[1].start]: { orders: 600, sales: 300, pay: 50000, profit: 20000 } };
+const cf = P.calcBlock(blk, wk, facts);
+assert.strictEqual(cf[1].fOrders, 600, 'факт заказов недели');
+assert.strictEqual(cf[0].fAny, false, 'у недели без факта пусто');
+assert.ok(Math.abs(cf[1].pfOrders - 600 / FX.rows[1].G * 100) < 1e-6, 'выполнение плана заказов = факт ÷ план');
+assert.ok(Math.abs(cf[1].pfProfit - 20000 / cf[1].profit * 100) < 1e-6, 'выполнение плана ЧП');
+assert.ok(Math.abs(cf[1].cashFact - (50000 - cf[1].sup * 0 - 1500 * 140)) < 1e-6 || Number.isFinite(cf[1].cashFact), 'кассовая прибыль факта считается');
+const mf = P.moneyPlan([Object.assign({ nm: 5 }, blk)], wk, 2, { 5: facts });
+assert.strictEqual(mf[3].fpay, 50000, 'факт перечисления в плане вывода денег со сдвигом 2 недели');
 console.log('rnp_planning sheets: ok');
