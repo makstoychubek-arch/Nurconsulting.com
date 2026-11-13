@@ -2084,3 +2084,10 @@ html body .ps-leg .psc-kp { border-top-color: var(--ps-or); border-top-width: 6p
 html body .ps-cs .ps-scroll { margin-top: 8px; }
 html body .ps-wtab { width: max-content; min-width: 100%; }
 html body .ps-wtab td.ps-bgm, html body .ps-wtab td.ps-bgn, html body .ps-wtab td.ps-bgp { box-shadow: none; }
+/* график-область, линия плана, шрифт как в таблице */
+html body .ps-chw { grid-column: 1 / -1; }
+html body .psc-av { fill: var(--green); opacity: .16; } html body .psc-as { fill: var(--ps-or); opacity: .22; }
+html body .psc-lv { fill: none; stroke: var(--green); stroke-width: 2.4; } html body .psc-ls { fill: none; stroke: var(--ps-or); stroke-width: 2.2; }
+html body .psc-pl { fill: none; stroke: var(--ps-or); stroke-width: 2; opacity: .95; }
+html body .ps-leg .psc-kv { border-top-color: var(--green); border-top-width: 3px; opacity: 1; } html body .ps-leg .psc-ks { border-top-color: var(--ps-or); border-top-width: 3px; opacity: 1; }
+html body #tab-rnp-planning .ps-table, html body #tab-rnp-planning .ps-table input { font-family: Arial, Helvetica, sans-serif; }
