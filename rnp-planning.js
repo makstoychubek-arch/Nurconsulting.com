@@ -343,6 +343,8 @@
     function setTone(el, k, c) { TONES.forEach(function (t) { el.classList.remove(t); }); el.classList.toggle('ps-fact', isFactKey(k) && cellAny(c, k) && c[k] !== null && c[k] !== undefined); var t = tone(k, c).trim(); if (t) t.split(' ').forEach(function (x) { el.classList.add(x); }); }
     function cellAny(c, k) { return FACT_KEYS.indexOf(k) >= 0 || k.indexOf('pf') === 0 ? c.fAny : (k === 'cashPlan' ? c.cashShow : c.any); }
 
+    // после обновления страницы остаёмся на том же листе
+    function savedView() { try { var v = localStorage.getItem('nr_plan_view'); return v === 'money' || v === 'rnp' ? v : 'sales'; } catch (e) { return 'sales'; } }
     function viewTabs() {
         var V = [['sales', 'План продаж'], ['money', 'План вывода денег'], ['rnp', 'План для РНП']];
         return '<div class="ps-tabs">' + V.map(function (x) { return '<button type="button" class="ps-tab' + (st.view === x[0] ? ' is-on' : '') + '" data-view="' + x[0] + '">' + x[1] + '</button>'; }).join('') +
@@ -422,7 +424,7 @@
     function renderSales() {
         var cx = weekCtx(), sh = st.sheet, weeks = cx.weeks, spans = cx.spans;
         st.host.innerHTML = viewTabs() +
-            '<div class="ps-note">Один блок на артикул. Вверху константы артикула, ниже недели. Вводите план заказов, цену, ДРР, раздачи и поставки: продажи, возвраты, расходы, перечисление и ЧП считаются сами по формулам вашей таблицы. План заказов и продаж сам попадает в строки «План заказов» и «План продаж» РНП (неделя ÷ 7 на день). Внизу блока факт недель подтягивается из РНП (заказы, продажи, к перечислению, ЧП по финотчёту WB) и сравнивается с планом.</div>' +
+            '<div class="ps-note">Один блок на артикул. Вверху константы артикула, ниже недели. Вводите план заказов, цену, ДРР, раздачи и поставки: продажи, возвраты, расходы, перечисление и ЧП считаются сами по формулам вашей таблицы. План заказов и продаж сам попадает в строки «План заказов» и «План продаж» РНП (неделя ÷ 7 на день). Внизу блока факт недель подтягивается из РНП (заказы, продажи, к перечислению, ЧП по финотчёту WB) и сравнивается с планом: зелёный от 100% плана, оранжевый 80–99%, красный ниже.</div>' +
             sh.blocks.map(function (b) { return blockHtml(b, weeks, spans); }).join('') +
             '<div class="ps-foot"><button type="button" class="ps-add" data-ps-add>+ Добавить артикул</button></div>';
     }
@@ -680,7 +682,7 @@
         }
         if (e.type !== 'click') return false;
         var btn = t.closest && t.closest('button'); if (!btn) return false;
-        if (btn.dataset.view) { st.view = btn.dataset.view; render(); if (st.view !== 'rnp') loadFacts(); if (st.view === 'rnp') loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* без планов */ }); return true; }
+        if (btn.dataset.view) { st.view = btn.dataset.view; try { localStorage.setItem('nr_plan_view', st.view); } catch (e) { /* без памяти */ } render(); if (st.view !== 'rnp') loadFacts(); if (st.view === 'rnp') loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* без планов */ }); return true; }
         if (btn.dataset.psCtoggle) {
             var kp = btn.dataset.psCtoggle.split('|'), tb = findBlock(kp[0]);
             if (tb && tb.colors[Number(kp[1])]) {
@@ -796,7 +798,7 @@
         }
         var key = String(opts.monthKey || '').slice(0, 7);
         if (!/^\d{4}-\d{2}$/.test(key)) key = new Date().toISOString().slice(0, 7);
-        st = { factsFn: opts.facts || null, facts: {}, db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: (overlay || ph).firstChild, pageHost: ph, view: ph ? 'sales' : 'rnp', onSaved: opts.onSaved };
+        st = { factsFn: opts.facts || null, facts: {}, db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: (overlay || ph).firstChild, pageHost: ph, view: ph ? savedView() : 'rnp', onSaved: opts.onSaved };
         var evHost = overlay || ph;
         st._h = onEvent;
         if (overlay) overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
