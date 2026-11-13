@@ -134,6 +134,7 @@
     function go(tab, id) {
         var s = SECTIONS[tab]; if (!s) return;
         var it = s.items.filter(function (x) { return x.id === id; })[0]; if (!it) return;
+        try { localStorage.setItem('nr_sub_' + tab, id); } catch (_) { /* без памяти */ }
         try { if (tab === 'advertising' && root._advView === 'detail' && typeof headerGoBack === 'function') headerGoBack(); } catch (e) {}
         var already = curTab() === tab;
         if (!already && typeof root.showTab === 'function') root.showTab(tab, null);
@@ -155,8 +156,33 @@
         return crumbs;
     }
 
+    // Подраздел помним: после обновления страницы человек остаётся там, где был (например, Аналитика → Сравнение контента), а не в первом подразделе.
+    var restored = {};
+    function memKey(tab) { return 'nr_sub_' + tab; }
+    function remember(e) {
+        if (!e.isTrusted || !e.target || !e.target.closest) return;
+        Object.keys(SECTIONS).forEach(function (t) {
+            SECTIONS[t].items.forEach(function (it) {
+                var sel = it.sel.split(',')[0];
+                try { if (e.target.closest(sel)) localStorage.setItem(memKey(t), it.id); } catch (_) { /* без памяти */ }
+            });
+        });
+    }
+    doc.addEventListener('click', remember, true);
+    function restore(tab) {
+        var s = SECTIONS[tab]; if (!s || restored[tab]) return;
+        var present = s.items.some(function (it) { return doc.querySelector(it.sel); });
+        if (!present) return;           // подразделы ещё не нарисованы: попробуем на следующем проходе
+        restored[tab] = true;
+        var id = ''; try { id = localStorage.getItem(memKey(tab)) || ''; } catch (_) { /* без памяти */ }
+        var it = s.items.filter(function (x) { return x.id === id; })[0];
+        if (!it || doc.querySelector(it.on)) return;
+        var el = doc.querySelector(it.sel);
+        if (el && typeof el.click === 'function') el.click();
+    }
     function refresh() {
         var tab = curTab(), staff = isStaffUser();
+        restore(tab);
         // подсветка пунктов в панелях и скрытие лишних
         Object.keys(SECTIONS).forEach(function (t) {
             var s = SECTIONS[t], f = doc.getElementById(s.fly); if (!f) return;

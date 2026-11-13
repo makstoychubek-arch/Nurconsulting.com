@@ -1665,7 +1665,7 @@ html body .cs-sep { height: 26px; display: grid; place-items: center; font-size:
 html body .cs-side .cs-sep { background: var(--accent); }
 @media (max-width: 480px) { html body .cs-b { flex-basis: 236px; } }
 /* Сравнение контента → СЕО: лист как в таблице (блоки «факт | новый» по артикулам в ряд, названия полей закреплены слева) */
-html body .sq-wrap { max-height: calc(100vh - 210px); overflow: auto; }
+html body .sq-wrap { max-height: calc((100vh - 190px) / var(--nr-zoom, 1)); overflow: auto; }
 html body .sq { border-collapse: separate; border-spacing: 0; font-size: 12.5px; line-height: 1.4; }
 html body .sq th, html body .sq td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; text-align: left; width: 250px; min-width: 250px; max-width: 250px; font-weight: 600; overflow-wrap: anywhere; }
 html body .sq .sq-l { position: sticky; left: 0; z-index: 2; width: 150px; min-width: 150px; max-width: 150px; background: var(--bg, #fff); border-right: 1px solid var(--text-primary); font-weight: 800; font-size: 11.5px; }
@@ -1721,12 +1721,13 @@ html body .nr-zoom-v.on { color: var(--text-primary) !important; }
 @media (max-width: 768px) { html body .nr-zoom { display: none; } html body .main-content > .tab-content { zoom: 1; } }
 /* Сравнение контента → Медиа как лист «ФОТОВОРОНКА»: референс и ТЗ слева, колонки артикулов с кадрами карточки */
 html body .ms-bar { display: flex; gap: 10px; flex-wrap: wrap; }
-html body .ms-wrap { max-height: calc(100vh - 190px); }
+html body .ms-wrap { max-height: calc((100vh - 170px) / var(--nr-zoom, 1)); }
 html body .ms-sheet { display: flex; align-items: flex-start; width: max-content; min-width: 100%; }
-html body .ms-side { position: sticky; left: 0; z-index: 2; flex: 0 0 330px; background: var(--bg, #fff); border-right: 1px solid var(--text-primary); }
-html body .ms-sh { height: 286px; display: grid; grid-template-columns: 96px 1fr; align-items: end; padding: 0 0 10px; }
+html body .ms-side { position: sticky; left: 0; z-index: 2; flex: 0 0 112px; background: var(--bg, #fff); border-right: 1px solid var(--text-primary); }
+html body .ms-sh { height: 300px; display: grid; align-items: end; padding: 0 0 10px; }
 html body .ms-sh span { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 0 12px; }
-html body .ms-row { display: grid; grid-template-columns: 96px 1fr; height: 150px; border-top: 1px solid var(--border); }
+html body .ms-row { position: relative; display: grid; grid-template-columns: 1fr; height: 150px; border-top: 1px solid var(--border); }
+html body .ms-n { position: absolute; left: 8px; top: 8px; font-size: 11px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 html body .ms-row.ms-hot { background: var(--sel); }
 html body .ms-ref { display: grid; place-items: center; }
 html body .ms-im { width: 78px; height: 104px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); background: var(--sel); display: block; }
@@ -1737,8 +1738,12 @@ html body .ms-col.on { background: var(--sel); cursor: default; }
 html body .ms-name { height: 44px; padding: 8px 8px 0; font-size: 11.5px; font-weight: 800; line-height: 1.25; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 html body .ms-col .cs-ph { height: 150px; }
 html body .ms-cell { height: 150px; border-top: 1px solid var(--border); display: grid; place-items: center; }
-html body .ms-col .cs-art { border-bottom: 1px solid var(--text-primary); height: 56px; }
-@media (max-width: 480px) { html body .ms-side { flex-basis: 250px; } html body .ms-sh, html body .ms-row { grid-template-columns: 70px 1fr; } html body .ms-im { width: 56px; height: 76px; } }
+html body .ms-col .cs-art { height: 30px; }
+html body .ms-act { height: 76px; box-sizing: border-box; display: grid; gap: 6px; align-content: center; padding: 0 8px; border-bottom: 1px solid var(--text-primary); }
+html body .ms-act .cc-btn { padding: 7px 8px; font-size: 11px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: normal; line-height: 1.15; }
+html body .ms-send svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; flex: none; }
+html body .ms-send:disabled { cursor: not-allowed; }
+
 /* Сравнение контента: ограждение между склейками карточек WB */
 html body .cs-gap { flex: 0 0 22px; align-self: stretch; background: var(--sel); border-left: 2px solid var(--text-primary); border-right: 2px solid var(--text-primary); position: relative; }
 html body .cs-gap span { position: sticky; top: 8px; display: block; writing-mode: vertical-rl; transform: rotate(180deg); padding: 10px 0; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; color: var(--text-primary); }
