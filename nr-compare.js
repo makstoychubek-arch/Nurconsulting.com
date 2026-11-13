@@ -72,12 +72,12 @@
         if (vol >= 15444) h = 48 + Math.round((vol - 15444) / 760);
         return h;
     }
-    function wbUrl(nm, host, idx) { var h = host < 10 ? '0' + host : String(host); return 'https://basket-' + h + '.wbbasket.ru/vol' + Math.floor(nm / 1e5) + '/part' + Math.floor(nm / 1e3) + '/' + nm + '/images/c246x328/' + (idx || 1) + '.webp'; }
+    function wbUrl(nm, host, idx, size) { var h = host < 10 ? '0' + host : String(host); return 'https://basket-' + h + '.wbbasket.ru/vol' + Math.floor(nm / 1e5) + '/part' + Math.floor(nm / 1e3) + '/' + nm + '/images/' + (size || 'c246x328') + '/' + (idx || 1) + '.webp'; }
     var HOSTS = lsGet('nr_cc_wbhost_v2') || {};
-    function wbImg(nm, idx) {
+    function wbImg(nm, idx, size) {
         nm = Number(nm); if (!nm) return '<div class="cc-th cc-nophoto"></div>';
         var vol = Math.floor(nm / 1e5), h = HOSTS[vol] || wbHost(vol);
-        return '<img class="cc-th" data-wb="' + nm + '" data-h="' + h + '" data-i="' + (idx || 1) + '" data-try="0" src="' + wbUrl(nm, h, idx) + '" alt="" loading="lazy">';
+        return '<img class="cc-th" data-wb="' + nm + '" data-h="' + h + '" data-i="' + (idx || 1) + '" data-sz="' + (size || '') + '" data-try="0" src="' + wbUrl(nm, h, idx, size) + '" alt="" loading="lazy">';
     }
     // не загрузилось: пробуем соседние корзины (+1, −1, +2, −2 …), после 16 попыток показываем заглушку
     doc.addEventListener('error', function (e) {
@@ -87,7 +87,7 @@
         var h = base + (n % 2 ? 1 : -1) * Math.ceil(n / 2);
         im.setAttribute('data-try', String(n));
         if (h < 1) { im.dispatchEvent(new root.Event('error')); return; }
-        im.src = wbUrl(nm, h, Number(im.getAttribute('data-i')) || 1);
+        im.src = wbUrl(nm, h, Number(im.getAttribute('data-i')) || 1, im.getAttribute('data-sz') || '');
     }, true);
     doc.addEventListener('load', function (e) {
         var im = e.target; if (!im || !im.getAttribute || !im.getAttribute('data-wb') || !Number(im.getAttribute('data-try'))) return;
@@ -117,7 +117,11 @@
             if (!by[k]) { by[k] = { key: k, arts: [], items: [] }; order.push(k); }
             by[k].items.push(x); by[k].arts.push(a);
         });
-        return order.map(function (k) { var g = by[k]; g.name = k ? grpName(g.arts) : 'Без склейки'; return g; });
+        var res = order.map(function (k) { var g = by[k]; g.name = k ? grpName(g.arts) : 'Без склейки'; return g; });
+        // у разных склеек бывает одинаковое название карточки: к повторам добавляем последние цифры номера склейки
+        var cnt = {}; res.forEach(function (g) { cnt[g.name] = (cnt[g.name] || 0) + 1; });
+        res.forEach(function (g) { if (cnt[g.name] > 1 && g.key) g.name += ' №' + String(g.key).slice(-4); });
+        return res;
     }
     function gapHtml(g) { return '<div class="cs-gap" aria-hidden="true"><span>' + esc(g.name) + ' · ' + g.items.length + '</span></div>'; }
     function ratio(rev, our) {
@@ -285,25 +289,28 @@
     var ROWS = 8;
     // Задания (промты) на кадры людям не показываем: картинки делает сайт сам. Здесь только референс и сами кадры.
     function mediaHtml() {
-        var a = art(), d = S.cmp;
         var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
         var list = (S.all && S.all.length ? S.all : S.arts.map(function (x) { return { nm: Number(x.nm_id), name: x.seller_article || x.name }; })).slice();
-        var ref = 0, best = -1;
-        ((d && d.similar) || []).concat((d && d.top) || []).forEach(function (x) { if ((Number(x.rev) || 0) > best) { best = Number(x.rev) || 0; ref = x.nm; } });
         var rows = []; for (var i = 0; i < ROWS; i++) rows.push(i);
-        var left = '<div class="ms-side"><div class="ms-sh"><span>Референс</span></div>' + rows.map(function (i) {
-            return '<div class="ms-row"><div class="ms-ref">' + (ref ? wbImg(ref, i + 1).replace('cc-th', 'cc-th ms-im') : '<div class="ms-im cc-nophoto"></div>') + '</div><div class="ms-n">' + (i + 1) + '</div></div>';
-        }).join('') + '</div>';
-        var cols = groups(list, byArt).map(function (g) { return gapHtml(g) + g.items.map(function (x) {
-            var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
-            var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
-            // «Отправить на WB» у каждой готовой карточки своя и заперта, пока для неё нет новых фото: на все сразу отправить нельзя
-            var act = '<div class="ms-act"><button type="button" class="cc-btn cc-btn-b" data-cc-gen="' + x.nm + '">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button>' +
-                '<button type="button" class="cc-btn ms-send" disabled aria-disabled="true" title="Откроется, когда для этой карточки будут готовы новые фото"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Отправить на WB</button></div>';
-            return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' + act +
-                rows.map(function (i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1).replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
-        }).join(''); }).join('');
-        return '<div class="cs-wrap ms-wrap"><div class="ms-sheet">' + left + cols + '</div></div>';
+        var out = groups(list, byArt).map(function (g) {
+            // референс общий на склейку: кадры самого выручающего конкурента среди всех артикулов склейки
+            var ref = 0, best = -1;
+            g.items.forEach(function (d) { (d.similar || []).concat(d.top || []).forEach(function (x) { if ((Number(x.rev) || 0) > best) { best = Number(x.rev) || 0; ref = x.nm; } }); });
+            // карточка WB = склейка: «Сгенерировать» и «Отправить на WB» одни на всю склейку, отправка заперта, пока для неё нет готовых фото
+            var side = '<div class="ms-side"><div class="ms-sh"><b title="' + esc(g.name) + '">' + esc(g.name) + '</b><span>' + g.items.length + ' арт.</span>' +
+                '<button type="button" class="cc-btn cc-btn-b" data-cc-gen="' + g.items[0].nm + '" data-cc-gname="' + esc(g.name) + '">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button>' +
+                '<button type="button" class="cc-btn ms-send" disabled aria-disabled="true" title="Откроется, когда для этой карточки будут готовы новые фото"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Отправить на WB</button>' +
+                '<i>Референс</i></div>' +
+                rows.map(function (i) { return '<div class="ms-row">' + (ref ? wbImg(ref, i + 1, 'c516x688').replace('cc-th', 'cc-th ms-im') : '<div class="ms-im cc-nophoto"></div>') + '<em>' + (i + 1) + '</em></div>'; }).join('') + '</div>';
+            var cols = g.items.map(function (x) {
+                var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
+                var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
+                return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' +
+                    rows.map(function (i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1, 'c516x688').replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
+            }).join('');
+            return '<div class="ms-grp">' + side + cols + '</div>';
+        }).join('');
+        return '<div class="cs-wrap ms-wrap"><div class="ms-sheet">' + out + '</div></div>';
     }
     var VIEW = { rivals: rivalsHtml, seo: seoHtml, leak: leakHtml, media: mediaHtml };
 
@@ -408,7 +415,7 @@
 
     // ───── окно оплаты ─────
     function closePay() { var m = doc.getElementById('cc-ov'); if (m) m.remove(); }
-    function openPay(nm) {
+    function openPay(nm, gname) {
         closePay();
         var a = nm ? S.arts.filter(function (x) { return Number(x.nm_id) === Number(nm); })[0] || art() : art(), m = doc.createElement('div');
         m.id = 'cc-ov'; m.className = 'cc-ov'; m.setAttribute('data-nr-blur', ''); m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
@@ -427,7 +434,7 @@
         host.addEventListener('click', function (e) {
             var b;
             if ((b = e.target.closest('.cs-b, .ms-col, .sq thead th[data-nm]')) && !e.target.closest('a, button') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
-            if ((b = e.target.closest('[data-cc-gen]'))) { var gn = Number(b.getAttribute('data-cc-gen')); if (gn && gn !== S.nm) { S.nm = gn; try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} } openPay(gn); return; }
+            if ((b = e.target.closest('[data-cc-gen]'))) { var gn = Number(b.getAttribute('data-cc-gen')); if (gn && gn !== S.nm) { S.nm = gn; try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} } openPay(gn, b.getAttribute('data-cc-gname')); return; }
             if ((b = e.target.closest('[data-cc-nm]'))) { S.nm = Number(b.getAttribute('data-cc-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} loadFunnel(); return; }
             if ((b = e.target.closest('[data-cc-sec]'))) { S.sec = b.getAttribute('data-cc-sec'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); return; }
             if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); scrollToSel(); return; }
