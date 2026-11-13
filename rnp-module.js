@@ -3723,7 +3723,7 @@ const RNP = (() => {
             <div class="rnp-gh-lbl">Состояние кабинета ${_ghInfoIcon('health', true)}<span class="rnp-gh-chip">все ${H.total} арт.</span></div>
             <div class="rnp-gh-score"><div class="rnp-gh-big">${H.score}<small> / 100</small></div><span class="rnp-gh-cta">Что улучшить →</span></div>
             ${H.pillars.map(p => `<div class="rnp-gh-bar"><span>${p.name}</span><div><i style="width:${p.s}%"></i></div><b>${p.s}</b></div>`).join('')}</div>`
-            : `<div class="rnp-gh-hero rnp-gh-health"><div class="rnp-gh-lbl">Состояние кабинета</div><div class="rnp-gh-sub">Считаем…</div></div>`;
+            : (_mp() === 'ozon' ? `<div class="rnp-gh-hero rnp-gh-health"><div class="rnp-gh-lbl">Состояние кабинета</div><div class="rnp-gh-sub">Для Ozon пока не считается</div></div>` : `<div class="rnp-gh-hero rnp-gh-health"><div class="rnp-gh-lbl">Состояние кабинета</div><div class="rnp-gh-sub">Считаем…</div></div>`);
         const fbo = sum('fbo'), fbs = sum('fbs'), stockT = fbo + fbs;
         const pc = _schemePercents(fbo, fbs);
         const stockCard = `<div class="rnp-gh-card"><div class="rnp-gh-title">Остатки: FBO и FBS ${_ghInfoIcon('stock')}</div>
@@ -10240,7 +10240,17 @@ const RNP = (() => {
     });
 
     _bindSheetWheelLock(); // колесо над таблицей: одна ось за жест, подключаем сразу
-    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    // Артикулы Ozon считаются из базы автоматически: правки там сохранить некуда, поэтому говорим об этом сразу, а не молча теряем ввод.
+    const _ozGuard = (fn) => function (...a) {
+        if (_mp() !== 'wb' && Number(a[0]) >= 8e9) {
+            if (window.NrUi) window.NrUi.toast('info', 'Артикул Ozon', 'Себестоимость берётся из WB-артикулов, остальное считается автоматически. Править здесь пока нельзя.', { key: 'oz-ro' });
+            _renderActiveTable && _renderActiveTable();
+            return undefined;
+        }
+        return fn.apply(this, a);
+    };
+    const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
+    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
 })();
