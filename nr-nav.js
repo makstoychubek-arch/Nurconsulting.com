@@ -44,14 +44,16 @@
             items: [
                 { id: 'rnp', label: 'РНП', ico: 'tbl', sel: '#rnp-views [data-rv="rnp"]', on: '#rnp-views [data-rv="rnp"].is-on', dflt: true },
                 { id: 'prices', label: 'Цены', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' },
-                { id: 'unit', label: 'Юнит-экономика', ico: 'calc', sel: '#rnp-views [data-rv="unit"]', on: '#rnp-views [data-rv="unit"].is-on' }
+                { id: 'unit', label: 'Юнит-экономика', ico: 'calc', sel: '#rnp-views [data-rv="unit"]', on: '#rnp-views [data-rv="unit"].is-on' },
+                { id: 'planfact', label: 'План/факт', ico: 'tbl', act: 'openPlanFact', always: true },
+                { id: 'planning', label: 'Планирование', ico: 'calc', act: 'openPlanning', always: true }
             ]
         },
         analytics: {
             fly: 'fly-analytics', title: 'Аналитика', staffOnly: true,
             items: [
                 { id: 'niches', label: 'Подбор ниш', ico: 'srch', sel: '#an-tabs [data-an="niches"]', on: '#an-tabs [data-an="niches"].on', dflt: true },
-                { id: 'content', label: 'Сравнение контента', ico: 'cont', sel: '#an-tabs [data-an="content"]', on: '#an-tabs [data-an="content"].on' },
+                { id: 'content', label: 'Сравнение контента', ico: 'cont', hidden: true, crumb: 'Инструменты', sel: '#an-tabs [data-an="content"]', on: '#an-tabs [data-an="content"].on' },
                 { id: 'card', label: 'Сравнение карточки', ico: 'cmp', sel: '#an-tabs [data-an="card"]', on: '#an-tabs [data-an="card"].on' },
                 { id: 'reviews', label: 'Отзывы', ico: 'rev', sel: '#an-tabs [data-an="reviews"]', on: '#an-tabs [data-an="reviews"].on' }
             ]
@@ -71,7 +73,7 @@
             var f = doc.createElement('div');
             f.className = 'sidebar-flyout'; f.id = s.fly; f.setAttribute('data-group', tab);
             f.innerHTML = '<div class="flyout-header"><span class="flyout-title">' + esc(s.title) + '</span></div><div class="flyout-body">' +
-                s.items.map(function (it) {
+                s.items.filter(function (it) { return !it.hidden; }).map(function (it) {
                     return '<div class="nav-item" role="button" tabindex="0" data-nrn="' + tab + ':' + it.id + '"' + (it.staff ? ' data-nrn-staff="1"' : '') + '>' +
                         SVG + ICO[it.ico] + '</svg><span class="nav-item-label">' + esc(it.label) + '</span>' + (it.badge ? '<span class="nav-beta-badge">' + it.badge + '</span>' : '') + '</div>';
                 }).join('') + '</div>';
@@ -89,12 +91,19 @@
             ag.innerHTML = SVG + '<circle cx="9" cy="8.5" r="3.3"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M16 5.4a3 3 0 0 1 0 6M17.5 14.6c2 .6 3.2 2.4 3.2 5.4"/></svg><span class="nav-item-label">Агенты</span>';
             tools.appendChild(ag);
         }
+        if (tools && !tools.querySelector('[data-nr-cmp]')) {
+            var cm = doc.createElement('div');
+            cm.className = 'nav-item'; cm.setAttribute('data-nr-cmp', '1'); cm.setAttribute('data-staff-only', '1'); cm.setAttribute('role', 'button'); cm.setAttribute('tabindex', '0');
+            cm.setAttribute('onclick', "NrNav.go('analytics','content')");
+            cm.innerHTML = SVG + ICO.cont + '</svg><span class="nav-item-label">Сравнение контента</span>';
+            tools.appendChild(cm);
+        }
     }
 
     // Какой подраздел открыт сейчас в разделе tab (его id) или '' если не определить.
     function currentItem(tab) {
         var s = SECTIONS[tab]; if (!s) return '';
-        for (var i = 0; i < s.items.length; i++) if (doc.querySelector(s.items[i].on)) return s.items[i].id;
+        for (var i = 0; i < s.items.length; i++) if (s.items[i].on && doc.querySelector(s.items[i].on)) return s.items[i].id;
         return '';
     }
     // Короткая карточка стоит на высоте своей кнопки (на телефоне панель устроена иначе и не двигается).
@@ -134,11 +143,12 @@
     function go(tab, id) {
         var s = SECTIONS[tab]; if (!s) return;
         var it = s.items.filter(function (x) { return x.id === id; })[0]; if (!it) return;
-        try { localStorage.setItem('nr_sub_' + tab, id); } catch (_) { /* без памяти */ }
+        if (!it.act) { try { localStorage.setItem('nr_sub_' + tab, id); } catch (_) { /* без памяти */ } }
         try { if (tab === 'advertising' && root._advView === 'detail' && typeof headerGoBack === 'function') headerGoBack(); } catch (e) {}
         var already = curTab() === tab;
         if (!already && typeof root.showTab === 'function') root.showTab(tab, null);
         var press = function () {
+            if (it.act) { try { if (root.RNP && typeof root.RNP[it.act] === 'function') root.RNP[it.act](); } catch (e) { /* окно не открылось */ } refresh(); return; }
             if (tab === 'advertising' && root.NrGoodsUi && root.NrGoodsUi.openAdsView) { try { root.NrGoodsUi.openAdsView(id); } catch (e) {} }
             else { var el = doc.querySelector(it.sel); if (el) el.click(); }
             refresh();
@@ -163,20 +173,20 @@
         if (!e.isTrusted || !e.target || !e.target.closest) return;
         Object.keys(SECTIONS).forEach(function (t) {
             SECTIONS[t].items.forEach(function (it) {
-                var sel = it.sel.split(',')[0];
-                try { if (e.target.closest(sel)) localStorage.setItem(memKey(t), it.id); } catch (_) { /* без памяти */ }
+                var sel = it.sel ? it.sel.split(',')[0] : '';
+                try { if (sel && e.target.closest(sel)) localStorage.setItem(memKey(t), it.id); } catch (_) { /* без памяти */ }
             });
         });
     }
     doc.addEventListener('click', remember, true);
     function restore(tab) {
         var s = SECTIONS[tab]; if (!s || restored[tab]) return;
-        var present = s.items.some(function (it) { return doc.querySelector(it.sel); });
+        var present = s.items.some(function (it) { return it.sel && doc.querySelector(it.sel); });
         if (!present) return;           // подразделы ещё не нарисованы: попробуем на следующем проходе
         restored[tab] = true;
         var id = ''; try { id = localStorage.getItem(memKey(tab)) || ''; } catch (_) { /* без памяти */ }
         var it = s.items.filter(function (x) { return x.id === id; })[0];
-        if (!it || doc.querySelector(it.on)) return;
+        if (!it || !it.sel || doc.querySelector(it.on)) return;
         var el = doc.querySelector(it.sel);
         if (el && typeof el.click === 'function') el.click();
     }
@@ -190,12 +200,13 @@
             Array.prototype.forEach.call(f.querySelectorAll('[data-nrn]'), function (n) {
                 var id = n.getAttribute('data-nrn').split(':')[1];
                 var it = s.items.filter(function (x) { return x.id === id; })[0];
-                var show = (!it.staff || staff) && (it.dflt || !!doc.querySelector(it.sel.split(' ')[0]));
+                var show = (!it.staff || staff) && (it.dflt || it.always || !!doc.querySelector(it.sel.split(' ')[0]));
                 n.style.display = show ? '' : 'none'; if (show) shown++;
                 n.classList.toggle('active', tab === t && cur === id);
             });
             f.classList.toggle('nr-one', shown < 2);
         });
+        var cmpItem = doc.querySelector('[data-nr-cmp]'); if (cmpItem) cmpItem.classList.toggle('active', tab === 'analytics' && currentItem('analytics') === 'content');
         // цепочка и заголовок
         var el = ensureCrumbs(); if (!el) return;
         var title = doc.getElementById('page-title');
@@ -203,7 +214,7 @@
         if (s && !(tab === 'advertising' && root._advView === 'detail')) {
             var cur = currentItem(tab) || (s.items.filter(function (x) { return x.dflt; })[0] || {}).id;
             var it = s.items.filter(function (x) { return x.id === cur; })[0];
-            if (it) { label = (tab === 'rnp' && it.id === 'rnp') ? '' : it.label; secTitle = s.title; go1 = (s.items.filter(function (x) { return x.dflt; })[0] || it).id; }
+            if (it) { label = (tab === 'rnp' && it.id === 'rnp') ? '' : it.label; secTitle = it.crumb || s.title; go1 = (s.items.filter(function (x) { return x.dflt; })[0] || it).id; }
         } else if (tab === 'ab-testing') { secTitle = 'Инструменты'; label = 'А/Б тесты'; }
         else if (tab === 'agents' || tab === 'akylai') { secTitle = 'Инструменты'; label = 'Агенты'; }
         else if (tab === 'tariffs') { secTitle = 'Настройки'; label = 'Тарифы'; go1 = '*settings'; }

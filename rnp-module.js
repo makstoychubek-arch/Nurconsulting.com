@@ -4197,8 +4197,6 @@ const RNP = (() => {
         const editOn = _editMode ? ' is-on active' : '';
         const editTitle = _editMode ? 'Готово' : 'Редактировать';
         return `<div class="rnp-tool-icons">
-            <button type="button" class="rnp-plan-fact-open" title="План/факт — лист как в Excel" aria-label="План/факт" onclick="RNP.openPlanFact()">${_planFactSvg()}<span>План/факт</span></button>
-            <button type="button" class="rnp-plan-fact-open" title="Планирование по неделям" aria-label="Планирование" onclick="RNP.openPlanning()">${_planSvg()}<span>Планирование</span></button>
             ${_compareMonthMenuHtml()}
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
