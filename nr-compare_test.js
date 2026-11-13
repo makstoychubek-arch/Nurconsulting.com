@@ -11,6 +11,7 @@ const r = f([
 assert.equal(r.total.imp, 2000);
 assert.equal(r.total.ord, 8, 'нет funnel_orders: берём orders_count');
 assert.equal(r.total.rev, 24000);
+assert.equal(r.realImp, true);
 assert.equal(r.steps[0].ours, 5, 'CTR 100 / 2000');
 assert.equal(r.steps[1].ours, 20);
 assert.equal(r.steps[2].ours, 40);
@@ -19,6 +20,19 @@ assert.equal(r.steps[0].gap, -3);
 assert.equal(r.steps[2].gap, 10, 'в заказ мы лучше конкурентов');
 assert.equal(r.worst.id, 'ctr', 'главная утечка: шаг с самым большим относительным отставанием');
 assert.equal(r.steps[3].gap, undefined, 'по выкупу данных конкурентов нет');
+
+// В базе показы равны переходам в карточку: шага «показы → переходы» нет, воронка начинается с переходов
+const same = f([{ impressions: 200, clicks: 200, basket_count: 20, funnel_orders: 4, sales_count: 2 }]);
+assert.equal(same.realImp, false);
+assert.deepEqual(same.steps.map((x) => x.id), ['cart', 'order', 'buyout']);
+// Нет данных конкурентов: эталон это медиана соседей, главная утечка находится по ним
+const me = f([{ impressions: 100, clicks: 100, basket_count: 5, funnel_orders: 2, sales_count: 1 }]);
+const peers = [f([{ clicks: 100, impressions: 100, basket_count: 20, funnel_orders: 8, sales_count: 4 }]), f([{ clicks: 100, impressions: 100, basket_count: 22, funnel_orders: 8, sales_count: 4 }]), f([{ clicks: 100, impressions: 100, basket_count: 18, funnel_orders: 8, sales_count: 4 }])];
+const wb = globalThis.NrCompare._withBench(me, peers, 'медиана склейки');
+assert.equal(wb.steps[0].rival, 20, 'медиана конверсии в корзину у соседей');
+assert.equal(wb.worst.id, 'cart', 'у нас корзина 5% против 20% у соседей');
+assert.equal(wb.steps[0].bench, 'медиана склейки');
+assert.equal(globalThis.NrCompare._withBench(me, [], '').worst, null, 'нет соседей и конкурентов: утечку не выдумываем');
 
 // Пусто: без деления на ноль и без выдуманной утечки
 const z = f([]);
