@@ -56,13 +56,15 @@
         if (f.__h !== h) { f.innerHTML = h; f.__h = h; }
         push(host, f);
     }
-    // Низ показывается только в самом конце прокрутки: если страница короче экрана, отодвигаем его под нижний край.
+    // Низ показывается только в самом конце прокрутки: если страница короче экрана (или чуть длиннее), отодвигаем его глубоко под нижний край.
     function push(host, f) {
         if (!f.offsetParent && f.style.display !== 'none') return;
         var cur = parseFloat(f.style.marginTop) || 0;
         var top = f.getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop;
         var end = top - cur;
-        var need = Math.max(32, Math.ceil(host.clientHeight - end + 24));
+        // Нижняя часть всегда ниже видимого экрана минимум на 140 px: при коротких страницах и при догрузке данных она не выглядывает снизу,
+        // а появляется только когда человек сам прокрутил вниз. На длинных страницах (конец ниже экрана) стоит обычным отступом 36 px.
+        var need = end + 36 > host.clientHeight + 140 ? 36 : Math.max(36, Math.ceil(host.clientHeight - end + 140));
         if (Math.abs(need - cur) > 2) f.style.marginTop = need + 'px';
     }
     function fit() { var host = doc.querySelector('.main-content'), f = doc.getElementById('nr-foot'); if (host && f) push(host, f); }
