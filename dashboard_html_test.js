@@ -1316,8 +1316,10 @@ assert.ok(rnpSrc.includes('function _excelSvg') && rnpSrc.includes('function _ed
     'RNP toolbar Plan / Excel / Edit are SVG icons');
 assert.ok(rnpSrc.includes('function _iconToolsHtml'),
     'RNP toolbar icons stay in one row');
-assert.ok(rnpSrc.includes('План/факт') && rnpSrc.includes('openPlanFact') && rnpSrc.includes('function _planFactSvg'),
-    'RNP toolbar has a visible План/факт chip that opens the Excel sheet');
+assert.ok(rnpSrc.includes('openPlanFact') && !rnpSrc.includes('class="rnp-plan-fact-open"'),
+    'План/факт is no longer a button on the RNP page: it opens from the RNP menu item');
+assert.ok(require('fs').readFileSync(__dirname + '/nr-nav.js', 'utf8').includes("act: 'openPlanFact'"),
+    'RNP menu has the План/факт item that opens the full-screen sheet');
 assert.ok(html.includes('.rnp-plan-fact-open svg') && html.includes('height: 26px'),
     'План/факт chip is a labeled control, not 10px muted text among icons');
 assert.ok(html.includes('id="rnp-plan-fact-overlay"') && html.includes('.pf-sheet'),

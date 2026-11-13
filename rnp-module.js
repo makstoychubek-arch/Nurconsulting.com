@@ -4932,7 +4932,6 @@ const RNP = (() => {
     function _phoneToolTilesHtml() {
         const editOn = _editMode ? ' is-on active' : '';
         return `<div class="rnp-ph2-tools">
-          <button type="button" class="rnp-ph2-tile is-main" onclick="RNP.openPlanFact()">${_planFactSvg()}<span>План/факт</span></button>
           <button type="button" class="rnp-ph2-tile" onclick="RNP.openSettings()">${_settingsGearSvg()}<span>Настройки</span></button>
           <button type="button" class="rnp-ph2-tile rnp-ph2-edit${editOn}" onclick="RNP.toggleEditMode()">${_editSvg()}<span>Правка</span></button>
         </div>`;

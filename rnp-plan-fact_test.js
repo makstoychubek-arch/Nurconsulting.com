@@ -132,7 +132,7 @@ assert.strictEqual(P.factOrders({ funnel_orders: 12, orders_count: 40 }), 12);
 }
 
 const rnp = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
-assert.ok(rnp.includes('openPlanFact') && rnp.includes('План/факт'));
+assert.ok(rnp.includes('openPlanFact') && require('fs').readFileSync(__dirname + '/nr-nav.js', 'utf8').includes('План/факт'));
 assert.ok(rnp.includes('async function openPlanFact'));
 assert.ok(rnp.includes('_mergePlanFactRange') && rnp.includes('fact_orders: row.orders_count'));
 assert.ok(!rnp.includes("title: 'Общая РНП'"), 'title comes from sheetMeta per cabinet');

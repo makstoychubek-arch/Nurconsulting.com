@@ -1830,3 +1830,10 @@ html body #cc-root .cs-r, html body #cc-root .cs-n { height: var(--cc-row); box-
 html body #cc-root .cs-side-top { height: 266px; grid-template-rows: 48px 150px 30px 1fr; }
 html body #cc-root .cs-wrap, html body #cc-root .sq-wrap { overscroll-behavior: contain; }
 html body #cc-root .ms-row, html body #cc-root .ms-cell { height: 238px; aspect-ratio: auto; }
+
+/* План/факт и Планирование: окна на весь экран (открываются из меню РНП) */
+html body .rnp-plan-fact-overlay { padding: 12px; }
+html body .nr-win.rnp-plan-fact-dialog:not(.nr-win-photo):not(.nw-modal) { --w: calc(100vw - 24px); --nr-win-w: calc(100vw - 24px); width: calc(100vw - 24px) !important; height: calc(100dvh - 24px) !important; max-height: none !important; }
+html body .rnp-plan-fact-dialog > .nr-win-scroll, html body #rnp-plan-fact-body { flex: 1 1 auto; min-height: 0; }
+html body #rnp-planning-overlay { padding: 12px; }
+html body #rnp-planning-overlay .rnp-plan-panel { width: calc(100vw - 24px) !important; max-width: none !important; height: calc(100dvh - 24px) !important; max-height: none !important; }
