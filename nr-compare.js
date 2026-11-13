@@ -14,7 +14,7 @@
     var FIELDS = ['Артикул продавца', 'Артикул WB', 'Наименование', 'Категория продавца', 'Бренд', 'Описание', 'Материал верха', 'Пол', 'Состав', 'Цвет', 'Баркод', 'Размер', 'Рос. размер', 'Вид застежки', 'Возрастные ограничения', 'Вырез горловины', 'Декоративные элементы', 'ИКПУ', 'Код ТРУ 1', 'Код ТРУ 2', 'Код упаковки', 'Количество штук в товаре по ЭС', 'Коллекция', 'Комплектация', 'Любимые герои', 'Назначение', 'ОКПД 2', 'Особенности модели', 'Параметры модели на фото (ОГ-ОТ-ОБ)', 'Покрой', 'Размер на модели', 'Рисунок', 'Рост модели на фото', 'Сезон', 'Стиль', 'Страна производства', 'ТНВЭД', 'Тип ростовки', 'Тип рукава', 'Уход за вещами', 'Фактура материала', 'Форма рукава'];
     var QUALITY = ['Супер релевантно', 'Релевантно', 'Нерелевантно но пусть будет', 'Исключить из карточки'];
     var SLIDES = ['Обложка', 'Главная выгода', 'Посадка и крой', 'Размеры и замеры', 'Состав и ткань', 'Детали', 'С чем носить', 'Доверие и отзывы'];
-    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, cmp: null, all: null, allFun: null, token: 0, bound: false };
+    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, cmp: null, all: null, allFun: null, jobs: {}, token: 0, bound: false, poll: 0 };
 
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -303,9 +303,11 @@
                 var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
                 var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
                 return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' +
-                    '<div class="ms-act"><button type="button" class="cc-btn cc-btn-b" data-cc-gen="' + x.nm + '" data-cc-gname="' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button>' +
-                    '<button type="button" class="cc-btn ms-send" disabled aria-disabled="true" title="Откроется, когда для этой расцветки будут готовы новые фото"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Отправить на WB</button></div>' +
-                    rows.map(function (i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1, 'c516x688').replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
+                    actHtml(x.nm, x.name || (ar && (ar.seller_article || ar.name)) || String(x.nm)) +
+                    rows.map(function (i) {
+                        var js = jobSlides(S.jobs[x.nm])[i], url = js && js.status === 'ready' && js.path ? jobUrl(js.path) : '';
+                        return '<div class="ms-cell">' + (url ? '<img class="ms-im" src="' + esc(url) + '" alt="" loading="lazy">' : wbImg(x.nm, i + 1, 'c516x688').replace('cc-th', 'cc-th ms-im')) + '</div>';
+                    }).join('') + '</section>';
             }).join('');
             return '<div class="ms-grp">' + side + cols + '</div>';
         }).join('');
@@ -412,6 +414,58 @@
         w.scrollLeft = Math.max(0, w.scrollLeft + b.getBoundingClientRect().left - w.getBoundingClientRect().left - sw);
     }
 
+    // ───── задачи генерации (content_media_jobs): одна на расцветку ─────
+    function isStaff() { return doc.documentElement.getAttribute('data-staff') === '1'; }
+    function jobUrl(path) { try { return sb().storage.from('content-media').getPublicUrl(path).data.publicUrl; } catch (_) { return ''; } }
+    function jobSlides(j) { return j && Array.isArray(j.slides) ? j.slides : []; }
+    function readyN(j) { return jobSlides(j).filter(function (x) { return x.status === 'ready'; }).length; }
+    // Кнопки расцветки по состоянию задачи. «Отправить на WB» открывается только когда готовы все кадры.
+    function actHtml(nm, label) {
+        var j = S.jobs[nm], st = j ? j.status : '', lock = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+        var main, send;
+        var gen = function (t, dis, act) { return '<button type="button" class="cc-btn cc-btn-b"' + (dis ? ' disabled aria-disabled="true"' : '') + (act ? ' ' + act : '') + '>' + t + '</button>'; };
+        if (st === 'awaiting_payment') main = gen('Оплатить · ' + fmt(PRICE_SOM) + ' сом', false, 'data-cc-gen="' + nm + '" data-cc-gname="' + esc(label) + '"');
+        else if (st === 'paid' || st === 'generating') main = gen('Генерация ' + readyN(j) + '/' + (jobSlides(j).length || 8), true);
+        else if (st === 'ready') main = gen('Готово ✓', true);
+        else if (st === 'sent') main = gen('Отправлено ✓', true);
+        else if (st === 'failed') main = gen('Повторить', false, 'data-cc-retry="' + nm + '"');
+        else main = gen('Сгенерировать · ' + fmt(PRICE_SOM) + ' сом', false, 'data-cc-gen="' + nm + '" data-cc-gname="' + esc(label) + '"');
+        if (st === 'ready') send = '<button type="button" class="cc-btn ms-send ms-ok" data-cc-send="' + nm + '">Отправить на WB</button>';
+        else send = '<button type="button" class="cc-btn ms-send" disabled aria-disabled="true" title="' + (st === 'sent' ? 'Фото уже отправлены' : 'Откроется, когда для этой расцветки будут готовы новые фото') + '">' + lock + 'Отправить на WB</button>';
+        return '<div class="ms-act">' + main + send + '</div>';
+    }
+    function call(body) {
+        if (!sb() || !sb().functions) return Promise.resolve({ ok: false, error: 'Нет связи с сервером' });
+        return Promise.resolve(sb().functions.invoke('content-media', { body: body })).then(function (r) {
+            if (r && r.error) return { ok: false, error: 'Сервер не ответил. Попробуйте ещё раз.' };
+            return (r && r.data) || { ok: false, error: 'Пустой ответ' };
+        }).catch(function () { return { ok: false, error: 'Сервер не ответил. Попробуйте ещё раз.' }; });
+    }
+    function setJob(j) { if (j && j.nm_id) { S.jobs[Number(j.nm_id)] = j; if (S.sec === 'media') paint(); keepPolling(); } }
+    function loadJobs(cab) {
+        if (!sb()) return;
+        Promise.resolve(sb().from('content_media_jobs').select('*').eq('cabinet_id', cab).order('updated_at', { ascending: true }).range(0, 499)).then(function (r) {
+            if (cab !== S.cab || !r || r.error) return;
+            var m = {}; (r.data || []).forEach(function (j) { m[Number(j.nm_id)] = j; });   // последняя по времени задача расцветки
+            S.jobs = m; if (S.sec === 'media') paint(); keepPolling();
+        }).catch(function () { /* без задач остаётся прежний вид */ });
+    }
+    // Пока идёт генерация: раз в 6 секунд просим сервер продолжить и обновляем статусы
+    function keepPolling() {
+        var active = Object.keys(S.jobs).filter(function (k) { var st = S.jobs[k].status; return st === 'paid' || st === 'generating'; });
+        if (!active.length) { if (S.poll) { root.clearTimeout(S.poll); S.poll = 0; } return; }
+        if (S.poll) return;
+        S.poll = root.setTimeout(function () {
+            S.poll = 0;
+            if (doc.hidden || !doc.getElementById('cc-root')) { keepPolling(); return; }
+            Promise.all(active.map(function (k) { return call({ action: 'run', job_id: S.jobs[k].id }); })).then(function (rs) {
+                rs.forEach(function (r) { if (r && r.job) S.jobs[Number(r.job.nm_id)] = r.job; });
+                var blocked = rs.some(function (r) { return r && r.run && r.run.reason === 'NO_PROVIDER'; });
+                if (S.sec === 'media') paint();
+                if (!blocked) keepPolling();
+            });
+        }, 6000);
+    }
     // ───── окно оплаты ─────
     function closePay() { var m = doc.getElementById('cc-ov'); if (m) m.remove(); }
     function openPay(nm, gname) {
@@ -422,8 +476,27 @@
             '<div class="cc-tile cc-dark"><div class="cc-cap">К оплате</div><b>' + fmt(PRICE_SOM) + ' сом</b><span>' + esc(a ? (a.name || a.nm_id) : '') + '</span></div>' +
             '<div class="cc-qr"><div class="cc-qrbox" aria-hidden="true">QR</div><div><b>Оплата по QR через Finik</b><p>Оплата подключается. Сейчас оплатить и запустить генерацию нельзя.</p></div></div>' +
             '<div class="cc-kv"><span>Что входит</span><span>' + SLIDES.length + ' фото под утечку воронки</span></div><div class="cc-kv"><span>В подарок</span><span>1 А/Б тест обложки и СЕО</span></div>' +
-            '<button type="button" class="cc-btn cc-btn-b" disabled>Оплатить ' + fmt(PRICE_SOM) + ' сом</button></div>';
-        m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-cc-close]')) closePay(); });
+            '<button type="button" class="cc-btn cc-btn-b" disabled>Оплатить ' + fmt(PRICE_SOM) + ' сом</button>' +
+            (isStaff() ? '<button type="button" class="cc-btn" data-cc-test="' + (a ? a.nm_id : 0) + '">Тест для команды: без оплаты</button><p class="cc-note" id="cc-test-note"></p>' : '') + '</div>';
+        m.addEventListener('click', function (e) {
+            if (e.target === m || e.target.closest('[data-cc-close]')) { closePay(); return; }
+            var t = e.target.closest('[data-cc-test]'); if (!t) return;
+            var nm = Number(t.getAttribute('data-cc-test')), note = m.querySelector('#cc-test-note');
+            t.disabled = true; if (note) note.textContent = 'Запускаем…';
+            var w = S.fun && S.fun.worst;
+            // сразу показываем «идёт генерация», остальное сервер делает в фоне
+            S.jobs[nm] = Object.assign({}, S.jobs[nm] || { nm_id: nm, slides: [] }, { status: 'generating' });
+            closePay(); if (S.sec === 'media') paint();
+            call({ action: 'create', cabinet_id: S.cab, nm_id: nm, focus: w ? w.id : null }).then(function (r) {
+                if (!r || !r.job) { delete S.jobs[nm]; paint(); say('Не получилось создать задачу', (r && r.error) || 'Попробуйте ещё раз'); return; }
+                setJob(r.job);
+                return call({ action: 'mark_paid', job_id: r.job.id }).then(function (r2) {
+                    if (r2 && r2.job) setJob(r2.job);
+                    if (r2 && r2.run && r2.run.reason === 'NO_PROVIDER') say('Генератор не подключён', 'Задача создана и ждёт ключ генератора. Статус «Генерация» сменится, когда ключ появится.');
+                    else if (!r2 || !r2.ok) say('Не получилось запустить', (r2 && r2.error) || 'Попробуйте ещё раз');
+                });
+            });
+        });
         doc.body.appendChild(m);
     }
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePay(); });
@@ -434,6 +507,26 @@
             var b;
             if ((b = e.target.closest('.cs-b, .ms-col, .sq thead th[data-nm]')) && !e.target.closest('a, button') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
             if ((b = e.target.closest('[data-cc-gen]'))) { var gn = Number(b.getAttribute('data-cc-gen')); if (gn && gn !== S.nm) { S.nm = gn; try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} } openPay(gn, b.getAttribute('data-cc-gname')); return; }
+            if ((b = e.target.closest('[data-cc-retry]'))) {
+                var rn = Number(b.getAttribute('data-cc-retry')), rj = S.jobs[rn]; if (!rj) return;
+                S.jobs[rn] = Object.assign({}, rj, { status: 'generating' }); paint();
+                call({ action: 'run', job_id: rj.id }).then(function (r) { if (r && r.job) setJob(r.job); });
+                return;
+            }
+            if ((b = e.target.closest('[data-cc-send]'))) {
+                var sn = Number(b.getAttribute('data-cc-send')), sj = S.jobs[sn]; if (!sj || sj.status !== 'ready') return;
+                var ar = S.arts.filter(function (x) { return Number(x.nm_id) === sn; })[0], nm0 = (ar && (ar.seller_article || ar.name)) || String(sn);
+                var go = function () {
+                    S.jobs[sn] = Object.assign({}, sj, { status: 'sent' }); paint();   // сразу видно: отправлено; если не получится, вернём
+                    call({ action: 'send', job_id: sj.id }).then(function (r) {
+                        if (r && r.ok && r.job) { setJob(r.job); say('Фото отправлены на WB', 'Карточка «' + nm0 + '»: кадры 1–8 заменены'); }
+                        else { S.jobs[sn] = sj; paint(); say('WB не принял фото', (r && r.error) || 'Попробуйте ещё раз'); }
+                    });
+                };
+                if (root.NrUi && root.NrUi.confirm) root.NrUi.confirm({ title: 'Отправить фото на WB?', text: 'Кадры 1–8 карточки «' + nm0 + '» будут заменены новыми. Вернуть прежние фото нельзя.', confirmLabel: 'Отправить', danger: true }).then(function (ok) { if (ok) go(); });
+                else go();
+                return;
+            }
             if ((b = e.target.closest('[data-cc-nm]'))) { S.nm = Number(b.getAttribute('data-cc-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} loadFunnel(); return; }
             if ((b = e.target.closest('[data-cc-sec]'))) { S.sec = b.getAttribute('data-cc-sec'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); return; }
             if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); scrollToSel(); return; }
@@ -462,7 +555,7 @@
         try { var s = root.localStorage.getItem('nr_cc_sec'); if (s && VIEW[s]) S.sec = s; } catch (_) {}
         var cab = cabId();
         if (cab && cab === S.cab && S.arts.length) { paint(); return; }
-        S.cab = cab; S.arts = lsGet('nr_cc_arts2_' + cab) || []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; if (cab) { loadAll(cab); loadAllFun(cab); }
+        S.cab = cab; S.arts = lsGet('nr_cc_arts2_' + cab) || []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; if (cab) { loadAll(cab); loadAllFun(cab); loadJobs(cab); }
         pickNm(); paint();
         if (S.nm) loadFunnel();
         // Кабинет ещё не выбран (страница только открылась): каркас уже на экране, данные подтянем, как только кабинет появится
@@ -476,7 +569,7 @@
         });
     }
     doc.addEventListener('cabinet-changed', function () {
-        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; S.nm = 0; closePay();
+        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; S.jobs = {}; S.nm = 0; closePay();
         var host = doc.getElementById('cc-root'), pane = doc.getElementById('an-content');
         if (host && pane && !pane.hidden) open();
     });
