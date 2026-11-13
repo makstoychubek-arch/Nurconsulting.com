@@ -1946,8 +1946,8 @@ html body .ps-cst span { color: var(--text-muted); font-weight: 700; margin-left
 html body .ps-cart { height: 32px; min-width: 240px; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; background: var(--bg, #fff) !important; color: var(--text-primary); padding: 0 12px; font-weight: 700; font-size: 12px; box-shadow: none !important; margin-left: auto; }
 html body .ps-cs .ps-scroll { margin-top: 8px; border: 0; border-top: 1px solid var(--text-primary); border-radius: 0; }
 /* Планирование: цвет только у чисел, как в РНП (зелёный, красный, оранжевый, серый) */
-html body .ps-pos { color: var(--green) !important; } html body .ps-neg { color: var(--red) !important; } html body .ps-mid { color: var(--amber) !important; }
-html body .ps-bgp { background: var(--green-soft) !important; } html body .ps-bgn { background: var(--red-soft) !important; } html body .ps-bgm { background: var(--amber-soft) !important; }
+html body .ps-pos { color: var(--green) !important; } html body .ps-neg { color: var(--red) !important; } html body .ps-mid { color: var(--ps-or) !important; }
+html body .ps-bgp { background: var(--green-soft) !important; } html body .ps-bgn { background: var(--red-soft) !important; } html body .ps-bgm { background: var(--ps-or-soft) !important; }
 html body .ps-fact { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
 html body .ps-secf th { color: var(--text-muted) !important; }
 html body .ps-mt td.ps-pos, html body .ps-mt td.ps-neg, html body .ps-mt td.ps-mid { font-weight: 800; }
@@ -1969,3 +1969,50 @@ html body .ps-startl { display: inline-flex; align-items: center; gap: 6px; font
 html body .ps-start { height: 32px; border: 1px solid var(--text-primary) !important; border-radius: 999px !important; background: transparent !important; color: var(--text-primary); padding: 0 10px; font: inherit; font-weight: 700; box-shadow: none !important; }
 html body .ps-startl + .ps-save { margin-left: 8px !important; }
 html body .ps-exp { margin: 0 0 10px; }
+
+/* Планирование: цветовые группы строк, как группы колонок в вашей таблице. Зелёный, оранжевый, серый, красный в разных тонах */
+html body .ps-table { --g-ord: var(--green); --g-price: var(--ps-or); --g-res: var(--text-primary); --g-stock: var(--green); --g-fact: var(--ps-or); }
+html body .ps-r th.ps-l { box-shadow: inset 4px 0 0 var(--gc, transparent); padding-left: 14px !important; }
+html body .ps-g-ord { --gc: var(--green); } html body .ps-g-price { --gc: var(--ps-or); } html body .ps-g-res { --gc: var(--text-primary); } html body .ps-g-stock { --gc: color-mix(in srgb, var(--green) 45%, var(--text-muted)); } html body .ps-g-fact { --gc: color-mix(in srgb, var(--ps-or) 70%, var(--text-muted)); }
+html body .ps-g-ord th.ps-l { background: color-mix(in srgb, var(--green) 16%, var(--bg, #fff)); }
+html body .ps-g-price th.ps-l { background: color-mix(in srgb, var(--ps-or) 13%, var(--bg, #fff)); }
+html body .ps-g-res th.ps-l { background: color-mix(in srgb, var(--text-primary) 9%, var(--bg, #fff)); }
+html body .ps-g-stock th.ps-l { background: color-mix(in srgb, var(--green) 8%, var(--bg, #fff)); }
+html body .ps-g-fact th.ps-l { background: color-mix(in srgb, var(--ps-or) 8%, var(--bg, #fff)); }
+html body .ps-g-ord td.ps-c { background: color-mix(in srgb, var(--green) 5%, transparent); }
+html body .ps-g-price td.ps-c { background: color-mix(in srgb, var(--ps-or) 4%, transparent); }
+html body .ps-g-res td.ps-c { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
+html body .ps-g-stock td.ps-c { background: color-mix(in srgb, var(--green) 3%, transparent); }
+html body .ps-g-fact td.ps-c { background: color-mix(in srgb, var(--ps-or) 3%, transparent); }
+html body .ps-table td.ps-alt, html body .ps-table th.ps-alt { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--text-primary) 3.5%, transparent); }
+html body .ps-table .ps-fact { background: color-mix(in srgb, var(--ps-or) 9%, transparent); }
+html body .ps-r.ps-rb th.ps-l { font-weight: 900; }
+/* заголовки групп в «плане вывода денег» */
+html body .ps-mh .ps-hg { background: color-mix(in srgb, var(--green) 16%, var(--bg, #fff)); }
+html body .ps-mh .ps-ha { background: color-mix(in srgb, var(--ps-or) 14%, var(--bg, #fff)); }
+html body .ps-mh .ps-hs { background: color-mix(in srgb, var(--text-primary) 8%, var(--bg, #fff)); }
+html body .ps-mh .ps-fh { background: color-mix(in srgb, var(--ps-or) 8%, var(--bg, #fff)); }
+html body .ps-mt td:nth-child(3), html body .ps-mt td:nth-child(4) { background: color-mix(in srgb, var(--green) 4%, transparent); }
+html body .ps-mt td:nth-child(5) { background: color-mix(in srgb, var(--ps-or) 4%, transparent); }
+html body .ps-mt td:nth-child(7), html body .ps-mt td:nth-child(8) { background: color-mix(in srgb, var(--ps-or) 7%, transparent); }
+html body .ps-mt .ps-tot td { background: var(--accent) !important; }
+/* график: цвет линий */
+html body .psc-l1 { stroke: var(--green); stroke-width: 2.8; opacity: 1; }
+html body .psc-l2 { stroke: var(--text-primary); stroke-width: 2; stroke-dasharray: 6 4; opacity: .75; }
+html body .psc-l3 { stroke: var(--ps-or); stroke-width: 2; opacity: .95; }
+html body .ps-leg .psc-k1 { border-top-color: var(--green); border-top-width: 3px; opacity: 1; }
+html body .ps-leg .psc-k2 { border-top-color: var(--text-primary); opacity: .75; }
+html body .ps-leg .psc-k3 { border-top-color: var(--ps-or); border-top-width: 3px; opacity: .95; }
+/* заголовки таблицы недель и разделы: чуть плотнее шрифт */
+html body .ps-sec th { font-size: 11px; letter-spacing: .12em; }
+html body .ps-table .ps-in, html body .ps-calc { font-feature-settings: "tnum" 1; font-weight: 650; }
+html body .ps-g-fact { --gc: var(--text-muted); }
+html body .ps-g-fact th.ps-l { background: color-mix(in srgb, var(--ps-or) 17%, var(--bg, #fff)); }
+html body .ps-g-price th.ps-l { background: color-mix(in srgb, var(--ps-or) 16%, var(--bg, #fff)); }
+html body .ps-g-price td.ps-c { background: color-mix(in srgb, var(--ps-or) 6%, transparent); }
+html body .ps-g-fact td.ps-c { background: color-mix(in srgb, var(--ps-or) 5%, transparent); }
+html body .ps-g-res th.ps-l { background: color-mix(in srgb, var(--text-primary) 11%, var(--bg, #fff)); }
+
+/* оранжевый для листов «Планирование» (в Минимализме общий --amber серый, а здесь оранжевый разрешён владельцем) */
+html body #tab-rnp-planning { --ps-or: #F59E0B; --ps-or-soft: rgba(245, 158, 11, .17); }
+html[data-theme="neon"] body #tab-rnp-planning { --ps-or: #FFB454; --ps-or-soft: rgba(255, 180, 84, .16); }

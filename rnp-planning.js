@@ -143,31 +143,31 @@
         { k: 'buyout', label: '% выкупа' }, { k: 'comm', label: 'Комиссия, %' }, { k: 'tax', label: 'Налог, %' }, { k: 'spp', label: 'СПП, %' },
     ];
     var WROWS = [
-        { k: 'orders', label: 'План заказов, шт', input: 1 },
-        { k: 'sales', label: 'План продаж, шт' },
-        { k: 'ret', label: 'Возвраты, шт' },
-        { k: 'price', label: 'Цена до СПП, сом', input: 1 },
-        { k: 'priceSpp', label: 'Цена после СПП, сом' },
-        { k: 'drr', label: 'План ДРР, %', input: 1 },
-        { k: 'giveSum', label: 'Раздачи (сумм), сом', input: 1 },
-        { k: 'mkt', label: 'Внутренний маркетинг, сом' },
-        { k: 'logi', label: 'Логистика, сом' },
-        { k: 'commR', label: 'Комиссия, сом' },
-        { k: 'storR', label: 'Хранение, сом' },
-        { k: 'taxR', label: 'Налог, сом' },
-        { k: 'pay', label: 'План к перечислению, сом', bold: 1 },
-        { k: 'profit', label: 'План ЧП, сом', bold: 1 },
-        { k: 'stock', label: 'Остаток на МП, шт' },
-        { k: 'sup', label: 'Поставки (итого по цветам), шт' },
+        { g: 'ord', k: 'orders', label: 'План заказов, шт', input: 1 },
+        { g: 'ord', k: 'sales', label: 'План продаж, шт' },
+        { g: 'ord', k: 'ret', label: 'Возвраты, шт' },
+        { g: 'price', k: 'price', label: 'Цена до СПП, сом', input: 1 },
+        { g: 'price', k: 'priceSpp', label: 'Цена после СПП, сом' },
+        { g: 'price', k: 'drr', label: 'План ДРР, %', input: 1 },
+        { g: 'price', k: 'giveSum', label: 'Раздачи (сумм), сом', input: 1 },
+        { g: 'price', k: 'mkt', label: 'Внутренний маркетинг, сом' },
+        { g: 'price', k: 'logi', label: 'Логистика, сом' },
+        { g: 'price', k: 'commR', label: 'Комиссия, сом' },
+        { g: 'price', k: 'storR', label: 'Хранение, сом' },
+        { g: 'price', k: 'taxR', label: 'Налог, сом' },
+        { g: 'res', k: 'pay', label: 'План к перечислению, сом', bold: 1 },
+        { g: 'res', k: 'profit', label: 'План ЧП, сом', bold: 1 },
+        { g: 'stock', k: 'stock', label: 'Остаток на МП, шт' },
+        { g: 'stock', k: 'sup', label: 'Поставки (итого по цветам), шт' },
         { sec: 'Факт и план/факт' },
-        { k: 'fOrders', label: 'Факт заказов, шт' },
-        { k: 'fSales', label: 'Факт продаж, шт' },
-        { k: 'fPay', label: 'Факт к перечислению, сом' },
-        { k: 'fProfit', label: 'Факт ЧП, сом', bold: 1 },
-        { k: 'pfOrders', label: 'Заказы: факт к плану, %' },
-        { k: 'pfProfit', label: 'ЧП: факт к плану, %' },
-        { k: 'cashPlan', label: 'План кассовая прибыль, сом' },
-        { k: 'cashFact', label: 'Факт кассовая прибыль, сом' },
+        { g: 'fact', k: 'fOrders', label: 'Факт заказов, шт' },
+        { g: 'fact', k: 'fSales', label: 'Факт продаж, шт' },
+        { g: 'fact', k: 'fPay', label: 'Факт к перечислению, сом' },
+        { g: 'fact', k: 'fProfit', label: 'Факт ЧП, сом', bold: 1 },
+        { g: 'fact', k: 'pfOrders', label: 'Заказы: факт к плану, %' },
+        { g: 'fact', k: 'pfProfit', label: 'ЧП: факт к плану, %' },
+        { g: 'res', k: 'cashPlan', label: 'План кассовая прибыль, сом' },
+        { g: 'fact', k: 'cashFact', label: 'Факт кассовая прибыль, сом' },
     ];
     var PCT_KEYS = ['drr', 'pfOrders', 'pfProfit'], FACT_KEYS = ['fOrders', 'fSales', 'fPay', 'fProfit', 'cashFact'];
     function num(v) { var n = Number(v); return Number.isFinite(n) ? n : 0; }
@@ -361,8 +361,8 @@
     function blockHtml(b, weeks, spans) {
         var calc = calcBlock(b, weeks, factsOf(b, st.facts));
         var head = '<tr class="ps-h1"><th class="ps-l"></th>' + spans.map(function (m) { return '<th colspan="' + m.n + '" class="ps-m">' + m.label + '</th>'; }).join('') + '</tr>' +
-            '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>' +
-            '<tr class="ps-h3"><th class="ps-l">по</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.end) + '</th>'; }).join('') + '</tr>';
+            '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + (w.alt ? ' ps-alt' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>' +
+            '<tr class="ps-h3"><th class="ps-l">по</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + (w.alt ? ' ps-alt' : '') + '">' + ddmm(w.end) + '</th>'; }).join('') + '</tr>';
         var colTot = (b.colors || []).map(function (c) { var t = 0; weeks.forEach(function (w) { t += num((c.qty || {})[w.start]); }); return t; });
         var grand = colTot.reduce(function (a, x) { return a + x; }, 0);
         var colRows = '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">Поставки по цветам</th></tr>' + (b.colors || []).map(function (c, ci) {
@@ -373,8 +373,8 @@
         }).join('') + ((b.colors || []).length < 12 ? '<tr class="ps-r"><th class="ps-l"><button type="button" class="ps-addc" data-ps-color="' + b.id + '">+ цвет</button></th><td colspan="' + weeks.length + '"></td></tr>' : '');
         var rows = colRows + '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">Недели</th></tr>' + WROWS.map(function (r) {
             if (r.sec) return '<tr class="ps-sec ps-secf"><th class="ps-l" colspan="' + (weeks.length + 1) + '">' + r.sec + '</th></tr>';
-            return '<tr class="ps-r' + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
-                var cls = (w.first ? ' ps-m' : '');
+            return '<tr class="ps-r ps-g-' + r.g + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
+                var cls = (w.first ? ' ps-m' : '') + (w.alt ? ' ps-alt' : '');
                 if (r.input) {
                     var v = ((b.data || {})[w.start] || {})[r.k];
                     return '<td class="ps-c' + cls + '"><input class="ps-in" type="text" inputmode="decimal" data-b="' + b.id + '" data-w="' + w.start + '" data-k="' + r.k + '" value="' + esc(has(v) ? v : '') + '"></td>';
@@ -396,7 +396,8 @@
     }
     function weekCtx() {
         var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), seen = {};
-        weeks.forEach(function (w) { var k = w.year + '-' + w.month; w.first = !seen[k]; seen[k] = 1; });
+        var mi = -1, last = '';
+        weeks.forEach(function (w) { var k = w.year + '-' + w.month; w.first = !seen[k]; seen[k] = 1; if (k !== last) { mi++; last = k; } w.alt = mi % 2 === 1; });
         return { weeks: weeks, spans: monthSpans(weeks) };
     }
     var CROWS = ['orders', 'sales', 'ret', 'sup', 'stock', 'pay', 'profit', 'fOrders', 'fSales', 'fPay', 'fProfit', 'pfOrders', 'pfProfit'];
@@ -407,14 +408,14 @@
     function colorSectionHtml(b, ci, weeks, spans) {
         var c = b.colors[ci], key = b.id + '|' + ci, open = !!(st.open && st.open[key]), cb = colorBlock(b, ci, weeks);
         var head = '<tr class="ps-h1"><th class="ps-l"></th>' + spans.map(function (m) { return '<th colspan="' + m.n + '" class="ps-m">' + m.label + '</th>'; }).join('') + '</tr>' +
-            '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>';
+            '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + (w.alt ? ' ps-alt' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>';
         var body = '';
         if (open) {
             var calc = calcBlock(cb, weeks, (st.facts || {})[cb.nm]);
             body = '<div class="ps-scroll"><table class="ps-table"><thead>' + head + '</thead><tbody>' + CROWS.map(function (k) {
                 var r = rowDef(k);
-                return '<tr class="ps-r' + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
-                    return '<td class="ps-c ps-calc' + (w.first ? ' ps-m' : '') + (r.bold ? ' ps-bold' : '') + tone(k, calc[i]) + (isFactKey(k) && cellAny(calc[i], k) && calc[i][k] !== null ? ' ps-fact' : '') + '" data-ccalc="' + b.id + '|' + ci + '|' + i + '|' + k + '">' + fval(calc[i][k], cellAny(calc[i], k), k) + '</td>';
+                return '<tr class="ps-r ps-g-' + r.g + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
+                    return '<td class="ps-c ps-calc' + (w.first ? ' ps-m' : '') + (w.alt ? ' ps-alt' : '') + (r.bold ? ' ps-bold' : '') + tone(k, calc[i]) + (isFactKey(k) && cellAny(calc[i], k) && calc[i][k] !== null ? ' ps-fact' : '') + '" data-ccalc="' + b.id + '|' + ci + '|' + i + '|' + k + '">' + fval(calc[i][k], cellAny(calc[i], k), k) + '</td>';
                 }).join('') + '</tr>';
             }).join('') + '</tbody></table></div>';
         }
@@ -486,7 +487,7 @@
             '<div class="ps-note">Считается само из листа «План продаж»: перечисление и ЧП приходят через ' + PAYOUT_LAG + ' недели после продаж, маркетинг (внутренний и раздачи) и поставки стоят в той же неделе. Факт к перечислению и ЧП берутся из РНП (финотчёт WB) с тем же сдвигом. Вводить ничего не нужно.</div>' + moneyChart(plan, weeks) +
             '<div class="ps-foot ps-exp"><button type="button" class="ps-add" data-ps-xlsx>Скачать Excel</button></div>' +
             '<div class="ps-scroll ps-money"><table class="ps-table ps-mt"><thead><tr><th colspan="8" class="ps-title">Приблизительный план вывода денег</th></tr>' +
-            '<tr class="ps-mh"><th>Месяц</th><th>Неделя</th><th>План к перечислению, сом</th><th>План ЧП, сом</th><th>Затраты на маркетинг, сом</th><th>Поставки, шт</th><th class="ps-fh">Факт к перечислению, сом</th><th class="ps-fh">Факт ЧП, сом</th></tr></thead><tbody>' + rows +
+            '<tr class="ps-mh"><th>Месяц</th><th>Неделя</th><th class="ps-hg">План к перечислению, сом</th><th class="ps-hg">План ЧП, сом</th><th class="ps-ha">Затраты на маркетинг, сом</th><th class="ps-hs">Поставки, шт</th><th class="ps-fh">Факт к перечислению, сом</th><th class="ps-fh">Факт ЧП, сом</th></tr></thead><tbody>' + rows +
             '<tr class="ps-tot"><td colspan="2">Итого</td><td>' + fnum(tot.pay, any) + '</td><td>' + fnum(tot.profit, any) + '</td><td>' + fnum(tot.mkt, any) + '</td><td>' + fnum(tot.sup, any) + '</td><td>' + fnum(tot.fpay, anyF) + '</td><td>' + fnum(tot.fprofit, anyF) + '</td></tr></tbody></table></div>';
     }
     // пересчёт блока на месте после ввода: фокус и прокрутка не сбиваются
