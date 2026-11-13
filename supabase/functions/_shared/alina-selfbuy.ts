@@ -29,6 +29,7 @@ import {
 } from './alina-templates.ts';
 import {
   fetchSheetPlan,
+  resolveActiveSheet,
   getOpenProductChoices,
   matchOfferFromText,
   resolveProductChoice,
@@ -1458,7 +1459,8 @@ export async function logAlinaRawEvent(
 // ── Google Sheets ───────────────────────────────────────────────────────────
 
 async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
-  const sheetId = (Deno.env.get('ALINA_SHEET_ID') || (await getCampaign())?.sheet_id || '').trim();
+  const targetSheet = await resolveActiveSheet(db);
+  const sheetId = targetSheet?.sheet_id || '';
   const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
   if (!sheetId || !saJson) {
     console.log('[alina-selfbuy] sheets write skip: need GOOGLE_SERVICE_ACCOUNT_JSON / sheet_id');
@@ -1471,7 +1473,9 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
 
   try {
     const token = await googleAccessToken(saJson);
-    const tab = (Deno.env.get('ALINA_LEADS_TAB') || 'Список БЛУЗКИ ФОНАРЬ/ВЫРЕЗ ВБ').trim();
+    const tab = targetSheet?.cabinet_key === 'mars'
+      ? 'Раздачи'
+      : (Deno.env.get('ALINA_LEADS_TAB') || 'Список БЛУЗКИ ФОНАРЬ/ВЫРЕЗ ВБ').trim();
     const tg = lead.username
       ? `@${String(lead.username).replace(/^@/, '')}`
       : String(lead.telegram_user_id);
