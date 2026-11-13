@@ -2136,3 +2136,14 @@ html[data-mp="ozon"] #tab-dashboard > :not(#nr-mp-dash) { display: none !importa
 .nr-mp-blur { filter: blur(6px); opacity: .6; transition: filter .15s, opacity .15s; }
 @media (max-width: 760px) { .nr-mp-dash { padding: 16px; border-radius: 20px; } .nr-mp-kp { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nr-mp-k b { font-size: 24px; } }
 @media (max-width: 768px) { html body .main-content > .nr-mp { align-self: flex-start; margin: 0 0 8px; height: 34px; } html body .main-content > .nr-mp button { padding: 0 14px; } }
+
+/* А/Б тесты: каркас до загрузки, кнопка «Новый тест» слева в стиле сайта */
+html body .ab-toolbar { align-items: center; gap: 10px; flex-wrap: wrap; }
+html body .ab-new-pill { appearance: none; border: 1px solid var(--accent, #000); background: var(--accent, #000); color: var(--on-accent, #fff); font: 800 11px/1 inherit; font-family: inherit; letter-spacing: .08em; text-transform: uppercase; height: 32px; padding: 0 16px; border-radius: 999px; cursor: pointer; flex: none; transition: transform .08s; }
+html body .ab-new-pill:active { transform: scale(.96); }
+html body .ab-skel { height: 190px; border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 26px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 5%, transparent), transparent) 0 0 / 200% 100%; animation: ab-skel 1.4s linear infinite; }
+@keyframes ab-skel { to { background-position: -200% 0; } }
+/* «Создать тест» появляется только на втором шаге, когда товар выбран */
+html body #new-test-form:has(#ab-wizard-rest.hidden) #ab-create-test-btn { display: none; }
+html body .ab-new-foot { justify-content: flex-end; }
+@media (max-width: 760px) { html body .ab-new-pill { height: 34px; } }

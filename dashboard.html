@@ -6136,7 +6136,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.d3a097697c.css">
+<link rel="stylesheet" href="/dist/nr-mono.25e41142c9.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7341,6 +7341,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
         <div id="tab-ab-testing" class="tab-content space-y-4">
             <div class="ads-hq-bulk ab-toolbar">
+                <button type="button" class="ab-new-pill" id="ab-new-btn" onclick="showNewTestForm()">+ Новый тест</button>
                 <div class="ads-hq-filters" id="ab-filter-chips">
                     <button type="button" class="ads-hq-chip on" data-ab-filter="active" onclick="filterTests('active', this)">Активные</button>
                     <button type="button" class="ads-hq-chip" data-ab-filter="finished" onclick="filterTests('finished', this)">Архив</button>
@@ -7356,13 +7357,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <button type="button" class="rnp-tool-icon" id="ab-reload" title="Обновить" aria-label="Обновить" onclick="loadABTests()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.2-5.8"></path><path d="M21 3v6h-6"></path></svg>
                     </button>
-                    <button type="button" class="rnp-tool-icon" id="ab-new-btn" title="Создать тест" aria-label="Создать тест" onclick="showNewTestForm()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
-                    </button>
+                    
                 </div>
             </div>
 
-            <div id="abtests-list" class="space-y-3"><div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div></div>
+            <div id="abtests-list" class="space-y-3"><div class="ab-skel"></div><div class="ab-skel"></div></div></div>
         </div>
 
         <div id="tab-rnp-settings" class="tab-content">
@@ -15431,7 +15430,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
         }
         if (typeof fileOrUrl === 'string') return fileOrUrl;
-        const ext = fileOrUrl.name.split('.').pop();
+        const ext = String(fileOrUrl.name || '').split('.').pop() || (String(fileOrUrl.type || '').split('/')[1] || 'png');
         const path = `${testId}/${label}.${ext}`;
         const { error } = await supabase.storage.from('abtest-photos').upload(path, fileOrUrl, { upsert: true, contentType: fileOrUrl.type });
         if (error) throw new Error('Ошибка загрузки фото: ' + error.message);
@@ -15482,13 +15481,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             },
         };
         hideNewTestForm();
-        showPremiumModal('success', 'Тест создан', 'Загружаем фото и ставим первое на WB, это займёт до минуты.');
+        abOk('Тест создан', 'Фото загружаются и встают на WB в фоне.');
         runABCreate(snap);
     }
 
     // Фоновое создание: тест, фото, варианты, первое фото на WB. Если не вышло, короткая ошибка и «Повторить».
     async function runABCreate(snap) {
         let testId = null;
+        // Сразу показываем карточку в списке, пока тест сохраняется.
+        const tmp = { id: 'tmp-' + Date.now(), cabinet_id: snap.cabinetId, nm_id: snap.nmId, product_name: snap.name, status: 'active', rotation_interval_min: snap.interval, started_at: new Date().toISOString(), settings: snap.settings, variants: [] };
+        allABTests.unshift(tmp); renderABTests();
         try {
             const { data: test, error } = await supabase.from('ab_tests').insert({
                 cabinet_id: snap.cabinetId,
@@ -15506,22 +15508,19 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             saveABSettings(test.id, snap.settings);
             loadABTests();
 
-            const variantRows = [];
-            for (let i = 0; i < snap.abFiles.length; i++) {
-                const label = abVariantLabel(i);
-                const url = await uploadVariantPhoto(snap.abFiles[i], test.id, label);
-                variantRows.push({ test_id: test.id, variant_label: label, photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
-            }
+            const urls = await Promise.all(snap.abFiles.map((f, i) => uploadVariantPhoto(f, test.id, abVariantLabel(i))));
+            const variantRows = urls.map((url, i) => ({ test_id: test.id, variant_label: abVariantLabel(i), photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 }));
             const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
             if (vErr) throw new Error(vErr.message);
             loadABTests();
 
             const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label);
             if (!ok) throw new Error('WB не принял первое фото.');
-            showPremiumModal('success', 'Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
+            abOk('Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
             loadABTests();
         } catch (e) {
             if (testId) { try { await supabase.from('ab_tests').delete().eq('id', testId); } catch (_) {} }
+            allABTests = allABTests.filter(t => t !== tmp); renderABTests();
             loadABTests();
             const msg = String(e && e.message || e || 'Попробуйте ещё раз.');
             if (window.NrUi) window.NrUi.toast('error', 'Тест не создался', msg, { action: { label: 'Повторить', onClick: () => runABCreate(snap) } });
@@ -15557,19 +15556,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (h) h.update(ok ? 'success' : 'error', ok ? 'Фото сменено' : 'Фото не сменилось', ok ? '' : 'WB не принял фото или тест уже завершён. Повторите.');
     }
 
+    const abOk = (t, x) => window.NrUi ? window.NrUi.toast('success', t, x || '') : showPremiumModal('success', t, x || '');
+    let abTestsCab = null;
     async function loadABTests() {
         const container = document.getElementById('abtests-list');
-        if (!currentCabinetId) {
-            allABTests = [];
-            if (container) {
-                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
-                    <div style="font-size:40px;margin-bottom:12px">📊</div>
-                    Выберите кабинет, чтобы увидеть А/Б тесты
-                </div>`;
-            }
-            return;
-        }
+        // Кабинет ещё не определился: каркас остаётся, ничего не стираем и не пишем «выберите кабинет».
+        if (!currentCabinetId) return;
         const abKey = 'nr_ab_' + currentCabinetId;
+        if (abTestsCab !== currentCabinetId) { allABTests = []; abTestsCab = currentCabinetId; }
         if (!allABTests.length) { try { const c = JSON.parse(localStorage.getItem(abKey) || 'null'); if (c && c.length) { allABTests = c; renderABTests(); } } catch (e) {} }
         try {
             const { data: tests, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
@@ -15600,9 +15594,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             renderABTests();
             startRotationTimers();
 
-            // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
-            // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
-            // раз после загрузки списка (не при каждом фоновом обновлении).
             if (!window._abDeepLinkHandled) {
                 window._abDeepLinkHandled = true;
                 try {
@@ -15614,13 +15605,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
         } catch (e) {
             console.error('[AB] loadABTests:', e);
-            allABTests = [];
-            if (container) {
-                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
-                    Не удалось загрузить тесты. Обновите страницу.
-                    <div class="mt-2 text-xs">${String(e.message || e).replace(/</g, '&lt;')}</div>
-                </div>`;
-            }
+            // Старый список остаётся на экране; если его нет, коротко говорим и даём повторить.
+            if (!allABTests.length && container) container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">Не удалось загрузить тесты. <button type="button" class="ab-btn ab-btn-ghost" onclick="loadABTests()">Повторить</button></div>`;
         }
     }
 
@@ -15680,10 +15666,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const maxScore = Math.max(...withRate.map(v => v.score), 0);
         const winner = maxScore > 0 ? withRate.find(v => v.score === maxScore) : null;
         const metricLabel = metric === 'ctr' ? 'CTR' : metric === 'cr' ? 'CR' : 'зак/час';
-        // Вероятность "победы" по CTR (та же Beta-модель, что и в детальном
-        // отчёте) — используем только для явных бейджей "выигрывает"/
-        // "проигрывает" на самой карточке, чтобы статус был виден без
-        // открытия отчёта.
         const probsForCard = hasAdsData ? computeProbabilityBestByCtr(withRate) : new Map();
         const maxProbForCard = Math.max(...Array.from(probsForCard.values()), 0);
         const leaderLabelForCard = Array.from(probsForCard.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -15791,12 +15773,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </div>`;
     }
 
-    // Реальная ротация фото теперь выполняется на сервере (edge-функция
-    // ab-test-rotate по pg_cron каждые 10 мин), поэтому работает даже если
-    // вкладка/браузер закрыты. Здесь только:
-    // 1) визуальный прогресс-бар до следующей ротации,
-    // 2) фоновая переподгрузка тестов, чтобы увидеть серверную ротацию,
-    // 3) подстраховка — если сервер почему-то не сработал сильно позже срока.
     function startRotationTimers() {
         Object.values(abRotationTimers).forEach(id => clearInterval(id));
         abRotationTimers = {};
@@ -15988,7 +15964,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const card = document.getElementById('abtest-card-' + testId);
             if (card) window.NrWow.pulse(card);
         }
-        showPremiumModal('success', 'Тест завершён', paused.length
+        abOk('Тест завершён', paused.length
             ? `Ротация остановлена, на паузе ${paused.length} РК.`
             : 'А/Б тест остановлен.');
         await loadABTests();
@@ -16013,13 +15989,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             return;
         }
         try { localStorage.removeItem(abSettingsKey(testId)); } catch (e) {}
-        showPremiumModal('success', 'Тест удалён', '');
+        abOk('Тест удалён');
     }
     window.deleteABTest = deleteABTest;
 
-    // Детальный отчёт по тесту. Вероятность победы считаем Beta-биномиальным
-    // Монте-Карло по CTR (Beta(clicks+1, views-clicks+1)) — та же модель, что
-    // и на сервере (ab-test-rotate), чтобы цифры совпадали с автозавершением.
     function abGaussianRandom() {
         let u = 0, v = 0;
         while (u === 0) u = Math.random();
@@ -16086,7 +16059,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 return;
             }
         }
-        showPremiumModal('success', 'Автостоп включён', `Тест сам остановится, когда победитель наберёт CTR от ${minCtr}% и выше. Лучшее фото останется на WB, РК встанет на паузу.`);
+        abOk('Автостоп включён', `Тест сам остановится, когда победитель наберёт CTR от ${minCtr}% и выше. Лучшее фото останется на WB, РК встанет на паузу.`);
         await loadABTests();
     }
     window.armABWinnerStop = armABWinnerStop;
@@ -16310,16 +16283,25 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         const ok = await showConfirmModal('Установить это фото на ВБ?', `Фото варианта «${escapeHtml(String(variant.variant_label))}» будет загружено на карточку товара на Wildberries.`);
         if (!ok) return;
-        const applied = await rotateTestPhoto(testId, (test.variants || []).findIndex(v => String(v.id) === String(variantId)), variant.photo_url, test.nm_id, variant.variant_label);
-        if (!applied) return;
-        await supabase.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', testId);
-        await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', variantId);
-        if (test.status === 'active') {
-            await supabase.from('ab_tests').update({ current_variant_index: (test.variants || []).findIndex(v => String(v.id) === String(variantId)) }).eq('id', testId);
-        }
-        showPremiumModal('success', 'Фото установлено', 'Вариант загружен на Wildberries.');
-        closeABReportModal();
-        await loadABTests();
+        const vi = (test.variants || []).findIndex(v => String(v.id) === String(variantId));
+        const prev = (test.variants || []).map(v => !!v.is_currently_on_wb);
+        // Сразу отмечаем вариант как стоящий на WB и закрываем отчёт; WB подтверждает в фоне, при ошибке откатываем.
+        (test.variants || []).forEach(v => { v.is_currently_on_wb = String(v.id) === String(variantId); });
+        renderABTests(); closeABReportModal();
+        const h = window.NrUi ? window.NrUi.toast('info', 'Ставим фото на WB…', '', { loading: true, key: 'ab-apply-' + testId }) : null;
+        let applied = false;
+        try {
+            applied = await rotateTestPhoto(testId, vi, variant.photo_url, test.nm_id, variant.variant_label);
+            if (applied) {
+                await supabase.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', testId);
+                await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', variantId);
+                if (test.status === 'active') await supabase.from('ab_tests').update({ current_variant_index: vi }).eq('id', testId);
+            }
+        } catch (e) { console.warn('[AB] apply:', e); applied = false; }
+        if (!applied) (test.variants || []).forEach((v, i) => { v.is_currently_on_wb = prev[i]; });
+        renderABTests();
+        if (h) h.update(applied ? 'success' : 'error', applied ? 'Фото установлено на WB' : 'Фото не установилось', applied ? '' : 'WB не принял фото. Попробуйте ещё раз.');
+        else if (applied) abOk('Фото установлено', 'Вариант загружен на Wildberries.');
     }
     window.applyWinningVariant = applyWinningVariant;
 
@@ -16422,23 +16404,24 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const indices = Object.keys(abEditNewFiles).map(Number).sort((a, b) => a - b).filter(i => abEditNewFiles[i]);
         if (!indices.length) { showPremiumModal('warning', 'Нет новых фото', 'Добавьте хотя бы один новый вариант.'); return; }
         const startLabel = (test.variants?.length || 0);
-        try {
-            for (let i = 0; i < indices.length; i++) {
-                const file = abEditNewFiles[indices[i]];
-                const label = abVariantLabel(startLabel + i);
-                const url = await uploadVariantPhoto(file, test.id, label);
-                const { error } = await supabase.from('ab_test_variants').insert({
-                    test_id: test.id, variant_label: label, photo_url: url,
-                    impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: false
-                });
+        const files = indices.map(i => abEditNewFiles[i]);
+        closeABEditModal();
+        abOk('Фото добавляются', 'Загрузка идёт в фоне.');
+        (async () => {
+            try {
+                const rows = await Promise.all(files.map(async (file, i) => {
+                    const label = abVariantLabel(startLabel + i);
+                    return { test_id: test.id, variant_label: label, photo_url: await uploadVariantPhoto(file, test.id, label), impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: false };
+                }));
+                const { error } = await supabase.from('ab_test_variants').insert(rows);
                 if (error) throw new Error(error.message);
+                abOk('Варианты добавлены', `Добавлено ${rows.length} новых фото.`);
+                loadABTests();
+            } catch (e) {
+                if (window.NrUi) window.NrUi.toast('error', 'Фото не добавились', String(e.message || e), { action: { label: 'Повторить', onClick: () => saveABEditVariants() } });
+                else showPremiumModal('error', 'Ошибка', e.message);
             }
-            closeABEditModal();
-            showPremiumModal('success', 'Варианты добавлены', `Добавлено ${indices.length} новых фото.`);
-            await loadABTests();
-        } catch (e) {
-            showPremiumModal('error', 'Ошибка', e.message);
-        }
+        })();
     }
 
     function addVariantInput() { addVariantSlot(); }
