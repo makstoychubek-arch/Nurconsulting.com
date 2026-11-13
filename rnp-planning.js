@@ -149,7 +149,7 @@
         { k: 'orders', label: 'План заказов (шт.)', g: 'ord', input: 1, heat: 'g' }, { k: 'ordersDay', label: 'План заказов в день', g: 'ord', heat: 'ryg' },
         { k: 'sales', label: 'План продаж (шт.)', g: 'ord', heat: 'g' }, { k: 'ret', label: 'Возвраты', g: 'ord' },
         { k: 'price', label: 'Цена до СПП', g: 'price', input: 1, heat: 'y' }, { k: 'priceSpp', label: 'Цена после СПП', g: 'price' },
-        { k: 'giveSum', label: 'Раздачи (сумм)', g: 'money', input: 1 }, { k: 'drr', label: 'План ДРР, %', g: 'money', input: 1 },
+        { k: 'giveNet', label: 'Раздачи (чистыми)', g: 'money', input: 1 }, { k: 'giveSum', label: 'Раздачи (сумм)', g: 'money', input: 1 }, { k: 'drr', label: 'План ДРР, %', g: 'money', input: 1 },
         { k: 'mkt', label: 'Внутренний маркетинг', g: 'money' }, { k: 'logiU', label: 'Логистика на 1 шт.', g: 'money' }, { k: 'logi', label: 'Логистика', g: 'money' },
         { k: 'commR', label: 'Комиссия', g: 'money' }, { k: 'storR', label: 'Хранение', g: 'money' }, { k: 'taxR', label: 'Налог', g: 'money' }, { k: 'cogsU', label: 'Себес 1 ед', g: 'money' },
         { k: 'profit', label: 'План ЧП', g: 'money', heat: 'g', bold: 1 }, { k: 'roi', label: '% прибыли от себеса', g: 'money' },
@@ -380,7 +380,7 @@
         });
         return out;
     }
-    var SUM_KEYS = ['orders', 'sales', 'ret', 'giveSum', 'mkt', 'logi', 'commR', 'storR', 'taxR', 'profit', 'pay', 'sup', 'fOrders', 'fSales', 'fProfit', 'fPay'], AVG_KEYS = ['ordersDay', 'price', 'priceSpp', 'drr', 'roi'];
+    var SUM_KEYS = ['orders', 'sales', 'ret', 'giveNet', 'giveSum', 'mkt', 'logi', 'commR', 'storR', 'taxR', 'profit', 'pay', 'sup', 'fOrders', 'fSales', 'fProfit', 'fPay'], AVG_KEYS = ['ordersDay', 'price', 'priceSpp', 'drr', 'roi'];
     function totalOf(calc, k) {
         var vals = calc.filter(function (c) { return cellAny(c, k) && Number.isFinite(c[k]); }).map(function (c) { return c[k]; });
         if (!vals.length) return '';
@@ -461,6 +461,36 @@
             calcRow('vol', 'Объём (л)', volOf(pr)) + calcRow('toClient', 'Логистика до клиента', fnum(toClient, true)) + calcRow('unitLogi', 'Юнит логистика', fnum(Pc.unitLogi, true)) +
             calcRow('unitStor', 'Юнит хранение', (Math.round(Pc.unitStor * 1000) / 1000).toLocaleString('ru')) + calcRow('invest', 'Вложения', fnum(invest, true)) + '</tbody></table>';
     }
+    function smoothPath(pts, lo, hi) {
+        if (!pts.length) return '';
+        var cl = function (v) { return lo === undefined ? v : Math.min(hi, Math.max(lo, v)); };
+        var d = 'M' + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1);
+        for (var i = 0; i < pts.length - 1; i++) {
+            var p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+            d += ' C' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ',' + cl(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + ' ' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ',' + cl(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + ' ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+        }
+        return d;
+    }
+    // график-область справа вверху, как в вашей таблице: продажи (шт.) и выручка по неделям, две шкалы
+    function areaChart(calc, weeks) {
+        var last = -1; calc.forEach(function (c, i) { if (c.any) last = i; });
+        if (last < 0) return '<div class="ps-ch ps-chw"><div class="ps-cht">Продажи и выручка</div><div class="ps-che">нет данных</div></div>';
+        var n = Math.max(last + 2, 8), W = 1040, H = 230, L = 56, R = 56, T = 12, B = 26, iw = W - L - R, ih = H - T - B;
+        var S = calc.slice(0, n).map(function (c) { return Math.max(0, num(c.sales)); }), V = calc.slice(0, n).map(function (c) { return Math.max(0, num(c.sales) * num(c.price)); });
+        var mS = Math.max.apply(null, S.concat([1])), mV = Math.max.apply(null, V.concat([1]));
+        var x = function (i) { return L + (n > 1 ? iw * i / (n - 1) : iw / 2); };
+        var yS = function (v) { return T + ih - ih * v / mS; }, yV = function (v) { return T + ih - ih * v / mV; };
+        var ptsS = S.map(function (v, i) { return [x(i), yS(v)]; }), ptsV = V.map(function (v, i) { return [x(i), yV(v)]; });
+        var area = function (pts, cls) { return '<path class="' + cls + '" d="' + smoothPath(pts, T, T + ih) + ' L' + pts[pts.length - 1][0].toFixed(1) + ',' + (T + ih) + ' L' + pts[0][0].toFixed(1) + ',' + (T + ih) + ' Z"/>'; };
+        var grid = '';
+        for (var g = 0; g <= 4; g++) {
+            var yy = T + ih - ih * g / 4, f = function (v) { return v >= 1e6 ? (v / 1e6).toFixed(1).replace('.0', '') + 'M' : v >= 1e3 ? Math.round(v / 1e3) + 'k' : Math.round(v); };
+            grid += '<line class="psc-g" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy.toFixed(1) + '" y2="' + yy.toFixed(1) + '"/><text class="psc-t" x="' + (L - 6) + '" y="' + (yy + 3).toFixed(1) + '" text-anchor="end">' + f(mV * g / 4) + '</text><text class="psc-t" x="' + (W - R + 6) + '" y="' + (yy + 3).toFixed(1) + '">' + f(mS * g / 4) + '</text>';
+        }
+        var lab = ''; weeks.slice(0, n).forEach(function (w, i) { if (i === 0 || weeks[i - 1].month !== w.month) lab += '<text class="psc-t" x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '">' + MSHORT[w.month] + '</text>'; });
+        return '<div class="ps-ch ps-chw"><div class="ps-cht">Продажи и выручка по неделям</div><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Продажи и выручка">' + grid + area(ptsV, 'psc-av') + area(ptsS, 'psc-as') + '<path class="psc-lv" d="' + smoothPath(ptsV, T, T + ih) + '"/><path class="psc-ls" d="' + smoothPath(ptsS, T, T + ih) + '"/>' + lab + '</svg>' +
+            '<div class="ps-leg"><span><i class="psc-kv"></i>Выручка, сом (слева)</span><span><i class="psc-ks"></i>Продажи, шт (справа)</span></div></div>';
+    }
     function planFactChart(title, key, fkey, calc, weeks, money) {
         var last = -1; calc.forEach(function (c, i) { if (c.any || c.fAny) last = i; });
         if (last < 0) return '<div class="ps-ch"><div class="ps-cht">' + title + '</div><div class="ps-che">нет данных</div></div>';
@@ -473,11 +503,13 @@
             var x0 = L + i * bw + bw * 0.12, w2 = bw * 0.38;
             return '<rect class="psc-bp" x="' + x0.toFixed(1) + '" y="' + y(p).toFixed(1) + '" width="' + w2.toFixed(1) + '" height="' + (T + ih - y(p)).toFixed(1) + '"/><rect class="psc-bf" x="' + (x0 + w2).toFixed(1) + '" y="' + y(F[i]).toFixed(1) + '" width="' + w2.toFixed(1) + '" height="' + (T + ih - y(F[i])).toFixed(1) + '"/>';
         }).join('');
+        var pts = P.map(function (p, i) { return [L + i * bw + bw * 0.31, y(p)]; });
+        var line = '<path class="psc-pl" d="' + smoothPath(pts, T, T + ih) + '"/>';
         var lab = ''; weeks.slice(0, n).forEach(function (w, i) { if (i === 0 || weeks[i - 1].month !== w.month) lab += '<text class="psc-t" x="' + (L + i * bw).toFixed(1) + '" y="' + (H - 7) + '">' + MSHORT[w.month] + '</text>'; });
-        return '<div class="ps-ch"><div class="ps-cht">' + title + '</div><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + title + '">' + grid + bars + lab + '</svg></div>';
+        return '<div class="ps-ch"><div class="ps-cht">' + title + '</div><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + title + '">' + grid + bars + line + lab + '</svg></div>';
     }
     function chartsHtml(calc, weeks) {
-        return '<div class="ps-charts">' + planFactChart('План / факт к перечислению', 'pay', 'fPay', calc, weeks) + planFactChart('План / факт кассовая прибыль', 'cashPlan', 'cashFact', calc, weeks) +
+        return '<div class="ps-charts">' + areaChart(calc, weeks) + planFactChart('План / факт к перечислению', 'pay', 'fPay', calc, weeks) + planFactChart('План / факт кассовая прибыль', 'cashPlan', 'cashFact', calc, weeks) +
             planFactChart('План / факт ЧП', 'profit', 'fProfit', calc, weeks) + planFactChart('План / факт заказов', 'orders', 'fOrders', calc, weeks) +
             '<div class="ps-leg ps-chl"><span><i class="psc-kp"></i>План</span><span><i class="psc-kf"></i>Факт</span></div></div>';
     }
