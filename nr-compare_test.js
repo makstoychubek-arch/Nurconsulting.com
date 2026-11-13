@@ -37,4 +37,13 @@ assert.equal(globalThis.NrCompare._wbHost(100), 1);
 assert.equal(globalThis.NrCompare._wbHost(2000), 13);
 assert.equal(globalThis.NrCompare._wbHost(12187), 44, 'артикул 1218799336 (vol 12187): корзина 44, как в РНП');
 assert.equal(globalThis.NrCompare._wbHost(2962), 18);
+// Задание на слайды: приоритет кадров по главной утечке, признаки из СЕО
+const seo = { itog: { keep: 'Супер: свитер женский оверсайз, свитер вязаный\nПризнаки с фото: оверсайз, вязаный трикотаж, вырез-лодочка' } };
+const b = globalThis.NrCompare._briefs({ id: 'ctr' }, seo, '');
+assert.equal(b.length, 8);
+assert.deepEqual(b.filter((x) => x.hot).map((x) => x.n), [1], 'утечка «показы → клики»: чинит обложка');
+assert.ok(b[0].text.includes('свитер женский оверсайз'), 'название на обложке из топ-запроса СЕО');
+assert.ok(b[1].text.includes('оверсайз, вязаный трикотаж, вырез-лодочка'), 'иконки из «Признаки с фото»');
+assert.deepEqual(globalThis.NrCompare._briefs({ id: 'cart' }, null, '').filter((x) => x.hot).map((x) => x.n), [2, 3, 4, 5]);
+assert.equal(globalThis.NrCompare._briefs(null, null, '').filter((x) => x.hot).length, 0, 'утечки нет: приоритетов нет');
 console.log('nr-compare_test: ok');
