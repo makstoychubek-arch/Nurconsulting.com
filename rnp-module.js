@@ -79,7 +79,7 @@ const RNP = (() => {
     const CABINET_ART = { nm_id: -1, name: 'Общий', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
     const VIEW_PRESETS = {
         all: null,
-        sales_finance: new Set(['sales', 'cash', 'buyout', 'logistics', 'storage', 'result', 'profit']),
+        sales_finance: new Set(['sales', 'cash', 'buyout', 'expenses', 'result', 'profit']),
         compact: new Set(['sales', 'result', 'profit']),
     };
 
@@ -176,6 +176,13 @@ const RNP = (() => {
             { key: 'orders_conv_pct',    label: 'Заказы%',                          type: 'pct2', src: 'calc' },
             { key: 'cro_pct',            label: 'CR0 %',                            type: 'pct2', src: 'calc' },
         ]},
+        { id: 'buyout', label: 'Выкупы и возвраты', color: '#06b6d4', rows: [
+            { key: 'cancels_count',      label: 'Отказы',                           type: 'int',  src: 'auto' },
+            { key: 'returns_count',      label: 'Возвраты',                         type: 'int',  src: 'auto' },
+            { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
+            { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
+            { key: 'realization',        label: 'Реализация (WB)',                  type: 'som',  src: 'auto' },
+        ]},
         { id: 'ads', label: 'Реклама (РК)', color: '#8b5cf6', rows: [
             { key: 'ad_impressions',     label: 'Показы с рк',                      type: 'int',  src: 'promo' },
             { key: 'ad_imp_pct',         label: 'Доля переходов с рекламы %',       type: 'pct',  src: 'calc' },
@@ -194,26 +201,19 @@ const RNP = (() => {
             { key: 'drr_sales_pct',      label: 'ДРРп %',                           type: 'pct',  src: 'calc',  hm: 'low' },
             { key: 'plan_drr',           label: 'ДРР % План',                       type: 'pct',  src: 'manual', isPlan: true },
         ]},
-        { id: 'buyout', label: 'Выкупы и возвраты', color: '#06b6d4', rows: [
-            { key: 'cancels_count',      label: 'Отказы',                           type: 'int',  src: 'auto' },
-            { key: 'returns_count',      label: 'Возвраты',                         type: 'int',  src: 'auto' },
-            { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
-            { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
-        ]},
-        { id: 'logistics', label: 'Логистика', color: '#0ea5e9', rows: [
+        { id: 'expenses', label: 'Все расходы', color: '#0ea5e9', rows: [
+            { key: 'wb_commission', label: 'Комиссия WB и вычеты с продаж', type: 'som', src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'delivery_sum',       label: 'Доставка (WB)',                    type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
             { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
             { key: 'storage_sum',        label: 'Хранение (сверено)',               type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
-        ]},
-        { id: 'result', label: 'Платежи и удержания WB', color: '#84cc16', rows: [
-            { key: 'realization',        label: 'Реализация (WB)',                  type: 'som',  src: 'auto' },
-            { key: 'wb_commission', label: 'Комиссия WB и вычеты с продаж', type: 'som', src: 'auto',  hm: 'cost', cabinetOnly: true },
-            { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
             { key: 'acceptance_sum',     label: 'Обработка товара (WB)',            type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'other_net_sum', label: 'Прочие удержания и доплаты', type: 'som', src: 'auto', cabinetOnly: true },
+        ]},
+        { id: 'result', label: 'К выводу', color: '#84cc16', rows: [
+            { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
             { key: 'to_withdraw',        label: 'К выводу',                         type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
         ]},
         { id: 'profit', label: 'Прибыль', color: '#22c55e', rows: [
