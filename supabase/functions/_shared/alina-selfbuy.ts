@@ -84,6 +84,7 @@ export type SelfbuyLead = {
   status: SelfbuyStatus;
   source_account: string;
   sheet_row: number | null;
+  sheet_target?: string | null;
   notes?: string | null;
   deal_type?: DealType | null;
   keyword?: string | null;
@@ -1457,11 +1458,7 @@ export async function logAlinaRawEvent(
 // ── Google Sheets ───────────────────────────────────────────────────────────
 
 async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
-  const sheetId = (
-    (await getCampaign())?.sheet_id ||
-    Deno.env.get('ALINA_SHEET_ID') ||
-    ''
-  ).trim();
+  const sheetId = (Deno.env.get('ALINA_SHEET_ID') || (await getCampaign())?.sheet_id || '').trim();
   const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
   if (!sheetId || !saJson) {
     console.log('[alina-selfbuy] sheets write skip: need GOOGLE_SERVICE_ACCOUNT_JSON / sheet_id');
@@ -1478,42 +1475,32 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
     const tg = lead.username
       ? `@${String(lead.username).replace(/^@/, '')}`
       : String(lead.telegram_user_id);
-    // Формат BAZA «Список БЛУЗКИ ФОНАРЬ/ВЫРЕЗ ВБ»:
-    // A Вид | B ТГ | C Дата заказа | D Цена | E Размер кэша | F | G Кэш выплачен |
-    // H Примерная дата забора | I Факт забора | J Дата рекламы | K ШК | L Дата отзыва |
-    // M Вид отзыва | N Реквизиты | O План выплаты | P Отзыв опубл | Q Ответственный | R Ключ |
-    // S | T Фильтры | U ЧС | V Просмотры | W Reels
-    const vid = lead.deal_type === 'barter' ? 'БЛОГЕР' : 'КЭШБЕК';
-    const values = [[
-      vid,
-      tg,
-      lead.order_received_at || new Date().toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }),
-      lead.order_price || '',
-      lead.cashback_pct != null ? String(lead.cashback_pct) : '',
-      null,
-      null,
-      lead.pickup_at || '',
-      lead.pickup_at || '',
-      null,
-      null,
-      lead.review_planned_at || '',
-      lead.review_note || '',
-      lead.bank_details || '',
-      null,
-      lead.status === 'done' ? 'Да' : '',
-      'Алина',
-      lead.keyword || '',
-      null,
-      null,
-      null,
-      null,
-      lead.reels_url || '',
-    ]];
-
-    // Имя вкладки с «/» обязательно в одинарных кавычках
     const qtab = `'${tab.replace(/'/g, "''")}'`;
+    const target = `${sheetId}/${tab}`;
+    const vid = lead.deal_type === 'barter' ? 'БЛОГЕР' : 'КЭШБЕК';
+    const date = lead.order_received_at || new Date().toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' });
+    const pct = lead.cashback_pct == null ? '' : String(lead.cashback_pct);
+    const headersRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${qtab}!A1:W1`)}`,
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) },
+    );
+    if (!headersRes.ok) throw new Error('Alina cannot read the destination sheet headers');
+    const headers = (await headersRes.json()).values?.[0] as string[] | undefined;
+    if (!headers?.some((header) => /^(ссылка тг|тг)$/i.test(header.trim()))) {
+      throw new Error('Alina destination sheet has no Telegram column');
+    }
+    const fields = new Map<string, string>([
+      ['товар', lead.product_name || ''], ['вид', vid], ['вид раздачи', vid],
+      ['ссылка тг', tg], ['тг', tg], ['дата заказа', date], ['цена в заказе', lead.order_price || ''],
+      ['цена', lead.order_price || ''], ['размер кэша', pct],
+      ['фактическая дата забора', lead.pickup_at || ''], ['факт забора', lead.pickup_at || ''],
+      ['дата публикации отзыва', lead.review_planned_at || ''], ['дата отзыва', lead.review_planned_at || ''],
+      ['вид отзыва', lead.review_note ? 'Получен' : ''], ['отзыв опубликован', lead.status === 'done' ? 'Да' : ''],
+      ['ответственный', 'Алина'], ['ключ', lead.keyword || ''], ['ссылка на reels', lead.reels_url || ''],
+    ]);
+    const values = [headers.map((header) => fields.get(header.trim().toLowerCase()) ?? null)];
 
-    if (lead.sheet_row) {
+    if (lead.sheet_row && lead.sheet_target === target) {
       const range = `${qtab}!A${lead.sheet_row}:W${lead.sheet_row}`;
       const res = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${
@@ -1553,7 +1540,7 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
     const updated = String(body?.updates?.updatedRange || '');
     const m = updated.match(/![A-Z]+(\d+)/);
     if (m) {
-      await db.from('alina_selfbuy_leads').update({ sheet_row: Number(m[1]) }).eq('id', leadId);
+      await db.from('alina_selfbuy_leads').update({ sheet_row: Number(m[1]), sheet_target: target }).eq('id', leadId);
     }
     console.log('[alina-selfbuy] sheet append ok', updated);
   } catch (e) {

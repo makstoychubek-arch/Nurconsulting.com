@@ -82,13 +82,13 @@ async function discoverTabs(
       name: properties.title,
     }));
 
-    const graphs = tabs.filter((t) => /график|раздач/i.test(t.name) && !/^раздач/i.test(t.name));
+    const graphs = tabs.filter((t) => /график|раздач|календарь/i.test(t.name) && !/^раздач/i.test(t.name));
     // вкладка лога: «Раздачи» / «Раздача» / «Выкупы»
     const raz = tabs.find((t) => /^раздач/i.test(t.name)) ||
       tabs.find((t) => /выкуп|кэш|кеш|лог/i.test(t.name));
     // графики: название содержит «график» или «раздач» но не сама «Раздачи»
     const graphTabs = tabs.filter((t) =>
-      /график/i.test(t.name) ||
+      /график|календарь/i.test(t.name) ||
       (/раздач/i.test(t.name) && raz && t.gid !== raz.gid)
     );
     return {
@@ -172,7 +172,7 @@ function parseRazdachi(rows: string[][]): LeadRow[] {
       const t = norm(h);
       if (/ссылка\s*тг|username|^тг$/.test(t)) map.tg = idx;
       if (/дата\s*заказ/.test(t)) map.order_date = idx;
-      if (/^вид$|тип/.test(t) || idx === 0) map.kind = map.kind ?? idx;
+      if (/^вид( раздачи)?$|^тип/.test(t)) map.kind = idx;
       if (/^ключ|ключев|запрос/.test(t)) map.keyword = idx;
       if (/товар|артикул|цвет|столбец 1/.test(t)) map.product = idx;
       if (/кэш\s*выплач|выплачен/.test(t)) map.cash_paid = idx;
@@ -750,6 +750,7 @@ export async function resolveActiveSheet(
 ): Promise<ActiveSheet | null> {
   const envId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
   const envCab = (Deno.env.get('ALINA_CABINET_KEY') || 'active').trim();
+  if (envId) return { sheet_id: envId, cabinet_key: envCab, cabinet_name: null };
 
   try {
     const { data: camp } = await db
@@ -784,9 +785,6 @@ export async function resolveActiveSheet(
     }
   } catch { /* optional */ }
 
-  if (envId) {
-    return { sheet_id: envId, cabinet_key: envCab, cabinet_name: null };
-  }
   return null;
 }
 

@@ -45,6 +45,7 @@ alter table public.alina_selfbuy_events enable row level security;
 -- Алина: бартер / кэшбек — расширенные поля лида + активный оффер (слоты, ключ).
 
 alter table public.alina_selfbuy_leads
+  add column if not exists sheet_target text,
   add column if not exists deal_type text,
   add column if not exists keyword text,
   add column if not exists cashback_pct int,
