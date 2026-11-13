@@ -1755,3 +1755,16 @@ html body .ms-col .cs-art { height: 30px; }
 html body .ms-cell { height: 200px; border-top: 1px solid var(--border); overflow: hidden; }
 html body .ms-send.ms-ok { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
 html body .ms-act .cc-btn:disabled:not(.ms-send) { opacity: .6; cursor: default; }
+/* Сравнение контента: аккуратнее на телефоне */
+@media (max-width: 640px) {
+  html body .cc-t.cc-t5 td:nth-child(2), html body .cc-t.cc-t5 td:nth-child(3), html body .cc-t.cc-t5 td:nth-child(4) { white-space: nowrap; }
+  html body .cc-t.cc-t5 { min-width: 560px; }
+  html body .cs-r { grid-template-columns: 1fr 44px 1fr; gap: 6px; padding: 0 8px; font-size: 11.5px; }
+  html body .cs-r > :first-child { white-space: nowrap; }
+  html body .cs-h { grid-template-columns: 1fr 44px 1fr; padding: 0 8px; }
+  html body .cs-im { width: 36px; height: 48px; }
+  html body .cc-step { min-width: 84px; padding: 12px 10px; }
+  html body .cc-step b { font-size: 18px; }
+  html body .cc-tile b { font-size: 22px; }
+  html body .cc-acts { gap: 8px; }
+}

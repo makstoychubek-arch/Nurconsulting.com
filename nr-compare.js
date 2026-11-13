@@ -41,15 +41,18 @@
         });
         var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
         var div = function (a, b) { return b > 0 ? a / b * 100 : null; };
-        var steps = [
-            { id: 'ctr', from: 'Показы', to: 'Клики', a: t.imp, b: t.clk, ours: div(t.clk, t.imp), rival: avg(t.cCtr), fix: 'Обложка: первый кадр, ракурс, цвет фона, цена на фото' },
-            { id: 'cart', from: 'Клики', to: 'Корзина', a: t.clk, b: t.cart, ours: div(t.cart, t.clk), rival: avg(t.cCart), fix: 'Слайды 2–5: выгоды, посадка, размеры и замеры, состав' },
+        // В базе «показы» равны переходам в карточку, поэтому настоящий шаг «показы → клики» есть только когда показов больше кликов.
+        var realImp = t.imp > t.clk * 1.02;
+        var steps = [];
+        if (realImp) steps.push({ id: 'ctr', from: 'Показы', to: 'Переходы', a: t.imp, b: t.clk, ours: div(t.clk, t.imp), rival: avg(t.cCtr), fix: 'Обложка: первый кадр, ракурс, цвет фона, цена на фото' });
+        steps.push(
+            { id: 'cart', from: 'Переходы', to: 'Корзина', a: t.clk, b: t.cart, ours: div(t.cart, t.clk), rival: avg(t.cCart), fix: 'Слайды 2–5: выгоды, посадка, размеры и замеры, состав' },
             { id: 'order', from: 'Корзина', to: 'Заказ', a: t.cart, b: t.ord, ours: div(t.ord, t.cart), rival: avg(t.cOrd), fix: 'Цена и скидка, срок доставки, отзывы с фото' },
             { id: 'buyout', from: 'Заказ', to: 'Выкуп', a: t.ord, b: t.buy, ours: div(t.buy, t.ord), rival: null, fix: 'Размерная сетка и реальные фото: меньше возвратов «не подошло»' }
-        ];
+        );
         var worst = null;
         steps.forEach(function (s) { if (s.ours != null && s.rival != null) { s.gap = s.ours - s.rival; if (s.gap < 0 && (!worst || s.gap / s.rival < worst.gap / worst.rival)) worst = s; } });
-        return { total: t, steps: steps, worst: worst };
+        return { total: t, steps: steps, worst: worst, realImp: realImp };
     }
 
     // ───── части каркаса ─────
@@ -234,6 +237,34 @@
         }
         return '<div class="cs-wrap sq-wrap"><table class="sq"><thead>' + head + '</thead><tbody>' + rows + words + qhead + qrows + '</tbody></table></div>';
     }
+    // Эталон для шага воронки: данные конкурентов, а если их нет, медиана соседних расцветок той же склейки (или всего кабинета)
+    function medianOf(a) { a = a.filter(function (x) { return x != null && isFinite(x); }).sort(function (x, y) { return x - y; }); if (!a.length) return null; var m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+    function withBench(f, peers, label) {
+        var steps = f.steps.map(function (st) {
+            var o = Object.assign({}, st);
+            if (o.rival == null && peers && peers.length) {
+                var v = medianOf(peers.map(function (pf) { var q = pf.steps.filter(function (x) { return x.id === st.id; })[0]; return q ? q.ours : null; }));
+                if (v != null) { o.rival = v; o.bench = label; }
+            }
+            if (o.ours != null && o.rival != null) o.gap = o.ours - o.rival;
+            return o;
+        });
+        var worst = null;
+        steps.forEach(function (st) { if (st.gap != null && st.rival > 0 && st.gap < 0 && (!worst || st.gap / st.rival < worst.gap / worst.rival)) worst = st; });
+        return Object.assign({}, f, { steps: steps, worst: worst });
+    }
+    function peersFor(nm) {
+        if (!S.allFun) return { list: [], label: '' };
+        var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
+        var me = byArt[Number(nm)], key = grpKey(me), same = [], all = [];
+        Object.keys(S.allFun).forEach(function (k) {
+            if (Number(k) === Number(nm)) return;
+            var pf = S.allFun[k]; if (!(pf.total.clk > 0)) return;
+            all.push(pf); if (key && grpKey(byArt[Number(k)]) === key) same.push(pf);
+        });
+        return same.length >= 2 ? { list: same, label: 'медиана склейки' } : { list: all, label: 'медиана кабинета' };
+    }
+    function worstOf() { if (!S.fun) return null; var pr = peersFor(S.nm); return withBench(S.fun, pr.list, pr.label).worst; }
     // Задание на слайды: какой кадр чинит какой шаг воронки и что на нём показать. Признаки берутся из СЕО (строка «Признаки с фото»).
     var FOCUS = { ctr: [0], cart: [1, 2, 3, 4], order: [5, 6, 7], buyout: [3, 7] };
     function slideBriefs(worst, seo, name) {
@@ -259,8 +290,10 @@
             briefs.map(function (b) { return b.n + '. ' + b.title + (b.hot ? ' [приоритет]' : '') + ': ' + b.text; }).join('\n') + '\nСтиль: «Минимализм», чёрно-белая подача, без цветных заливок, крупный читаемый текст.';
     }
     function leakHtml() {
-        var f = S.fun || funnel([]), has = !!S.fun, t = f.total;
-        var vals = [['Показы', t.imp], ['Клики', t.clk], ['Корзина', t.cart], ['Заказ', t.ord], ['Выкуп', t.buy]];
+        var f0 = S.fun || funnel([]), has = !!S.fun, pr = has ? peersFor(S.nm) : { list: [], label: '' };
+        var f = has ? withBench(f0, pr.list, pr.label) : f0, t = f.total;
+        var benchLabel = (f.steps.filter(function (x) { return x.bench; })[0] || {}).bench;
+        var vals = (f.realImp ? [['Показы', t.imp]] : []).concat([['Переходы', t.clk], ['Корзина', t.cart], ['Заказ', t.ord], ['Выкуп', t.buy]]);
         var w = f.worst;
         var chain = vals.map(function (v, i) {
             var st = f.steps[i - 1];
@@ -268,20 +301,21 @@
             return (i ? '<div class="cc-arr">' + conv + '</div>' : '') + '<div class="cc-step' + (w && st && st === w ? ' cc-bad' : '') + '"><div class="cc-cap">' + v[0] + '</div><b class="' + (has ? '' : 'cc-blur') + '">' + (has ? fmt(v[1]) : '0') + '</b></div>';
         }).join('');
         var rows = f.steps.map(function (s) {
-            var gap = s.gap == null ? '<span class="cc-mut">нет данных конкурентов</span>' : '<span class="cc-pill ' + (s.gap < 0 ? 'dn' : 'up') + '">' + (s.gap < 0 ? '−' : '+') + pct(Math.abs(s.gap)).replace('%', ' п.п.') + '</span>';
+            var gap = s.gap == null ? '<span class="cc-mut">нет данных для сравнения</span>' : '<span class="cc-pill ' + (s.gap < 0 ? 'dn' : 'up') + '">' + (s.gap < 0 ? '−' : '+') + pct(Math.abs(s.gap)).replace('%', ' п.п.') + '</span>';
             return '<tr' + (w && s === w ? ' class="cc-hot"' : '') + '><td>' + s.from + ' → ' + s.to + '</td><td>' + (has ? pct(s.ours) : '<span class="cc-g"></span>') + '</td><td>' + (has ? pct(s.rival) : '<span class="cc-g"></span>') + '</td><td>' + (has ? gap : '<span class="cc-g"></span>') + '</td><td class="cc-fix">' + s.fix + '</td></tr>';
         }).join('');
         // все артикулы кабинета: где у каждого главная утечка (клик по строке выбирает товар)
         var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
         var list = S.allFun ? Object.keys(S.allFun).map(function (k) { var ff = S.allFun[k], a = byArt[Number(k)]; return { nm: Number(k), name: a ? (a.seller_article || a.name) : k, f: ff }; })
-            .filter(function (x) { return x.f.total.imp > 0; }).sort(function (x, y) { return y.f.total.rev - x.f.total.rev; }) : null;
-        var all = list ? '<div class="cc-card"><div class="cc-h"><h3>Все артикулы кабинета</h3><span>главная утечка и сколько денег в ней · клик выбирает товар</span></div><div class="cc-tw cc-scroll"><table class="cc-t cc-t5"><thead><tr><th>Артикул</th><th>Заказы, ₽</th><th>Показы</th><th>Главная утечка</th><th>Конверсия</th></tr></thead><tbody>' +
+            .map(function (x) { var p2 = peersFor(x.nm); return { nm: x.nm, name: x.name, f: withBench(x.f, p2.list, p2.label) }; })
+            .filter(function (x) { return x.f.total.clk > 0; }).sort(function (x, y) { return y.f.total.rev - x.f.total.rev; }) : null;
+        var all = list ? '<div class="cc-card"><div class="cc-h"><h3>Все артикулы кабинета</h3><span>главная утечка и сколько денег в ней · клик выбирает товар</span></div><div class="cc-tw cc-scroll"><table class="cc-t cc-t5"><thead><tr><th>Артикул</th><th>Заказы, ₽</th><th>Переходы</th><th>Главная утечка</th><th>Конверсия</th></tr></thead><tbody>' +
             (list.length ? list.map(function (x) {
                 var ww = x.f.worst;
-                return '<tr class="cc-pick' + (x.nm === S.nm ? ' cc-hot' : '') + '" data-cc-nm="' + x.nm + '"><td>' + esc(x.name) + '</td><td>' + fmt(x.f.total.rev) + '</td><td>' + fmt(x.f.total.imp) + '</td><td>' + (ww ? ww.from + ' → ' + ww.to : '<span class="cc-mut">нет отставания</span>') + '</td><td>' + (ww ? pct(ww.ours) + ' <span class="cc-mut">против ' + pct(ww.rival) + '</span>' : '—') + '</td></tr>';
+                return '<tr class="cc-pick' + (x.nm === S.nm ? ' cc-hot' : '') + '" data-cc-nm="' + x.nm + '"><td>' + esc(x.name) + '</td><td>' + fmt(x.f.total.rev) + '</td><td>' + fmt(x.f.total.clk) + '</td><td>' + (ww ? ww.from + ' → ' + ww.to : '<span class="cc-mut">нет отставания</span>') + '</td><td>' + (ww ? pct(ww.ours) + ' <span class="cc-mut">против ' + pct(ww.rival) + '</span>' : '—') + '</td></tr>';
             }).join('') : '<tr><td colspan="5" class="cc-mut">За 30 дней показов нет</td></tr>') + '</tbody></table></div></div>' : '';
-        return '<div class="cc-leak"><div class="cc-tile cc-dark"><div class="cc-cap">Главная утечка</div><b>' + (w ? w.from + ' → ' + w.to : '—') + '</b><span>' + (w ? 'наша конверсия ' + pct(w.ours) + ', у конкурентов ' + pct(w.rival) + '. Исправить: ' + w.fix.toLowerCase() : (has ? 'по данным конкурентов отставания нет или их пока нет' : 'считаем воронку за 30 дней')) + '</span></div><div class="cc-chain">' + chain + '</div></div>' +
-            '<div class="cc-card"><div class="cc-h"><h3>Где теряем покупателя</h3><span>наша воронка за 30 дней против конкурентов</span></div><div class="cc-tw"><table class="cc-t cc-t5"><thead><tr><th>Шаг</th><th>У нас</th><th>У конкурентов</th><th>Разница</th><th>Что переделать в фото</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' + all +
+        return '<div class="cc-leak"><div class="cc-tile cc-dark"><div class="cc-cap">Главная утечка</div><b>' + (w ? w.from + ' → ' + w.to : '—') + '</b><span>' + (w ? 'наша конверсия ' + pct(w.ours) + ', эталон ' + pct(w.rival) + (benchLabel ? ' (' + benchLabel + ')' : '') + '. Исправить: ' + w.fix.toLowerCase() : (has ? 'по данным конкурентов отставания нет или их пока нет' : 'считаем воронку за 30 дней')) + '</span></div><div class="cc-chain">' + chain + '</div></div>' +
+            '<div class="cc-card"><div class="cc-h"><h3>Где теряем покупателя</h3><span>наша воронка за 30 дней против ' + (benchLabel ? 'эталона: ' + benchLabel : 'конкурентов') + '</span></div><div class="cc-tw"><table class="cc-t cc-t5"><thead><tr><th>Шаг</th><th>У нас</th><th>' + (benchLabel ? benchLabel.charAt(0).toUpperCase() + benchLabel.slice(1) : 'У конкурентов') + '</th><th>Разница</th><th>Что переделать в фото</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' + all +
             '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-sec="media">Перейти к фото под эту утечку</button></div>';
     }
     // «Медиа» как лист «ФОТОВОРОНКА» из таблицы владельца: слева РЕФЕРЕНС (кадр лучшего конкурента) и ТЗ для создания фотоворонки по каждому кадру,
@@ -483,7 +517,7 @@
             var t = e.target.closest('[data-cc-test]'); if (!t) return;
             var nm = Number(t.getAttribute('data-cc-test')), note = m.querySelector('#cc-test-note');
             t.disabled = true; if (note) note.textContent = 'Запускаем…';
-            var w = S.fun && S.fun.worst;
+            var w = worstOf();
             // сразу показываем «идёт генерация», остальное сервер делает в фоне
             S.jobs[nm] = Object.assign({}, S.jobs[nm] || { nm_id: nm, slides: [] }, { status: 'generating' });
             closePay(); if (S.sec === 'media') paint();
@@ -574,5 +608,5 @@
         if (host && pane && !pane.hidden) open();
     });
 
-    root.NrCompare = { open: open, _funnel: funnel, _briefs: slideBriefs, _rivalStats: rivalStats, _wbHost: wbHost };
+    root.NrCompare = { open: open, _funnel: funnel, _withBench: withBench, _briefs: slideBriefs, _rivalStats: rivalStats, _wbHost: wbHost };
 })(typeof window !== 'undefined' ? window : globalThis);
