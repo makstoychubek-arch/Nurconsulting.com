@@ -8030,7 +8030,9 @@ const RNP = (() => {
         const changed = panel.classList.contains('is-pinned') !== pinned;
         if (changed) panel.classList.toggle('is-pinned', pinned);
         const applyH = () => {
-            const h = Math.round(panel.getBoundingClientRect().height);
+            // offsetHeight, а не getBoundingClientRect: при масштабе страницы (zoom) тот даёт уже уменьшенные пиксели,
+            // и строки шапки таблицы заезжали под закреплённую шапку артикула
+            const h = panel.offsetHeight;
             if (h > 0) _setCssVar(body, '--rnp-pin-h', `${h}px`);
         };
         if (changed) {
