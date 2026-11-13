@@ -264,7 +264,7 @@
                 }).join('');
         }).join('');
         st.host.innerHTML = viewTabs() +
-            '<div class="ps-note">Заполняйте перед запуском: продажи, цену, удержания WB, себестоимость, маркетинг и поставки по неделям. Выручка, к перечислению и ЧП считаются сами, лист «План вывода денег» собирается из этих блоков.</div>' +
+            '<div class="ps-note">Заполняйте перед запуском: продажи, цену, удержания WB, себестоимость, маркетинг и поставки по неделям. Выручка, к перечислению и ЧП считаются сами, лист «План вывода денег» собирается из этих блоков. План продаж (шт в неделю) сам попадает в строку «План продаж» РНП по выбранному артикулу: неделя ÷ 7 на каждый день.</div>' +
             '<div class="ps-scroll"><table class="ps-table"><thead>' + head + '</thead><tbody>' + top + body + '</tbody></table></div>' +
             '<div class="ps-foot"><button type="button" class="ps-add" data-ps-add>+ Добавить артикул</button></div>';
     }
@@ -291,6 +291,37 @@
         var total = moneyPlan(st.sheet.blocks, weeks);
         st.host.querySelectorAll('[data-all]').forEach(function (el, i) { el.textContent = fnum(total[i].rev, total[i].any); });
     }
+
+    // План продаж из листа ложится в РНП: неделя шт ÷ 7 на каждый день в rnp_plans.planned_sales (строка «План продаж» РНП)
+    var unitQueue = {}, unitTimer = null;
+    function weekDays(ymd) { var o = []; for (var i = 0; i < 7; i++) o.push(addDays(ymd, i)); return o; }
+    function dayValue(units) { return has(units) ? Math.round(num(units) / 7 * 1e6) / 1e6 : null; }
+    function queueUnits(nm, weekStart, units) {
+        if (!nm) return;
+        unitQueue[nm + '|' + weekStart] = { nm: Number(nm), week: weekStart, val: dayValue(units) };
+        clearTimeout(unitTimer);
+        unitTimer = setTimeout(flushUnits, 600);
+    }
+    async function flushUnits() {
+        clearTimeout(unitTimer); unitTimer = null;
+        var cur = st, q = unitQueue; unitQueue = {};
+        var items = Object.keys(q).map(function (k) { return q[k]; });
+        if (!cur || !cur.db || !items.length) return;
+        var now = new Date().toISOString(), rows = [];
+        items.forEach(function (it) { weekDays(it.week).forEach(function (d) { rows.push({ cabinet_id: cur.cab, nm_id: it.nm, plan_date: d, planned_sales: it.val, updated_at: now }); }); });
+        var res = await cur.db.from('rnp_plans').upsert(rows, { onConflict: 'cabinet_id,nm_id,plan_date' });
+        if (res && res.error) { if (root.console) console.warn('[planning] sync to RNP', res.error.message); items.forEach(function (it) { unitQueue[it.nm + '|' + it.week] = it; }); unitTimer = setTimeout(flushUnits, 5000); return; }
+        if (cur.onSaved) cur.onSaved();
+    }
+    // выбрали другой артикул в блоке: у старого убираем план, новому ставим
+    function resyncBlock(b, oldNm, newNm) {
+        Object.keys(b.data || {}).forEach(function (w) {
+            var u = (b.data[w] || {}).units; if (!has(u)) return;
+            if (oldNm) queueUnits(oldNm, w, '');
+            if (newNm) queueUnits(newNm, w, u);
+        });
+    }
+
     function onSheetEvent(e) {
         var t = e.target;
         if (e.type === 'change' && t.classList && t.classList.contains('ps-in')) {
@@ -300,10 +331,11 @@
             t.classList.remove('is-err');
             b.data = b.data || {}; var wk = (b.data[t.dataset.w] = b.data[t.dataset.w] || {});
             if (v === '') delete wk[t.dataset.k]; else wk[t.dataset.k] = v;
+            if (t.dataset.k === 'units') queueUnits(b.nm, t.dataset.w, v);
             saveSheet(); refreshCalc(); return true;
         }
         if (e.type === 'change' && t.matches && t.matches('.ps-art')) {
-            var bb = st.sheet.blocks.filter(function (x) { return x.id === t.dataset.psArt; })[0]; if (bb) { bb.nm = t.value; saveSheet(); } return true;
+            var bb = st.sheet.blocks.filter(function (x) { return x.id === t.dataset.psArt; })[0]; if (bb) { var oldNm = bb.nm; bb.nm = t.value; resyncBlock(bb, oldNm, bb.nm); saveSheet(); } return true;
         }
         if (e.type !== 'click') return false;
         var btn = t.closest && t.closest('button'); if (!btn) return false;
