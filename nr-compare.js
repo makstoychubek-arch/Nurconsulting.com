@@ -319,6 +319,16 @@
         }).join('');
         return '<div class="cs-wrap ms-wrap' + (leak ? ' ms-leak' : '') + '"><div class="ms-sheet">' + out + '</div></div>';
     }
+    // Листы крутятся только по одной оси: по диагонали (тачпад) берём главное направление
+    function lockAxis(e) {
+        var w = e.target.closest && e.target.closest('.cs-wrap'); if (!w || e.ctrlKey) return;
+        var dx = e.deltaX, dy = e.deltaY;
+        if (e.deltaMode === 1) { dx *= 16; dy *= 16; }
+        if (!dx || !dy) return;
+        e.preventDefault();
+        if (Math.abs(dx) > Math.abs(dy)) w.scrollLeft += dx; else w.scrollTop += dy;
+    }
+    if (!doc.__ccAxis) { doc.__ccAxis = 1; doc.addEventListener('wheel', lockAxis, { passive: false }); }
     var VIEW = { rivals: rivalsHtml, seo: seoHtml, leak: leakHtml, media: mediaHtml };
 
     function shell() {
