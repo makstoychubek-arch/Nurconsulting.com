@@ -1719,3 +1719,23 @@ html body .nr-zoom-b { font-size: 16px !important; width: 28px; padding: 0 !impo
 html body .nr-zoom-v { min-width: 46px; font-size: 11.5px !important; font-weight: 800; color: var(--text-muted) !important; font-variant-numeric: tabular-nums; border-left: 1px solid var(--border) !important; border-right: 1px solid var(--border) !important; }
 html body .nr-zoom-v.on { color: var(--text-primary) !important; }
 @media (max-width: 768px) { html body .nr-zoom { display: none; } html body .main-content > .tab-content { zoom: 1; } }
+/* Сравнение контента → Медиа как лист «ФОТОВОРОНКА»: референс и ТЗ слева, колонки артикулов с кадрами карточки */
+html body .ms-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+html body .ms-wrap { max-height: calc(100vh - 190px); }
+html body .ms-sheet { display: flex; align-items: flex-start; width: max-content; min-width: 100%; }
+html body .ms-side { position: sticky; left: 0; z-index: 2; flex: 0 0 330px; background: var(--bg, #fff); border-right: 1px solid var(--text-primary); }
+html body .ms-sh { height: 286px; display: grid; grid-template-columns: 96px 1fr; align-items: end; padding: 0 0 10px; }
+html body .ms-sh span { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 0 12px; }
+html body .ms-row { display: grid; grid-template-columns: 96px 1fr; height: 150px; border-top: 1px solid var(--border); }
+html body .ms-row.ms-hot { background: var(--sel); }
+html body .ms-ref { display: grid; place-items: center; }
+html body .ms-im { width: 78px; height: 104px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); background: var(--sel); display: block; }
+html body .ms-tz { padding: 10px 12px 8px 4px; font-size: 11.5px; font-weight: 600; line-height: 1.4; color: var(--text-muted); overflow: auto; }
+html body .ms-tz b { display: block; color: var(--text-primary); font-size: 12px; font-weight: 800; margin-bottom: 3px; }
+html body .ms-col { flex: 0 0 150px; border-right: 1px solid var(--border); cursor: pointer; }
+html body .ms-col.on { background: var(--sel); cursor: default; }
+html body .ms-name { height: 44px; padding: 8px 8px 0; font-size: 11.5px; font-weight: 800; line-height: 1.25; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+html body .ms-col .cs-ph { height: 150px; }
+html body .ms-cell { height: 150px; border-top: 1px solid var(--border); display: grid; place-items: center; }
+html body .ms-col .cs-art { border-bottom: 1px solid var(--text-primary); height: 56px; }
+@media (max-width: 480px) { html body .ms-side { flex-basis: 250px; } html body .ms-sh, html body .ms-row { grid-template-columns: 70px 1fr; } html body .ms-im { width: 56px; height: 76px; } }
