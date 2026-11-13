@@ -125,22 +125,17 @@
             '<div class="cs-name" title="' + esc((d && d.name) || (a && a.name) || '') + '">' + esc((d && d.name) || (a && (a.seller_article || a.name)) || '—') + '</div>' + ph +
             '<div class="cs-art">' + esc(nm || '—') + '</div>' +
             '<div class="cs-rev"><span>Наша выручка</span><b>' + (d && d.rev != null ? fmt(d.rev) : '—') + '</b></div>' +
-            '<div class="cs-place">' + (st.place ? 'место ' + st.place + ' из ' + st.of + ' · медиана похожих ' + fmt(st.median) : '&nbsp;') + '</div>' +
             '<div class="cs-h"><span>Артикул</span><span>Фото</span><span>Выручка</span></div>' +
             list(d && d.similar, 15) + '<div class="cs-sep">Топ по выручке</div>' + list(d && d.top, 10) + '</section>';
     }
     function rivalsHtml() {
-        var all = S.all, p = period(), byArt = {};
+        var all = S.all, byArt = {};
         S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
-        var per = all && all.length && all[0].period_from ? all[0].period_from.split('-').reverse().join('.') + ' – ' + all[0].period_to.split('-').reverse().join('.') : dm(p.from) + '–' + dm(p.to);
-        var nums = function (from, n) { var o = ''; for (var i = 0; i < n; i++) o += '<div class="cs-n">' + (from + i) + '</div>'; return o; };
+                var nums = function (from, n) { var o = ''; for (var i = 0; i < n; i++) o += '<div class="cs-n">' + (from + i) + '</div>'; return o; };
         all = all && all.filter(function (d) { return (d.similar && d.similar.length) || (d.top && d.top.length); });
         var blocks = all && all.length ? all.map(function (d) { return blockHtml(d, byArt[Number(d.nm)], Number(d.nm) === S.nm); }).join('')
             : (S.arts.length ? S.arts.slice(0, 6) : [null, null, null, null]).map(function (a) { return blockHtml(null, a, a && Number(a.nm_id) === S.nm); }).join('');
-        return '<div class="cc-acts"><div class="cs-per"><span class="cc-cap">Период</span><b>' + per + '</b></div>' +
-            '<button type="button" class="cc-btn cc-btn-b" data-cc-act="find">' + (all && all.length ? 'Обновить конкурентов' : 'Подобрать конкурентов') + '</button>' +
-            '<span class="cc-note">' + (all && all.length ? all.length + ' артикулов из вашей таблицы. Лист листается вбок, как в таблице.' : 'Для каждого артикула: 15 похожих по фото (фасон 1 в 1, сначала нашего цвета) и 10 топов по выручке в предмете.') + '</span></div>' +
-            '<div class="cs-wrap"><div class="cs-sheet"><div class="cs-side"><div class="cs-side-top"><span>Название</span><span>Наше фото</span><span>Артикул</span></div><div class="cs-h"><span>№</span></div>' + nums(1, 15) + '<div class="cs-sep">&nbsp;</div>' + nums(1, 10) + '</div>' + blocks + '</div></div>';
+        return '<div class="cs-wrap"><div class="cs-sheet"><div class="cs-side"><div class="cs-side-top"><span>Название</span><span>Наше фото</span><span>Артикул</span></div><div class="cs-h"><span>№</span></div>' + nums(1, 15) + '<div class="cs-sep">&nbsp;</div>' + nums(1, 10) + '</div>' + blocks + '</div></div>';
     }
     function nl(t) { return esc(t).replace(/\n/g, '<br>'); }
     function longCell(t) {
@@ -215,8 +210,7 @@
                 return '<td colspan="2">' + (x ? '<div class="sq-q"><span>' + esc(x.q) + '</span><span>' + (x.freq == null ? '—' : fmt(x.freq)) + '</span><span class="sq-k sq-k' + x.quality + '">' + QUALITY[x.quality] + '</span><span>' + (x.price == null ? '—' : fmt(x.price)) + '</span></div>' : '') + '</td>';
             }).join('') + '</tr>';
         }
-        return '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="seo">Обновить СЕО</button><span class="cc-note">' + list.length + ' артикулов из вашей таблицы. Лист листается вбок, жирным выделено то, что отличается от текущей карточки.</span></div>' +
-            '<div class="cs-wrap sq-wrap"><table class="sq"><thead>' + head + '</thead><tbody>' + rows + words + qhead + qrows + '</tbody></table></div>';
+        return '<div class="cs-wrap sq-wrap"><table class="sq"><thead>' + head + '</thead><tbody>' + rows + words + qhead + qrows + '</tbody></table></div>';
     }
     // Задание на слайды: какой кадр чинит какой шаг воронки и что на нём показать. Признаки берутся из СЕО (строка «Признаки с фото»).
     var FOCUS = { ctr: [0], cart: [1, 2, 3, 4], order: [5, 6, 7], buyout: [3, 7] };
@@ -268,19 +262,27 @@
             '<div class="cc-card"><div class="cc-h"><h3>Где теряем покупателя</h3><span>наша воронка за 30 дней против конкурентов</span></div><div class="cc-tw"><table class="cc-t cc-t5"><thead><tr><th>Шаг</th><th>У нас</th><th>У конкурентов</th><th>Разница</th><th>Что переделать в фото</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>' + all +
             '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-sec="media">Перейти к фото под эту утечку</button></div>';
     }
+    // «Медиа» как лист «ФОТОВОРОНКА» из таблицы владельца: слева РЕФЕРЕНС (кадр лучшего конкурента) и ТЗ для создания фотоворонки по каждому кадру,
+    // дальше колонки артикулов: название, фото, артикул и кадры карточки по порядку. Сейчас в колонках фото, что стоят на WB; новые появятся после генерации.
+    var ROWS = 8;
     function mediaHtml() {
-        var a = art(), w = S.fun && S.fun.worst, nm = a ? Number(a.nm_id) : 0, seo = S.cmp && S.cmp.seo;
-        var name = (a && (a.name || a.seller_article)) || '';
-        var br = slideBriefs(w, seo, name);
-        var cur = '<div class="cc-card"><div class="cc-h"><h3>Сейчас в карточке</h3><span>первые 8 фото WB</span></div><div class="cc-slides">' + SLIDES.map(function (t, i) {
-            return '<figure>' + (nm ? wbImg(nm, i + 1).replace('cc-th', 'cc-th cc-sl') : '<div class="cc-sl cc-nophoto">' + (i + 1) + '</div>') + '<figcaption>' + (i + 1) + '. ' + t + '</figcaption></figure>';
-        }).join('') + '</div></div>';
-        var neu = '<div class="cc-card"><div class="cc-h"><h3>Новый вариант</h3><span>задание на каждый кадр' + (w ? ' · приоритет под шаг «' + w.from + ' → ' + w.to + '»' : '') + '</span></div><div class="cc-briefs">' + br.map(function (b) {
-            return '<div class="cc-brief' + (b.hot ? ' cc-hotb' : '') + '"><div class="cc-sl cc-nophoto">' + b.n + '</div><div><b>' + b.n + '. ' + b.title + (b.hot ? ' <span class="cc-new">приоритет</span>' : '') + '</b><p>' + esc(b.text) + '</p></div></div>';
-        }).join('') + '</div><div class="cc-acts"><button type="button" class="cc-btn" data-cc-act="copy">Скопировать задание</button><span class="cc-note">Картинки появятся после оплаты и генерации. Задание уже можно отдать дизайнеру.</span></div></div>';
-        return '<div class="cc-pay"><div><div class="cc-cap">Все фото карточки под утечку воронки</div><b>' + fmt(PRICE_SOM) + ' сом <small>за карточку</small></b><span>' + (w ? 'Упор на шаг «' + w.from + ' → ' + w.to + '». ' : '') + 'В подарок 1 А/Б тест обложки и СЕО.</span></div>' +
-            '<div class="cc-pay-b"><button type="button" class="cc-btn cc-btn-b" data-cc-act="gen">Сгенерировать</button><button type="button" class="cc-btn" data-cc-act="send" disabled title="Сначала нужна генерация новых фото">Отправить на WB</button></div></div>' +
-            '<div class="cc-two cc-two-m">' + cur + neu + '</div>';
+        var a = art(), w = S.fun && S.fun.worst, d = S.cmp, name = (a && (a.name || a.seller_article)) || '';
+        var br = slideBriefs(w, d && d.seo, name);
+        var byArt = {}; S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
+        var list = (S.all && S.all.length ? S.all : S.arts.map(function (x) { return { nm: Number(x.nm_id), name: x.seller_article || x.name }; })).slice();
+        var ref = 0, best = -1;
+        ((d && d.similar) || []).concat((d && d.top) || []).forEach(function (x) { if ((Number(x.rev) || 0) > best) { best = Number(x.rev) || 0; ref = x.nm; } });
+        var left = '<div class="ms-side"><div class="ms-sh"><span>Референс</span><span>ТЗ для создания фотоворонки</span></div>' + br.map(function (b, i) {
+            return '<div class="ms-row' + (b.hot ? ' ms-hot' : '') + '"><div class="ms-ref">' + (ref ? wbImg(ref, i + 1).replace('cc-th', 'cc-th ms-im') : '<div class="ms-im cc-nophoto"></div>') + '</div><div class="ms-tz"><b>' + b.n + '. ' + esc(b.title) + (b.hot ? ' <span class="cc-new">приоритет</span>' : '') + '</b>' + esc(b.text) + '</div></div>';
+        }).join('') + '</div>';
+        var cols = list.map(function (x) {
+            var ar = byArt[Number(x.nm)], on = Number(x.nm) === S.nm;
+            var ph = ar && ar.photo_url ? '<img class="cs-ph" src="' + esc(ar.photo_url) + '" alt="" loading="lazy">' : wbImg(x.nm).replace('cc-th', 'cs-ph');
+            return '<section class="ms-col' + (on ? ' on' : '') + '" data-nm="' + x.nm + '"><div class="ms-name" title="' + esc(x.name || '') + '">' + esc(x.name || (ar && (ar.seller_article || ar.name)) || x.nm) + '</div>' + ph + '<div class="cs-art">' + x.nm + '</div>' +
+                br.map(function (b, i) { return '<div class="ms-cell">' + wbImg(x.nm, i + 1).replace('cc-th', 'cc-th ms-im') + '</div>'; }).join('') + '</section>';
+        }).join('');
+        var bar = '<div class="ms-bar"><button type="button" class="cc-btn cc-btn-b" data-cc-act="gen">Сгенерировать · ' + fmt(PRICE_SOM) + ' сом</button><button type="button" class="cc-btn" data-cc-act="send" disabled title="Сначала нужна генерация новых фото">Отправить на WB</button><button type="button" class="cc-btn" data-cc-act="copy">Скопировать ТЗ</button></div>';
+        return bar + '<div class="cs-wrap ms-wrap"><div class="ms-sheet">' + left + cols + '</div></div>';
     }
     var VIEW = { rivals: rivalsHtml, seo: seoHtml, leak: leakHtml, media: mediaHtml };
 
@@ -300,7 +302,7 @@
         var opts = S.arts.length ? S.arts.map(function (a) { return '<option value="' + esc(a.nm_id) + '"' + (Number(a.nm_id) === S.nm ? ' selected' : '') + '>' + esc(a.name || a.seller_article || a.nm_id) + '</option>'; }).join('') : '<option>Товары загружаются</option>';
         if (sel.__h !== opts) { sel.innerHTML = opts; sel.__h = opts; }
         Array.prototype.forEach.call(host.querySelectorAll('.cc-chip'), function (b) { var on = b.getAttribute('data-cc') === S.sec; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-        var body = host.querySelector('#cc-body'), sec = S.sec, heavy = (sec === 'rivals' || sec === 'seo') && S.all && S.all.length > 10;
+        var body = host.querySelector('#cc-body'), sec = S.sec, heavy = (sec === 'rivals' || sec === 'seo' || sec === 'media') && S.all && S.all.length > 10;
         // Тяжёлые листы (десятки артикулов в ряд) собираются сразу после нажатия, но не в самом нажатии:
         // вкладка переключается мгновенно, а лист появляется в следующем кадре, без «зависания» кнопки
         if (heavy && body.__sec !== sec) {
@@ -371,8 +373,11 @@
             }).catch(function () { /* без общей таблицы */ });
     }
     function scrollToSel() {
-        var host = doc.getElementById('cc-root'), b = host && host.querySelector('.cs-b.on, .sq-names th.on'), w = host && host.querySelector('.cs-wrap');
-        if (b && w) w.scrollLeft = Math.max(0, b.offsetLeft - (b.tagName === 'TH' ? 200 : 70));
+        var host = doc.getElementById('cc-root'), b = host && host.querySelector('.cs-b.on, .ms-col.on, .sq-names th.on'), w = host && host.querySelector('.cs-wrap');
+        if (!b || !w) return;
+        // выбранный блок ставим сразу за закреплёнными колонками слева, чтобы он не уехал под них
+        var side = w.querySelector('.cs-side, .ms-side, .sq-l'), sw = side ? side.getBoundingClientRect().width : 0;
+        w.scrollLeft = Math.max(0, w.scrollLeft + b.getBoundingClientRect().left - w.getBoundingClientRect().left - sw);
     }
 
     // ───── окно оплаты ─────
@@ -400,7 +405,7 @@
         if (S.bound) return; S.bound = true;
         host.addEventListener('click', function (e) {
             var b;
-            if ((b = e.target.closest('.cs-b, .sq thead th[data-nm]')) && !e.target.closest('a') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
+            if ((b = e.target.closest('.cs-b, .ms-col, .sq thead th[data-nm]')) && !e.target.closest('a') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
             if ((b = e.target.closest('[data-cc-nm]'))) { S.nm = Number(b.getAttribute('data-cc-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} loadFunnel(); return; }
             if ((b = e.target.closest('[data-cc-sec]'))) { S.sec = b.getAttribute('data-cc-sec'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); return; }
             if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); scrollToSel(); return; }
