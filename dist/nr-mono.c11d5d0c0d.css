@@ -1707,3 +1707,15 @@ html body .cc-brief b { font-size: 13px; font-weight: 800; }
 html body .cc-brief p { margin: 3px 0 0; font-size: 12.5px; font-weight: 600; color: var(--text-muted); line-height: 1.45; }
 html body .cc-brief.cc-hotb .cc-sl { border-color: var(--text-primary); }
 html body .cc-slides .cc-sl.cc-th { width: 100%; height: auto; aspect-ratio: 3 / 4; }
+
+/* ===== Масштаб страницы: «−  100%  +» рядом с кабинетом; меняется только содержимое вкладок, меню и шапка остаются ===== */
+html body .main-content > .tab-content { zoom: var(--nr-zoom, 1); }
+html body .nr-zoom { display: inline-flex; align-items: center; height: 30px; border: 1px solid var(--text-primary); border-radius: 999px; overflow: hidden; background: transparent; flex: none; }
+html body .nr-zoom button { border: 0; background: transparent; color: var(--text-primary); font: 800 13px inherit; font-family: inherit; height: 100%; padding: 0 10px; cursor: pointer; line-height: 1; }
+html body .nr-zoom button:hover:not(:disabled) { background: var(--sel); }
+html body .nr-zoom button:active:not(:disabled) { transform: scale(.94); }
+html body .nr-zoom button:disabled { opacity: .3; cursor: default; }
+html body .nr-zoom-b { font-size: 16px !important; width: 28px; padding: 0 !important; }
+html body .nr-zoom-v { min-width: 46px; font-size: 11.5px !important; font-weight: 800; color: var(--text-muted) !important; font-variant-numeric: tabular-nums; border-left: 1px solid var(--border) !important; border-right: 1px solid var(--border) !important; }
+html body .nr-zoom-v.on { color: var(--text-primary) !important; }
+@media (max-width: 768px) { html body .nr-zoom { display: none; } html body .main-content > .tab-content { zoom: 1; } }
