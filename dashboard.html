@@ -6261,15 +6261,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <span class="nav-item-label">Прочие удержания</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="nav-item" onclick="showTab('plan-fact', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    <span class="nav-item-label">План-факт</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
-                <div class="nav-item" onclick="showTab('planning', this)">
+                <div class="flyout-sec">РНП</div>
+                <div class="nav-item" role="button" tabindex="0" onclick="nrOpenRnp('planning')">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
                     <span class="nav-item-label">Планирование</span>
-                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" role="button" tabindex="0" onclick="nrOpenRnp('planfact')">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span class="nav-item-label">План/факт</span>
                 </div>
                 <div class="flyout-sec">Модули</div>
                 <div class="nav-item" onclick="showTab('seo', this)">
@@ -13220,6 +13219,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         closeMobileMenu();
     }
 
+    function nrOpenRnp(id) {
+        try { if (typeof closeBetaSheet === 'function') closeBetaSheet(); else if (typeof closeMobileMenu === 'function') closeMobileMenu(); } catch (e) { /* шторка уже закрыта */ }
+        try { if (getCurrentActiveTab() !== 'rnp') showTab('rnp'); } catch (e) { showTab('rnp'); }
+        var go = function () { if (window.NrNav) NrNav.go('rnp', id); };
+        go(); setTimeout(go, 700);
+    }
+    window.nrOpenRnp = nrOpenRnp;
     function toggleMobileMenu() {
         if (window.innerWidth <= 768) {
             toggleBetaSheet();
