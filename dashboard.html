@@ -13788,6 +13788,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         const applyFin = () => {
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             renderPnl(metrics);
+                            window.__pnlMCab = finCabinet;
                             try { renderPnlDaily(rows, summary.cur_daily, adsCur && adsCur.byDay, settings, from, to, metrics, Number(summary.cur?.orders_sum || 0)); } catch (e) { console.warn('[pnl daily]', e && e.message); }
                             applyExtendedMetricDisplay(metrics);
                             restyleDashNums();
@@ -14437,7 +14438,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         setText('rnp-orders', noDataYet ? '—' : ordersCount + ' шт.');
         setText('rnp-returns', noDataYet ? '—' : returns + ' шт.');
 
-        setFinanceMetricsPlaceholder('…');
+        // Финансовые карточки (реализация, услуги, налоги, прибыль) уже на экране для этого кабинета (из кэша или прошлой загрузки):
+        // не стираем их на время запроса, свежие цифры подставятся поверх. Иначе они пропадали на пару секунд после захода.
+        if (!(window.__pnlM && window.__pnlMCab === currentCabinetId)) setFinanceMetricsPlaceholder('…');
         showFinanceNote('');
 
         if (prev) {
