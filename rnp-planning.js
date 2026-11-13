@@ -138,6 +138,7 @@
     var PAYOUT_LAG = 2; // деньги за продажи недели приходят через 2 недели
     var PARAMS = [
         { k: 'stor', label: 'Тариф хранения, ₽/л' }, { k: 'logi', label: 'Тариф логистики, ₽' }, { k: 'extra', label: 'Каждый доп. литр, ₽' },
+        { k: 'dl', label: 'Длина, см' }, { k: 'dw', label: 'Ширина, см' }, { k: 'dh', label: 'Высота, см' },
         { k: 'vol', label: 'Объём, л' }, { k: 'back', label: 'Логистика от клиента, ₽' }, { k: 'cogs', label: 'Себестоимость, ₽' },
         { k: 'buyout', label: '% выкупа' }, { k: 'comm', label: 'Комиссия, %' }, { k: 'tax', label: 'Налог, %' }, { k: 'spp', label: 'СПП, %' },
     ];
@@ -157,15 +158,27 @@
         { k: 'pay', label: 'План к перечислению, ₽', bold: 1 },
         { k: 'profit', label: 'План ЧП, ₽', bold: 1 },
         { k: 'stock', label: 'Остаток на МП, шт' },
-        { k: 'sup', label: 'Поставки, шт', input: 1 },
+        { k: 'sup', label: 'Поставки (итого по цветам), шт' },
     ];
     function num(v) { var n = Number(v); return Number.isFinite(n) ? n : 0; }
     function has(v) { return v !== undefined && v !== null && v !== ''; }
     // константы артикула: логистика до клиента = тариф + (объём − 1) × доп. литр;
     // юнит-логистика = от клиента ÷ выкуп − от клиента + до клиента ÷ выкуп; юнит-хранение = тариф × объём
+    // объём: длина × ширина × высота ÷ 1000, если габариты заданы; иначе введённый вручную
+    function volOf(p) {
+        p = p || {};
+        var byDims = num(p.dl) * num(p.dw) * num(p.dh) / 1000;
+        return byDims > 0 ? Math.round(byDims * 1000) / 1000 : (has(p.vol) ? num(p.vol) : 1);
+    }
+    // поставки недели = сумма по цветам (таблица «цвет × неделя»); у старых блоков без цветов берётся число недели
+    function supOf(b, wk) {
+        var tot = 0, any = false;
+        (b.colors || []).forEach(function (c) { var v = (c.qty || {})[wk]; if (has(v)) { any = true; tot += num(v); } });
+        return any ? tot : num(((b.data || {})[wk] || {}).sup);
+    }
     function calcParams(p) {
         p = p || {};
-        var buyout = num(p.buyout) / 100, vol = has(p.vol) ? num(p.vol) : 1, back = num(p.back);
+        var buyout = num(p.buyout) / 100, vol = volOf(p), back = num(p.back);
         var toClient = num(p.logi) + (vol - 1) * num(p.extra);
         return { buyout: buyout, comm: num(p.comm) / 100, tax: num(p.tax) / 100, spp: num(p.spp) / 100, cogs: num(p.cogs),
             unitLogi: buyout ? back / buyout - back + toClient / buyout : 0, unitStor: num(p.stor) * vol };
@@ -176,7 +189,7 @@
         var P = calcParams(b.params), d = b.data || {}, G = [], K = [], I = [], AA = [], out = [];
         weeks.forEach(function (w, i) {
             var x = d[w.start] || {};
-            var g = num(x.orders), k = num(x.price), o = num(x.drr) / 100, sup = num(x.sup), give = num(x.giveSum);
+            var g = num(x.orders), k = num(x.price), o = num(x.drr) / 100, sup = supOf(b, w.start), give = num(x.giveSum);
             var gp = i > 0 ? G[i - 1] : 0, gpp = i > 1 ? G[i - 2] : 0, ip = i > 0 ? I[i - 1] : 0, kp = i > 0 ? K[i - 1] : k;
             var sales = gp * P.buyout;
             var ret = 0.5 * (gpp - ip) + 0.5 * (gp - sales);
@@ -188,7 +201,7 @@
             var profit = kp * sales - logi - commR - P.cogs * sales - taxR - mkt - storR;
             G.push(g); K.push(k); I.push(sales); AA.push(stock);
             out.push({ orders: g, sales: sales, ret: ret, price: k, priceSpp: priceSpp, drr: o * 100, giveSum: give, mkt: mkt, logi: logi, commR: commR, storR: storR, taxR: taxR,
-                pay: pay, profit: profit, stock: stock, sup: sup, any: has(x.orders) || has(x.price) || has(x.sup) || has(x.giveSum) });
+                pay: pay, profit: profit, stock: stock, sup: sup, any: has(x.orders) || has(x.price) || sup > 0 || has(x.giveSum) });
         });
         return out;
     }
@@ -216,12 +229,15 @@
         return rows.reduce(function (a, r) { a.pay += r.pay; a.profit += r.profit; a.mkt += r.mkt; a.sup += r.sup; return a; }, { pay: 0, profit: 0, mkt: 0, sup: 0 });
     }
 
+    function newBlock(id) { return { id: id, nm: '', params: {}, data: {}, synced: {}, colors: [{ name: '', qty: {} }] }; }
+    function normBlock(b) { b.params = b.params || {}; b.data = b.data || {}; b.synced = b.synced || {}; if (!Array.isArray(b.colors) || !b.colors.length) b.colors = [{ name: '', qty: {} }]; return b; }
     function sheetKey() { return 'nr_plansheet_' + (st && st.cab); }
     function loadSheet() {
         var sh = null;
         try { sh = JSON.parse(localStorage.getItem(sheetKey()) || 'null'); } catch (e) { sh = null; }
-        if (!sh || !Array.isArray(sh.blocks) || !sh.blocks.length) sh = { blocks: [{ id: 'b1', nm: '', params: {}, data: {}, synced: {} }] };
+        if (!sh || !Array.isArray(sh.blocks) || !sh.blocks.length) sh = { blocks: [newBlock('b1')] };
         if (!sh.start) sh.start = mondayOnOrBefore(new Date().toISOString().slice(0, 8) + '01');
+        sh.blocks.forEach(normBlock);
         sh.count = 52;
         return sh;
     }
@@ -253,7 +269,7 @@
         var row = res && res.data;
         if (row && row.data && Array.isArray(row.data.blocks) && row.data.blocks.length) {
             if (saveTimer) return; // свои правки ещё не ушли, они главнее
-            cur.sheet.blocks = row.data.blocks; if (row.start_week) cur.sheet.start = row.start_week;
+            cur.sheet.blocks = row.data.blocks.map(normBlock); if (row.start_week) cur.sheet.start = row.start_week;
             try { localStorage.setItem(sheetKey(), JSON.stringify({ blocks: cur.sheet.blocks, start: cur.sheet.start })); } catch (e) { /* без памяти */ }
             var typing = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('ps-in');
             if (!typing && cur.view !== 'rnp') keepScroll(render);
@@ -282,7 +298,15 @@
         var head = '<tr class="ps-h1"><th class="ps-l"></th>' + spans.map(function (m) { return '<th colspan="' + m.n + '" class="ps-m">' + m.label + '</th>'; }).join('') + '</tr>' +
             '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>' +
             '<tr class="ps-h3"><th class="ps-l">по</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.end) + '</th>'; }).join('') + '</tr>';
-        var rows = WROWS.map(function (r) {
+        var colTot = (b.colors || []).map(function (c) { var t = 0; weeks.forEach(function (w) { t += num((c.qty || {})[w.start]); }); return t; });
+        var grand = colTot.reduce(function (a, x) { return a + x; }, 0);
+        var colRows = '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">Поставки по цветам</th></tr>' + (b.colors || []).map(function (c, ci) {
+            return '<tr class="ps-r ps-cr"><th class="ps-l"><input class="ps-cn" type="text" data-b="' + b.id + '" data-ci="' + ci + '" placeholder="Цвет / артикул" value="' + esc(c.name || '') + '"><span class="ps-pct" data-ctot="' + b.id + '|' + ci + '">' + (colTot[ci] ? Math.round(colTot[ci]).toLocaleString('ru') + ' шт · ' + (grand ? Math.round(colTot[ci] / grand * 100) : 0) + '%' : '') + '</span></th>' + weeks.map(function (w) {
+                var v = (c.qty || {})[w.start];
+                return '<td class="ps-c' + (w.first ? ' ps-m' : '') + '"><input class="ps-in" type="text" inputmode="decimal" data-b="' + b.id + '" data-ci="' + ci + '" data-w="' + w.start + '" data-k="qty" value="' + esc(has(v) ? v : '') + '"></td>';
+            }).join('') + '</tr>';
+        }).join('') + ((b.colors || []).length < 12 ? '<tr class="ps-r"><th class="ps-l"><button type="button" class="ps-addc" data-ps-color="' + b.id + '">+ цвет</button></th><td colspan="' + weeks.length + '"></td></tr>' : '');
+        var rows = colRows + '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">Недели</th></tr>' + WROWS.map(function (r) {
             return '<tr class="ps-r' + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
                 var cls = (w.first ? ' ps-m' : '');
                 if (r.input) {
@@ -295,10 +319,11 @@
         var opts = '<option value="">Выберите артикул</option>' + st.articles.map(function (a) { return '<option value="' + a.nm_id + '"' + (String(a.nm_id) === String(b.nm) ? ' selected' : '') + '>' + esc(a.name) + ' · ' + a.nm_id + '</option>'; }).join('');
         var par = PARAMS.map(function (p) {
             var v = (b.params || {})[p.k];
-            return '<label class="ps-par"><span>' + p.label + '</span><input class="ps-pin" type="text" inputmode="decimal" data-b="' + b.id + '" data-p="' + p.k + '" value="' + esc(has(v) ? v : '') + '"></label>';
+            var ph = p.k === 'vol' && num((b.params || {}).dl) * num((b.params || {}).dw) * num((b.params || {}).dh) > 0 ? volOf(b.params) + ' (по габаритам)' : '';
+            return '<label class="ps-par"><span>' + p.label + '</span><input class="ps-pin" type="text" inputmode="decimal" data-b="' + b.id + '" data-p="' + p.k + '" value="' + esc(has(v) ? v : '') + '" placeholder="' + esc(ph) + '"></label>';
         }).join('');
         return '<section class="ps-block" data-blk="' + b.id + '"><div class="ps-bh2"><select class="ps-art" data-ps-art="' + b.id + '">' + opts + '</select>' +
-            (st.sheet.blocks.length > 1 ? '<button type="button" class="ps-del" data-ps-del="' + b.id + '" aria-label="Убрать блок">×</button>' : '') + '</div>' +
+            '<button type="button" class="ps-wb" data-ps-wb="' + b.id + '"' + (b.nm ? '' : ' disabled') + '>Подтянуть с WB</button><span class="ps-wbn" data-wbn="' + b.id + '"></span>' + (st.sheet.blocks.length > 1 ? '<button type="button" class="ps-del" data-ps-del="' + b.id + '" aria-label="Убрать блок">×</button>' : '') + '</div>' +
             '<div class="ps-pars">' + par + '</div>' +
             '<div class="ps-scroll"><table class="ps-table"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div></section>';
     }
@@ -310,6 +335,21 @@
             sh.blocks.map(function (b) { return blockHtml(b, weeks, spans); }).join('') +
             '<div class="ps-foot"><button type="button" class="ps-add" data-ps-add>+ Добавить артикул</button></div>';
     }
+    // график по неделям: перечисление, ЧП и маркетинг (линии в серой шкале, без цвета)
+    function moneyChart(plan, weeks) {
+        var last = -1; plan.forEach(function (t, i) { if (t.any) last = i; });
+        if (last < 0) return '';
+        plan = plan.slice(0, Math.max(last + 2, 6)); weeks = weeks.slice(0, plan.length);
+        var W = 880, H = 230, L = 64, R = 12, T = 14, B = 34, iw = W - L - R, ih = H - T - B;
+        var max = 0; plan.forEach(function (t) { max = Math.max(max, t.pay, t.profit, t.mkt); });
+        var step = Math.pow(10, Math.floor(Math.log10(max || 1))); var top = Math.ceil(max / step) * step || 1;
+        var x = function (i) { return L + (plan.length > 1 ? iw * i / (plan.length - 1) : iw / 2); }, y = function (v) { return T + ih - ih * Math.max(0, v) / top; };
+        var line = function (k, cls) { return '<polyline class="' + cls + '" fill="none" points="' + plan.map(function (t, i) { return x(i).toFixed(1) + ',' + y(t[k]).toFixed(1); }).join(' ') + '"/>'; };
+        var grid = ''; for (var g = 0; g <= 4; g++) { var v = top * g / 4; grid += '<line class="psc-g" x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v).toFixed(1) + '" y2="' + y(v).toFixed(1) + '"/><text class="psc-t" x="' + (L - 8) + '" y="' + (y(v) + 4).toFixed(1) + '" text-anchor="end">' + (v >= 1e6 ? (v / 1e6).toFixed(1).replace('.0', '') + ' млн' : Math.round(v / 1e3) + ' тыс') + '</text>'; }
+        var months = ''; weeks.forEach(function (w, i) { if (i === 0 || weeks[i - 1].month !== w.month) months += '<text class="psc-t" x="' + x(i).toFixed(1) + '" y="' + (H - 12) + '">' + MSHORT[w.month] + '</text>'; });
+        return '<div class="ps-chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="План вывода денег по неделям">' + grid + months + line('mkt', 'psc-l3') + line('profit', 'psc-l2') + line('pay', 'psc-l1') + '</svg>' +
+            '<div class="ps-leg"><span><i class="psc-k1"></i>К перечислению</span><span><i class="psc-k2"></i>ЧП</span><span><i class="psc-k3"></i>Маркетинг</span></div></div>';
+    }
     function renderMoney() {
         var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), plan = moneyPlan(sh.blocks, weeks), tot = sumPlan(plan);
         var rows = weeks.map(function (w, i) {
@@ -318,7 +358,7 @@
         }).join('');
         var any = plan.some(function (t) { return t.any; });
         st.host.innerHTML = viewTabs() +
-            '<div class="ps-note">Считается само из листа «План продаж»: перечисление и ЧП приходят через ' + PAYOUT_LAG + ' недели после продаж, маркетинг (внутренний и раздачи) и поставки стоят в той же неделе. Вводить ничего не нужно.</div>' +
+            '<div class="ps-note">Считается само из листа «План продаж»: перечисление и ЧП приходят через ' + PAYOUT_LAG + ' недели после продаж, маркетинг (внутренний и раздачи) и поставки стоят в той же неделе. Вводить ничего не нужно.</div>' + moneyChart(plan, weeks) +
             '<div class="ps-scroll ps-money"><table class="ps-table ps-mt"><thead><tr><th colspan="6" class="ps-title">Приблизительный план вывода денег</th></tr>' +
             '<tr class="ps-mh"><th>Месяц</th><th>Неделя</th><th>План к перечислению, ₽</th><th>План ЧП, ₽</th><th>Затраты на маркетинг, ₽</th><th>Поставки, шт</th></tr></thead><tbody>' + rows +
             '<tr class="ps-tot"><td colspan="2">Итого</td><td>' + fnum(tot.pay, any) + '</td><td>' + fnum(tot.profit, any) + '</td><td>' + fnum(tot.mkt, any) + '</td><td>' + fnum(tot.sup, any) + '</td></tr></tbody></table></div>';
@@ -326,6 +366,11 @@
     // пересчёт блока на месте после ввода: фокус и прокрутка не сбиваются
     function refreshCalc(b) {
         var weeks = sheetWeeks(st.sheet.start, st.sheet.count), calc = calcBlock(b, weeks);
+        var tots = (b.colors || []).map(function (c) { var t = 0; weeks.forEach(function (w) { t += num((c.qty || {})[w.start]); }); return t; }), grand = tots.reduce(function (a, x) { return a + x; }, 0);
+        st.host.querySelectorAll('[data-ctot^="' + b.id + '|"]').forEach(function (el) {
+            var i = Number(el.getAttribute('data-ctot').split('|')[1]);
+            el.textContent = tots[i] ? Math.round(tots[i]).toLocaleString('ru') + ' шт · ' + (grand ? Math.round(tots[i] / grand * 100) : 0) + '%' : '';
+        });
         st.host.querySelectorAll('[data-calc^="' + b.id + '|"]').forEach(function (el) {
             var p = el.getAttribute('data-calc').split('|'), c = calc[Number(p[1])];
             el.textContent = fval(c[p[2]], c.any, p[2]);
@@ -370,29 +415,83 @@
         if (raw !== '' && !Number.isFinite(v)) { t.classList.add('is-err'); return null; }
         t.classList.remove('is-err'); return v;
     }
+    // «Подтянуть с WB»: габариты и предмет из карточки, тарифы логистики и хранения WB, комиссия предмета,
+    // % выкупа и СПП по факту за 30 дней. Обычный выбор артикула заполняет только пустые поля, кнопка обновляет все эти поля.
+    var WB_PARAMS = ['dl', 'dw', 'dh', 'logi', 'extra', 'stor', 'comm', 'buyout', 'spp'];
+    async function wbFn(name, body) {
+        try { var r = await st.db.functions.invoke(name, { body: body || {} }); return r && r.data && r.data.ok ? r.data : null; } catch (e) { return null; }
+    }
+    async function autofill(b, force) {
+        var cur = st; if (!cur || !cur.db || !b.nm) return;
+        var note = function (t) { var el = cur.host && cur.host.querySelector('[data-wbn="' + b.id + '"]'); if (el) el.textContent = t; };
+        note('Тянем данные WB…');
+        var nm = Number(b.nm), got = [], from = new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10);
+        var fill = function (k, v) {
+            var n = Number(v); if (!Number.isFinite(n) || n <= 0) return;
+            if (force || !has(b.params[k])) { b.params[k] = Math.round(n * 100) / 100; got.push(k); }
+        };
+        try {
+            var a = ((await cur.db.from('rnp_articles').select('dim_l_cm,dim_w_cm,dim_h_cm,subject_name').eq('cabinet_id', cur.cab).eq('nm_id', nm).limit(1)).data || [])[0];
+            if (a) { fill('dl', a.dim_l_cm); fill('dw', a.dim_w_cm); fill('dh', a.dim_h_cm); }
+            var tr = await wbFn('wb-tariffs');
+            if (tr) { var rate = Number(tr.rate) || 1; fill('logi', tr.delivery_base / rate); fill('extra', tr.delivery_liter / rate); fill('stor', tr.storage_liter / rate); }
+            if (a && a.subject_name) {
+                var cm = await wbFn('wb-commission', { subjects: [a.subject_name] });
+                var it = cm && cm.items && cm.items[String(a.subject_name).trim().toLowerCase()];
+                if (it) fill('comm', it.fbo || it.fbs);
+            }
+            var rows = (await cur.db.from('rnp_daily_data').select('buyout_pct,spp_pct,orders_count').eq('cabinet_id', cur.cab).eq('nm_id', nm).gte('date', from)).data || [];
+            var bo = rows.filter(function (r) { return num(r.orders_count) >= 3 && num(r.buyout_pct) > 0; }), sp = rows.filter(function (r) { return num(r.spp_pct) > 0; });
+            if (bo.length) fill('buyout', bo.reduce(function (x, r) { return x + num(r.buyout_pct); }, 0) / bo.length);
+            if (sp.length) fill('spp', sp.reduce(function (x, r) { return x + num(r.spp_pct); }, 0) / sp.length);
+        } catch (e) { if (root.console) console.warn('[planning] autofill', e && e.message); }
+        if (st !== cur) return;
+        if (got.length) {
+            saveSheet();
+            got.forEach(function (k) { var i = cur.host.querySelector('.ps-pin[data-b="' + b.id + '"][data-p="' + k + '"]'); if (i) i.value = b.params[k]; });
+            var vi = cur.host.querySelector('.ps-pin[data-b="' + b.id + '"][data-p="vol"]');
+            if (vi) vi.placeholder = num(b.params.dl) * num(b.params.dw) * num(b.params.dh) > 0 ? volOf(b.params) + ' (по габаритам)' : '';
+            refreshCalc(b); queueSync(b);
+        }
+        note(got.length ? 'Подтянуто с WB: ' + got.length + ' из ' + WB_PARAMS.length + ' полей' : 'С WB ничего нового');
+    }
+
     function onSheetEvent(e) {
         var t = e.target;
         if (e.type === 'change' && t.classList && t.classList.contains('ps-in')) {
             var b = findBlock(t.dataset.b); if (!b) return true;
             var v = parseVal(t); if (v === null) return true;
-            b.data = b.data || {}; var wk = (b.data[t.dataset.w] = b.data[t.dataset.w] || {});
-            if (v === '') delete wk[t.dataset.k]; else wk[t.dataset.k] = v;
+            if (t.dataset.k === 'qty') {
+                var col = (b.colors || [])[Number(t.dataset.ci)]; if (!col) return true;
+                col.qty = col.qty || {};
+                if (v === '') delete col.qty[t.dataset.w]; else col.qty[t.dataset.w] = v;
+            } else {
+                b.data = b.data || {}; var wk = (b.data[t.dataset.w] = b.data[t.dataset.w] || {});
+                if (v === '') delete wk[t.dataset.k]; else wk[t.dataset.k] = v;
+            }
             saveSheet(); refreshCalc(b); queueSync(b); return true;
+        }
+        if (e.type === 'change' && t.classList && t.classList.contains('ps-cn')) {
+            var cb = findBlock(t.dataset.b), cc = cb && (cb.colors || [])[Number(t.dataset.ci)]; if (cc) { cc.name = t.value.trim(); saveSheet(); } return true;
         }
         if (e.type === 'change' && t.classList && t.classList.contains('ps-pin')) {
             var pb = findBlock(t.dataset.b); if (!pb) return true;
             var pv = parseVal(t); if (pv === null) return true;
             pb.params = pb.params || {};
             if (pv === '') delete pb.params[t.dataset.p]; else pb.params[t.dataset.p] = pv;
-            saveSheet(); refreshCalc(pb); queueSync(pb); return true;
+            saveSheet(); refreshCalc(pb); queueSync(pb);
+            if (['dl', 'dw', 'dh'].indexOf(t.dataset.p) >= 0) { var vi = st.host.querySelector('.ps-pin[data-b="' + pb.id + '"][data-p="vol"]'); if (vi) vi.placeholder = num(pb.params.dl) * num(pb.params.dw) * num(pb.params.dh) > 0 ? volOf(pb.params) + ' (по габаритам)' : ''; }
+            return true;
         }
         if (e.type === 'change' && t.matches && t.matches('.ps-art')) {
-            var bb = findBlock(t.dataset.psArt); if (bb) { var oldNm = bb.nm; bb.nm = t.value; saveSheet(); queueSync(bb, oldNm); } return true;
+            var bb = findBlock(t.dataset.psArt); if (bb) { var oldNm = bb.nm; bb.nm = t.value; saveSheet(); queueSync(bb, oldNm); var wbb = st.host.querySelector('[data-ps-wb="' + bb.id + '"]'); if (wbb) wbb.disabled = !bb.nm; if (bb.nm) autofill(bb, false); } return true;
         }
         if (e.type !== 'click') return false;
         var btn = t.closest && t.closest('button'); if (!btn) return false;
         if (btn.dataset.view) { st.view = btn.dataset.view; render(); if (st.view === 'rnp') loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* без планов */ }); return true; }
-        if (btn.hasAttribute('data-ps-add')) { st.sheet.blocks.push({ id: 'b' + Date.now().toString(36), nm: '', params: {}, data: {}, synced: {} }); saveSheet(); keepScroll(renderSales); return true; }
+        if (btn.dataset.psColor) { var ab = findBlock(btn.dataset.psColor); if (ab && ab.colors.length < 12) { ab.colors.push({ name: '', qty: {} }); saveSheet(); keepScroll(renderSales); } return true; }
+        if (btn.dataset.psWb) { var wb = findBlock(btn.dataset.psWb); if (wb && wb.nm) autofill(wb, true); return true; }
+        if (btn.hasAttribute('data-ps-add')) { st.sheet.blocks.push(newBlock('b' + Date.now().toString(36))); saveSheet(); keepScroll(renderSales); return true; }
         if (btn.dataset.psDel) {
             var del = findBlock(btn.dataset.psDel);
             if (del && del.nm) queueSync({ id: del.id, nm: '', params: {}, data: {}, synced: del.synced || {} }, del.nm);

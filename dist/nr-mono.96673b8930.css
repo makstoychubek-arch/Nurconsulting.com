@@ -1917,3 +1917,21 @@ html body .ps-pin.is-err { color: var(--dn, #dc2626); }
 html body .ps-h1 th { top: 0; } 
 html body .ps-bh2 .ps-art { height: 40px !important; line-height: 38px !important; padding-top: 0 !important; padding-bottom: 0 !important; min-width: 300px; }
 html body .ps-tabs { margin-right: 10px; }
+html body .ps-sec th { background: var(--sel) !important; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); border-top: 2px solid var(--text-primary); height: 30px; }
+html body .ps-cr .ps-l { display: flex; align-items: center; gap: 8px; min-width: 220px; }
+html body .ps-cn { flex: 1; min-width: 90px; height: 28px; border: 0 !important; border-bottom: 1px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; color: var(--text-primary); font: inherit; font-weight: 700; padding: 0 2px; }
+html body .ps-pct { font-size: 10.5px; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
+html body .ps-addc { border: 1px dashed var(--text-primary); background: transparent; color: var(--text-primary); border-radius: 999px; padding: 3px 12px; font-weight: 800; font-size: 12px; cursor: pointer; }
+html body .ps-wb { height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); font-weight: 800; font-size: 12px; cursor: pointer; }
+html body .ps-wb:disabled { opacity: .4; cursor: default; }
+html body .ps-wbn { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
+html body .ps-chart { margin: 0 0 14px; max-width: 880px; border: 1px solid var(--text-primary); border-radius: 26px; padding: 14px 16px 10px; background: var(--bg, #fff); }
+html body .ps-chart svg { width: 100%; height: auto; display: block; }
+html body .psc-g { stroke: var(--border); stroke-width: 1; }
+html body .psc-t { fill: var(--text-muted); font-size: 11px; font-weight: 700; }
+html body .psc-l1 { stroke: var(--text-primary); stroke-width: 2.6; stroke-linejoin: round; }
+html body .psc-l2 { stroke: var(--text-primary); stroke-width: 2; stroke-dasharray: 6 4; opacity: .7; }
+html body .psc-l3 { stroke: var(--text-primary); stroke-width: 1.6; opacity: .35; }
+html body .ps-leg { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; font-weight: 700; margin-top: 6px; }
+html body .ps-leg i { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--text-primary); vertical-align: middle; margin-right: 6px; }
+html body .ps-leg .psc-k2 { border-top-style: dashed; opacity: .7; } html body .ps-leg .psc-k3 { border-top-width: 2px; opacity: .35; }
