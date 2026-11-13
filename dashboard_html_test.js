@@ -280,7 +280,7 @@ assert.ok(
     betaFly.includes("showTab('summary'") &&
     betaFly.includes("showTab('summary-biz'") &&
     betaFly.includes("showTab('deductions'") &&
-    betaFly.includes("showTab('plan-fact'"),
+    betaFly.includes("nrOpenRnp('planfact')") && betaFly.includes("nrOpenRnp('planning')"),
     'Оцифровка items move into BETA, not a dashboard submenu'
 );
 assert.ok(!betaFly.includes("showTab('rnp'"), 'РНП is not duplicated inside BETA');
