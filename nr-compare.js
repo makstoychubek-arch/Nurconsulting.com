@@ -342,8 +342,11 @@
     // ───── данные ─────
     function loadArts(cab) {
         if (!sb()) return Promise.resolve([]);
-        return Promise.resolve(sb().from('rnp_articles').select('nm_id,name,seller_article,photo_url,imt_id,card_title,subject_name').eq('cabinet_id', cab).eq('is_active', true).order('name').range(0, 999))
-            .then(function (r) { return (r && r.data) || []; }).catch(function () { return []; });
+        return Promise.resolve(sb().from('rnp_articles').select('nm_id,name,photo_url,imt_id,card_title,subject_name').eq('cabinet_id', cab).eq('is_active', true).order('name').range(0, 999))
+            .then(function (r) {
+                // в базе артикул продавца лежит в поле name; seller_article там нет
+                return ((r && r.data) || []).map(function (a) { return Object.assign({ seller_article: a.name }, a); });
+            }).catch(function () { return []; });
     }
     function loadFunnel() {
         var cab = S.cab, nm = S.nm, my = ++S.token, p = period(), key = 'nr_cc_fun_' + cab + '_' + nm, ckey = 'nr_cc_cmp_' + cab + '_' + nm;
@@ -453,7 +456,7 @@
         try { var s = root.localStorage.getItem('nr_cc_sec'); if (s && VIEW[s]) S.sec = s; } catch (_) {}
         var cab = cabId();
         if (cab && cab === S.cab && S.arts.length) { paint(); return; }
-        S.cab = cab; S.arts = lsGet('nr_cc_arts_' + cab) || []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; if (cab) { loadAll(cab); loadAllFun(cab); }
+        S.cab = cab; S.arts = lsGet('nr_cc_arts2_' + cab) || []; S.fun = null; S.cmp = null; S.all = null; S.allFun = null; if (cab) { loadAll(cab); loadAllFun(cab); }
         pickNm(); paint();
         if (S.nm) loadFunnel();
         // Кабинет ещё не выбран (страница только открылась): каркас уже на экране, данные подтянем, как только кабинет появится
@@ -462,7 +465,7 @@
         loadArts(cab).then(function (arts) {
             if (cab !== S.cab) return;
             var had = S.nm;
-            S.arts = arts; lsSet('nr_cc_arts_' + cab, arts); pickNm(); paint();
+            S.arts = arts; lsSet('nr_cc_arts2_' + cab, arts); pickNm(); paint();
             if (S.nm && S.nm !== had) loadFunnel();
         });
     }
