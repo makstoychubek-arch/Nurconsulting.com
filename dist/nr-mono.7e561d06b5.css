@@ -1628,3 +1628,35 @@ html body .cc-pill:not(.up):not(.dn) { color: var(--text-muted); }
 html body .cc-tiles .cc-tile b { font-size: clamp(18px, 1.9vw, 26px); white-space: nowrap; }
 html body .cc-pill { white-space: nowrap; }
 html body .cc-th.cc-nophoto { color: transparent; }
+/* Сравнение контента → Конкуренты: лист как в таблице владельца (блоки артикулов в ряд, листается вбок) */
+html body .cs-per { display: grid; gap: 2px; border: 1px solid var(--text-primary); border-radius: 16px; padding: 8px 14px; }
+html body .cs-per b { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+html body .cs-wrap { overflow-x: auto; border: 1px solid var(--text-primary); border-radius: 26px; background: var(--bg, #fff); }
+html body .cs-sheet { display: flex; align-items: flex-start; width: max-content; min-width: 100%; }
+html body .cs-side { position: sticky; left: 0; z-index: 2; flex: 0 0 46px; background: var(--bg, #fff); border-right: 1px solid var(--text-primary); }
+html body .cs-side-top { height: 286px; display: grid; grid-template-rows: 44px 150px 30px 1fr; align-items: center; justify-items: center; }
+html body .cs-side-top span { font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+html body .cs-side-top span:first-child, html body .cs-side-top span:nth-child(3) { writing-mode: horizontal-tb; transform: none; font-size: 0; }
+html body .cs-n { height: 66px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--text-muted); border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+html body .cs-b { flex: 0 0 272px; border-right: 1px solid var(--border); cursor: pointer; }
+html body .cs-b:last-child { border-right: 0; }
+html body .cs-b.on { background: var(--sel); cursor: default; }
+html body .cs-name { height: 44px; padding: 8px 12px 0; font-size: 12.5px; font-weight: 800; line-height: 1.25; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+html body .cs-ph { display: block; height: 150px; aspect-ratio: 3 / 4; object-fit: cover; margin: 0 auto; border-radius: 12px; border: 1px solid var(--border); background: var(--sel); }
+html body .cs-art { height: 30px; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+html body .cs-rev { height: 38px; margin: 0 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; background: var(--accent); color: var(--on-accent, #fff); }
+html body .cs-rev span { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+html body .cs-rev b { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+html body .cs-place { height: 24px; display: grid; place-items: center; font-size: 10.5px; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; }
+html body .cs-h { height: 30px; display: grid; grid-template-columns: 1fr 56px 1fr; align-items: center; padding: 0 12px; gap: 8px; border-top: 1px solid var(--text-primary); border-bottom: 1px solid var(--text-primary); }
+html body .cs-side .cs-h { grid-template-columns: 1fr; padding: 0; justify-items: center; }
+html body .cs-h span { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+html body .cs-h span:last-child { text-align: right; }
+html body .cs-side .cs-h span:last-child { text-align: center; }
+html body .cs-r { height: 66px; display: grid; grid-template-columns: 1fr 56px 1fr; align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid var(--border); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+html body .cs-h + .cs-r, html body .cs-h + .cs-n, html body .cs-sep + .cs-r, html body .cs-sep + .cs-n { border-top: 0; }
+html body .cs-r b { text-align: right; font-weight: 800; }
+html body .cs-im { width: 42px; height: 56px; margin: 0 auto; }
+html body .cs-sep { height: 26px; display: grid; place-items: center; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; background: var(--accent); color: var(--on-accent, #fff); }
+html body .cs-side .cs-sep { background: var(--accent); }
+@media (max-width: 480px) { html body .cs-b { flex-basis: 236px; } }

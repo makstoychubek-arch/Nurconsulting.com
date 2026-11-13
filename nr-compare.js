@@ -14,7 +14,7 @@
     var FIELDS = ['Артикул продавца', 'Артикул WB', 'Наименование', 'Категория продавца', 'Бренд', 'Описание', 'Материал верха', 'Пол', 'Состав', 'Цвет', 'Баркод', 'Размер', 'Рос. размер', 'Вид застежки', 'Возрастные ограничения', 'Вырез горловины', 'Декоративные элементы', 'ИКПУ', 'Код ТРУ 1', 'Код ТРУ 2', 'Код упаковки', 'Количество штук в товаре по ЭС', 'Коллекция', 'Комплектация', 'Любимые герои', 'Назначение', 'ОКПД 2', 'Особенности модели', 'Параметры модели на фото (ОГ-ОТ-ОБ)', 'Покрой', 'Размер на модели', 'Рисунок', 'Рост модели на фото', 'Сезон', 'Стиль', 'Страна производства', 'ТНВЭД', 'Тип ростовки', 'Тип рукава', 'Уход за вещами', 'Фактура материала', 'Форма рукава'];
     var QUALITY = ['Супер релевантно', 'Релевантно', 'Нерелевантно но пусть будет', 'Исключить из карточки'];
     var SLIDES = ['Обложка', 'Главная выгода', 'Посадка и крой', 'Размеры и замеры', 'Состав и ткань', 'Детали', 'С чем носить', 'Доверие и отзывы'];
-    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, cmp: null, token: 0, bound: false };
+    var S = { cab: '', arts: [], nm: 0, sec: 'rivals', fun: null, cmp: null, all: null, token: 0, bound: false };
 
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function fmt(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -106,23 +106,35 @@
         var k = rev / our, t = k >= 10 ? Math.round(k) : Math.round(k * 10) / 10;
         return '<span class="cc-pill ' + (k > 1 ? 'dn' : 'up') + '">×' + String(t).replace('.', ',') + '</span>';
     }
-    function rivalsHtml() {
-        var a = art(), d = S.cmp, f = S.fun, p = period(), st = rivalStats(d);
-        var per = d && d.period_from ? d.period_from.slice(8, 10) + '.' + d.period_from.slice(5, 7) + '–' + d.period_to.slice(8, 10) + '.' + d.period_to.slice(5, 7) + '.' + d.period_to.slice(0, 4) : dm(p.from) + '–' + dm(p.to);
-        var tbl = function (title, sub, n, list) {
-            var body = list && list.length ? list.map(function (x, i) {
-                return '<tr><td>' + (i + 1) + '</td><td>' + wbImg(x.nm) + '</td><td><a class="cc-a" href="https://www.wildberries.ru/catalog/' + x.nm + '/detail.aspx" target="_blank" rel="noopener">' + x.nm + '</a></td><td>' + (x.rev == null ? '—' : fmt(x.rev)) + '</td><td>' + ratio(x.rev, st.our) + '</td></tr>';
-            }).join('') : ghostRows(n, 5);
-            return '<div class="cc-card"><div class="cc-h"><h3>' + title + '</h3><span>' + sub + '</span></div><div class="cc-tw"><table class="cc-t cc-tr"><thead><tr><th>№</th><th>Фото</th><th>Артикул</th><th>Выручка, ₽</th><th>К нам</th></tr></thead><tbody>' + body + '</tbody></table></div></div>';
+    // «Конкуренты» как в таблице владельца: блоки по артикулам стоят в ряд (название, наше фото, артикул, НАША ВЫРУЧКА),
+    // под ними АРТИКУЛ / ФОТО / ВЫРУЧКА: 15 похожих и 10 топов. Лист листается вбок, слева закреплены номера строк.
+    function blockHtml(d, a, sel) {
+        var st = rivalStats(d), nm = d ? d.nm : (a && a.nm_id);
+        var row = function (x) {
+            return x ? '<div class="cs-r"><a class="cc-a" href="https://www.wildberries.ru/catalog/' + x.nm + '/detail.aspx" target="_blank" rel="noopener">' + x.nm + '</a>' + wbImg(x.nm).replace('cc-th', 'cc-th cs-im') + '<b>' + (x.rev == null ? '—' : fmt(x.rev)) + '</b></div>'
+                : '<div class="cs-r"><span class="cc-g"></span><div class="cc-th cs-im cc-nophoto"></div><span class="cc-g"></span></div>';
         };
-        var rev = d && d.rev != null ? fmt(d.rev) : (f ? fmt(f.total.rev) : '0'), ready = !!(d && d.rev != null) || !!f;
-        var v = function (x) { return x == null ? '—' : fmt(x); };
-        return '<div class="cc-hero">' + photo(a, 'cc-ph') +
-            '<div class="cc-me"><div class="cc-cap">Наш товар</div><b>' + esc(a ? (a.name || a.seller_article || '') : '—') + '</b><span>Артикул ' + esc(a ? a.nm_id : '—') + ' · период ' + per + '</span></div>' +
-            '<div class="cc-tiles"><div class="cc-tile cc-dark"><div class="cc-cap">Наша выручка' + (d && d.rev != null ? ', ₽' : '') + '</div><b' + (ready ? '' : ' class="cc-blur"') + '>' + rev + '</b></div>' +
-            '<div class="cc-tile"><div class="cc-cap">Медиана похожих</div><b>' + v(st.median) + '</b></div><div class="cc-tile"><div class="cc-cap">Лидер</div><b>' + v(st.leader) + '</b></div><div class="cc-tile"><div class="cc-cap">Наше место</div><b>' + (st.place ? st.place + ' <small>из ' + st.of + '</small>' : '—') + '</b></div></div></div>' +
-            '<div class="cc-acts"><button type="button" class="cc-btn cc-btn-b" data-cc-act="find">' + (d ? 'Обновить конкурентов' : 'Подобрать конкурентов') + '</button><span class="cc-note">' + (d ? 'Данные перенесены из вашей таблицы: выручка MPStats за ' + per + '.' : '15 похожих по фото (фасон 1 в 1, сначала нашего цвета) и 10 топов по выручке в нашем предмете, с фото и выручкой за период.') + '</span></div>' +
-            '<div class="cc-two">' + tbl('Похожие', '15 · фасон 1 в 1, наш цвет', 15, d && d.similar) + tbl('Топы по выручке', '10 · наш предмет', 10, d && d.top) + '</div>';
+        var list = function (arr, n) { var o = ''; for (var i = 0; i < n; i++) o += row(arr && arr[i]); return o; };
+        var ph = a && a.photo_url ? '<img class="cs-ph" src="' + esc(a.photo_url) + '" alt="" loading="lazy">' : (nm ? wbImg(nm).replace('cc-th', 'cs-ph') : '<div class="cs-ph cc-nophoto"></div>');
+        return '<section class="cs-b' + (sel ? ' on' : '') + '" data-nm="' + esc(nm || '') + '">' +
+            '<div class="cs-name" title="' + esc((d && d.name) || (a && a.name) || '') + '">' + esc((d && d.name) || (a && (a.seller_article || a.name)) || '—') + '</div>' + ph +
+            '<div class="cs-art">' + esc(nm || '—') + '</div>' +
+            '<div class="cs-rev"><span>Наша выручка</span><b>' + (d && d.rev != null ? fmt(d.rev) : '—') + '</b></div>' +
+            '<div class="cs-place">' + (st.place ? 'место ' + st.place + ' из ' + st.of + ' · медиана похожих ' + fmt(st.median) : '&nbsp;') + '</div>' +
+            '<div class="cs-h"><span>Артикул</span><span>Фото</span><span>Выручка</span></div>' +
+            list(d && d.similar, 15) + '<div class="cs-sep">Топ по выручке</div>' + list(d && d.top, 10) + '</section>';
+    }
+    function rivalsHtml() {
+        var all = S.all, p = period(), byArt = {};
+        S.arts.forEach(function (x) { byArt[Number(x.nm_id)] = x; });
+        var per = all && all.length && all[0].period_from ? all[0].period_from.split('-').reverse().join('.') + ' – ' + all[0].period_to.split('-').reverse().join('.') : dm(p.from) + '–' + dm(p.to);
+        var nums = function (from, n) { var o = ''; for (var i = 0; i < n; i++) o += '<div class="cs-n">' + (from + i) + '</div>'; return o; };
+        var blocks = all && all.length ? all.map(function (d) { return blockHtml(d, byArt[Number(d.nm)], Number(d.nm) === S.nm); }).join('')
+            : (S.arts.length ? S.arts.slice(0, 6) : [null, null, null, null]).map(function (a) { return blockHtml(null, a, a && Number(a.nm_id) === S.nm); }).join('');
+        return '<div class="cc-acts"><div class="cs-per"><span class="cc-cap">Период</span><b>' + per + '</b></div>' +
+            '<button type="button" class="cc-btn cc-btn-b" data-cc-act="find">' + (all && all.length ? 'Обновить конкурентов' : 'Подобрать конкурентов') + '</button>' +
+            '<span class="cc-note">' + (all && all.length ? all.length + ' артикулов из вашей таблицы. Лист листается вбок, как в таблице.' : 'Для каждого артикула: 15 похожих по фото (фасон 1 в 1, сначала нашего цвета) и 10 топов по выручке в предмете.') + '</span></div>' +
+            '<div class="cs-wrap"><div class="cs-sheet"><div class="cs-side"><div class="cs-side-top"><span>Название</span><span>Наше фото</span><span>Артикул</span></div><div class="cs-h"><span>№</span></div>' + nums(1, 15) + '<div class="cs-sep">&nbsp;</div>' + nums(1, 10) + '</div>' + blocks + '</div></div>';
     }
     function nl(t) { return esc(t).replace(/\n/g, '<br>'); }
     function longCell(t) {
@@ -235,6 +247,23 @@
             }).catch(function () { /* остаётся каркас */ });
     }
 
+    function loadAll(cab) {
+        var key = 'nr_cc_all_' + cab;
+        S.all = lsGet(key);
+        if (!sb()) return;
+        Promise.resolve(sb().from('content_compare').select('nm:nm_id,period_from,period_to,rev:data->rev,name:data->name,similar:data->similar,top:data->top').eq('cabinet_id', cab).order('updated_at').range(0, 299))
+            .then(function (r) {
+                if (cab !== S.cab || !r || r.error) return;
+                var order = {}; S.arts.forEach(function (a, i) { order[Number(a.nm_id)] = i; });
+                S.all = (r.data || []).filter(function (d) { return (d.similar && d.similar.length) || (d.top && d.top.length); });
+                lsSet(key, S.all); paint();
+            }).catch(function () { /* остаётся каркас */ });
+    }
+    function scrollToSel() {
+        var host = doc.getElementById('cc-root'), b = host && host.querySelector('.cs-b.on'), w = host && host.querySelector('.cs-wrap');
+        if (b && w) w.scrollLeft = Math.max(0, b.offsetLeft - 70);
+    }
+
     // ───── окно оплаты ─────
     function closePay() { var m = doc.getElementById('cc-ov'); if (m) m.remove(); }
     function openPay() {
@@ -255,6 +284,7 @@
         if (S.bound) return; S.bound = true;
         host.addEventListener('click', function (e) {
             var b;
+            if ((b = e.target.closest('.cs-b')) && !e.target.closest('a') && Number(b.getAttribute('data-nm')) && Number(b.getAttribute('data-nm')) !== S.nm) { S.nm = Number(b.getAttribute('data-nm')); try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {} var w = host.querySelector('.cs-wrap'), x = w ? w.scrollLeft : 0; loadFunnel(); w = host.querySelector('.cs-wrap'); if (w) w.scrollLeft = x; return; }
             if ((b = e.target.closest('[data-cc]'))) { S.sec = b.getAttribute('data-cc'); try { root.localStorage.setItem('nr_cc_sec', S.sec); } catch (_) {} paint(); return; }
             if ((b = e.target.closest('[data-cc-act]'))) {
                 var act = b.getAttribute('data-cc-act');
@@ -268,7 +298,7 @@
             if (e.target.id !== 'cc-art') return;
             S.nm = Number(e.target.value) || 0;
             try { root.localStorage.setItem('nr_cc_nm_' + S.cab, String(S.nm)); } catch (_) {}
-            loadFunnel();
+            loadFunnel(); scrollToSel();
         });
     }
     function pickNm() {
@@ -281,7 +311,7 @@
         try { var s = root.localStorage.getItem('nr_cc_sec'); if (s && VIEW[s]) S.sec = s; } catch (_) {}
         var cab = cabId();
         if (cab && cab === S.cab && S.arts.length) { paint(); return; }
-        S.cab = cab; S.arts = lsGet('nr_cc_arts_' + cab) || []; S.fun = null; S.cmp = null;
+        S.cab = cab; S.arts = lsGet('nr_cc_arts_' + cab) || []; S.fun = null; S.cmp = null; S.all = null; if (cab) loadAll(cab);
         pickNm(); paint();
         if (S.nm) loadFunnel();
         // Кабинет ещё не выбран (страница только открылась): каркас уже на экране, данные подтянем, как только кабинет появится
@@ -295,7 +325,7 @@
         });
     }
     doc.addEventListener('cabinet-changed', function () {
-        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.cmp = null; S.nm = 0; closePay();
+        S.token++; S.cab = ''; S.arts = []; S.fun = null; S.cmp = null; S.all = null; S.nm = 0; closePay();
         var host = doc.getElementById('cc-root'), pane = doc.getElementById('an-content');
         if (host && pane && !pane.hidden) open();
     });
