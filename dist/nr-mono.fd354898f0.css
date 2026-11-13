@@ -1478,8 +1478,10 @@ html body .rnp-mx-c b small { font-size: 9px; font-weight: 600; color: var(--tex
   html body .rnp-head-wide { grid-template-columns: minmax(340px, 410px) max-content minmax(0, 1fr); }
   html body .rnp-head-wide-info { width: auto; max-width: none; overflow: visible; }
   html body .rnp-head-wide-info .rnp-layout-info { grid-template-columns: auto minmax(0, 1fr); gap: 0 12px; align-items: stretch; }
-  html body .rnp-head-wide-info .rnp-gs-photo { height: 100%; width: auto; aspect-ratio: 3 / 4; min-width: 0; max-height: none; align-self: stretch; }
-  html body .rnp-head-wide-info .rnp-gs-photo img { width: 100%; height: 100%; max-height: none; object-fit: cover; object-position: center top; }
+  /* Размер рамки фото задан сам (3:4 при высоте шапки), а картинка лежит внутри абсолютно и размер рамки не меняет:
+     иначе настоящее фото WB (516 × 688) раздувало рамку на пол-экрана и вытесняло название, литраж и остатки */
+  html body .rnp-head-wide-info .rnp-gs-photo { position: relative; flex: none; height: 112px; width: 84px; aspect-ratio: 3 / 4; min-width: 84px; max-height: none; align-self: center; overflow: hidden; }
+  html body .rnp-head-wide-info .rnp-gs-photo img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; object-position: center top; }
   html body .rnp-head-wide-info .rnp-layout-info-meta { align-content: center; }
 }
 

@@ -62,13 +62,18 @@
         return a && a.photo_url ? '<img class="' + cls + '" src="' + esc(a.photo_url) + '" alt="" loading="lazy">' : '<div class="' + cls + ' cc-nophoto">нет фото</div>';
     }
     // ───── фото товара WB по артикулу: адрес корзины зависит от номера, подбираем перебором и запоминаем ─────
+    // Таблица «номер vol → корзина WB» та же, что в РНП (rnp-module.js): снята запросами к CDN. Если корзина всё же не та, картинка перебирает соседние.
+    var BASK = [[0, 1], [144, 2], [288, 3], [432, 4], [720, 5], [1008, 6], [1062, 7], [1116, 8], [1170, 9], [1314, 10], [1602, 11], [1656, 12], [1920, 13], [2046, 14], [2190, 15],
+        [2406, 16], [2626, 17], [2876, 18], [3074, 19], [3345, 20], [3911, 22], [3996, 23], [4143, 24], [4357, 25], [4950, 27], [5394, 28], [5978, 30], [6296, 31], [6641, 32],
+        [7053, 33], [7408, 35], [7714, 36], [8493, 38], [8897, 39], [9719, 41], [11503, 43], [12187, 44], [15444, 48]];
     function wbHost(vol) {
-        var T = [143, 287, 431, 719, 1007, 1061, 1115, 1169, 1313, 1601, 1655, 1919, 2045, 2189, 2405, 2621, 2837, 3053, 3269, 3485, 3701, 3917, 4133, 4349, 4565, 4877, 5189, 5501, 5813, 6125, 6437];
-        for (var i = 0; i < T.length; i++) if (vol <= T[i]) return i + 1;
-        return 32 + Math.floor((vol - 6438) / 312);
+        var h = 1;
+        for (var i = 0; i < BASK.length; i++) { if (vol < BASK[i][0]) break; h = BASK[i][1]; }
+        if (vol >= 15444) h = 48 + Math.round((vol - 15444) / 760);
+        return h;
     }
     function wbUrl(nm, host) { var h = host < 10 ? '0' + host : String(host); return 'https://basket-' + h + '.wbbasket.ru/vol' + Math.floor(nm / 1e5) + '/part' + Math.floor(nm / 1e3) + '/' + nm + '/images/c246x328/1.webp'; }
-    var HOSTS = lsGet('nr_cc_wbhost') || {};
+    var HOSTS = lsGet('nr_cc_wbhost_v2') || {};
     function wbImg(nm) {
         nm = Number(nm); if (!nm) return '<div class="cc-th cc-nophoto"></div>';
         var vol = Math.floor(nm / 1e5), h = HOSTS[vol] || wbHost(vol);
@@ -87,7 +92,7 @@
     doc.addEventListener('load', function (e) {
         var im = e.target; if (!im || !im.getAttribute || !im.getAttribute('data-wb') || !Number(im.getAttribute('data-try'))) return;
         var m = /basket-(\d+)\./.exec(im.src); if (!m) return;
-        HOSTS[Math.floor(Number(im.getAttribute('data-wb')) / 1e5)] = Number(m[1]); lsSet('nr_cc_wbhost', HOSTS);
+        HOSTS[Math.floor(Number(im.getAttribute('data-wb')) / 1e5)] = Number(m[1]); lsSet('nr_cc_wbhost_v2', HOSTS);
     }, true);
 
     // ───── сводка по конкурентам (чистая функция, проверяется тестом) ─────
