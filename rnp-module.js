@@ -9360,10 +9360,32 @@ const RNP = (() => {
         closeSettings();
         if (typeof showTab === 'function') showTab('rnp-planning');
         window.NrPlanning.open({
-            host: document.getElementById('rnp-plp-host'),
+            host: document.getElementById('rnp-plp-host'), facts: getWeekFacts,
             db: _db, cabinetId: _cab, articles: _planFactArticles(), monthKey: _viewMonthKey(),
             onSaved: () => { refreshPlans().catch(() => {}); },
         });
+    }
+
+    // Факт по неделям для листа «Планирование»: заказы, продажи, к перечислению и ЧП (по финотчёту WB, в сомах) на каждую неделю пн–вс
+    async function getWeekFacts(nms, from, to) {
+        await _mergePlanFactRange(from, to);
+        const out = {};
+        (nms || []).forEach((nm) => {
+            const art = _articles.find((a) => String(a.nm_id) === String(nm));
+            const map = _dataCache[nm] || {};
+            const per = {};
+            Object.keys(map).forEach((date) => {
+                if (date < from || date > to) return;
+                const d = _derive(map[date], art);
+                if (!d) return;
+                const ws = _weekStartStr(date);
+                const w = per[ws] || (per[ws] = { orders: 0, sales: 0, pay: 0, profit: 0 });
+                w.orders += Number(d.orders_count) || 0; w.sales += Number(d.sales_count) || 0;
+                w.pay += Number(d.to_transfer) || 0; w.profit += Number(d.profit) || 0;
+            });
+            out[nm] = per;
+        });
+        return out;
     }
 
     async function openPlanFact() {
@@ -10054,7 +10076,7 @@ const RNP = (() => {
     });
 
     _bindSheetWheelLock(); // колесо над таблицей: одна ось за жест, подключаем сразу
-    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
 })();

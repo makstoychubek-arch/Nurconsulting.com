@@ -137,29 +137,39 @@
     var MSHORT = ['янв.', 'фев.', 'мар.', 'апр.', 'май', 'июн.', 'июл.', 'авг.', 'сен.', 'окт.', 'ноя.', 'дек.'];
     var PAYOUT_LAG = 2; // деньги за продажи недели приходят через 2 недели
     var PARAMS = [
-        { k: 'stor', label: 'Тариф хранения, ₽/л' }, { k: 'logi', label: 'Тариф логистики, ₽' }, { k: 'extra', label: 'Каждый доп. литр, ₽' },
+        { k: 'stor', label: 'Тариф хранения, сом/л' }, { k: 'logi', label: 'Тариф логистики, сом' }, { k: 'extra', label: 'Каждый доп. литр, сом' },
         { k: 'dl', label: 'Длина, см' }, { k: 'dw', label: 'Ширина, см' }, { k: 'dh', label: 'Высота, см' },
-        { k: 'vol', label: 'Объём, л' }, { k: 'back', label: 'Логистика от клиента, ₽' }, { k: 'cogs', label: 'Себестоимость, ₽' },
+        { k: 'vol', label: 'Объём, л' }, { k: 'back', label: 'Логистика от клиента, сом' }, { k: 'cogs', label: 'Себестоимость, сом' },
         { k: 'buyout', label: '% выкупа' }, { k: 'comm', label: 'Комиссия, %' }, { k: 'tax', label: 'Налог, %' }, { k: 'spp', label: 'СПП, %' },
     ];
     var WROWS = [
         { k: 'orders', label: 'План заказов, шт', input: 1 },
         { k: 'sales', label: 'План продаж, шт' },
         { k: 'ret', label: 'Возвраты, шт' },
-        { k: 'price', label: 'Цена до СПП, ₽', input: 1 },
-        { k: 'priceSpp', label: 'Цена после СПП, ₽' },
+        { k: 'price', label: 'Цена до СПП, сом', input: 1 },
+        { k: 'priceSpp', label: 'Цена после СПП, сом' },
         { k: 'drr', label: 'План ДРР, %', input: 1 },
-        { k: 'giveSum', label: 'Раздачи (сумм), ₽', input: 1 },
-        { k: 'mkt', label: 'Внутренний маркетинг, ₽' },
-        { k: 'logi', label: 'Логистика, ₽' },
-        { k: 'commR', label: 'Комиссия, ₽' },
-        { k: 'storR', label: 'Хранение, ₽' },
-        { k: 'taxR', label: 'Налог, ₽' },
-        { k: 'pay', label: 'План к перечислению, ₽', bold: 1 },
-        { k: 'profit', label: 'План ЧП, ₽', bold: 1 },
+        { k: 'giveSum', label: 'Раздачи (сумм), сом', input: 1 },
+        { k: 'mkt', label: 'Внутренний маркетинг, сом' },
+        { k: 'logi', label: 'Логистика, сом' },
+        { k: 'commR', label: 'Комиссия, сом' },
+        { k: 'storR', label: 'Хранение, сом' },
+        { k: 'taxR', label: 'Налог, сом' },
+        { k: 'pay', label: 'План к перечислению, сом', bold: 1 },
+        { k: 'profit', label: 'План ЧП, сом', bold: 1 },
         { k: 'stock', label: 'Остаток на МП, шт' },
         { k: 'sup', label: 'Поставки (итого по цветам), шт' },
+        { sec: 'Факт и план/факт' },
+        { k: 'fOrders', label: 'Факт заказов, шт' },
+        { k: 'fSales', label: 'Факт продаж, шт' },
+        { k: 'fPay', label: 'Факт к перечислению, сом' },
+        { k: 'fProfit', label: 'Факт ЧП, сом', bold: 1 },
+        { k: 'pfOrders', label: 'Заказы: факт к плану, %' },
+        { k: 'pfProfit', label: 'ЧП: факт к плану, %' },
+        { k: 'cashPlan', label: 'План кассовая прибыль, сом' },
+        { k: 'cashFact', label: 'Факт кассовая прибыль, сом' },
     ];
+    var PCT_KEYS = ['drr', 'pfOrders', 'pfProfit'], FACT_KEYS = ['fOrders', 'fSales', 'fPay', 'fProfit', 'cashFact'];
     function num(v) { var n = Number(v); return Number.isFinite(n) ? n : 0; }
     function has(v) { return v !== undefined && v !== null && v !== ''; }
     // константы артикула: логистика до клиента = тариф + (объём − 1) × доп. литр;
@@ -185,8 +195,9 @@
     }
     // весь блок артикула по неделям, как в таблице: заказы недели дают продажи следующей недели (× % выкупа),
     // цена комиссии и перечисления берётся за прошлую неделю, остаток на МП = прошлый − заказы + возвраты + поставки
-    function calcBlock(b, weeks) {
-        var P = calcParams(b.params), d = b.data || {}, G = [], K = [], I = [], AA = [], out = [];
+    function calcBlock(b, weeks, facts) {
+        var P = calcParams(b.params), d = b.data || {}, G = [], K = [], I = [], AA = [], out = [], cumPay = 0, cumSup = 0, cumFact = 0;
+        facts = facts || {};
         weeks.forEach(function (w, i) {
             var x = d[w.start] || {};
             var g = num(x.orders), k = num(x.price), o = num(x.drr) / 100, sup = supOf(b, w.start), give = num(x.giveSum);
@@ -200,8 +211,16 @@
             var pay = kp * sales - logi - commR - taxR - mkt - give;
             var profit = kp * sales - logi - commR - P.cogs * sales - taxR - mkt - storR;
             G.push(g); K.push(k); I.push(sales); AA.push(stock);
-            out.push({ orders: g, sales: sales, ret: ret, price: k, priceSpp: priceSpp, drr: o * 100, giveSum: give, mkt: mkt, logi: logi, commR: commR, storR: storR, taxR: taxR,
-                pay: pay, profit: profit, stock: stock, sup: sup, any: has(x.orders) || has(x.price) || sup > 0 || has(x.giveSum) });
+            cumPay += pay; cumSup += sup;
+            var f = facts[w.start], fAny = !!f;
+            if (fAny) cumFact += num(f.pay);
+            var base = {
+                fAny: fAny, fOrders: fAny ? f.orders : null, fSales: fAny ? f.sales : null, fPay: fAny ? f.pay : null, fProfit: fAny ? f.profit : null,
+                pfOrders: fAny && g > 0 ? f.orders / g * 100 : null, pfProfit: fAny && profit > 0 ? f.profit / profit * 100 : null,
+                cashPlan: cumPay - cumSup * P.cogs, cashFact: fAny ? cumFact - cumSup * P.cogs : null,
+            };
+            out.push(Object.assign(base, { orders: g, sales: sales, ret: ret, price: k, priceSpp: priceSpp, drr: o * 100, giveSum: give, mkt: mkt, logi: logi, commR: commR, storR: storR, taxR: taxR,
+                pay: pay, profit: profit, stock: stock, sup: sup, any: has(x.orders) || has(x.price) || sup > 0 || has(x.giveSum) }));
         });
         return out;
     }
@@ -212,21 +231,21 @@
     }
     // «Приблизительный план вывода денег»: перечисление и ЧП недели = продажи недели на 2 недели раньше,
     // маркетинг (внутренний + раздачи) и поставки берутся за ту же неделю
-    function moneyPlan(blocks, weeks, lag) {
-        lag = lag === undefined ? PAYOUT_LAG : lag;
-        var calcs = blocks.map(function (b) { return calcBlock(b, weeks); });
+    function moneyPlan(blocks, weeks, lag, factsByNm) {
+        lag = lag === undefined ? PAYOUT_LAG : lag; factsByNm = factsByNm || {};
+        var calcs = blocks.map(function (b) { return calcBlock(b, weeks, factsByNm[b.nm]); });
         return weeks.map(function (w, i) {
-            var t = { pay: 0, profit: 0, mkt: 0, sup: 0, any: false };
+            var t = { pay: 0, profit: 0, mkt: 0, sup: 0, any: false, fpay: 0, fprofit: 0, fany: false };
             calcs.forEach(function (c) {
                 var cur = c[i], src = i - lag >= 0 ? c[i - lag] : null;
-                if (src) { t.pay += src.pay; t.profit += src.profit; if (src.any) t.any = true; }
+                if (src) { t.pay += src.pay; t.profit += src.profit; if (src.any) t.any = true; if (src.fAny) { t.fany = true; t.fpay += src.fPay; t.fprofit += src.fProfit; } }
                 t.mkt += cur.mkt + cur.giveSum; t.sup += cur.sup; if (cur.any) t.any = true;
             });
             return t;
         });
     }
     function sumPlan(rows) {
-        return rows.reduce(function (a, r) { a.pay += r.pay; a.profit += r.profit; a.mkt += r.mkt; a.sup += r.sup; return a; }, { pay: 0, profit: 0, mkt: 0, sup: 0 });
+        return rows.reduce(function (a, r) { a.pay += r.pay; a.profit += r.profit; a.mkt += r.mkt; a.sup += r.sup; a.fpay += r.fpay || 0; a.fprofit += r.fprofit || 0; return a; }, { pay: 0, profit: 0, mkt: 0, sup: 0, fpay: 0, fprofit: 0 });
     }
 
     function newBlock(id) { return { id: id, nm: '', params: {}, data: {}, synced: {}, colors: [{ name: '', qty: {} }] }; }
@@ -278,7 +297,8 @@
         }
     }
     function fnum(v, any) { return any ? Math.round(v).toLocaleString('ru') : ''; }
-    function fval(v, any, k) { return any ? (k === 'drr' ? (Math.round(v * 10) / 10).toLocaleString('ru') : Math.round(v).toLocaleString('ru')) : ''; }
+    function fval(v, any, k) { if (!any || v === null || v === undefined || !Number.isFinite(v)) return ''; return PCT_KEYS.indexOf(k) >= 0 ? (Math.round(v * 10) / 10).toLocaleString('ru') : Math.round(v).toLocaleString('ru'); }
+    function cellAny(c, k) { return FACT_KEYS.indexOf(k) >= 0 || k.indexOf('pf') === 0 ? c.fAny : (k === 'cashPlan' ? true : c.any); }
 
     function viewTabs() {
         var V = [['sales', 'План продаж'], ['money', 'План вывода денег'], ['rnp', 'План для РНП']];
@@ -294,7 +314,7 @@
         return out;
     }
     function blockHtml(b, weeks, spans) {
-        var calc = calcBlock(b, weeks);
+        var calc = calcBlock(b, weeks, st.facts && st.facts[b.nm]);
         var head = '<tr class="ps-h1"><th class="ps-l"></th>' + spans.map(function (m) { return '<th colspan="' + m.n + '" class="ps-m">' + m.label + '</th>'; }).join('') + '</tr>' +
             '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>' +
             '<tr class="ps-h3"><th class="ps-l">по</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.end) + '</th>'; }).join('') + '</tr>';
@@ -307,13 +327,14 @@
             }).join('') + '</tr>';
         }).join('') + ((b.colors || []).length < 12 ? '<tr class="ps-r"><th class="ps-l"><button type="button" class="ps-addc" data-ps-color="' + b.id + '">+ цвет</button></th><td colspan="' + weeks.length + '"></td></tr>' : '');
         var rows = colRows + '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">Недели</th></tr>' + WROWS.map(function (r) {
+            if (r.sec) return '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">' + r.sec + '</th></tr>';
             return '<tr class="ps-r' + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
                 var cls = (w.first ? ' ps-m' : '');
                 if (r.input) {
                     var v = ((b.data || {})[w.start] || {})[r.k];
                     return '<td class="ps-c' + cls + '"><input class="ps-in" type="text" inputmode="decimal" data-b="' + b.id + '" data-w="' + w.start + '" data-k="' + r.k + '" value="' + esc(has(v) ? v : '') + '"></td>';
                 }
-                return '<td class="ps-c ps-calc' + cls + (r.bold ? ' ps-bold' : '') + '" data-calc="' + b.id + '|' + i + '|' + r.k + '">' + fval(calc[i][r.k], calc[i].any, r.k) + '</td>';
+                return '<td class="ps-c ps-calc' + cls + (r.bold ? ' ps-bold' : '') + '" data-calc="' + b.id + '|' + i + '|' + r.k + '">' + fval(calc[i][r.k], cellAny(calc[i], r.k), r.k) + '</td>';
             }).join('') + '</tr>';
         }).join('');
         var opts = '<option value="">Выберите артикул</option>' + st.articles.map(function (a) { return '<option value="' + a.nm_id + '"' + (String(a.nm_id) === String(b.nm) ? ' selected' : '') + '>' + esc(a.name) + ' · ' + a.nm_id + '</option>'; }).join('');
@@ -331,9 +352,26 @@
         var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), spans = monthSpans(weeks);
         var seen = {}; weeks.forEach(function (w) { var k = w.year + '-' + w.month; w.first = !seen[k]; seen[k] = 1; });
         st.host.innerHTML = viewTabs() +
-            '<div class="ps-note">Один блок на артикул. Вверху константы артикула, ниже недели. Вводите план заказов, цену, ДРР, раздачи и поставки: продажи, возвраты, расходы, перечисление и ЧП считаются сами по формулам вашей таблицы. План заказов и продаж сам попадает в строки «План заказов» и «План продаж» РНП (неделя ÷ 7 на день).</div>' +
+            '<div class="ps-note">Один блок на артикул. Вверху константы артикула, ниже недели. Вводите план заказов, цену, ДРР, раздачи и поставки: продажи, возвраты, расходы, перечисление и ЧП считаются сами по формулам вашей таблицы. План заказов и продаж сам попадает в строки «План заказов» и «План продаж» РНП (неделя ÷ 7 на день). Внизу блока факт недель подтягивается из РНП (заказы, продажи, к перечислению, ЧП по финотчёту WB) и сравнивается с планом.</div>' +
             sh.blocks.map(function (b) { return blockHtml(b, weeks, spans); }).join('') +
             '<div class="ps-foot"><button type="button" class="ps-add" data-ps-add>+ Добавить артикул</button></div>';
+    }
+    // Факт недель из РНП (заказы, продажи, к перечислению, ЧП по финотчёту): подтягивается сам, в фоне
+    var factsTimer = null;
+    function loadFacts() {
+        clearTimeout(factsTimer);
+        factsTimer = setTimeout(async function () {
+            var cur = st; if (!cur || !cur.factsFn || !cur.sheet) return;
+            var nms = cur.sheet.blocks.map(function (b) { return b.nm; }).filter(Boolean);
+            if (!nms.length) { cur.facts = {}; return; }
+            var weeks = sheetWeeks(cur.sheet.start, cur.sheet.count), today = new Date().toISOString().slice(0, 10);
+            var to = weeks[weeks.length - 1].end < today ? weeks[weeks.length - 1].end : today;
+            if (weeks[0].start > to) { cur.facts = {}; return; }
+            try { cur.facts = await cur.factsFn(nms, weeks[0].start, to); } catch (e) { if (root.console) console.warn('[planning] facts', e && e.message); return; }
+            if (st !== cur) return;
+            if (cur.view === 'money') keepScroll(renderMoney);
+            else if (cur.view === 'sales') cur.sheet.blocks.forEach(function (b) { refreshCalc(b); });
+        }, 200);
     }
     // график по неделям: перечисление, ЧП и маркетинг (линии в серой шкале, без цвета)
     function moneyChart(plan, weeks) {
@@ -351,21 +389,21 @@
             '<div class="ps-leg"><span><i class="psc-k1"></i>К перечислению</span><span><i class="psc-k2"></i>ЧП</span><span><i class="psc-k3"></i>Маркетинг</span></div></div>';
     }
     function renderMoney() {
-        var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), plan = moneyPlan(sh.blocks, weeks), tot = sumPlan(plan);
+        var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), plan = moneyPlan(sh.blocks, weeks, undefined, st.facts), tot = sumPlan(plan);
         var rows = weeks.map(function (w, i) {
             var t = plan[i], first = i === 0 || weeks[i - 1].month !== w.month;
-            return '<tr class="' + (first ? 'ps-mrow' : '') + '"><td class="ps-mo">' + MSHORT[w.month] + '</td><td>' + ddmm(w.start) + '</td><td>' + fnum(t.pay, t.any) + '</td><td>' + fnum(t.profit, t.any) + '</td><td>' + fnum(t.mkt, t.any) + '</td><td>' + fnum(t.sup, t.any) + '</td></tr>';
+            return '<tr class="' + (first ? 'ps-mrow' : '') + '"><td class="ps-mo">' + MSHORT[w.month] + '</td><td>' + ddmm(w.start) + '</td><td>' + fnum(t.pay, t.any) + '</td><td>' + fnum(t.profit, t.any) + '</td><td>' + fnum(t.mkt, t.any) + '</td><td>' + fnum(t.sup, t.any) + '</td><td class="ps-fc">' + fnum(t.fpay, t.fany) + '</td><td class="ps-fc">' + fnum(t.fprofit, t.fany) + '</td></tr>';
         }).join('');
-        var any = plan.some(function (t) { return t.any; });
+        var any = plan.some(function (t) { return t.any; }), anyF = plan.some(function (t) { return t.fany; });
         st.host.innerHTML = viewTabs() +
-            '<div class="ps-note">Считается само из листа «План продаж»: перечисление и ЧП приходят через ' + PAYOUT_LAG + ' недели после продаж, маркетинг (внутренний и раздачи) и поставки стоят в той же неделе. Вводить ничего не нужно.</div>' + moneyChart(plan, weeks) +
-            '<div class="ps-scroll ps-money"><table class="ps-table ps-mt"><thead><tr><th colspan="6" class="ps-title">Приблизительный план вывода денег</th></tr>' +
-            '<tr class="ps-mh"><th>Месяц</th><th>Неделя</th><th>План к перечислению, ₽</th><th>План ЧП, ₽</th><th>Затраты на маркетинг, ₽</th><th>Поставки, шт</th></tr></thead><tbody>' + rows +
-            '<tr class="ps-tot"><td colspan="2">Итого</td><td>' + fnum(tot.pay, any) + '</td><td>' + fnum(tot.profit, any) + '</td><td>' + fnum(tot.mkt, any) + '</td><td>' + fnum(tot.sup, any) + '</td></tr></tbody></table></div>';
+            '<div class="ps-note">Считается само из листа «План продаж»: перечисление и ЧП приходят через ' + PAYOUT_LAG + ' недели после продаж, маркетинг (внутренний и раздачи) и поставки стоят в той же неделе. Факт к перечислению и ЧП берутся из РНП (финотчёт WB) с тем же сдвигом. Вводить ничего не нужно.</div>' + moneyChart(plan, weeks) +
+            '<div class="ps-scroll ps-money"><table class="ps-table ps-mt"><thead><tr><th colspan="8" class="ps-title">Приблизительный план вывода денег</th></tr>' +
+            '<tr class="ps-mh"><th>Месяц</th><th>Неделя</th><th>План к перечислению, сом</th><th>План ЧП, сом</th><th>Затраты на маркетинг, сом</th><th>Поставки, шт</th><th class="ps-fh">Факт к перечислению, сом</th><th class="ps-fh">Факт ЧП, сом</th></tr></thead><tbody>' + rows +
+            '<tr class="ps-tot"><td colspan="2">Итого</td><td>' + fnum(tot.pay, any) + '</td><td>' + fnum(tot.profit, any) + '</td><td>' + fnum(tot.mkt, any) + '</td><td>' + fnum(tot.sup, any) + '</td><td>' + fnum(tot.fpay, anyF) + '</td><td>' + fnum(tot.fprofit, anyF) + '</td></tr></tbody></table></div>';
     }
     // пересчёт блока на месте после ввода: фокус и прокрутка не сбиваются
     function refreshCalc(b) {
-        var weeks = sheetWeeks(st.sheet.start, st.sheet.count), calc = calcBlock(b, weeks);
+        var weeks = sheetWeeks(st.sheet.start, st.sheet.count), calc = calcBlock(b, weeks, st.facts && st.facts[b.nm]);
         var tots = (b.colors || []).map(function (c) { var t = 0; weeks.forEach(function (w) { t += num((c.qty || {})[w.start]); }); return t; }), grand = tots.reduce(function (a, x) { return a + x; }, 0);
         st.host.querySelectorAll('[data-ctot^="' + b.id + '|"]').forEach(function (el) {
             var i = Number(el.getAttribute('data-ctot').split('|')[1]);
@@ -373,7 +411,7 @@
         });
         st.host.querySelectorAll('[data-calc^="' + b.id + '|"]').forEach(function (el) {
             var p = el.getAttribute('data-calc').split('|'), c = calc[Number(p[1])];
-            el.textContent = fval(c[p[2]], c.any, p[2]);
+            el.textContent = fval(c[p[2]], cellAny(c, p[2]), p[2]);
         });
     }
     // План заказов и продаж из листа ложится в РНП: неделя ÷ 7 на каждый день (rnp_plans.planned_orders / planned_sales).
@@ -434,7 +472,7 @@
             var a = ((await cur.db.from('rnp_articles').select('dim_l_cm,dim_w_cm,dim_h_cm,subject_name').eq('cabinet_id', cur.cab).eq('nm_id', nm).limit(1)).data || [])[0];
             if (a) { fill('dl', a.dim_l_cm); fill('dw', a.dim_w_cm); fill('dh', a.dim_h_cm); }
             var tr = await wbFn('wb-tariffs');
-            if (tr) { var rate = Number(tr.rate) || 1; fill('logi', tr.delivery_base / rate); fill('extra', tr.delivery_liter / rate); fill('stor', tr.storage_liter / rate); }
+            if (tr) { fill('logi', tr.delivery_base); fill('extra', tr.delivery_liter); fill('stor', tr.storage_liter); }
             if (a && a.subject_name) {
                 var cm = await wbFn('wb-commission', { subjects: [a.subject_name] });
                 var it = cm && cm.items && cm.items[String(a.subject_name).trim().toLowerCase()];
@@ -484,11 +522,11 @@
             return true;
         }
         if (e.type === 'change' && t.matches && t.matches('.ps-art')) {
-            var bb = findBlock(t.dataset.psArt); if (bb) { var oldNm = bb.nm; bb.nm = t.value; saveSheet(); queueSync(bb, oldNm); var wbb = st.host.querySelector('[data-ps-wb="' + bb.id + '"]'); if (wbb) wbb.disabled = !bb.nm; if (bb.nm) autofill(bb, false); } return true;
+            var bb = findBlock(t.dataset.psArt); if (bb) { var oldNm = bb.nm; bb.nm = t.value; saveSheet(); queueSync(bb, oldNm); var wbb = st.host.querySelector('[data-ps-wb="' + bb.id + '"]'); if (wbb) wbb.disabled = !bb.nm; loadFacts(); if (bb.nm) autofill(bb, false); } return true;
         }
         if (e.type !== 'click') return false;
         var btn = t.closest && t.closest('button'); if (!btn) return false;
-        if (btn.dataset.view) { st.view = btn.dataset.view; render(); if (st.view === 'rnp') loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* без планов */ }); return true; }
+        if (btn.dataset.view) { st.view = btn.dataset.view; render(); if (st.view !== 'rnp') loadFacts(); if (st.view === 'rnp') loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* без планов */ }); return true; }
         if (btn.dataset.psColor) { var ab = findBlock(btn.dataset.psColor); if (ab && ab.colors.length < 12) { ab.colors.push({ name: '', qty: {} }); saveSheet(); keepScroll(renderSales); } return true; }
         if (btn.dataset.psWb) { var wb = findBlock(btn.dataset.psWb); if (wb && wb.nm) autofill(wb, true); return true; }
         if (btn.hasAttribute('data-ps-add')) { st.sheet.blocks.push(newBlock('b' + Date.now().toString(36))); saveSheet(); keepScroll(renderSales); return true; }
@@ -594,7 +632,7 @@
         }
         var key = String(opts.monthKey || '').slice(0, 7);
         if (!/^\d{4}-\d{2}$/.test(key)) key = new Date().toISOString().slice(0, 7);
-        st = { db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: (overlay || ph).firstChild, pageHost: ph, view: ph ? 'sales' : 'rnp', onSaved: opts.onSaved };
+        st = { factsFn: opts.facts || null, facts: {}, db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: (overlay || ph).firstChild, pageHost: ph, view: ph ? 'sales' : 'rnp', onSaved: opts.onSaved };
         var evHost = overlay || ph;
         st._h = onEvent;
         if (overlay) overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
@@ -602,7 +640,7 @@
         evHost.addEventListener('change', onEvent);
         evHost.addEventListener('input', onEvent);
         document.addEventListener('keydown', onKey, true);
-        if (ph) { render(); pullSheet().catch(function () { /* останется память браузера */ }); loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* планы РНП подгрузятся при открытии вкладки */ }); return; }
+        if (ph) { render(); pullSheet().then(loadFacts).catch(function () { /* останется память браузера */ }); loadFacts(); loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* планы РНП подгрузятся при открытии вкладки */ }); return; }
         st.host.innerHTML = '<div class="rnp-plan-loading">Загрузка…</div>';
         try { await loadPlans(); } catch (e) { st.host.innerHTML = '<div class="rnp-plan-loading">Не удалось загрузить планы: ' + esc(e && e.message) + '</div>'; return; }
         render();
