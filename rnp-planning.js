@@ -125,7 +125,7 @@
             '<div class="rnp-plan-head"><div class="rnp-plan-title">Планирование</div>' +
             '<div class="rnp-plan-month"><button type="button" data-month="-1" aria-label="Предыдущий месяц">‹</button><b>' + MONTHS[p[1] - 1] + ' ' + p[0] + '</b><button type="button" data-month="1" aria-label="Следующий месяц">›</button></div>' +
             '<input class="rnp-plan-search" type="search" placeholder="Поиск артикула" value="' + esc(st.query || '') + '">' +
-            '<button type="button" class="rnp-plan-close" data-close aria-label="Закрыть">×</button></div>' +
+            '<button type="button" class="rnp-plan-close" data-close aria-label="Закрыть">' + (st.pageHost ? '‹ РНП' : '×') + '</button></div>' +
             '<div class="rnp-plan-tabs">' + tabs + '<span class="rnp-plan-unit">' + m.unit + '</span></div>' +
             '<div class="rnp-plan-hint">Впиши число в неделю: оно встанет на все 7 дней этой недели в РНП (строка плана). Пусто — план не задан.</div>' +
             '<div class="rnp-plan-scroll"><table class="rnp-plan-table"><thead><tr><th>Артикул</th>' + head + '</tr></thead><tbody>' +
@@ -186,28 +186,41 @@
         }
     }
 
+    var pageMode = false;
     function close() {
         var el = document.getElementById('rnp-planning-overlay');
         if (el) el.remove();
         document.removeEventListener('keydown', onKey, true);
+        if (st && st.pageHost && st._h) { ['click', 'change', 'input'].forEach(function (t) { st.pageHost.removeEventListener(t, st._h); }); }
+        var wasPage = pageMode; pageMode = false;
         st = null;
+        if (wasPage && typeof root.showTab === 'function') root.showTab('rnp');
     }
     function onKey(e) { if (e.key === 'Escape') close(); }
 
     async function open(opts) {
-        close();
-        var overlay = document.createElement('div');
-        overlay.id = 'rnp-planning-overlay';
-        overlay.className = 'rnp-plan-overlay';
-        overlay.innerHTML = '<div class="rnp-plan-panel" role="dialog" aria-label="Планирование"></div>';
-        document.body.appendChild(overlay);
+        var ph = opts.host || null;
+        if (pageMode && st && st.pageHost) { pageMode = false; ['click', 'change', 'input'].forEach(function (t) { st.pageHost.removeEventListener(t, st._h); }); st = null; } else { pageMode = false; close(); }
+        var overlay = null;
+        if (ph) {
+            pageMode = true;
+            ph.innerHTML = '<div class="rnp-plan-panel rnp-plan-page" aria-label="Планирование"></div>';
+        } else {
+            overlay = document.createElement('div');
+            overlay.id = 'rnp-planning-overlay';
+            overlay.className = 'rnp-plan-overlay';
+            overlay.innerHTML = '<div class="rnp-plan-panel" role="dialog" aria-label="Планирование"></div>';
+            document.body.appendChild(overlay);
+        }
         var key = String(opts.monthKey || '').slice(0, 7);
         if (!/^\d{4}-\d{2}$/.test(key)) key = new Date().toISOString().slice(0, 7);
-        st = { db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: overlay.firstChild, onSaved: opts.onSaved };
-        overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
-        overlay.addEventListener('click', onEvent);
-        overlay.addEventListener('change', onEvent);
-        overlay.addEventListener('input', onEvent);
+        st = { db: opts.db, cab: opts.cabinetId, articles: opts.articles || [], monthKey: key, weeks: weeksOf(key), metric: 'planned_orders', plans: {}, query: '', host: (overlay || ph).firstChild, pageHost: ph, onSaved: opts.onSaved };
+        var evHost = overlay || ph;
+        st._h = onEvent;
+        if (overlay) overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(); });
+        evHost.addEventListener('click', onEvent);
+        evHost.addEventListener('change', onEvent);
+        evHost.addEventListener('input', onEvent);
         document.addEventListener('keydown', onKey, true);
         st.host.innerHTML = '<div class="rnp-plan-loading">Загрузка…</div>';
         try { await loadPlans(); } catch (e) { st.host.innerHTML = '<div class="rnp-plan-loading">Не удалось загрузить планы: ' + esc(e && e.message) + '</div>'; return; }

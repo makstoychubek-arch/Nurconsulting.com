@@ -9342,6 +9342,7 @@ const RNP = (() => {
             daily: _planFactDaily(articles),
             plans: _planCache,
             monthKey: _viewMonthKey(),
+            host: document.getElementById('rnp-pfp-host'),
         });
     }
 
@@ -9357,7 +9358,9 @@ const RNP = (() => {
     function openPlanning() {
         if (!window.NrPlanning || !_db || !_cab) return;
         closeSettings();
+        if (typeof showTab === 'function') showTab('rnp-planning');
         window.NrPlanning.open({
+            host: document.getElementById('rnp-plp-host'),
             db: _db, cabinetId: _cab, articles: _planFactArticles(), monthKey: _viewMonthKey(),
             onSaved: () => { refreshPlans().catch(() => {}); },
         });
@@ -9366,6 +9369,7 @@ const RNP = (() => {
     async function openPlanFact() {
         if (!window.RnpPlanFact) return;
         closeSettings();
+        if (typeof showTab === 'function') showTab('rnp-planfact');
         const monthKey = _viewMonthKey();
         const weeks = window.RnpPlanFact.weeksForMonth(monthKey);
         const from = weeks[0] && weeks[0].start;

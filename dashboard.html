@@ -6055,8 +6055,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/analytics': 'analytics', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
             // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
-            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs'];
-            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, analytics: 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
+            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs'];
+            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, 'rnp-planfact': 1, 'rnp-planning': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, analytics: 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -6064,7 +6064,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
             if (!__nrTab) __nrTab = localStorage.getItem('nr_active_tab');
             if (__nrTab) __nrTab = __nrAliases[__nrTab] || __nrTab;
-            if (__nrTab === 'rnp-settings') __nrTab = 'rnp';
+            if (__nrTab === 'rnp-settings' || __nrTab === 'rnp-planfact' || __nrTab === 'rnp-planning') __nrTab = 'rnp';
             if (__nrTab === 'cost') __nrTab = 'goods-groups';
             /* Внутренние вкладки открываем сразу только сотруднику команды —
                флаг из прошлой сессии. Клиента на /agents не пускаем ни на кадр,
@@ -6096,7 +6096,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     __nrCss += '.rnp-workspace,#rnp-sheet-body,.rnp-article-panel--wide{background:var(--surface-solid)}';
                     __nrCss += '.main-content{padding:4px 6px}';
                 }
-                if (__nrPane !== 'rnp' && __nrPane !== 'rnp-settings') {
+                if (__nrPane !== 'rnp' && __nrPane !== 'rnp-settings' && __nrPane !== 'rnp-planfact' && __nrPane !== 'rnp-planning') {
                     // Те же поля, что у страницы после загрузки (см. «Единые поля страниц»), иначе контент «перепрыгивает».
                     __nrCss += '.main-content{padding:4px 6px 12px}';
                 }
@@ -6136,7 +6136,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.13a850043f.css">
+<link rel="stylesheet" href="/dist/nr-mono.86c403925a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7554,6 +7554,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
         </div>
 
+        <div id="tab-rnp-planfact" class="tab-content"><div id="rnp-pfp-host" class="rnp-pfp-host"></div></div>
+        <div id="tab-rnp-planning" class="tab-content"><div id="rnp-plp-host" class="rnp-pfp-host"></div></div>
+
         <div id="tab-planning" class="tab-content space-y-4">
             <div class="flex items-center justify-end flex-wrap gap-2">
                 <span id="plan-save-status" class="text-xs" style="color:var(--text-muted)"></span>
@@ -7952,7 +7955,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             if (!tab || tab === 'dashboard') return;
                             var titles = {
                                 rnp: 'Модуль РНП',
-                                'rnp-settings': 'Настройки РНП',
+                                'rnp-settings': 'Настройки РНП', 'rnp-planfact': 'План/факт', 'rnp-planning': 'Планирование',
                                 advertising: 'Продвижение',
                                 'ab-testing': 'А/Б Тесты',
                                 'goods-groups': 'Логистика',
@@ -7962,7 +7965,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             var t = document.getElementById('page-title');
                             if (t && titles[tab]) t.textContent = titles[tab];
                             var main = document.querySelector('.main-content');
-                            if (main && (tab === 'rnp' || tab === 'rnp-settings')) main.classList.add('rnp-compact');
+                            if (main && (tab === 'rnp' || tab === 'rnp-settings' || tab === 'rnp-planfact' || tab === 'rnp-planning')) main.classList.add('rnp-compact');
                         })();
                     </script>
                 </div>
@@ -8104,7 +8107,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.8a0618d409.min.js"></script>
+<script src="/dist/rnp-module.5463699956.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -8217,7 +8220,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 </script>
 
 <script src="/dist/rnp-selection.95a763588f.min.js"></script>
-<script src="/dist/rnp-plan-fact.8c44cd4e95.min.js"></script>
+<script src="/dist/rnp-plan-fact.3b175bdb40.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/adv-shelves-ui.94530b078e.min.js"></script><script src="/dist/ads-command-center.022462979e.min.js"></script>
@@ -8229,7 +8232,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
 <script src="/dist/viewer-mode.1d9ff5a747.min.js"></script>
 <script src="/dist/space-admin-ext.68d561b81b.min.js"></script>
-<script src="/dist/rnp-planning.193b5a741b.min.js"></script>
+<script src="/dist/rnp-planning.e317fe8fb5.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
@@ -8312,7 +8315,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
        внутренние страницы — видно только команде (team_staff / суперадмин).
        Выводить раздел в общий показ — только с разрешения владельца: список
        закреплён тестом public_modules_test.js, без правки теста он не пройдёт. */
-    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs']);
+    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasPaid = (() => {
         try { return localStorage.getItem('nr_paid') === '1'; } catch (_) { return false; }
     })();
@@ -8348,7 +8351,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
         });
     }
-    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
+    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
     // До загрузки кабинетов из БД не показываем экран «подключите кабинет» (иначе мигает у активных).
     let cabinetsLoaded = false;
@@ -9511,7 +9514,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт',
         dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно',
         cost:'Себестоимость', 'goods-groups':'Логистика', 'tg-owner':'Настройки', warehouse:'Склады',
-        rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', planning:'Планирование',
+        rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', 'rnp-planfact':'План/факт', 'rnp-planning':'Планирование', planning:'Планирование',
         'ab-testing':'А/Б Тесты', advertising:'Продвижение', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
         'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты', akylai:'Агенты',
@@ -9524,7 +9527,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         'cabinets-hub':'cabinets',
         settings:'settings',
         summary:'beta', 'summary-biz':'beta', deductions:'beta', 'plan-fact':'beta',
-        rnp:'rnp', 'rnp-settings':'rnp', planning:'beta',
+        rnp:'rnp', 'rnp-settings':'rnp', 'rnp-planfact':'rnp', 'rnp-planning':'rnp', planning:'beta',
         advertising:'ads', 'ab-testing':'ads',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'agents', ozon:'beta', agents:'agents',
@@ -9575,7 +9578,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 b.classList.toggle('active', tabName === 'ab-testing' || tabName === 'agents' || tabName === 'akylai');
             } else if (b.dataset.tab) {
                 const match = live && (b.dataset.tab === tabName
-                    || (b.dataset.tab === 'rnp' && tabName === 'rnp-settings')
+                    || (b.dataset.tab === 'rnp' && (tabName === 'rnp-settings' || tabName === 'rnp-planfact' || tabName === 'rnp-planning'))
                     || (b.dataset.tab === 'agents' && tabName === 'akylai'));
                 b.classList.toggle('active', !!match);
             }
@@ -9585,7 +9588,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function syncBottomNav(tabName) {
-        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', 'goods-groups': 'bn-goods', advertising: 'bn-rk' };
+        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', 'rnp-planfact': 'bn-rnp', 'rnp-planning': 'bn-rnp', dashboard: 'bn-dash', 'goods-groups': 'bn-goods', advertising: 'bn-rk' };
         document.querySelectorAll('#nr-bottom-nav .bottom-nav-btn[data-tab], #bn-beta').forEach(b => b.classList.remove('active'));
         if (map[tabName]) {
             document.getElementById(map[tabName])?.classList.add('active');
@@ -9881,7 +9884,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (name === 'cabinets-hub' || name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'content-factory' || name === 'agents') {
                 window.closeSidebarMenus?.(true);
             }
-            document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
+            document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings' || name === 'rnp-planfact' || name === 'rnp-planning');
             document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
             document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising' || name === 'ab-testing' || name === 'content-factory');
             if (name === 'ab-testing') loadABTests();
