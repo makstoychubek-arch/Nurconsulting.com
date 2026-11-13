@@ -194,7 +194,7 @@
             unitLogi: buyout ? back / buyout - back + toClient / buyout : 0, unitStor: num(p.stor) * vol };
     }
     // весь блок артикула по неделям, как в таблице: заказы недели дают продажи следующей недели (× % выкупа),
-    // цена комиссии и перечисления берётся за прошлую неделю, остаток на МП = прошлый − заказы + возвраты + поставки
+    // комиссия и перечисление по цене недели, ЧП по цене прошлой недели, остаток на МП = прошлый − заказы + возвраты + поставки
     function calcBlock(b, weeks, facts) {
         var P = calcParams(b.params), d = b.data || {}, G = [], K = [], I = [], AA = [], out = [], cumPay = 0, cumSup = 0, cumFact = 0;
         facts = facts || {};
@@ -205,10 +205,10 @@
             var sales = gp * P.buyout;
             var ret = 0.5 * (gpp - ip) + 0.5 * (gp - sales);
             var priceSpp = k * (1 - P.spp);
-            var mkt = k * sales * o, logi = sales * P.unitLogi, commR = sales * kp * P.comm;
+            var mkt = k * sales * o, logi = sales * P.unitLogi, commR = sales * k * P.comm;
             var stock = (i > 0 ? AA[i - 1] : 0) - g + ret + sup;
             var storR = stock * 7 * P.unitStor, taxR = sales * priceSpp * P.tax;
-            var pay = kp * sales - logi - commR - taxR - mkt - give;
+            var pay = k * sales - logi - commR - taxR - mkt - give;
             var profit = kp * sales - logi - commR - P.cogs * sales - taxR - mkt - storR;
             G.push(g); K.push(k); I.push(sales); AA.push(stock);
             cumPay += pay; cumSup += sup;
@@ -222,7 +222,37 @@
             out.push(Object.assign(base, { orders: g, sales: sales, ret: ret, price: k, priceSpp: priceSpp, drr: o * 100, giveSum: give, mkt: mkt, logi: logi, commR: commR, storR: storR, taxR: taxR,
                 pay: pay, profit: profit, stock: stock, sup: sup, any: has(x.orders) || has(x.price) || sup > 0 || has(x.giveSum) }));
         });
+        var lastIdx = -1; out.forEach(function (c, i) { if (c.any || c.fAny) lastIdx = i; });
+        out.forEach(function (c, i) { c.cashShow = i <= lastIdx; });
         return out;
+    }
+    // факт блока: если у цветов выбраны артикулы, это сумма их фактов (как итог по цветам в «Шаблоне»), иначе факт артикула блока
+    function factsOf(b, all) {
+        all = all || {};
+        var cols = (b.colors || []).filter(function (c) { return c.nm; });
+        if (!cols.length) return all[b.nm];
+        var out = {}, any = false;
+        cols.forEach(function (c) {
+            var f = all[c.nm]; if (!f) return;
+            Object.keys(f).forEach(function (w) { any = true; var o = out[w] || (out[w] = { orders: 0, sales: 0, pay: 0, profit: 0 }); o.orders += f[w].orders; o.sales += f[w].sales; o.pay += f[w].pay; o.profit += f[w].profit; });
+        });
+        return any ? out : undefined;
+    }
+    function colTotal(c, weeks) { var t = 0; weeks.forEach(function (w) { t += num((c.qty || {})[w.start]); }); return t; }
+    // «Блок цвета» как в «Шаблоне»: план заказов цвета = заказы блока × доля цвета (его поставки ÷ все поставки),
+    // цена, ДРР и константы общие, поставки и остаток свои
+    function colorBlock(b, ci, weeks) {
+        var cols = b.colors || [], c = cols[ci], tot = cols.map(function (x) { return colTotal(x, weeks); });
+        var grand = tot.reduce(function (a, x) { return a + x; }, 0), share = grand ? tot[ci] / grand : 1 / Math.max(1, cols.length), data = {};
+        weeks.forEach(function (w) {
+            var x = (b.data || {})[w.start] || {}, d = {};
+            if (has(x.orders)) d.orders = num(x.orders) * share;
+            if (has(x.price)) d.price = x.price;
+            if (has(x.drr)) d.drr = x.drr;
+            if (has(x.giveSum)) d.giveSum = num(x.giveSum) * share;
+            data[w.start] = d;
+        });
+        return { id: b.id + '#' + ci, nm: c.nm, params: b.params, data: data, colors: [{ name: c.name, qty: c.qty }], share: share };
     }
     function sheetWeeks(startYmd, count) {
         var out = [], cur = mondayOnOrBefore(startYmd);
@@ -233,7 +263,7 @@
     // маркетинг (внутренний + раздачи) и поставки берутся за ту же неделю
     function moneyPlan(blocks, weeks, lag, factsByNm) {
         lag = lag === undefined ? PAYOUT_LAG : lag; factsByNm = factsByNm || {};
-        var calcs = blocks.map(function (b) { return calcBlock(b, weeks, factsByNm[b.nm]); });
+        var calcs = blocks.map(function (b) { return calcBlock(b, weeks, factsOf(b, factsByNm)); });
         return weeks.map(function (w, i) {
             var t = { pay: 0, profit: 0, mkt: 0, sup: 0, any: false, fpay: 0, fprofit: 0, fany: false };
             calcs.forEach(function (c) {
@@ -248,8 +278,8 @@
         return rows.reduce(function (a, r) { a.pay += r.pay; a.profit += r.profit; a.mkt += r.mkt; a.sup += r.sup; a.fpay += r.fpay || 0; a.fprofit += r.fprofit || 0; return a; }, { pay: 0, profit: 0, mkt: 0, sup: 0, fpay: 0, fprofit: 0 });
     }
 
-    function newBlock(id) { return { id: id, nm: '', params: {}, data: {}, synced: {}, colors: [{ name: '', qty: {} }] }; }
-    function normBlock(b) { b.params = b.params || {}; b.data = b.data || {}; b.synced = b.synced || {}; if (!Array.isArray(b.colors) || !b.colors.length) b.colors = [{ name: '', qty: {} }]; return b; }
+    function newBlock(id) { return { id: id, nm: '', params: {}, data: {}, synced: {}, colors: [{ name: '', nm: '', qty: {} }] }; }
+    function normBlock(b) { b.params = b.params || {}; b.data = b.data || {}; b.synced = b.synced || {}; if (!Array.isArray(b.colors) || !b.colors.length) b.colors = [{ name: '', nm: '', qty: {} }]; return b; }
     function sheetKey() { return 'nr_plansheet_' + (st && st.cab); }
     function loadSheet() {
         var sh = null;
@@ -298,12 +328,25 @@
     }
     function fnum(v, any) { return any ? Math.round(v).toLocaleString('ru') : ''; }
     function fval(v, any, k) { if (!any || v === null || v === undefined || !Number.isFinite(v)) return ''; return PCT_KEYS.indexOf(k) >= 0 ? (Math.round(v * 10) / 10).toLocaleString('ru') : Math.round(v).toLocaleString('ru'); }
-    function cellAny(c, k) { return FACT_KEYS.indexOf(k) >= 0 || k.indexOf('pf') === 0 ? c.fAny : (k === 'cashPlan' ? true : c.any); }
+    // цвет только у чисел: зелёный хорошо, оранжевый внимание, красный плохо (как в РНП)
+    var TONES = ['ps-pos', 'ps-mid', 'ps-neg', 'ps-bgp', 'ps-bgm', 'ps-bgn'];
+    function isFactKey(k) { return k.charAt(0) === 'f' || k.indexOf('pf') === 0 || k === 'cashFact'; }
+    function tone(k, c) {
+        var v = c[k];
+        if (v === null || v === undefined || !Number.isFinite(v) || !cellAny(c, k)) return '';
+        if (k === 'pfOrders' || k === 'pfProfit') return v >= 100 ? ' ps-pos ps-bgp' : v >= 80 ? ' ps-mid ps-bgm' : ' ps-neg ps-bgn';
+        if (k === 'profit' || k === 'fProfit') return v < 0 ? ' ps-neg' : v > 0 ? ' ps-pos' : '';
+        if (k === 'cashPlan' || k === 'cashFact' || k === 'pay' || k === 'fPay') return v < 0 ? ' ps-neg' : '';
+        if (k === 'stock') return v <= 0 ? ' ps-neg ps-bgn' : (v < c.orders ? ' ps-mid ps-bgm' : '');
+        return '';
+    }
+    function setTone(el, k, c) { TONES.forEach(function (t) { el.classList.remove(t); }); el.classList.toggle('ps-fact', isFactKey(k) && cellAny(c, k) && c[k] !== null && c[k] !== undefined); var t = tone(k, c).trim(); if (t) t.split(' ').forEach(function (x) { el.classList.add(x); }); }
+    function cellAny(c, k) { return FACT_KEYS.indexOf(k) >= 0 || k.indexOf('pf') === 0 ? c.fAny : (k === 'cashPlan' ? c.cashShow : c.any); }
 
     function viewTabs() {
         var V = [['sales', 'План продаж'], ['money', 'План вывода денег'], ['rnp', 'План для РНП']];
         return '<div class="ps-tabs">' + V.map(function (x) { return '<button type="button" class="ps-tab' + (st.view === x[0] ? ' is-on' : '') + '" data-view="' + x[0] + '">' + x[1] + '</button>'; }).join('') +
-            (st.view === 'rnp' ? '' : '<span class="ps-save" data-s="' + saveState + '">' + (saveState === 'saved' ? 'Сохранено' : saveState === 'saving' ? 'Сохраняю…' : 'Не сохранилось, повторю') + '</span><button type="button" class="rnp-plan-close ps-back" data-close>‹ РНП</button>') + '</div>';
+            (st.view === 'rnp' ? '' : '<label class="ps-startl" title="С какого месяца считается план: до него недель в таблице нет">Старт <input class="ps-start" type="month" value="' + (st.sheet ? addDays(st.sheet.start, 6).slice(0, 7) : '') + '"></label><span class="ps-save" data-s="' + saveState + '">' + (saveState === 'saved' ? 'Сохранено' : saveState === 'saving' ? 'Сохраняю…' : 'Не сохранилось, повторю') + '</span><button type="button" class="rnp-plan-close ps-back" data-close>‹ РНП</button>') + '</div>';
     }
     function monthSpans(weeks) {
         var out = [], last = null;
@@ -314,7 +357,7 @@
         return out;
     }
     function blockHtml(b, weeks, spans) {
-        var calc = calcBlock(b, weeks, st.facts && st.facts[b.nm]);
+        var calc = calcBlock(b, weeks, factsOf(b, st.facts));
         var head = '<tr class="ps-h1"><th class="ps-l"></th>' + spans.map(function (m) { return '<th colspan="' + m.n + '" class="ps-m">' + m.label + '</th>'; }).join('') + '</tr>' +
             '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>' +
             '<tr class="ps-h3"><th class="ps-l">по</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.end) + '</th>'; }).join('') + '</tr>';
@@ -327,14 +370,14 @@
             }).join('') + '</tr>';
         }).join('') + ((b.colors || []).length < 12 ? '<tr class="ps-r"><th class="ps-l"><button type="button" class="ps-addc" data-ps-color="' + b.id + '">+ цвет</button></th><td colspan="' + weeks.length + '"></td></tr>' : '');
         var rows = colRows + '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">Недели</th></tr>' + WROWS.map(function (r) {
-            if (r.sec) return '<tr class="ps-sec"><th class="ps-l" colspan="' + (weeks.length + 1) + '">' + r.sec + '</th></tr>';
+            if (r.sec) return '<tr class="ps-sec ps-secf"><th class="ps-l" colspan="' + (weeks.length + 1) + '">' + r.sec + '</th></tr>';
             return '<tr class="ps-r' + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
                 var cls = (w.first ? ' ps-m' : '');
                 if (r.input) {
                     var v = ((b.data || {})[w.start] || {})[r.k];
                     return '<td class="ps-c' + cls + '"><input class="ps-in" type="text" inputmode="decimal" data-b="' + b.id + '" data-w="' + w.start + '" data-k="' + r.k + '" value="' + esc(has(v) ? v : '') + '"></td>';
                 }
-                return '<td class="ps-c ps-calc' + cls + (r.bold ? ' ps-bold' : '') + '" data-calc="' + b.id + '|' + i + '|' + r.k + '">' + fval(calc[i][r.k], cellAny(calc[i], r.k), r.k) + '</td>';
+                return '<td class="ps-c ps-calc' + cls + (r.bold ? ' ps-bold' : '') + tone(r.k, calc[i]) + (isFactKey(r.k) && cellAny(calc[i], r.k) && calc[i][r.k] !== null ? ' ps-fact' : '') + '" data-calc="' + b.id + '|' + i + '|' + r.k + '">' + fval(calc[i][r.k], cellAny(calc[i], r.k), r.k) + '</td>';
             }).join('') + '</tr>';
         }).join('');
         var opts = '<option value="">Выберите артикул</option>' + st.articles.map(function (a) { return '<option value="' + a.nm_id + '"' + (String(a.nm_id) === String(b.nm) ? ' selected' : '') + '>' + esc(a.name) + ' · ' + a.nm_id + '</option>'; }).join('');
@@ -346,11 +389,38 @@
         return '<section class="ps-block" data-blk="' + b.id + '"><div class="ps-bh2"><select class="ps-art" data-ps-art="' + b.id + '">' + opts + '</select>' +
             '<button type="button" class="ps-wb" data-ps-wb="' + b.id + '"' + (b.nm ? '' : ' disabled') + '>Подтянуть с WB</button><span class="ps-wbn" data-wbn="' + b.id + '"></span>' + (st.sheet.blocks.length > 1 ? '<button type="button" class="ps-del" data-ps-del="' + b.id + '" aria-label="Убрать блок">×</button>' : '') + '</div>' +
             '<div class="ps-pars">' + par + '</div>' +
-            '<div class="ps-scroll"><table class="ps-table"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div></section>';
+            '<div class="ps-scroll"><table class="ps-table"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' +
+            '<div class="ps-colsec">' + (b.colors || []).map(function (c, ci) { return colorSectionHtml(b, ci, weeks, spans); }).join('') + '</div></section>';
+    }
+    function weekCtx() {
+        var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), seen = {};
+        weeks.forEach(function (w) { var k = w.year + '-' + w.month; w.first = !seen[k]; seen[k] = 1; });
+        return { weeks: weeks, spans: monthSpans(weeks) };
+    }
+    var CROWS = ['orders', 'sales', 'ret', 'sup', 'stock', 'pay', 'profit', 'fOrders', 'fSales', 'fPay', 'fProfit', 'pfOrders', 'pfProfit'];
+    function rowDef(k) { return WROWS.filter(function (r) { return r.k === k; })[0]; }
+    function artOptions(sel) {
+        return '<option value="">Артикул цвета (для факта)</option>' + st.articles.map(function (a) { return '<option value="' + a.nm_id + '"' + (String(a.nm_id) === String(sel) ? ' selected' : '') + '>' + esc(a.name) + ' · ' + a.nm_id + '</option>'; }).join('');
+    }
+    function colorSectionHtml(b, ci, weeks, spans) {
+        var c = b.colors[ci], key = b.id + '|' + ci, open = !!(st.open && st.open[key]), cb = colorBlock(b, ci, weeks);
+        var head = '<tr class="ps-h1"><th class="ps-l"></th>' + spans.map(function (m) { return '<th colspan="' + m.n + '" class="ps-m">' + m.label + '</th>'; }).join('') + '</tr>' +
+            '<tr class="ps-h2"><th class="ps-l">Неделя с</th>' + weeks.map(function (w) { return '<th class="' + (w.first ? 'ps-m' : '') + '">' + ddmm(w.start) + '</th>'; }).join('') + '</tr>';
+        var body = '';
+        if (open) {
+            var calc = calcBlock(cb, weeks, (st.facts || {})[cb.nm]);
+            body = '<div class="ps-scroll"><table class="ps-table"><thead>' + head + '</thead><tbody>' + CROWS.map(function (k) {
+                var r = rowDef(k);
+                return '<tr class="ps-r' + (r.bold ? ' ps-rb' : '') + '"><th class="ps-l">' + r.label + '</th>' + weeks.map(function (w, i) {
+                    return '<td class="ps-c ps-calc' + (w.first ? ' ps-m' : '') + (r.bold ? ' ps-bold' : '') + tone(k, calc[i]) + (isFactKey(k) && cellAny(calc[i], k) && calc[i][k] !== null ? ' ps-fact' : '') + '" data-ccalc="' + b.id + '|' + ci + '|' + i + '|' + k + '">' + fval(calc[i][k], cellAny(calc[i], k), k) + '</td>';
+                }).join('') + '</tr>';
+            }).join('') + '</tbody></table></div>';
+        }
+        return '<div class="ps-cs" data-cs="' + key + '"><div class="ps-csh"><button type="button" class="ps-cst" data-ps-ctoggle="' + key + '">' + (open ? '▾' : '▸') + ' Блок цвета: ' + esc(c.name || ('цвет ' + (ci + 1))) + ' <span>доля ' + Math.round(cb.share * 100) + '%</span></button>' +
+            '<select class="ps-cart" data-ps-cart="' + key + '">' + artOptions(c.nm) + '</select></div>' + body + '</div>';
     }
     function renderSales() {
-        var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), spans = monthSpans(weeks);
-        var seen = {}; weeks.forEach(function (w) { var k = w.year + '-' + w.month; w.first = !seen[k]; seen[k] = 1; });
+        var cx = weekCtx(), sh = st.sheet, weeks = cx.weeks, spans = cx.spans;
         st.host.innerHTML = viewTabs() +
             '<div class="ps-note">Один блок на артикул. Вверху константы артикула, ниже недели. Вводите план заказов, цену, ДРР, раздачи и поставки: продажи, возвраты, расходы, перечисление и ЧП считаются сами по формулам вашей таблицы. План заказов и продаж сам попадает в строки «План заказов» и «План продаж» РНП (неделя ÷ 7 на день). Внизу блока факт недель подтягивается из РНП (заказы, продажи, к перечислению, ЧП по финотчёту WB) и сравнивается с планом.</div>' +
             sh.blocks.map(function (b) { return blockHtml(b, weeks, spans); }).join('') +
@@ -362,7 +432,7 @@
         clearTimeout(factsTimer);
         factsTimer = setTimeout(async function () {
             var cur = st; if (!cur || !cur.factsFn || !cur.sheet) return;
-            var nms = cur.sheet.blocks.map(function (b) { return b.nm; }).filter(Boolean);
+            var nms = []; cur.sheet.blocks.forEach(function (b) { nms.push(b.nm); (b.colors || []).forEach(function (c) { nms.push(c.nm); }); }); nms = nms.filter(function (v, i) { return v && nms.indexOf(v) === i; });
             if (!nms.length) { cur.facts = {}; return; }
             var weeks = sheetWeeks(cur.sheet.start, cur.sheet.count), today = new Date().toISOString().slice(0, 10);
             var to = weeks[weeks.length - 1].end < today ? weeks[weeks.length - 1].end : today;
@@ -388,56 +458,93 @@
         return '<div class="ps-chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="План вывода денег по неделям">' + grid + months + line('mkt', 'psc-l3') + line('profit', 'psc-l2') + line('pay', 'psc-l1') + '</svg>' +
             '<div class="ps-leg"><span><i class="psc-k1"></i>К перечислению</span><span><i class="psc-k2"></i>ЧП</span><span><i class="psc-k3"></i>Маркетинг</span></div></div>';
     }
+    // факт к плану: от 100% зелёный, 80–99% оранжевый, ниже красный
+    function devTone(f, p, any) { if (!any || !(p > 0)) return ''; var r = f / p * 100; return r >= 100 ? 'ps-pos ps-bgp' : r >= 80 ? 'ps-mid ps-bgm' : 'ps-neg ps-bgn'; }
+    // выгрузка «Плана вывода денег» в Excel: те же колонки, что на экране
+    function exportMoney() {
+        if (!root.NrXlsx) return;
+        var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), plan = moneyPlan(sh.blocks, weeks, undefined, st.facts);
+        var rows = [['Приблизительный план вывода денег'], ['Месяц', 'Неделя с', 'План к перечислению, сом', 'План ЧП, сом', 'Затраты на маркетинг, сом', 'Поставки, шт', 'Факт к перечислению, сом', 'Факт ЧП, сом']];
+        weeks.forEach(function (w, i) {
+            var t = plan[i], r = function (v, a) { return a ? Math.round(v) : ''; };
+            rows.push([MSHORT[w.month], w.start.split('-').reverse().join('.'), r(t.pay, t.any), r(t.profit, t.any), r(t.mkt, t.any), r(t.sup, t.any), r(t.fpay, t.fany), r(t.fprofit, t.fany)]);
+        });
+        var tot = sumPlan(plan);
+        rows.push(['Итого', '', Math.round(tot.pay), Math.round(tot.profit), Math.round(tot.mkt), Math.round(tot.sup), Math.round(tot.fpay), Math.round(tot.fprofit)]);
+        root.NrXlsx.download(rows, 'plan-vyvoda-deneg.xlsx');
+    }
     function renderMoney() {
         var sh = st.sheet, weeks = sheetWeeks(sh.start, sh.count), plan = moneyPlan(sh.blocks, weeks, undefined, st.facts), tot = sumPlan(plan);
         var rows = weeks.map(function (w, i) {
             var t = plan[i], first = i === 0 || weeks[i - 1].month !== w.month;
-            return '<tr class="' + (first ? 'ps-mrow' : '') + '"><td class="ps-mo">' + MSHORT[w.month] + '</td><td>' + ddmm(w.start) + '</td><td>' + fnum(t.pay, t.any) + '</td><td>' + fnum(t.profit, t.any) + '</td><td>' + fnum(t.mkt, t.any) + '</td><td>' + fnum(t.sup, t.any) + '</td><td class="ps-fc">' + fnum(t.fpay, t.fany) + '</td><td class="ps-fc">' + fnum(t.fprofit, t.fany) + '</td></tr>';
+            return '<tr class="' + (first ? 'ps-mrow' : '') + '"><td class="ps-mo">' + MSHORT[w.month] + '</td><td>' + ddmm(w.start) + '</td><td>' + fnum(t.pay, t.any) + '</td><td class="' + (t.any && t.profit < 0 ? 'ps-neg' : t.any && t.profit > 0 ? 'ps-pos' : '') + '">' + fnum(t.profit, t.any) + '</td><td>' + fnum(t.mkt, t.any) + '</td><td>' + fnum(t.sup, t.any) + '</td><td class="ps-fc ' + devTone(t.fpay, t.pay, t.fany) + '">' + fnum(t.fpay, t.fany) + '</td><td class="ps-fc ' + (t.fany && t.fprofit < 0 ? 'ps-neg' : t.fany && t.fprofit > 0 ? 'ps-pos' : '') + '">' + fnum(t.fprofit, t.fany) + '</td></tr>';
         }).join('');
         var any = plan.some(function (t) { return t.any; }), anyF = plan.some(function (t) { return t.fany; });
         st.host.innerHTML = viewTabs() +
             '<div class="ps-note">Считается само из листа «План продаж»: перечисление и ЧП приходят через ' + PAYOUT_LAG + ' недели после продаж, маркетинг (внутренний и раздачи) и поставки стоят в той же неделе. Факт к перечислению и ЧП берутся из РНП (финотчёт WB) с тем же сдвигом. Вводить ничего не нужно.</div>' + moneyChart(plan, weeks) +
+            '<div class="ps-foot ps-exp"><button type="button" class="ps-add" data-ps-xlsx>Скачать Excel</button></div>' +
             '<div class="ps-scroll ps-money"><table class="ps-table ps-mt"><thead><tr><th colspan="8" class="ps-title">Приблизительный план вывода денег</th></tr>' +
             '<tr class="ps-mh"><th>Месяц</th><th>Неделя</th><th>План к перечислению, сом</th><th>План ЧП, сом</th><th>Затраты на маркетинг, сом</th><th>Поставки, шт</th><th class="ps-fh">Факт к перечислению, сом</th><th class="ps-fh">Факт ЧП, сом</th></tr></thead><tbody>' + rows +
             '<tr class="ps-tot"><td colspan="2">Итого</td><td>' + fnum(tot.pay, any) + '</td><td>' + fnum(tot.profit, any) + '</td><td>' + fnum(tot.mkt, any) + '</td><td>' + fnum(tot.sup, any) + '</td><td>' + fnum(tot.fpay, anyF) + '</td><td>' + fnum(tot.fprofit, anyF) + '</td></tr></tbody></table></div>';
     }
     // пересчёт блока на месте после ввода: фокус и прокрутка не сбиваются
     function refreshCalc(b) {
-        var weeks = sheetWeeks(st.sheet.start, st.sheet.count), calc = calcBlock(b, weeks, st.facts && st.facts[b.nm]);
+        var weeks = sheetWeeks(st.sheet.start, st.sheet.count), calc = calcBlock(b, weeks, factsOf(b, st.facts));
         var tots = (b.colors || []).map(function (c) { var t = 0; weeks.forEach(function (w) { t += num((c.qty || {})[w.start]); }); return t; }), grand = tots.reduce(function (a, x) { return a + x; }, 0);
         st.host.querySelectorAll('[data-ctot^="' + b.id + '|"]').forEach(function (el) {
             var i = Number(el.getAttribute('data-ctot').split('|')[1]);
             el.textContent = tots[i] ? Math.round(tots[i]).toLocaleString('ru') + ' шт · ' + (grand ? Math.round(tots[i] / grand * 100) : 0) + '%' : '';
         });
+        var ccache = {};
+        st.host.querySelectorAll('[data-ccalc^="' + b.id + '|"]').forEach(function (el) {
+            var p = el.getAttribute('data-ccalc').split('|'), ci = Number(p[1]);
+            if (!ccache[ci]) { var cb = colorBlock(b, ci, weeks); ccache[ci] = calcBlock(cb, weeks, (st.facts || {})[cb.nm]); }
+            var c = ccache[ci][Number(p[2])]; el.textContent = fval(c[p[3]], cellAny(c, p[3]), p[3]); setTone(el, p[3], c);
+        });
         st.host.querySelectorAll('[data-calc^="' + b.id + '|"]').forEach(function (el) {
             var p = el.getAttribute('data-calc').split('|'), c = calc[Number(p[1])];
-            el.textContent = fval(c[p[2]], cellAny(c, p[2]), p[2]);
+            el.textContent = fval(c[p[2]], cellAny(c, p[2]), p[2]); setTone(el, p[2], c);
         });
     }
     // План заказов и продаж из листа ложится в РНП: неделя ÷ 7 на каждый день (rnp_plans.planned_orders / planned_sales).
     // Недели, которые были из листа и опустели, обнуляются; ручные планы «Плана для РНП» не трогаем.
     var syncQueue = {}, syncTimer = null;
-    function queueSync(b, oldNm) {
-        syncQueue[b.id] = { b: b, oldNm: oldNm || null };
+    function queueSync(b) {
+        syncQueue[b.id] = b;
         clearTimeout(syncTimer);
         syncTimer = setTimeout(flushSync, 700);
     }
     function dayVal(v) { return Math.round(v / 7 * 1e6) / 1e6; }
+    // кому уходит план в РНП: если у цветов выбраны артикулы, то каждому цвету его доля, иначе общий артикул блока
+    function syncTargets(b, weeks) {
+        var cols = b.colors || [], t = [];
+        if (cols.some(function (c) { return c.nm; })) {
+            cols.forEach(function (c, ci) { if (c.nm) { var cb = colorBlock(b, ci, weeks); t.push({ obj: c, nm: c.nm, calc: calcBlock(cb, weeks), data: cb.data }); } });
+        } else if (b.nm) t.push({ obj: b, nm: b.nm, calc: calcBlock(b, weeks), data: b.data || {} });
+        return t;
+    }
     async function flushSync() {
         clearTimeout(syncTimer); syncTimer = null;
         var cur = st, q = syncQueue; syncQueue = {};
         if (!cur || !cur.db || !cur.sheet) return;
         var weeks = sheetWeeks(cur.sheet.start, cur.sheet.count), now = new Date().toISOString(), rows = [], changed = false;
+        var push = function (nm, wk, o, s) { weekDaysOf(wk).forEach(function (d) { rows.push({ cabinet_id: cur.cab, nm_id: Number(nm), plan_date: d, planned_orders: o, planned_sales: s, updated_at: now }); }); };
         Object.keys(q).forEach(function (id) {
-            var b = q[id].b, oldNm = q[id].oldNm, calc = calcBlock(b, weeks);
-            b.synced = b.synced || {};
-            var push = function (nm, wk, o, s) { weekDaysOf(wk).forEach(function (d) { rows.push({ cabinet_id: cur.cab, nm_id: Number(nm), plan_date: d, planned_orders: o, planned_sales: s, updated_at: now }); }); };
-            if (oldNm) { Object.keys(b.synced).forEach(function (wk) { push(oldNm, wk, null, null); }); b.synced = {}; changed = true; }
-            if (!b.nm) return;
-            weeks.forEach(function (w, i) {
-                var c = calc[i];
-                if (c.any && (has(((b.data || {})[w.start] || {}).orders))) { push(b.nm, w.start, dayVal(c.orders), dayVal(c.sales)); if (!b.synced[w.start]) { b.synced[w.start] = 1; changed = true; } }
-                else if (b.synced[w.start]) { push(b.nm, w.start, null, null); delete b.synced[w.start]; changed = true; }
+            var b = q[id], targets = syncTargets(b, weeks);
+            [b].concat(b.colors || []).forEach(function (o) {
+                o.synced = o.synced || {};
+                var tg = targets.filter(function (t) { return t.obj === o; })[0];
+                // артикул сменился или цвет/блок больше не получатель: снимаем план, который раньше положили
+                if (Object.keys(o.synced).length && (!tg || String(o.snm) !== String(tg.nm))) {
+                    Object.keys(o.synced).forEach(function (wk) { if (o.snm) push(o.snm, wk, null, null); });
+                    o.synced = {}; o.snm = null; changed = true;
+                }
+                if (!tg) return;
+                weeks.forEach(function (w, i) {
+                    var c = tg.calc[i], hasO = has((tg.data[w.start] || {}).orders);
+                    if (c.any && hasO) { push(tg.nm, w.start, dayVal(c.orders), dayVal(c.sales)); if (!o.synced[w.start]) { o.synced[w.start] = 1; changed = true; } o.snm = tg.nm; }
+                    else if (o.synced[w.start]) { push(tg.nm, w.start, null, null); delete o.synced[w.start]; changed = true; }
+                });
             });
         });
         if (!rows.length) return;
@@ -494,6 +601,38 @@
         note(got.length ? 'Подтянуто с WB: ' + got.length + ' из ' + WB_PARAMS.length + ' полей' : 'С WB ничего нового');
     }
 
+    // как в Excel: Enter и стрелки вверх/вниз ходят по ячейкам, а вставка из Excel (табличный текст) раскладывается по неделям и строкам
+    function cellInput(tr, idx) { var td = tr && tr.children[idx]; return td && td.querySelector ? td.querySelector('.ps-in') : null; }
+    function moveCell(t, dir) {
+        var td = t.closest('td'), tr = td && td.parentElement; if (!tr) return false;
+        var idx = Array.prototype.indexOf.call(tr.children, td), row = dir > 0 ? tr.nextElementSibling : tr.previousElementSibling;
+        while (row) { var n = cellInput(row, idx); if (n) { n.focus(); n.select(); return true; } row = dir > 0 ? row.nextElementSibling : row.previousElementSibling; }
+        return false;
+    }
+    function onCellKey(e) {
+        var t = e.target; if (!t.classList || !t.classList.contains('ps-in')) return;
+        if (e.key === 'Enter' || e.key === 'ArrowDown') { if (moveCell(t, e.shiftKey && e.key === 'Enter' ? -1 : 1)) e.preventDefault(); }
+        else if (e.key === 'ArrowUp') { if (moveCell(t, -1)) e.preventDefault(); }
+    }
+    function onCellPaste(e) {
+        var t = e.target; if (!t.classList || !t.classList.contains('ps-in')) return;
+        var txt = (e.clipboardData && e.clipboardData.getData('text')) || '';
+        if (txt.indexOf('\t') < 0 && txt.indexOf('\n') < 0) return;
+        e.preventDefault();
+        var lines = txt.replace(/\r/g, '').split('\n'); if (lines.length && lines[lines.length - 1] === '') lines.pop();
+        var td = t.closest('td'), tr = td.parentElement, idx = Array.prototype.indexOf.call(tr.children, td), row = tr;
+        lines.forEach(function (ln) {
+            while (row && !cellInput(row, idx)) row = row.nextElementSibling;
+            if (!row) return;
+            ln.split('\t').forEach(function (v, c) {
+                var inp = cellInput(row, idx + c); if (!inp) return;
+                inp.value = v.trim().replace(/\s/g, '').replace(',', '.');
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            row = row.nextElementSibling;
+        });
+    }
+
     function onSheetEvent(e) {
         var t = e.target;
         if (e.type === 'change' && t.classList && t.classList.contains('ps-in')) {
@@ -509,6 +648,10 @@
             }
             saveSheet(); refreshCalc(b); queueSync(b); return true;
         }
+        if (e.type === 'change' && t.classList && t.classList.contains('ps-start')) {
+            if (/^\d{4}-\d{2}$/.test(t.value)) { st.sheet.start = mondayOnOrBefore(t.value + '-01'); saveSheet(); st.sheet.blocks.forEach(queueSync); render(); loadFacts(); }
+            return true;
+        }
         if (e.type === 'change' && t.classList && t.classList.contains('ps-cn')) {
             var cb = findBlock(t.dataset.b), cc = cb && (cb.colors || [])[Number(t.dataset.ci)]; if (cc) { cc.name = t.value.trim(); saveSheet(); } return true;
         }
@@ -521,18 +664,39 @@
             if (['dl', 'dw', 'dh'].indexOf(t.dataset.p) >= 0) { var vi = st.host.querySelector('.ps-pin[data-b="' + pb.id + '"][data-p="vol"]'); if (vi) vi.placeholder = num(pb.params.dl) * num(pb.params.dw) * num(pb.params.dh) > 0 ? volOf(pb.params) + ' (по габаритам)' : ''; }
             return true;
         }
+        if (e.type === 'change' && t.matches && t.matches('.ps-cart')) {
+            var cp = t.dataset.psCart.split('|'), cbk = findBlock(cp[0]), cc2 = cbk && cbk.colors[Number(cp[1])];
+            if (cc2) {
+                cc2.nm = t.value;
+                if (t.value && !cc2.name) { var art = st.articles.filter(function (a) { return String(a.nm_id) === String(t.value); })[0]; if (art) { cc2.name = art.name; var ni = st.host.querySelector('.ps-cn[data-b="' + cbk.id + '"][data-ci="' + cp[1] + '"]'); if (ni) ni.value = cc2.name; } }
+                saveSheet(); queueSync(cbk); loadFacts();
+                var cxy = weekCtx(), bx = st.host.querySelector('[data-cs="' + t.dataset.psCart + '"]');
+                if (bx) { var tm2 = document.createElement('div'); tm2.innerHTML = colorSectionHtml(cbk, Number(cp[1]), cxy.weeks, cxy.spans); bx.replaceWith(tm2.firstChild); }
+            }
+            return true;
+        }
         if (e.type === 'change' && t.matches && t.matches('.ps-art')) {
-            var bb = findBlock(t.dataset.psArt); if (bb) { var oldNm = bb.nm; bb.nm = t.value; saveSheet(); queueSync(bb, oldNm); var wbb = st.host.querySelector('[data-ps-wb="' + bb.id + '"]'); if (wbb) wbb.disabled = !bb.nm; loadFacts(); if (bb.nm) autofill(bb, false); } return true;
+            var bb = findBlock(t.dataset.psArt); if (bb) { bb.nm = t.value; saveSheet(); queueSync(bb); var wbb = st.host.querySelector('[data-ps-wb="' + bb.id + '"]'); if (wbb) wbb.disabled = !bb.nm; loadFacts(); if (bb.nm) autofill(bb, false); } return true;
         }
         if (e.type !== 'click') return false;
         var btn = t.closest && t.closest('button'); if (!btn) return false;
         if (btn.dataset.view) { st.view = btn.dataset.view; render(); if (st.view !== 'rnp') loadFacts(); if (st.view === 'rnp') loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* без планов */ }); return true; }
-        if (btn.dataset.psColor) { var ab = findBlock(btn.dataset.psColor); if (ab && ab.colors.length < 12) { ab.colors.push({ name: '', qty: {} }); saveSheet(); keepScroll(renderSales); } return true; }
+        if (btn.dataset.psCtoggle) {
+            var kp = btn.dataset.psCtoggle.split('|'), tb = findBlock(kp[0]);
+            if (tb && tb.colors[Number(kp[1])]) {
+                st.open = st.open || {}; st.open[btn.dataset.psCtoggle] = !st.open[btn.dataset.psCtoggle];
+                var cxx = weekCtx(), box = st.host.querySelector('[data-cs="' + btn.dataset.psCtoggle + '"]');
+                if (box) { var tmp = document.createElement('div'); tmp.innerHTML = colorSectionHtml(tb, Number(kp[1]), cxx.weeks, cxx.spans); box.replaceWith(tmp.firstChild); }
+            }
+            return true;
+        }
+        if (btn.hasAttribute('data-ps-xlsx')) { exportMoney(); return true; }
+        if (btn.dataset.psColor) { var ab = findBlock(btn.dataset.psColor); if (ab && ab.colors.length < 12) { ab.colors.push({ name: '', nm: '', qty: {} }); saveSheet(); keepScroll(renderSales); } return true; }
         if (btn.dataset.psWb) { var wb = findBlock(btn.dataset.psWb); if (wb && wb.nm) autofill(wb, true); return true; }
         if (btn.hasAttribute('data-ps-add')) { st.sheet.blocks.push(newBlock('b' + Date.now().toString(36))); saveSheet(); keepScroll(renderSales); return true; }
         if (btn.dataset.psDel) {
             var del = findBlock(btn.dataset.psDel);
-            if (del && del.nm) queueSync({ id: del.id, nm: '', params: {}, data: {}, synced: del.synced || {} }, del.nm);
+            if (del) queueSync(Object.assign({}, del, { nm: '', colors: (del.colors || []).map(function (c) { return Object.assign({}, c, { nm: '' }); }) }));
             st.sheet.blocks = st.sheet.blocks.filter(function (x) { return x.id !== btn.dataset.psDel; }); saveSheet(); keepScroll(renderSales); return true;
         }
         return false;
@@ -608,7 +772,7 @@
         var el = document.getElementById('rnp-planning-overlay');
         if (el) el.remove();
         document.removeEventListener('keydown', onKey, true);
-        if (st && st.pageHost && st._h) { ['click', 'change', 'input'].forEach(function (t) { st.pageHost.removeEventListener(t, st._h); }); }
+        if (st && st.pageHost && st._h) { ['click', 'change', 'input'].forEach(function (t) { st.pageHost.removeEventListener(t, st._h); }); st.pageHost.removeEventListener('keydown', onCellKey); st.pageHost.removeEventListener('paste', onCellPaste); }
         var wasPage = pageMode; pageMode = false;
         if (saveTimer && st && st.sheet) flushSheet();
         st = null;
@@ -618,7 +782,7 @@
 
     async function open(opts) {
         var ph = opts.host || null;
-        if (pageMode && st && st.pageHost) { pageMode = false; ['click', 'change', 'input'].forEach(function (t) { st.pageHost.removeEventListener(t, st._h); }); st = null; } else { pageMode = false; close(); }
+        if (pageMode && st && st.pageHost) { pageMode = false; ['click', 'change', 'input'].forEach(function (t) { st.pageHost.removeEventListener(t, st._h); }); st.pageHost.removeEventListener('keydown', onCellKey); st.pageHost.removeEventListener('paste', onCellPaste); st = null; } else { pageMode = false; close(); }
         var overlay = null;
         if (ph) {
             pageMode = true;
@@ -639,6 +803,8 @@
         evHost.addEventListener('click', onEvent);
         evHost.addEventListener('change', onEvent);
         evHost.addEventListener('input', onEvent);
+        evHost.addEventListener('keydown', onCellKey);
+        evHost.addEventListener('paste', onCellPaste);
         document.addEventListener('keydown', onKey, true);
         if (ph) { render(); pullSheet().then(loadFacts).catch(function () { /* останется память браузера */ }); loadFacts(); loadPlans().then(function () { if (st && st.view === 'rnp') render(); }).catch(function () { /* планы РНП подгрузятся при открытии вкладки */ }); return; }
         st.host.innerHTML = '<div class="rnp-plan-loading">Загрузка…</div>';
