@@ -90,6 +90,7 @@ export const REVIEW_MODEL_OPTIONS = [
   if (ctx.rating === 4 && neg > 0) return 'neutral';
   return pos > 0 ? 'positive' : ctx.rating >= 4 ? 'positive' : 'neutral';
 }
+import { geminiChat, geminiConfigured } from '../../_shared/gemini-fallback.ts';
 function sentimentLabel(s) {
   if (s === 'negative') return 'негативный (по смыслу текста)';
   if (s === 'neutral') return 'нейтральный / смешанный';
@@ -100,6 +101,11 @@ export async function generateReviewReply(ctx) {
   const model = (Deno.env.get('OPENAI_REVIEW_MODEL') ?? 'gpt-4o').trim();
   const maxChars = Number(Deno.env.get('REVIEW_REPLY_MAX_CHARS')) || 500;
   if (!apiKey) {
+    if (geminiConfigured()) {
+      const sent0 = detectReviewSentiment(ctx);
+      const g0 = await geminiChat([{ role: 'system', content: 'Ты менеджер магазина на Wildberries. Пиши официальный ответ продавца на отзыв: русский, 2–4 коротких предложения, начни с имени покупателя, без эмодзи и подписи, не больше ' + maxChars + ' символов.' }, { role: 'user', content: [`Оценка: ${ctx.rating}/5`, `Тон: ${sentimentLabel(sent0)}`, ctx.userName ? `Покупатель: ${ctx.userName}` : '', ctx.text ? `Текст: ${ctx.text}` : 'Текст: (пусто)'].filter(Boolean).join('\n') }], { temperature: 0.4, maxTokens: 280 });
+      if (g0.ok && g0.text) return { reply: g0.text.slice(0, maxChars), model: 'gemini', via: 'gemini' };
+    }
     return {
       reply: templateReply(ctx, maxChars),
       model: 'template',
@@ -165,6 +171,8 @@ export async function generateReviewReply(ctx) {
     const raw = await res.text();
     if (!res.ok) {
       console.warn('[ai-review-reply] API error:', res.status, raw.slice(0, 200));
+      const g = await geminiChat([{ role: 'system', content: system }, { role: 'user', content: parts.join('\n') }], { temperature: 0.4, maxTokens: 280 });
+      if (g.ok && g.text) return { reply: g.text.slice(0, maxChars), model: 'gemini', via: 'gemini' };
       return {
         reply: templateReply(ctx, maxChars),
         model: 'template',
