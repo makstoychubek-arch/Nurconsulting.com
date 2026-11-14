@@ -15516,8 +15516,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (vErr) throw new Error(vErr.message);
             loadABTests();
 
-            const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label);
-            if (!ok) throw new Error('WB не принял первое фото.');
+            // Первый вариант и так стоит на WB (это текущее фото карточки): заново его не отправляем, только отмечаем старт.
+            if (snap.abFiles[0] && snap.abFiles[0].current) await supabase.from('ab_test_rotation_log').insert({ test_id: test.id, variant_label: variantRows[0].variant_label, action: 'start' });
+            else if (!await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label)) throw new Error('WB не принял первое фото.');
             abOk('Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
             loadABTests();
         } catch (e) {
