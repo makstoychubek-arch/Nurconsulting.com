@@ -57,7 +57,7 @@ export interface OzonProductRow {
     price: number | null; old_price: number | null; min_price: number | null; currency: string;
     commission_fbo_pct: number | null; commission_fbs_pct: number | null; acquiring: number | null; deliv_to_customer: number | null;
     volume_weight: number | null; width_mm: number | null; height_mm: number | null; depth_mm: number | null; weight_g: number | null;
-    archived: boolean; updated_at: string;
+    image_url: string | null; archived: boolean; updated_at: string;
 }
 
 /** Сводит список товаров, карточки, цены и габариты в строки ozon_products. Лишние штрихкоды OZN… (внутренние Ozon) отбрасываем. */
@@ -84,6 +84,7 @@ export function buildProductRows(
             commission_fbo_pct: num(com.sales_percent_fbo), commission_fbs_pct: num(com.sales_percent_fbs),
             acquiring: num(pr.acquiring), deliv_to_customer: num(com.fbo_deliv_to_customer_amount), volume_weight: num(pr.volume_weight),
             width_mm: num(a.width), height_mm: num(a.height), depth_mm: num(a.depth), weight_g: num(a.weight),
+            image_url: str(((i as any).primary_image || [])[0]) ?? str(((i as any).images || [])[0]),
             archived: Boolean(p.archived), updated_at: nowIso,
         };
     });
