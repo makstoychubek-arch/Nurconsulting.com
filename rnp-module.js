@@ -6222,6 +6222,12 @@ const RNP = (() => {
         const nmIds = (Array.isArray(nmIdOrIds) ? nmIdOrIds : [nmIdOrIds])
             .map(Number).filter(n => n > 0);
         if (!nmIds.length) return;
+        // WB принимает в воронке не больше 20 артикулов за запрос (иначе 400 «too many nmIds»): отправляем пачками
+        if (nmIds.length > 20) {
+            const parts = []; for (let i = 0; i < nmIds.length; i += 20) parts.push(nmIds.slice(i, i + 20));
+            for (let k = 0; k < parts.length; k++) { await _syncFunnelHistory(parts[k]); if (onProgress) onProgress(k + 1, parts.length); }
+            return;
+        }
         const now = new Date();
         const dateTo = _wbTodayStr(now);
         const dateFrom = _wbAddDays(dateTo, -6);
