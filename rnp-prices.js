@@ -154,12 +154,17 @@
     var CROWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
     function schedule() { if (S.raf) return; S.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { S.raf = 0; paint(); }) : (paint(), 0); }
     // Плитка 44×56: берём превью 246×328 (около 22 КБ) вместо «big» (около 170 КБ), иначе страница тормозит при прокрутке
+    // Фото артикула: из карточки, а если там пусто (после сбоя синка) то по номеру WB, как в РНП и «Остатках»
+    function pic(a) {
+        if (a.photo_url) return thumb(a.photo_url);
+        try { return (root.RNP && root.RNP.wbPhotoUrl && a.nm_id) ? (root.RNP.wbPhotoUrl(a.nm_id, 'c246x328') || '') : ''; } catch (_) { return ''; }
+    }
     function thumb(u) { return String(u || '').replace('/images/big/', '/images/c246x328/'); }
     function tile(a, loco) {
         var low = a._k < 60 && !S.load.stock ? ' rp-low' : '', sel = S.sel[a.nm_id] ? ' sel' : '';
         return '<div class="rp-it' + (loco ? ' l' : '') + low + sel + '" role="button" tabindex="0" data-nm="' + a.nm_id + '" aria-label="' + esc((a.name || '') + ' · WB ' + a.nm_id) + '">' +
             (loco ? '<span class="rp-cw">' + CROWN + '</span>' : '') +
-            '<span class="rp-ph">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
+            '<span class="rp-ph">' + (pic(a) ? '<img src="' + esc(pic(a)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span>' +
             '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '" aria-label="Выбрать" data-ck="' + a.nm_id + '">' + (sel ? '✓' : '') + '</span>' +
             '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' +
             '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s></div>';
@@ -563,7 +568,7 @@
         if (!u) return '';
         var parts = [[u.commU, '#b9b9b9'], [u.resid, '#8a8a8a'], [u.log, '#5a5a5a'], [u.stoPen, '#3a3a3a'], [u.cost, '#d0d0d0'], [u.tax, '#7a7a7a']].map(function (p) { return '<i style="width:' + Math.max(0, p[0] / u.price * 100).toFixed(1) + '%;background:' + p[1] + '"></i>'; }).join('') +
             '<i style="width:' + Math.max(0, u.profit / u.price * 100).toFixed(1) + '%;background:var(--text-primary)"></i>';
-        return '<tr data-nm="' + a.nm_id + '"><td class="ru-nm"><span class="ru-im">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span><div><b>' + esc(a.name || a.nm_id) + '</b><small>WB ' + a.nm_id + '</small></div></td>' +
+        return '<tr data-nm="' + a.nm_id + '"><td class="ru-nm"><span class="ru-im">' + (pic(a) ? '<img src="' + esc(pic(a)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span><div><b>' + esc(a.name || a.nm_id) + '</b><small>WB ' + a.nm_id + '</small></div></td>' +
             cell(fmt(u.n)) + cell('<b>' + fmt(u.price) + '</b>') + cell(u.comm.toFixed(1).replace('.', ',') + '%') + cell(u.retPct.toFixed(0) + '%') + cell(fmt(u.log)) + cell(u.stoPen ? fmt(u.stoPen) : '—') + cell(fmt(u.cost)) +
             cell('<b class="' + (u.profit <= 0 ? 'dn' : (u.margin >= 15 ? 'up' : '')) + '">' + fmt(u.profit) + '</b>') + cell('<span class="' + (u.margin < 10 ? 'dn' : '') + '">' + u.margin.toFixed(0) + '%</span>') + '<td class="ru-bar"><div class="ru-bw">' + parts + '</div></td></tr>';
     }
