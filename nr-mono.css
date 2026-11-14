@@ -2231,16 +2231,23 @@ html body .nrs-sk { height: 120px; border: 1px solid var(--border); border-radiu
 /* Дашборд: карточки показываются только если включены ползунком в своём разделе (nr-dash-blocks.js, класс nr-pin-* на html) */
 html:not(.nr-pin-ff) #ff-sum, html:not(.nr-pin-transit) #nrdb-transit, html:not(.nr-pin-prod) #nrdb-prod, html:not(.nr-pin-stock) #nrdb-stock,
 html:not(.nr-pin-plan) #dash-plan-cabs, html:not(.nr-pin-plan) #dash-plan-skus { display: none !important; }
-.nr-pinbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 18px; margin-bottom: 12px; border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 999px; }
-.nr-pinbar[hidden] { display: none !important; }
-.nr-pincap { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
-.nr-sw { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text-primary); }
-.nr-sw input { position: absolute; opacity: 0; pointer-events: none; }
-.nr-sw i { width: 34px; height: 20px; border: 1px solid var(--text-primary); border-radius: 999px; position: relative; display: inline-block; transition: background .12s; }
-.nr-sw i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--text-primary); transition: left .12s, background .12s; }
-.nr-sw input:checked + i { background: var(--text-primary); }
-.nr-sw input:checked + i::after { left: 17px; background: var(--bg-card, #fff); }
-.nr-sw input:focus-visible + i { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+#nr-wg-plus { display: flex; justify-content: center; padding: 6px 0 18px; }
+#nr-wg-plus button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); font-size: 22px; font-weight: 300; line-height: 1; cursor: pointer; padding: 0; }
+#nr-wg-plus button:hover { background: var(--text-primary); color: var(--bg-card, #fff); }
+.nr-wg-x { position: absolute; right: 44px; top: 10px; width: 24px; height: 24px; border: 0; background: transparent; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; z-index: 2; }
+.nr-wg-x:hover { color: var(--text-primary); }
+#nr-wg-plan-wrap, #dash-plan-wrap { position: relative; }
+#nr-wg-ov { position: fixed; inset: 0; z-index: 10100; display: grid; place-items: center; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 16px; background: rgba(0, 0, 0, .28); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.nr-wg-m { width: min(560px, 100%); max-height: 90vh; overflow: auto; background: var(--bg-card, #fff); color: var(--text-primary); border: 1px solid var(--text-primary); border-radius: 26px; padding: 20px 22px; }
+.nr-wg-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.nr-wg-h b { font-size: 18px; font-weight: 900; }
+.nr-wg-c { border: 0; background: transparent; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+.nr-wg-li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border, rgba(0,0,0,.12)); }
+.nr-wg-li:first-of-type { border-top: 0; }
+.nr-wg-li b { display: block; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.nr-wg-li small { color: var(--text-muted); font-size: 12px; }
+.nr-wg-b { border: 1px solid var(--text-primary); border-radius: 999px; padding: 8px 14px; background: transparent; color: var(--text-primary); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; cursor: pointer; }
+.nr-wg-b.on { background: var(--text-primary); color: var(--bg-card, #fff); }
 /* карточки ряда не обрезают нижнюю строку (В стоке: «В пути» была обрезана) */
 html body #tab-dashboard .pnl-grid.ff-row { grid-auto-rows: minmax(140px, auto) !important; }
 html body #tab-dashboard .pnl-grid.ff-row > :not(#ff-chart) { height: auto !important; max-height: none !important; overflow: visible !important; }
