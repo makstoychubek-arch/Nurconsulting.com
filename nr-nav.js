@@ -390,6 +390,12 @@
     // ── Переключатель площадки «WB | Ozon | Вместе» (РНП и Дашборд). По умолчанию WB; выбор помнится на устройстве.
     (function () {
         var KEY = 'nr_mp', MODES = ['wb', 'ozon', 'all'], LBL = { wb: 'WB', ozon: 'Ozon', all: 'Вместе' };
+        // Логотипы вместо названий: одноцветные (цвет берут у кнопки), WB и Ozon словами-знаками, «Вместе» двумя пересекающимися кругами.
+        var LOGO = {
+            wb: '<svg viewBox="0 0 30 14" aria-hidden="true"><text x="15" y="11.5" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="13.5" fill="currentColor" letter-spacing="-.6">WB</text></svg>',
+            ozon: '<svg viewBox="0 0 40 14" aria-hidden="true"><text x="20" y="11.5" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="13.5" fill="currentColor" letter-spacing="-.6">ozon</text></svg>',
+            all: '<svg viewBox="0 0 26 14" aria-hidden="true"><circle cx="9" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
+        };
         var cur = 'wb', subs = [];
         try { var v = localStorage.getItem(KEY); if (MODES.indexOf(v) >= 0) cur = v; } catch (_) { /* без памяти */ }
         function paint() {
@@ -418,7 +424,7 @@
         function mount() {
             var anchor = doc.getElementById('header-date-chip-wrap') || doc.getElementById('nr-zoom'); if (!anchor || doc.getElementById('nr-mp')) { paint(); return; }
             var bar = doc.createElement('div'); bar.id = 'nr-mp'; bar.className = 'nr-mp'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Площадка');
-            bar.innerHTML = MODES.map(function (m) { return '<button type="button" data-mp="' + m + '">' + LBL[m] + '</button>'; }).join('');
+            bar.innerHTML = MODES.map(function (m) { return '<button type="button" data-mp="' + m + '" title="' + LBL[m] + '" aria-label="' + LBL[m] + '">' + LOGO[m] + '</button>'; }).join('');
             bar.addEventListener('click', function (e) { var b = e.target.closest('button[data-mp]'); if (b) set(b.getAttribute('data-mp')); });
             place(bar); paint();
         }

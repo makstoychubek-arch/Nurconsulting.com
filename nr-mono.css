@@ -2147,3 +2147,9 @@ html body .ab-skel { height: 190px; border: 1px solid var(--border, rgba(0,0,0,.
 html body #new-test-form:has(#ab-wizard-rest.hidden) #ab-create-test-btn { display: none; }
 html body .ab-new-foot { justify-content: flex-end; }
 @media (max-width: 760px) { html body .ab-new-pill { height: 34px; } }
+
+/* Переключатель площадки: логотипы вместо слов, компактно */
+html body .nr-mp button { padding: 0 9px; display: inline-flex; align-items: center; justify-content: center; }
+html body .nr-mp button svg { height: 12px; width: auto; display: block; }
+@media (max-width: 768px) { html body .main-content > .nr-mp button { padding: 0 12px; } html body .main-content > .nr-mp button svg { height: 13px; } }
+html body .nr-mp button svg text { text-transform: none; }
