@@ -653,7 +653,7 @@ const RNP = (() => {
     // ── Площадка: WB / Ozon / Вместе (window.NrMp). Ozon-данные приходят из SQL-функций в тех же формах, что у WB.
     const _mp = () => (window.NrMp && window.NrMp.get()) || 'wb';
     const _ozMem = new Map();
-    function _ozCacheKey(fn, args) { return 'nr_oz_' + fn + '_' + _cab + '_' + JSON.stringify(args); }
+    function _ozCacheKey(fn, args, cab) { return 'nr_oz_' + fn + '_' + (cab || _cab) + '_' + JSON.stringify(args); }
     /** Ozon-строки: сразу из кэша устройства, свежие тянем в фоне и подставляем без перерисовки каркаса. */
     async function _ozCall(fn, args) {
         const key = _ozCacheKey(fn, args);
@@ -10064,7 +10064,7 @@ const RNP = (() => {
     function _mpDashHtml(m, loading) {
         const kp = (l, v, sub) => `<div class="nr-mp-k"><span>${l}</span><b>${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
         const buy = m.o ? Math.round(m.sc * 100 / m.o) : 0;
-        return `<div class="nr-mp-h"><b>OZON</b><span>за 30 дней · оценка по заказам Ozon</span></div>
+        return `<div class="nr-mp-h"><b>OZON</b><span>${m.empty ? 'У этого кабинета нет данных Ozon: ключ не подключён или первая загрузка ещё идёт' : 'за 30 дней · оценка по заказам Ozon'}</span></div>
           <div class="nr-mp-kp${loading ? ' nr-mp-blur' : ''}">${kp('Заказы', _mpDashNum(m.o), _mpDashNum(m.os) + ' сом')}${kp('Продажи', _mpDashNum(m.sc), _mpDashNum(m.ss) + ' сом')}${kp('Выкуп', buy + '%', 'отмен ' + _mpDashNum(m.cc))}${kp('К перечислению ≈', _mpDashNum(m.tr), 'комиссия и логистика учтены оценкой')}</div>
           <div class="nr-mp-top${loading ? ' nr-mp-blur' : ''}"><div class="nr-mp-t">Топ товаров по продажам</div>${m.top.length ? m.top.map((t, i) => `<div class="nr-mp-r"><em>${i + 1}</em><span>${_mpDashEsc(t.n)}</span><b>${_mpDashNum(t.sum)}</b><small>${_mpDashNum(t.s)} шт</small></div>`).join('') : '<div class="nr-mp-r"><span>Продаж за период нет</span></div>'}</div>`;
     }
@@ -10074,20 +10074,23 @@ const RNP = (() => {
         if (!tab) return;
         let box = document.getElementById('nr-mp-dash');
         if (_mp() === 'wb') { if (box) box.remove(); return; }
-        if (!tab.classList.contains('active') || !_db || !_cab) return;
+        if (!tab.classList.contains('active')) return;
         if (!box) { box = document.createElement('section'); box.id = 'nr-mp-dash'; box.className = 'nr-mp-dash'; tab.insertBefore(box, tab.firstChild); }
-        if (_mpDashBusy) return; _mpDashBusy = true;
-        const cab = _cab;
-        try {
-            const to = _wbTodayStr(), from = new Date(Date.parse(to) - 29 * 864e5).toISOString().slice(0, 10);
-            const args = { p_from: from, p_to: to };
-            const mem = (fn, a) => { try { return JSON.parse(localStorage.getItem(_ozCacheKey(fn, a)) || 'null'); } catch (_) { return null; } };
+        const cab = _cab || (typeof currentCabinetId !== 'undefined' ? currentCabinetId : null);
+        const to = _wbTodayStr(), from = new Date(Date.parse(to) - 29 * 864e5).toISOString().slice(0, 10);
+        const args = { p_from: from, p_to: to };
+        // Каркас показываем сразу, не дожидаясь запуска РНП: цифры из кэша устройства, а если их нет, размытые заглушки.
+        if (!box.dataset.painted && cab) {
+            const mem = (fn, a) => { try { return JSON.parse(localStorage.getItem(_ozCacheKey(fn, a, cab)) || 'null'); } catch (_) { return null; } };
             const c = [mem('ozon_orders_daily', args), mem('ozon_finance_daily', args), mem('ozon_rnp_articles', {})];
-            if (c[0] && !box.dataset.done) { box.innerHTML = _mpDashHtml(_mpDashCompute(c[0], c[1], c[2])); }
-            else if (!box.dataset.done) box.innerHTML = _mpDashHtml(_mpDashCompute([], [], []), true);
+            box.innerHTML = _mpDashHtml(_mpDashCompute(c[0] || [], c[1] || [], c[2] || []), !c[0]); box.dataset.painted = '1';
+        } else if (!box.dataset.painted) box.innerHTML = _mpDashHtml(_mpDashCompute([], [], []), true);
+        if (!_db || !cab || cab !== _cab) { const n = Number(box.dataset.tries || 0); if (n < 50) { box.dataset.tries = String(n + 1); setTimeout(_mpDashRender, 300); } return; }
+        if (_mpDashBusy) return; _mpDashBusy = true;
+        try {
             const [o, f, a] = await Promise.all([_ozCall('ozon_orders_daily', args), _ozCall('ozon_finance_daily', args), _ozCall('ozon_rnp_articles', {})]);
             if (cab !== _cab || _mp() === 'wb') return;
-            box.innerHTML = _mpDashHtml(_mpDashCompute(o, f, a)); box.dataset.done = '1';
+            const m = _mpDashCompute(o, f, a); m.empty = !o.length && !a.length; box.innerHTML = _mpDashHtml(m); box.dataset.done = '1';
         } catch (e) {
             if (!box.dataset.done) box.innerHTML = '<div class="nr-mp-h"><b>OZON</b><span>Не удалось загрузить данные Ozon.</span><button type="button" class="rnp-action-btn" onclick="window.NrMpDash.render()">Повторить</button></div>';
         } finally { _mpDashBusy = false; }
