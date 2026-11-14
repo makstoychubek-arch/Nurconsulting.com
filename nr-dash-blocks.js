@@ -113,6 +113,17 @@
             persist(); paint();
         }).catch(function () { /* WB не ответил: остаётся то, что было */ });
     }
+    // Баланс Ozon (в режиме Ozon на карточке «Баланс» нельзя показывать баланс WB под подписью Ozon)
+    function mpIsOz() { return !!(root.NrMp && root.NrMp.get() === 'ozon'); }
+    function loadOzBal(c) {
+        var d = db(); if (!d || !c) return;
+        Promise.resolve(d.from('ozon_balance_daily').select('d,closing,opening,currency').eq('cabinet_id', c).order('d', { ascending: false }).limit(1)).then(function (r) {
+            if (c !== cab()) return;
+            S.ozBal = r && !r.error && r.data && r.data[0] ? { date: r.data[0].d, current: Number(r.data[0].closing) || 0, opening: Number(r.data[0].opening) || 0, currency: r.data[0].currency } : null;
+            S.ozBalCab = c; paint();
+        }, function () {});
+    }
+    if (doc) doc.addEventListener('nr-mp-change', function () { if (mpIsOz() && S.ozBalCab !== cab()) loadOzBal(cab()); else paint(); });
     function load(c) {
         var d = db();
         if (!d || !c || S.busy) return;
@@ -184,11 +195,13 @@
         if (!row || !D) return;
         var today = todayBishkek();
         // Валюта баланса приходит от WB вместе с суммой (у кабинетов Кыргызстана это сомы): раньше здесь всегда стоял знак рубля.
-        var cur = curSign(D.bal && D.bal.currency);
-        var ly = D.ly ? '<div class="hint" title="Вывод за тот же месяц год назад">В ' + MONTHS[D.ly.month - 1] + ' ' + D.ly.year + ': ≈ ' + fmt(D.ly.sum) + '</div>' : '';
+        var oz = mpIsOz(), bal = oz ? S.ozBal : D.bal, next = oz ? null : D.next;
+        if (oz && S.ozBalCab !== cab()) loadOzBal(cab());
+        var cur = curSign(bal && bal.currency);
+        var ly = !oz && D.ly ? '<div class="hint" title="Вывод за тот же месяц год назад">В ' + MONTHS[D.ly.month - 1] + ' ' + D.ly.year + ': ≈ ' + fmt(D.ly.sum) + '</div>' : '';
         var set = function (k, html) { var el = doc.getElementById('nrdb-' + k); if (el && el.__h !== html) { el.innerHTML = html; el.__h = html; } };
-        set('bal', '<div class="l"><span>Баланс WB</span>' + (D.bal ? '<em class="chip">' + dm(D.bal.date) + '</em>' : '') + '</div><div class="v">' + (D.bal ? fmt(D.bal.current) : '—') + (D.bal && cur ? ' <small>' + cur + '</small>' : '') + '</div>' +
-            (D.next ? '<div class="r hi"><span>К выводу ' + dm(D.next.date) + '</span><b>' + fmt(D.next.amount) + '</b></div>' : '<div class="r"><span>К выводу</span><b>—</b></div>') + ly);
+        set('bal', '<div class="l"><span>Баланс ' + (oz ? 'Ozon' : 'WB') + '</span>' + (bal ? '<em class="chip">' + dm(bal.date) + '</em>' : '') + '</div><div class="v">' + (bal ? fmt(bal.current) : '—') + (bal && cur ? ' <small>' + cur + '</small>' : '') + '</div>' +
+            (oz ? (bal ? '<div class="r"><span>На начало месяца</span><b>' + fmt(bal.opening) + '</b></div>' : '') : next ? '<div class="r hi"><span>К выводу ' + dm(next.date) + '</span><b>' + fmt(next.amount) + '</b></div>' : '<div class="r"><span>К выводу</span><b>—</b></div>') + ly);
         var T = D.transit, W = D.wb || { total: 0, n: 0, byWh: {}, list: [] };
         var whRows = Object.keys(W.byWh).sort(function (a, b) { return W.byWh[b].qty - W.byWh[a].qty; }).slice(0, 3).map(function (k) { return '<div class="r"><span>→ ' + esc(k) + '</span><b>' + (W.byWh[k].qty ? fmt(W.byWh[k].qty) + ' шт' : W.byWh[k].n + ' пост.') + '</b></div>'; }).join('');
         var manual = ROUTES.map(function (r) { var n = T.routes[r[0]].reduce(function (a, x) { return a + x.qty; }, 0); return n ? '<div class="r"><span>' + r[1] + '</span><b>' + fmt(n) + ' шт</b></div>' : ''; }).join('');
