@@ -1,6 +1,5 @@
 // Фото карточек Ozon для А/Б-тестов: прочитать картинки товара и поставить новое главное фото.
-// Ozon хранит главное фото отдельно (primary_image), остальные в images; при записи (v1/product/pictures/import)
-// первая ссылка в images становится главной, остальные идут за ней. Форма ответа v3/product/info/list сверена живым запросом 14 ноября 2026.
+// Ozon хранит главное фото отдельно (primary_image), остальные в images; при записи главное задаётся полем primary_image. Форма ответа v3/product/info/list сверена живым запросом 14 ноября 2026.
 
 import { ozonCall, type FetchFn, type OzonCreds } from './ozon-api.ts';
 
@@ -17,11 +16,11 @@ export function parseCardImages(items: Record<string, unknown>[]): OzonCardImage
     });
 }
 
-/** Новый список для записи: нужное фото первым, дальше прежние остальные без повтора, не больше 15 (предел Ozon). */
-export function buildImageList(photo: string, rest: string[]): string[] {
-    const out = [photo];
-    for (const u of rest) if (u && u !== photo && !out.includes(u)) out.push(u);
-    return out.slice(0, 15);
+/** Что отправить в Ozon: главное фото и остальные (все исходные фото карточки без главного, не больше 14: предел Ozon при заданном primary_image). */
+export function buildImageList(photo: string, all: string[]): { primary_image: string; images: string[] } {
+    const images: string[] = [];
+    for (const u of all) if (u && u !== photo && !images.includes(u)) images.push(u);
+    return { primary_image: photo, images: images.slice(0, 14) };
 }
 
 export async function getOzonCards(creds: OzonCreds, productIds: number[], fetchFn: FetchFn): Promise<OzonCardImages[]> {
@@ -33,18 +32,14 @@ export async function getOzonCards(creds: OzonCreds, productIds: number[], fetch
     return out;
 }
 
-/** Ставит photo главным у одного товара Ozon, остальные фото сохраняет (rest). */
+/** Ставит photo главным у одного товара Ozon, остальные фото (all: исходные фото карточки) сохраняет.
+ *  Метод v2/product/pictures/import (v1 Ozon отключил, проверено живым запросом 14 ноября 2026): изменение видно в карточке за секунды. */
 export async function setOzonMainPhoto(
-    creds: OzonCreds, productId: number, photo: string, rest: string[], fetchFn: FetchFn,
+    creds: OzonCreds, offerId: string, photo: string, all: string[], fetchFn: FetchFn,
 ): Promise<{ ok: boolean; error?: string }> {
-    if (!productId || !/^https?:\/\//.test(photo)) return { ok: false, error: 'нужны product_id и ссылка на фото' };
+    if (!offerId || !/^https?:\/\//.test(photo)) return { ok: false, error: 'нужны offer_id и ссылка на фото' };
     try {
-        const r = await ozonCall(creds, '/v1/product/pictures/import', {
-            color_image: '', images: buildImageList(photo, rest), images360: [], product_id: productId,
-        }, fetchFn);
-        const pics = ((r.result as Record<string, unknown>)?.pictures as Record<string, unknown>[]) || [];
-        const bad = pics.find((p) => String(p.state || '').toLowerCase().includes('error'));
-        if (bad) return { ok: false, error: 'Ozon не принял фото: ' + String(bad.state) };
+        await ozonCall(creds, '/v2/product/pictures/import', { items: [{ offer_id: offerId, ...buildImageList(photo, all) }] }, fetchFn);
         return { ok: true };
     } catch (e) {
         return { ok: false, error: String((e as Error)?.message || e).slice(0, 200) };

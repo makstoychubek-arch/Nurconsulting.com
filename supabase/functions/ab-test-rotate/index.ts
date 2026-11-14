@@ -904,7 +904,7 @@ async function pauseAbCampaigns(
 type Admin = ReturnType<typeof createClient>;
 
 async function rotateOnOzon(admin: Admin, test: Record<string, unknown>, photoUrl: string): Promise<{ ok: boolean; errorText?: string }> {
-    const oz = ((test.settings as Record<string, unknown> | null)?.ozon || {}) as { products?: { product_id: number; rest?: string[] }[] };
+    const oz = ((test.settings as Record<string, unknown> | null)?.ozon || {}) as { products?: { offer_id: string; all?: string[] }[] };
     const products = Array.isArray(oz.products) ? oz.products : [];
     if (!products.length) return { ok: false, errorText: 'ozon_products_missing' };
     const { data: cab } = await admin.from('cabinets').select('ozon_client_id, ozon_api_key').eq('id', test.cabinet_id as string).maybeSingle();
@@ -913,7 +913,7 @@ async function rotateOnOzon(admin: Admin, test: Record<string, unknown>, photoUr
     const fetchFn = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => fetch(url, init);
     let bad = '';
     for (const p of products) {
-        const r = await setOzonMainPhoto(creds, Number(p.product_id), photoUrl, Array.isArray(p.rest) ? p.rest : [], fetchFn);
+        const r = await setOzonMainPhoto(creds, String(p.offer_id), photoUrl, Array.isArray(p.all) ? p.all : [], fetchFn);
         if (!r.ok) bad = r.error || 'ozon_error';
     }
     return bad ? { ok: false, errorText: bad } : { ok: true };
