@@ -112,6 +112,28 @@ async function syncPostings(admin: Admin, cabinetId: string, c: OzonCreds, days:
     return total;
 }
 
+/** Финотчёт Ozon по полумесяцам (cash-flow) с расшифровкой: комиссия, логистика, возвраты, услуги. Нужен для точной юнит-экономики. */
+async function syncFinance(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
+    const from = new Date(Date.now() - Math.max(days, 60) * 86400_000).toISOString();
+    const to = new Date(Date.now() + 86400_000).toISOString();
+    let page = 1, total = 0;
+    for (let i = 0; i < 20; i++) {
+        const r = await ozonCall(c, '/v1/finance/cash-flow-statement/list', { date: { from, to }, with_details: true, page, page_size: 50 }, fetchFn);
+        const res = (r.result || {}) as { cash_flows?: Record<string, any>[]; details?: Record<string, any>[]; page_count?: number };
+        const flows = res.cash_flows || [], det = res.details || [];
+        const rows = flows.map((f, k) => {
+            const { period, ...summary } = f;
+            const d = det.find((x) => String(x.period?.begin) === String(period?.begin)) || det[k] || {};
+            return { cabinet_id: cabinetId, period_begin: String(period.begin).slice(0, 10), period_end: String(period.end).slice(0, 10), summary, detail: d, synced_at: new Date().toISOString() };
+        });
+        total += await upsert(admin, 'ozon_cashflow', rows as unknown as Record<string, unknown>[], 'cabinet_id,period_begin');
+        if (page >= (res.page_count || 1)) break;
+        page++;
+        await sleep(250);
+    }
+    return total;
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -120,7 +142,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const only = body?.cabinet_id ? String(body.cabinet_id) : '';
     const days = Math.min(120, Math.max(1, Number(body?.days) || 14));
-    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings'];
+    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings', 'finance'];
 
     let q = admin.from('cabinets').select('id, name, ozon_client_id, ozon_api_key').not('ozon_api_key', 'is', null).neq('ozon_api_key', '');
     if (only) q = q.eq('id', only);
@@ -136,6 +158,7 @@ Deno.serve(async (req) => {
             products: () => syncProducts(admin, cab.id, creds),
             stocks: () => syncStocks(admin, cab.id, creds),
             postings: () => syncPostings(admin, cab.id, creds, days),
+            finance: () => syncFinance(admin, cab.id, creds, days),
         };
         for (const p of parts) {
             if (!jobs[p]) continue;
