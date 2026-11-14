@@ -6684,7 +6684,7 @@ const RNP = (() => {
           <td class="rnp-metric-col">Общий РНП</td>
           <td class="rnp-spark-col"></td>
           <td class="rnp-meta-cell" colspan="${cols.length}">
-            <span class="rnp-meta-status">Сводка по кабинету · ${cols.length} колонок · все суммы в сомах</span>
+            <span class="rnp-meta-status">${_activeGroup ? 'Сводка по склейке «' + _ghEsc(_activeGroup) + '»' : 'Сводка по кабинету'} · ${cols.length} колонок · все суммы в сомах</span>
           </td>
         </tr>`;
     }
