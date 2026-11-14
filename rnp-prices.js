@@ -179,7 +179,7 @@
     }
     function paint() {
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
-        var legend = '';
+        var legend = '<div class="rp-tools"><button type="button" class="rp-btn" data-act="costimport">Загрузить себестоимость таблицей</button></div>';
         if (!S.arts.length) {
             pane.innerHTML = legend + '<div class="rp-stage">' + (S.load.arts ? skeleton() : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b><p>Добавьте артикулы в РНП, и они появятся здесь по склейкам.</p></div>') + '</div>';
             return;
@@ -204,6 +204,57 @@
         pane.innerHTML = legend + '<div class="rp-stage">' + html + '</div><div class="rp-foot">' + total + ' артикулов</div>' + bar;
         pane.scrollTop = sc;
     }
+    /* ───── Загрузка себестоимости таблицей (артикул WB и цена за штуку) ─────
+       Вставляем строки «название  артикул  себестоимость» (из Excel). Находим артикулы кабинета и пишем себестоимость; ничего не удаляем,
+       строки без совпадения в этом кабинете пропускаем и считаем. Нужна, чтобы быстро вернуть себестоимость по всем артикулам сразу. */
+    var COST_TABLE_1114 = '334548155:850,334548150:850,334548154:850,334548152:850,334548151:850,334548153:850,247337216:850,247336833:850,971990843:850,971990844:850,414332159:850,247347214:950,429715568:950,287679331:950,287679857:950,409845462:950,247347924:950,287679332:950,409845463:950,280128269:1050,391102732:1050,499378334:1050,391102729:1050,391102728:1050,499380531:1050,247348946:1050,391102730:1050,247348479:1050,280129304:1050,262714507:1150,262760469:1150,435735287:1150,296564448:1150,262697143:1150,247350377:1150,892565628:1150,247350276:1150,296564447:1150,249656298:1450,262659615:1450,624699327:1450,605813197:1450,249650166:1450,249656107:1450,262656530:1450,738066896:1450,262651910:1450,271001364:1650,271001367:1650,271001368:1650,271001369:1650,287679856:950,296556350:1300,435743074:1300,296556346:1300,391116477:1300,391116472:1300,399607068:1300,295201148:1300,296556347:1300,296556348:1300,307425698:800,435746744:800,307425701:800,307425707:800,307425705:800,307425704:800,307425703:800,307425706:800,307425697:800,307425700:800,307425699:800,348098830:830,348096452:830,894289054:830,348098833:830,894289055:830,348098831:830,414333601:830,348098832:830,348098834:830,495053632:1300,495053634:1300,495053630:1300,495053631:1300,495053633:1300,495053638:1300,495053627:1300,495053629:1300,495055924:1150,495055922:1150,629846440:1150,495055921:1150,495055925:1150,495055918:1150,495055919:1150,495055920:1150,495055923:1150,539916078:1550,539916085:1550,611441510:1550,539401904:1550,539916080:1550,539916083:1550,539916086:1550,539908473:1650,539908481:1650,603633471:1650,539401905:1650,539908479:1650,539908477:1650,539908484:1650,547613172:950,547613173:950,547613174:950,547613175:950,949531903:950,604201353:950,604201351:950,664192264:950,949531904:950,604201350:1350,604201358:1350,604201356:1350,597838497:1350,604201352:1350,604201359:1350,604201361:1350,629645156:1400,629645151:1400,629645150:1400,629645152:1400,629645154:1400,629645155:1400,629645153:1400,633661207:1250,633661203:1250,633661208:1250,766251143:1250,633661202:1250,633661205:1250,633639148:1250,705387384:1350,705387380:1350,705381484:1350,705387387:1350,705387388:1350,705387386:1350,705387381:1350,705387382:1350,705387385:1350,705387383:1350,705387379:1350,766251142:1250,849430238:800,849430239:800,1013975274:800,849397339:800,1013975275:800,849397338:800,1013975276:800,889759782:800,849444018:1080,889864456:940,889864459:940,889864458:940,889864457:940,889864460:940,889864461:940,889864462:940,1218799336:678,1218782505:678,1218796940:678,1218802103:678';   // таблица себестоимости владельца от 14 ноября 2026: артикул WB:сом
+    function parseCostText(text) {
+        var out = {};
+        String(text || '').split(/\r?\n/).forEach(function (line) {
+            var m = line.match(/(\d{6,})\D+(\d{2,6}(?:[.,]\d+)?)\s*$/); if (!m) return;
+            out[m[1]] = Number(m[2].replace(',', '.'));
+        });
+        return out;
+    }
+    function applyCostMap(map) {
+        var cab = S.cab; if (!cab) return;
+        var byCost = {}, total = 0;
+        Object.keys(map).forEach(function (nm) { var c = map[nm]; if (!(c >= 0)) return; (byCost[c] = byCost[c] || []).push(Number(nm)); total++; });
+        var costs = Object.keys(byCost), matched = 0, failed = false;
+        toast('info', 'Загружаем себестоимость', total + ' артикулов из таблицы, это займёт несколько секунд');
+        // сразу на экране
+        costs.forEach(function (c) { byCost[c].forEach(function (nm) { var a = artOf(nm); if (a) a.cost_price = Number(c); }); });
+        paint(); writeCache();
+        costs.reduce(function (p, c) {
+            return p.then(function () {
+                var ids = byCost[c], chunks = []; for (var i = 0; i < ids.length; i += 150) chunks.push(ids.slice(i, i + 150));
+                return chunks.reduce(function (pp, ch) {
+                    return pp.then(function () { return Promise.resolve(sb().from('rnp_articles').update({ cost_price: Number(c) }).eq('cabinet_id', cab).in('nm_id', ch).select('nm_id')); })
+                        .then(function (r) { if (r && r.error) { failed = r.error.message; } else matched += ((r && r.data) || []).length; });
+                }, Promise.resolve());
+            });
+        }, Promise.resolve()).then(function () {
+            if (failed) { toast('error', 'Себестоимость загрузилась не вся', String(failed).slice(0, 140)); return; }
+            toast('success', 'Себестоимость загружена', 'Обновлено артикулов в этом кабинете: ' + matched + ' из ' + total + (matched < total ? ' (остальных в этом кабинете нет)' : ''));
+            try { doc.dispatchEvent(new root.Event('nr-articles-changed')); } catch (_) {}
+            open();
+        }).catch(function (e) { toast('error', 'Себестоимость не загрузилась', String(e && e.message || e).slice(0, 140)); open(); });
+    }
+    function openCostImport() {
+        if (!root.NrUi || !root.NrUi.dialog) return;
+        var d = root.NrUi.dialog({ title: 'Загрузить себестоимость таблицей', size: 'm',
+            body: '<p style="margin:0 0 8px;font-size:13px;color:var(--text-muted)">Вставьте строки из таблицы: название, артикул WB и себестоимость за штуку (через табуляцию или пробелы). Артикулы этого кабинета получат эту себестоимость, остальное не меняется.</p>' +
+                '<textarea id="rp-ci" style="width:100%;height:200px;border:1px solid var(--text-primary);border-radius:14px;background:transparent;color:inherit;padding:10px;font:12px monospace;box-sizing:border-box" placeholder="кимоно бежевый длинный&#9;334548155&#9;850"></textarea>' +
+                '<button type="button" id="rp-ci-fill" class="rp-btn" style="margin-top:8px">Подставить таблицу от 14 ноября</button>',
+            actions: [{ label: 'Отмена' }, { label: 'Применить', primary: true, onClick: function () {
+                var map = parseCostText((d.el.querySelector('#rp-ci') || {}).value);
+                if (!Object.keys(map).length) { toast('error', 'Не нашли строк', 'Нужны строки с артикулом WB и себестоимостью'); return false; }
+                applyCostMap(map);
+            } }] });
+        var fill = d.el.querySelector('#rp-ci-fill');
+        if (fill) fill.addEventListener('click', function () { var t = d.el.querySelector('#rp-ci'); if (t) t.value = COST_TABLE_1114.split(',').map(function (p) { var q = p.split(':'); return q[0] + '\t' + q[1]; }).join('\n'); });
+    }
+
     /* Себестоимость одна на склейку: у всех артикулов склейки одно значение (вводится здесь, раньше было в «Остатках»). */
     function gcost(g) {
         var v = g.items.map(function (a) { return Number(a.cost_price) || 0; }), first = v[0];
@@ -453,6 +504,7 @@
             if ((b = e.target.closest('[data-act]'))) {
                 var act = b.getAttribute('data-act');
                 if (act === 'clear') { S.sel = {}; paint(); return; }
+                if (act === 'costimport') { openCostImport(); return; }
                 openModal(act, b.getAttribute('data-g')); return;
             }
             if ((b = e.target.closest('[data-nm]'))) goRnp(b.getAttribute('data-nm'));
