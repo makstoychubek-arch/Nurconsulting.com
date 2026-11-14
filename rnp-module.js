@@ -1305,7 +1305,7 @@ const RNP = (() => {
     }
 
     // Для Ozon нет СПП, раздач, обработки товара, логистики до ПВЗ и баланса WB по строкам
-    const _OZ_HIDE = new Set(['spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
+    const _OZ_HIDE = new Set(['ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
     function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
             if (_mp() === 'ozon' && _OZ_HIDE.has(m.key)) return false;
