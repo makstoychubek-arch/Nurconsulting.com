@@ -7255,8 +7255,10 @@ const RNP = (() => {
         if (liveTbody.rows.length !== nextTbody.rows.length) return false;
         // Строка заметок добавляется/убирается в шапке — это новая структура, а не правка ячеек.
         if (liveTable.tHead && nextTable.tHead && liveTable.tHead.rows.length !== nextTable.tHead.rows.length) return false;
-        if (liveTbody.rows[0] && nextTbody.rows[0]
-            && liveTbody.rows[0].cells.length !== nextTbody.rows[0].cells.length) return false;
+        // Число колонок должно совпасть во ВСЕХ строках и в шапке: у первой строки бывает одна «широкая» ячейка (colspan),
+        // и тогда смена периода (например, до 14-го вместо 11-го) правила только цифры, а новые колонки не появлялись.
+        for (let i = 0; i < liveTbody.rows.length; i++) if (liveTbody.rows[i].cells.length !== nextTbody.rows[i].cells.length) return false;
+        if (liveTable.tHead && nextTable.tHead) for (let i = 0; i < liveTable.tHead.rows.length; i++) if (liveTable.tHead.rows[i].cells.length !== nextTable.tHead.rows[i].cells.length) return false;
         for (let i = 0; i < liveTbody.rows.length; i++) _patchSubtree(liveTbody.rows[i], nextTbody.rows[i]);
         const liveHead = liveTable.tHead;
         const nextHead = nextTable.tHead;
