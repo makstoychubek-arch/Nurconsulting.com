@@ -1682,6 +1682,7 @@ const RNP = (() => {
     async function _syncFromContentCards(opts = {}) {
         const { silent = false, activateNew = false, activateCatalog = false, force = false } = opts;
         if (!_callProxy || !_cab) return { ok: false, added: 0 };
+        if (_mp() !== 'wb') return { ok: false, added: 0 }; // в режиме Ozon в памяти артикулы Ozon: синк WB принял бы все карточки за новые
         const cab = _cab;
         try {
             const resp = await _callProxyTimed('content_cards', {
@@ -1714,9 +1715,17 @@ const RNP = (() => {
                     manual_data: md,
                 });
             }
-            for (let i = 0; i < toUpsert.length; i += 200) {
+            // Известные артикулы обновляем как раньше. Неизвестные (по состоянию в памяти) только добавляем и НЕ перезаписываем уже
+            // существующие строки: иначе при устаревших данных в памяти синк обнулял бы себестоимость, «в пути», «в плане» и фото.
+            const knownRows = toUpsert.filter((r) => known.has(Number(r.nm_id)));
+            const newRows = toUpsert.filter((r) => !known.has(Number(r.nm_id)));
+            for (let i = 0; i < knownRows.length; i += 200) {
                 if (_cab !== cab) return { ok: false, added: 0 };
-                await _db.from('rnp_articles').upsert(toUpsert.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id' });
+                await _db.from('rnp_articles').upsert(knownRows.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id' });
+            }
+            for (let i = 0; i < newRows.length; i += 200) {
+                if (_cab !== cab) return { ok: false, added: 0 };
+                await _db.from('rnp_articles').upsert(newRows.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
             }
             if (_cab !== cab) return { ok: false, added };
             await _loadArticles(cab);
@@ -1730,6 +1739,7 @@ const RNP = (() => {
     }
 
     async function _setAllActive(on) {
+        if (_mp() !== 'wb') return true; // массовое включение трогает все артикулы кабинета (WB), в режиме Ozon его быть не должно
         if (!_db || !_cab) return true;
         if (!_articles.some(a => a.is_active !== on)) return true;
         const prev = _articles;
