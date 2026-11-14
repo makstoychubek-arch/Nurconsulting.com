@@ -6453,7 +6453,7 @@ const RNP = (() => {
         const m = _mergeDerivedMetrics(parts);
         // Ozon: итогов кабинета из финотчёта WB нет, «К выводу» и комиссия считаются из строк Ozon (к перечислению и реализации).
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
-            m.to_withdraw = Number(m.to_transfer) || 0;
+            m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
         }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
