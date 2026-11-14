@@ -95,6 +95,7 @@
     function writeCache() { try { root.localStorage.setItem(cacheKey(S.cab), JSON.stringify({ arts: S.arts, prices: S.prices, stock: S.stock, fbo: S.fbo, fbs: S.fbs, pd: S.pd, ratio: S.ratio, ord: S.ord, sal: S.sal, at: Date.now() })); } catch (_) {} }
 
     function open() {
+        if (mpMode() !== 'wb') loadOz();
         var cab = cabId(); if (!cab || !sb()) { paint(); return; }
         var my = ++S.token, same = cab === S.cab && S.arts.length;
         if (!same) {
@@ -177,7 +178,141 @@
         var row = function () { var t = ''; for (var i = 0; i < 12; i++) t += '<span class="rp-it rp-sk"><span class="rp-ph"></span><i class="rp-ld">0000</i><s class="rp-ld">000</s></span>'; return t; };
         return '<div class="rp-cat rp-ld">Загружаем артикулы</div>' + '<div class="rp-row"><div class="rp-nm rp-ld"><b>Склейка</b><span>ост 0000</span></div><div class="rp-shelf">' + row() + '</div></div><div class="rp-row"><div class="rp-nm rp-ld"><b>Склейка</b><span>ост 0000</span></div><div class="rp-shelf">' + row() + '</div></div>';
     }
+    /* ───── Ozon: товары по склейкам (линейка товара), цены по склейке ─────
+       Склейка Ozon = линейка товара (укороченные, оверсайз, свитера и т.д.), плитка = артикул без размера (цвет), цена меняется у всех
+       размеров сразу. Каталог и остатки Ozon берутся из ozon_products и ozon_stocks; цены уходят в Ozon функцией ozon-prices. */
+    function mpMode() { return (root.NrMp && root.NrMp.get()) || 'wb'; }
+    var OZ = { cab: '', rows: [], stock: {}, load: false, sel: {}, map: {}, token: 0 };
+    function ozBase(o) {
+        var t = String(o || '').toLowerCase().replace(/[_ ]*(\d{2}(-\d{2})?|xxl|xl|xs|l|m|s)$/i, '').replace(/[_ ]*\d{2}$/, '');
+        return t.replace(/^[_ ]+|[_ ]+$/g, '');
+    }
+    function ozLine(b) { return /^свитер/.test(b) ? 'Свитера' : /^костюм_укороч/.test(b) ? 'Костюмы укороченные' : /^костюм_оверсайз/.test(b) ? 'Костюмы оверсайз' : /^пиджак/.test(b) ? 'Пиджаки' : /^спорт/.test(b) ? 'Спортивные костюмы' : 'Другое'; }
+    function ozKey() { return 'nr_rp_oz_' + OZ.cab; }
+    function loadOz() {
+        var cab = cabId(); if (!cab || !sb()) return;
+        var my = ++OZ.token;
+        if (OZ.cab !== cab) { OZ.cab = cab; OZ.rows = []; OZ.stock = {}; OZ.sel = {}; try { var c = JSON.parse(root.localStorage.getItem(ozKey()) || 'null'); if (c) { OZ.rows = c.rows || []; OZ.stock = c.stock || {}; } } catch (_) {} }
+        OZ.load = true; paint();
+        Promise.all([
+            pageAll(function () { return sb().from('ozon_products').select('offer_id,name,price,old_price,min_price,image_url,archived').eq('cabinet_id', cab).eq('archived', false); }),
+            pageAll(function () { return sb().from('ozon_stocks').select('offer_id,present').eq('cabinet_id', cab); })
+        ]).then(function (a) {
+            if (my !== OZ.token) return;
+            var st = {}; a[1].forEach(function (x) { st[x.offer_id] = (st[x.offer_id] || 0) + (Number(x.present) || 0); });
+            OZ.rows = a[0]; OZ.stock = st; OZ.load = false; paint();
+            try { root.localStorage.setItem(ozKey(), JSON.stringify({ rows: OZ.rows, stock: OZ.stock })); } catch (_) {}
+        }, function () { if (my === OZ.token) { OZ.load = false; paint(); } });
+    }
+    function ozGroups() {
+        var bases = {};
+        OZ.rows.forEach(function (r) {
+            var b = ozBase(r.offer_id), x = bases[b] = bases[b] || { base: b, offers: [], stock: 0, img: '' };
+            x.offers.push(r); x.stock += OZ.stock[r.offer_id] || 0; if (!x.img && r.image_url) x.img = r.image_url;
+        });
+        var lines = {};
+        Object.keys(bases).forEach(function (b) { var l = ozLine(b); (lines[l] = lines[l] || []).push(bases[b]); });
+        return Object.keys(lines).sort().map(function (l) {
+            var arr = lines[l].sort(function (x, y) { return y.stock - x.stock; }), n = 0, sum = 0, stock = 0, offers = 0;
+            arr.forEach(function (x) { x.avg = x.offers.reduce(function (s, r) { return s + (Number(r.price) || 0); }, 0) / (x.offers.length || 1); sum += x.avg; n++; stock += x.stock; offers += x.offers.length; });
+            return { line: l, bases: arr, avg: n ? sum / n : 0, stock: stock, offers: offers };
+        });
+    }
+    function ozHtml() {
+        var gs = ozGroups(); OZ.map = {};
+        if (!gs.length) return '<div class="rp-stage">' + (OZ.load ? skeleton() : '<div class="rp-empty"><b>У этого кабинета нет товаров Ozon</b><p>Подключите ключ Ozon в Настройки → API, товары подтянутся сами.</p></div>') + '</div>';
+        var html = gs.map(function (g, i) {
+            var key = 'o' + i; OZ.map[key] = g;
+            return '<div class="rp-row"><div class="rp-nm"><b>' + esc(g.line) + '</b><span>' + g.bases.length + ' арт. · ' + g.offers + ' размеров</span></div>' +
+                '<div class="rp-shelf">' + g.bases.map(function (x) {
+                    var sel = OZ.sel[x.base] ? ' sel' : '';
+                    return '<div class="rp-it' + sel + (x.stock < 5 ? ' rp-low' : '') + '" role="button" tabindex="0" data-ock="' + esc(x.base) + '" aria-label="' + esc(x.base) + '"><span class="rp-ph">' + (x.img ? '<img src="' + esc(x.img) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
+                        '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '">' + (sel ? '✓' : '') + '</span><i>' + (x.avg ? fmt(x.avg) : '—') + '</i><s>' + fmt(x.stock) + '</s></div>';
+                }).join('') + '</div>' +
+                '<div class="rp-side"><div class="rp-rings"><div class="rp-ring b"><b>' + fmt(g.stock) + '</b><span>остаток</span></div><div class="rp-ring"><b>' + (g.avg ? fmt(g.avg) : '—') + '</b><span>ср. цена</span></div></div>' +
+                '<div class="rp-acts"><button type="button" class="rp-btn" data-oact="price" data-og="' + key + '">Цена</button></div></div></div>';
+        }).join('');
+        var ns = Object.keys(OZ.sel).length, bar = '';
+        if (ns) bar = '<div class="rp-bar"><b>Выбрано ' + ns + '</b><span class="rp-barn">' + esc(Object.keys(OZ.sel).slice(0, 3).join(', ') + (ns > 3 ? ' и ещё ' + (ns - 3) : '')) + '</span><span class="rp-sp"></span><button type="button" class="rp-btn w" data-oact="price" data-og="sel">Изменить цену</button><button type="button" class="rp-btn q" data-oact="clear">Снять выбор</button></div>';
+        return '<div class="rp-stage">' + html + '</div><div class="rp-foot">' + OZ.rows.length + ' товаров Ozon' + (OZ.load ? ' · обновляем' : '') + '</div>' + bar;
+    }
+    function ozOffersOf(og) {
+        if (og === 'sel') { var out = []; ozGroups().forEach(function (g) { g.bases.forEach(function (x) { if (OZ.sel[x.base]) out = out.concat(x.offers); }); }); return out; }
+        var g = OZ.map[og]; return g ? g.bases.reduce(function (a, x) { return a.concat(x.offers); }, []) : [];
+    }
+    function ozNew(price, mode, v) {
+        var p = Number(price) || 0, n = mode === 'one' ? v : mode === 'down' ? p * (1 - v / 100) : mode === 'up' ? p * (1 + v / 100) : p + v;
+        return Math.round(n);
+    }
+    function ozBad(cur, next) { return !(next >= 100) || (cur > 0 && (next < cur * 0.5 || next > cur * 2)); }
+    function openOzPrice(og) {
+        var offers = ozOffersOf(og); if (!offers.length || !root.NrUi || !root.NrUi.dialog) return;
+        var M = { mode: 'down', val: '' };
+        var d = root.NrUi.dialog({ title: 'Цена на Ozon: ' + offers.length + ' размеров', size: 'm', body: '<div id="rp-oz"></div>', actions: [{ label: 'Отмена' }, { label: 'Применить', primary: true, keepOpen: true, onClick: function () { return apply(); } }] });
+        var box = d.el.querySelector('#rp-oz');
+        function calc() { var v = Number(String(M.val).replace(',', '.')) || 0; return offers.map(function (r) { var cur = Number(r.price) || 0, nx = M.val === '' ? cur : ozNew(cur, M.mode, v); return { r: r, cur: cur, nx: nx, bad: M.val !== '' && ozBad(cur, nx) }; }); }
+        function paintM() {
+            var rows = calc(), bad = rows.filter(function (x) { return x.bad; }).length, seg = [['down', '−%'], ['up', '+%'], ['one', 'Одна цена'], ['abs', '−/+ сом']].map(function (x) { return '<button type="button" class="rp-sg' + (M.mode === x[0] ? ' on' : '') + '" data-pm="' + x[0] + '">' + x[1] + '</button>'; }).join('');
+            var lab = { one: 'Новая цена, сом (для всех размеров)', down: 'Снизить на, %', up: 'Поднять на, %', abs: 'Изменить на, сом (минус снижает)' }[M.mode];
+            var byBase = {}; rows.forEach(function (x) { var b = ozBase(x.r.offer_id); (byBase[b] = byBase[b] || []).push(x); });
+            var tbl = Object.keys(byBase).slice(0, 12).map(function (b) { var a = byBase[b], c = a.reduce(function (s, x) { return s + x.cur; }, 0) / a.length, n = a.reduce(function (s, x) { return s + x.nx; }, 0) / a.length; return '<tr><td>' + esc(b) + '</td><td class="n">' + fmt(c) + '</td><td class="n' + (M.val !== '' ? (n < c ? ' dn' : n > c ? ' up' : '') : '') + '">' + (M.val === '' ? '—' : fmt(n)) + '</td></tr>'; }).join('');
+            box.innerHTML = '<div class="rp-seg">' + seg + '</div><label class="rp-lab" for="rp-ozv">' + lab + '</label><input id="rp-ozv" class="rp-inp" inputmode="decimal" autocomplete="off" value="' + esc(M.val) + '">' +
+                '<div class="rp-tw"><table class="rp-tbl"><tr><th>Артикул</th><th class="n">Ср. цена сейчас</th><th class="n">Станет</th></tr>' + tbl + '</table></div>' + (Object.keys(byBase).length > 12 ? '<p class="rp-hint">Показаны первые 12 артикулов из ' + Object.keys(byBase).length + '.</p>' : '') +
+                '<p class="rp-hint">Цена меняется у каждого размера от его текущей цены. Зачёркнутая цена и ограничение для акций подстраиваются сами. Ozon примет изменение за несколько минут.</p>' +
+                (bad ? '<p class="rp-warn">У ' + bad + ' размеров новая цена меньше 100 или отличается от текущей больше чем вдвое: так менять нельзя.</p>' : '');
+            var inp = box.querySelector('#rp-ozv'); if (inp) { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {} }
+            return rows;
+        }
+        box.addEventListener('click', function (e) { var b = e.target.closest('[data-pm]'); if (b) { M.mode = b.getAttribute('data-pm'); paintM(); } });
+        box.addEventListener('input', function (e) { if (e.target.id === 'rp-ozv') { M.val = e.target.value; paintM(); } });
+        paintM();
+        function apply() {
+            var rows = calc(); if (M.val === '' || !(Number(String(M.val).replace(',', '.')) > 0)) { toast('error', 'Укажите значение', ''); return false; }
+            if (rows.some(function (x) { return x.bad; })) { toast('error', 'Так менять нельзя', 'У части размеров цена выходит за допустимое'); return false; }
+            ozSend(rows.filter(function (x) { return x.nx !== x.cur; })); OZ.sel = {};
+        }
+    }
+    function ozSend(list) {
+        var cab = OZ.cab; if (!list.length) { toast('info', 'Цены не изменились', 'Новые цены равны текущим'); return; }
+        var prev = {}; list.forEach(function (x) { prev[x.r.offer_id] = { price: x.r.price, old: x.r.old_price, min: x.r.min_price }; x.r.price = x.nx; });
+        paint();
+        var h = root.NrUi && root.NrUi.toast ? root.NrUi.toast('info', 'Цены уходят в Ozon…', list.length + ' размеров', { loading: true, key: 'rp-oz' }) : null;
+        var items = list.map(function (x) { return { offer_id: x.r.offer_id, price: x.nx }; }), chunks = [];
+        for (var i = 0; i < items.length; i += 200) chunks.push(items.slice(i, i + 200));
+        var failed = [];
+        chunks.reduce(function (p, ch) {
+            return p.then(function () { return sb().functions.invoke('ozon-prices', { body: { cabinet_id: cab, items: ch } }); }).then(function (r) {
+                var d = r && r.data;
+                if (r && r.error || !d || d.error) throw new Error((d && d.error) || (r.error && r.error.message) || 'нет ответа');
+                (d.results || []).forEach(function (x) { if (!x.ok) failed.push(x); });
+            });
+        }, Promise.resolve()).then(function () {
+            failed.forEach(function (f) { var r = OZ.rows.filter(function (y) { return y.offer_id === f.offer_id; })[0]; if (r && prev[f.offer_id]) r.price = prev[f.offer_id].price; });
+            paint(); try { root.localStorage.setItem(ozKey(), JSON.stringify({ rows: OZ.rows, stock: OZ.stock })); } catch (_) {}
+            if (failed.length) toast('error', 'Не всё применилось: ' + failed.length + ' из ' + list.length, String(failed[0].error || '').slice(0, 120));
+            else if (h && h.update) h.update('success', 'Цены отправлены в Ozon', list.length + ' размеров, применятся за несколько минут'); else toast('success', 'Цены отправлены в Ozon', list.length + ' размеров');
+        }).catch(function (e) {
+            list.forEach(function (x) { if (prev[x.r.offer_id]) x.r.price = prev[x.r.offer_id].price; }); paint();
+            toast('error', 'Цены не изменились', String(e && e.message || e).slice(0, 140));
+        });
+        if (h && h.close && false) h.close();
+    }
+    function ozAct(b) {
+        var a = b.getAttribute('data-oact');
+        if (a === 'clear') { OZ.sel = {}; paint(); return; }
+        if (a === 'price') openOzPrice(b.getAttribute('data-og'));
+    }
+
     function paint() {
+        var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
+        var m = mpMode();
+        if (m === 'wb') { paintWb(); return; }
+        if (m === 'all') paintWb(); else pane.innerHTML = '';
+        var sc = pane.scrollTop;
+        pane.insertAdjacentHTML('beforeend', (m === 'all' ? '<div class="rp-cat">Ozon</div>' : '') + ozHtml());
+        pane.scrollTop = sc;
+    }
+    function paintWb() {
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
         var legend = '<div class="rp-tools"><button type="button" class="rp-btn" data-act="costimport">Загрузить себестоимость таблицей</button></div>';
         if (!S.arts.length) {
@@ -500,6 +635,8 @@
         bar.addEventListener('click', function (e) { var b = e.target.closest('[data-rv]'); if (b) setView(b.getAttribute('data-rv')); });
         pane.addEventListener('click', function (e) {
             var b;
+            if ((b = e.target.closest('[data-oact]'))) { ozAct(b); return; }
+            if ((b = e.target.closest('[data-ock]'))) { var bk = b.getAttribute('data-ock'); if (OZ.sel[bk]) delete OZ.sel[bk]; else OZ.sel[bk] = true; paint(); return; }
             if ((b = e.target.closest('[data-ck]'))) { var nm = b.getAttribute('data-ck'); if (S.sel[nm]) delete S.sel[nm]; else S.sel[nm] = true; paint(); return; }
             if ((b = e.target.closest('[data-act]'))) {
                 var act = b.getAttribute('data-act');
@@ -510,13 +647,14 @@
             if ((b = e.target.closest('[data-nm]'))) goRnp(b.getAttribute('data-nm'));
         });
         pane.addEventListener('change', function (e) { var i = e.target.closest && e.target.closest('.rp-cost-in'); if (i) saveGroupCost(i.getAttribute('data-gc'), i.value); });
-        pane.addEventListener('keydown', function (e) { if (e.target.classList && e.target.classList.contains('rp-cost-in')) { if (e.key === 'Enter') e.target.blur(); return; } if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('rp-it')) { e.preventDefault(); goRnp(e.target.getAttribute('data-nm')); } });
+        pane.addEventListener('keydown', function (e) { if (e.target.hasAttribute && e.target.hasAttribute('data-ock') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.target.click(); return; } if (e.target.classList && e.target.classList.contains('rp-cost-in')) { if (e.key === 'Enter') e.target.blur(); return; } if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('rp-it')) { e.preventDefault(); goRnp(e.target.getAttribute('data-nm')); } });
         // с кнопки РНП на левой панели всегда открывается сам РНП
         doc.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.rail-btn[data-tab="rnp"]') && S.view !== 'rnp') setView('rnp'); }, true);
     }
     // Сайт сообщает о смене кабинета событием document «cabinet-changed» (кабинет к этому моменту уже выбран): сбрасываем чужие данные и грузим новые
-    function onCabinetChanged() { S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; U.cab = ''; U.arts = []; U.agg = {}; U.token++; closeModal(); if (S.view === 'prices') open(); else if (S.view === 'unit') openUnit(); }
+    function onCabinetChanged() { OZ.cab = ''; OZ.rows = []; OZ.stock = {}; OZ.sel = {}; OZ.token++; S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; U.cab = ''; U.arts = []; U.agg = {}; U.token++; closeModal(); if (S.view === 'prices') open(); else if (S.view === 'unit') openUnit(); }
     doc.addEventListener('cabinet-changed', onCabinetChanged);
+    doc.addEventListener('nr-mp-change', function () { if (S.view === 'prices') { if (mpMode() !== 'wb') loadOz(); else paint(); } });
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
 
     root.NrRnpPrices = { open: open, setView: setView, _catOf: catOf, _build: build, _nextPrice: nextPrice, _beforeDiscount: beforeDiscount, _ratioPct: ratioPct, _unitOf: unitOf };
