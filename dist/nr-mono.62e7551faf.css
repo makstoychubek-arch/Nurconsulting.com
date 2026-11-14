@@ -2166,3 +2166,9 @@ html body .ab-var-slot b { position: absolute; left: 6px; top: 6px; background: 
 html body .ab-var-slot small { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 10px; background: rgba(0,0,0,.6); color: #fff; padding: 2px 0; }
 html body .ab-var-slot button { position: absolute; right: 4px; top: 4px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; line-height: 1; }
 html body .ab-oz-file { display: inline-block; cursor: pointer; margin-top: 4px; }
+
+/* План/факт и Планирование лежат внутри .main-content (как РНП): те же поля по бокам и прокрутка */
+html body #tab-rnp-planfact .rnp-pfp-host, html body #tab-rnp-planning .rnp-pfp-host { padding: 0; }
+html body #tab-rnp-planning .rnp-plan-panel.rnp-plan-page { border: 0 !important; border-radius: 0 !important; overflow: visible !important; }
+html body #tab-rnp-planning .ps-back { width: auto !important; min-width: 64px; padding: 0 14px !important; flex: none; white-space: nowrap; }
+html body #tab-rnp-planning .ps-tabs { padding: 2px 0 8px; }
