@@ -804,10 +804,11 @@ const RNP = (() => {
         return (await _fetchAllRowsWb(table, filters, columns)).concat(oz);
     }
 
+    let _noSnap = false; // свежая выгрузка в обход кэша устройства (после правки себестоимости в «Товарах»)
     async function _fetchAllRowsWb(table, filters, columns = '*') {
         // Сначала упакованная выгрузка с кэшем устройства (nr-snap.js): одна компактная загрузка вместо десятков страниц.
         // null = не получилось / не подходит, идём прежним постраничным путём.
-        if (window.NrSnap) {
+        if (window.NrSnap && !_noSnap) {
             const packed = await window.NrSnap.fetchRows(_db, table, filters, columns);
             if (packed) return packed;
         }
@@ -10070,6 +10071,24 @@ const RNP = (() => {
         }
     }
     document.addEventListener('nr-mp-change', _onMpChange);
+
+    // Себестоимость, «в пути» и «в плане» вводят в «Товары → Остатки» (пишут в rnp_articles). РНП читал артикулы один раз при запуске и
+    // показывал прежнюю (пустую) себестоимость, пока страницу не обновят: теперь после сохранения там артикулы перечитываются.
+    let _artRefreshing = false;
+    async function _refreshArticlesFresh() {
+        if (_artRefreshing || !_db || !_cab) return;
+        _artRefreshing = true;
+        const cab = _cab;
+        try {
+            _noSnap = true; _fetchInflight.clear();
+            await _loadArticles(cab);
+        } catch (e) { /* остаются прежние артикулы */ } finally { _noSnap = false; _artRefreshing = false; }
+        if (cab !== _cab) return;
+        _metricsCache = new Map();
+        window._rnpLoadedForCabinet = null;
+        if (document.querySelector('#tab-rnp.active')) openMain(true);
+    }
+    document.addEventListener('nr-articles-changed', _refreshArticlesFresh);
 
     // В режиме Ozon все подписи про WB (комиссия, склад, баланс, подсказки, окна) называем Ozon: данные на странице Ozon, а слово «WB» вводит в заблуждение.
     function _pfDom(rootEl) {
