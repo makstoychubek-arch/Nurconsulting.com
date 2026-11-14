@@ -160,7 +160,7 @@
         var snap = {
             cabinetId: cab(), base: W.art.name, title: W.card.name || W.art.name, nm: W.art.nm_id,
             interval: Math.max(60, parseInt(($('ab-oz-int') || {}).value, 10) || 180), maxRot: parseInt(($('ab-oz-max') || {}).value, 10) || 0,
-            variants: W.variants.slice(), offers: W.card.offers.map(function (o) { return { product_id: o.product_id, rest: W.card.rest || [] }; }), offerIds: W.card.offers.map(function (o) { return o.offer_id; })
+            variants: W.variants.slice(), offers: W.card.offers.map(function (o) { return { offer_id: o.offer_id, all: [o.primary].concat(o.rest || []).filter(Boolean) }; }), offerIds: W.card.offers.map(function (o) { return o.offer_id; })
         };
         close(); toast('success', 'Тест создан', 'Фото загружаются в фоне. Главное фото на Ozon не меняется, пока не пройдёт первый интервал.');
         run(snap);

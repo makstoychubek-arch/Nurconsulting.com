@@ -1,6 +1,6 @@
 // ozon-photo: фото карточек Ozon для А/Б-тестов. Вызывает сайт от имени пользователя.
 //   card     { cabinet_id, base }                       — товары артикула без размера и их фото (чтение)
-//   set_main { cabinet_id, photo_url, products:[{product_id, rest}] } — поставить фото главным (запись, только владелец и команда)
+//   set_main { cabinet_id, photo_url, products:[{offer_id, all}] } — поставить фото главным (запись, только владелец и команда)
 // Ключи Ozon берутся из кабинета на сервере и в браузер не попадают.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -52,12 +52,12 @@ Deno.serve(async (req) => {
         }
         if (action === 'set_main') {
             const photo = String(body.photo_url || '');
-            const products = Array.isArray(body.products) ? body.products as { product_id: number; rest?: string[] }[] : [];
+            const products = Array.isArray(body.products) ? body.products as { offer_id: string; all?: string[] }[] : [];
             if (!photo || !products.length) return json({ error: 'photo_url и products обязательны' }, 400);
-            const results: { product_id: number; ok: boolean; error?: string }[] = [];
+            const results: { offer_id: string; ok: boolean; error?: string }[] = [];
             for (const p of products.slice(0, 40)) {
-                const r = await setOzonMainPhoto(creds, Number(p.product_id), photo, Array.isArray(p.rest) ? p.rest : [], fetchFn);
-                results.push({ product_id: Number(p.product_id), ...r });
+                const r = await setOzonMainPhoto(creds, String(p.offer_id), photo, Array.isArray(p.all) ? p.all : [], fetchFn);
+                results.push({ offer_id: String(p.offer_id), ...r });
             }
             const okN = results.filter((r) => r.ok).length;
             return json({ ok: okN === results.length, applied: okN, total: results.length, results });
