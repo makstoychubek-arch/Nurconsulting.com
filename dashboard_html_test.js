@@ -2246,6 +2246,9 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
             function _phoneCollapseHtml(id, title, open, inner) { return inner; }
             function _copyMiniBtn() { return ''; }
             function _mxHtml() { return '<div class="rnp-mx"></div>'; }
+            ${grabFn(rnpSrc, '_nmIdHtml')}
+            function _ghEsc(v) { return String(v); }
+            function _copyMiniBtn() { return ''; }
             ${grabFn(rnpSrc, '_collectKpiView')}
             ${grabFn(rnpSrc, '_kpiGridHTML')}
             ${grabFn(rnpSrc, '_buildKpiTopHTML')}

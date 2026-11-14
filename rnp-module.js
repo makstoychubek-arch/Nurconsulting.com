@@ -690,7 +690,14 @@ const RNP = (() => {
     }
     async function _ozRows(table, filters) {
         let rows = [];
-        if (table === 'rnp_articles') rows = await _ozCall('ozon_rnp_articles', {});
+        if (table === 'rnp_articles') {
+            // На Ozon укороченные и оверсайз заведены отдельными товарами, а не одной склейкой: группы по артикулу продавца, а не по общему названию карточки.
+            rows = (await _ozCall('ozon_rnp_articles', {})).map((r) => {
+                const n = String(r.name || '').toLowerCase();
+                const cat = /^свитер/.test(n) ? 'Свитера' : /^костюм_укороч/.test(n) ? 'Костюм укороченный' : /^костюм_оверсайз/.test(n) ? 'Костюм оверсайз' : /^пиджак/.test(n) ? 'Пиджак оверсайз' : /^спорт/.test(n) ? 'Спорт рич' : (r.card_title || r.category || '');
+                return Object.assign({}, r, { category: cat, subject_name: cat });
+            });
+        }
         else if (table === 'wb_stocks') rows = await _ozCall('ozon_stock_rows', {});
         else if (table === 'rnp_daily_data') rows = await _ozCall('ozon_finance_daily', _ozRange(filters));
         else return [];
@@ -797,10 +804,11 @@ const RNP = (() => {
         return (await _fetchAllRowsWb(table, filters, columns)).concat(oz);
     }
 
+    let _noSnap = false; // свежая выгрузка в обход кэша устройства (после правки себестоимости в «Товарах»)
     async function _fetchAllRowsWb(table, filters, columns = '*') {
         // Сначала упакованная выгрузка с кэшем устройства (nr-snap.js): одна компактная загрузка вместо десятков страниц.
         // null = не получилось / не подходит, идём прежним постраничным путём.
-        if (window.NrSnap) {
+        if (window.NrSnap && !_noSnap) {
             const packed = await window.NrSnap.fetchRows(_db, table, filters, columns);
             if (packed) return packed;
         }
@@ -1350,6 +1358,7 @@ const RNP = (() => {
     }
     function _wbGroupsOn() { _wbGroupLabels(); return _wbOn; }
     function _baseCategory(a) {
+        if (Number(a.nm_id) >= 8e9) return (a.category || '').trim() || UNCATEGORIZED; // артикулы Ozon: свои группы, не склейки WB
         if (_wbGroupsOn()) return _wbGroupLabels().get(a.nm_id) || UNCATEGORIZED;
         return (a.category || '').trim() || UNCATEGORIZED;
     }
@@ -4961,10 +4970,16 @@ const RNP = (() => {
             ${v.photoHtml}
             <div class="rnp-layout-info-meta">
               <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
-              <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
+              <div class="rnp-gs-nmid">${_nmIdHtml(art)}${Number(art.nm_id) >= 8e9 ? '' : _copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
               ${_mxHtml(art, v.kpi.logistics_per_unit)}
             </div>
           </div>`;
+    }
+
+    /** Номер артикула в шапке: у WB ссылка на карточку; у Ozon номера карточки на сайте у группы размеров нет, показываем артикул продавца. */
+    function _nmIdHtml(art) {
+        if (Number(art.nm_id) >= 8e9) return `<span class="rnp-gs-lbl">артикул Ozon</span><b>${_ghEsc(art.name || '')}</b>`;
+        return `<span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>`;
     }
 
     function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
@@ -4973,7 +4988,7 @@ const RNP = (() => {
           <div class="rnp-kpi-top${_isPhone() ? ' rnp-kpi-top--nophoto' : ''}">
             ${v.photoHtml}
             <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}${_copyMiniBtn('copySellerArticle', v.seller, 'Скопировать артикул продавца')}</div>
-            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a>${_copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
+            <div class="rnp-gs-nmid">${_nmIdHtml(art)}${Number(art.nm_id) >= 8e9 ? '' : _copyMiniBtn('copyNmId', art.nm_id, 'Скопировать артикул WB')}</div>
             ${_mxHtml(art, v.kpi.logistics_per_unit)}
             <div class="rnp-gs-kpis">${_phoneCollapseHtml('kpi', 'Показатели', _phoneKpiOpen, _kpiGridHTML(v))}
             </div>
@@ -6426,6 +6441,11 @@ const RNP = (() => {
             return _derive(raw, a);
         }).filter(Boolean);
         const m = _mergeDerivedMetrics(parts);
+        // Ozon: итогов кабинета из финотчёта WB нет, «К выводу» и комиссия считаются из строк Ozon (к перечислению и реализации).
+        if (_mp() === 'ozon' && m && !_cabTotals[date]) {
+            m.to_withdraw = Number(m.to_transfer) || 0;
+            m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
+        }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
     }
 
@@ -7255,8 +7275,10 @@ const RNP = (() => {
         if (liveTbody.rows.length !== nextTbody.rows.length) return false;
         // Строка заметок добавляется/убирается в шапке — это новая структура, а не правка ячеек.
         if (liveTable.tHead && nextTable.tHead && liveTable.tHead.rows.length !== nextTable.tHead.rows.length) return false;
-        if (liveTbody.rows[0] && nextTbody.rows[0]
-            && liveTbody.rows[0].cells.length !== nextTbody.rows[0].cells.length) return false;
+        // Число колонок должно совпасть во ВСЕХ строках и в шапке: у первой строки бывает одна «широкая» ячейка (colspan),
+        // и тогда смена периода (например, до 14-го вместо 11-го) правила только цифры, а новые колонки не появлялись.
+        for (let i = 0; i < liveTbody.rows.length; i++) if (liveTbody.rows[i].cells.length !== nextTbody.rows[i].cells.length) return false;
+        if (liveTable.tHead && nextTable.tHead) for (let i = 0; i < liveTable.tHead.rows.length; i++) if (liveTable.tHead.rows[i].cells.length !== nextTable.tHead.rows[i].cells.length) return false;
         for (let i = 0; i < liveTbody.rows.length; i++) _patchSubtree(liveTbody.rows[i], nextTbody.rows[i]);
         const liveHead = liveTable.tHead;
         const nextHead = nextTable.tHead;
@@ -10049,6 +10071,48 @@ const RNP = (() => {
         }
     }
     document.addEventListener('nr-mp-change', _onMpChange);
+
+    // Себестоимость, «в пути» и «в плане» вводят в «Товары → Остатки» (пишут в rnp_articles). РНП читал артикулы один раз при запуске и
+    // показывал прежнюю (пустую) себестоимость, пока страницу не обновят: теперь после сохранения там артикулы перечитываются.
+    let _artRefreshing = false;
+    async function _refreshArticlesFresh() {
+        if (_artRefreshing || !_db || !_cab) return;
+        _artRefreshing = true;
+        const cab = _cab;
+        try {
+            _noSnap = true; _fetchInflight.clear();
+            await _loadArticles(cab);
+        } catch (e) { /* остаются прежние артикулы */ } finally { _noSnap = false; _artRefreshing = false; }
+        if (cab !== _cab) return;
+        _metricsCache = new Map();
+        window._rnpLoadedForCabinet = null;
+        if (document.querySelector('#tab-rnp.active')) openMain(true);
+    }
+    document.addEventListener('nr-articles-changed', _refreshArticlesFresh);
+
+    // В режиме Ozon все подписи про WB (комиссия, склад, баланс, подсказки, окна) называем Ozon: данные на странице Ozon, а слово «WB» вводит в заблуждение.
+    function _pfDom(rootEl) {
+        if (_mp() !== 'ozon' || !rootEl) return;
+        const re = /\bWB\b/g;
+        const w = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+        let n;
+        while ((n = w.nextNode())) {
+            const p = n.parentNode && n.parentNode.nodeName;
+            if (p === 'SCRIPT' || p === 'STYLE') continue;
+            if (re.test(n.nodeValue)) { re.lastIndex = 0; n.nodeValue = n.nodeValue.replace(re, 'Ozon'); }
+            re.lastIndex = 0;
+        }
+        rootEl.querySelectorAll('[title],[aria-label],[placeholder]').forEach((el) => {
+            for (const a of ['title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v && /\bWB\b/.test(v)) el.setAttribute(a, v.replace(/\bWB\b/g, 'Ozon')); }
+        });
+    }
+    let _pfT = 0;
+    function _pfSoon() {
+        if (_pfT || _mp() !== 'ozon') return;
+        _pfT = setTimeout(() => { _pfT = 0; _pfDom(document.getElementById('tab-rnp')); _pfDom(document.getElementById('rnp-modal')); _pfDom(document.querySelector('.rnp-tip, .rnp-tooltip, #rnp-tip')); }, 120);
+    }
+    new MutationObserver(_pfSoon).observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('nr-mp-change', () => setTimeout(_pfSoon, 50));
 
     // ── Дашборд: блок Ozon (режимы «Ozon» и «Вместе»). Показываем сразу из кэша устройства, свежее подставляем без перерисовки каркаса.
     function _mpDashEsc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
