@@ -618,6 +618,9 @@
         var tab = doc.getElementById('tab-rnp'); if (!tab) return;
         tab.classList.toggle('rp-on', v === 'prices'); tab.classList.toggle('ru-on', v === 'unit');
         Array.prototype.forEach.call(doc.querySelectorAll('#rnp-views [data-rv]'), function (b) { b.classList.toggle('is-on', b.getAttribute('data-rv') === v); b.setAttribute('aria-selected', b.getAttribute('data-rv') === v ? 'true' : 'false'); });
+        // Заголовок страницы и запомненный подраздел меняем и при программном переходе (строка юнитки → РНП артикула), иначе сверху остаётся «Юнит-экономика»
+        try { root.localStorage.setItem('nr_sub_rnp', v); } catch (_) {}
+        if (root.NrNav && root.NrNav.refresh) setTimeout(function () { try { root.NrNav.refresh(); } catch (_) {} }, 0);
         if (v === 'prices') open();
         else if (v === 'unit') openUnit();
         else if (root.RNP && typeof root.RNP.refreshLayout === 'function') { try { root.RNP.refreshLayout(); } catch (_) {} }
