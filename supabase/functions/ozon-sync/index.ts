@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { buildReturnRows } from '../_shared/ozon-returns.ts';
 import { buildFunnelRows, FUNNEL_METRICS, funnelWindows } from '../_shared/ozon-funnel.ts';
 import {
     buildPostingRows, buildProductRows, buildStockRows, matchByBarcode, ozonCall, OzonError,
@@ -135,6 +136,33 @@ async function syncFinance(admin: Admin, cabinetId: string, c: OzonCreds, days: 
     return total;
 }
 
+/** Возвраты Ozon (отказы при вручении и возвраты клиентов) за последние дни: нужны РНП для строки «Возвраты». */
+async function syncReturns(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
+    const from = new Date(Date.now() - Math.max(days, 30) * 86400_000).toISOString();
+    const to = new Date(Date.now() + 86400_000).toISOString();
+    let last = 0, total = 0;
+    for (let i = 0; i < 40; i++) {
+        const r = await ozonCall(c, '/v1/returns/list', { filter: { logistic_return_date: { time_from: from, time_to: to } }, limit: 500, last_id: last }, fetchFn);
+        const list = ((r.returns as Record<string, unknown>[]) || []) as { id?: number }[];
+        total += await upsert(admin, 'ozon_returns', buildReturnRows(cabinetId, list as never[], new Date().toISOString()) as unknown as Record<string, unknown>[], 'cabinet_id,id');
+        if (!r.has_next || !list.length) break;
+        last = Number(list[list.length - 1].id) || 0;
+        await sleep(250);
+    }
+    return total;
+}
+
+/** Баланс Ozon на сегодня (закрывающий остаток за месяц). Показывается на дашборде вместо баланса WB. */
+async function syncBalance(admin: Admin, cabinetId: string, c: OzonCreds): Promise<number> {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const first = today.slice(0, 8) + '01';
+    const r = await ozonCall(c, '/v1/finance/balance', { date_from: first, date_to: today }, fetchFn);
+    const t = (r.total || {}) as { closing_balance?: { value?: number; currency_code?: string }; opening_balance?: { value?: number } };
+    if (t.closing_balance?.value == null) return 0;
+    return await upsert(admin, 'ozon_balance_daily', [{ cabinet_id: cabinetId, d: today, closing: Number(t.closing_balance.value) || 0, opening: Number(t.opening_balance?.value) || 0, currency: t.closing_balance.currency_code || 'RUB', synced_at: now.toISOString() }] as unknown as Record<string, unknown>[], 'cabinet_id,d');
+}
+
 /** Воронка Ozon (показы, просмотры карточки, корзина, заказы) по SKU и дням за последние дни. Нужна подписка Premium; без неё Ozon вернёт ошибку. */
 async function syncFunnel(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
     const to = new Date().toISOString().slice(0, 10);
@@ -163,7 +191,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const only = body?.cabinet_id ? String(body.cabinet_id) : '';
     const days = Math.min(120, Math.max(1, Number(body?.days) || 14));
-    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings', 'finance', 'funnel'];
+    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings', 'finance', 'funnel', 'returns', 'balance'];
 
     let q = admin.from('cabinets').select('id, name, ozon_client_id, ozon_api_key').not('ozon_api_key', 'is', null).neq('ozon_api_key', '');
     if (only) q = q.eq('id', only);
@@ -181,6 +209,8 @@ Deno.serve(async (req) => {
             postings: () => syncPostings(admin, cab.id, creds, days),
             finance: () => syncFinance(admin, cab.id, creds, days),
             funnel: () => syncFunnel(admin, cab.id, creds, days),
+            returns: () => syncReturns(admin, cab.id, creds, days),
+            balance: () => syncBalance(admin, cab.id, creds),
         };
         for (const p of parts) {
             if (!jobs[p]) continue;

@@ -1304,8 +1304,11 @@ const RNP = (() => {
         }
     }
 
+    // Для Ozon нет СПП, раздач, обработки товара, логистики до ПВЗ и баланса WB по строкам
+    const _OZ_HIDE = new Set(['spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
     function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
+            if (_mp() === 'ozon' && _OZ_HIDE.has(m.key)) return false;
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
@@ -6455,6 +6458,7 @@ const RNP = (() => {
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
+            m.other_net_sum = -(Number(m.deduction_sum) || 0);
         }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
     }
@@ -10110,7 +10114,7 @@ const RNP = (() => {
     }
     function _pfDom(rootEl) {
         if (_mp() !== 'ozon' || !rootEl) return;
-        const re = /\bWB\b/g;
+        const re = /\bWB\b|(?<![А-Яа-яЁё])ВБ(?![А-Яа-яЁё])/g;
         const w = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
         let n;
         while ((n = w.nextNode())) {
@@ -10120,7 +10124,7 @@ const RNP = (() => {
             re.lastIndex = 0;
         }
         rootEl.querySelectorAll('[title],[aria-label],[placeholder]').forEach((el) => {
-            for (const a of ['title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v && /\bWB\b/.test(v)) el.setAttribute(a, v.replace(/\bWB\b/g, 'Ozon')); }
+            for (const a of ['title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v && re.test(v)) { re.lastIndex = 0; el.setAttribute(a, v.replace(re, 'Ozon')); } re.lastIndex = 0; }
         });
     }
     let _pfT = 0;
