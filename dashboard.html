@@ -6136,7 +6136,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.a1fd3cbf2a.css">
+<link rel="stylesheet" href="/dist/nr-mono.a156ad0942.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8252,6 +8252,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-compare.818d837050.min.js"></script>
 <script src="/dist/rnp-prices.7ddcd596ca.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
+<script src="/dist/nr-ab-ozon.6389bf63bc.min.js"></script>
 <script src="/dist/nr-nav.99ba2c0fa7.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.1650b70cb4.min.js"></script>
@@ -14952,6 +14953,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function showNewTestForm() {
+        if (window.NrAbOz && NrAbOz.mode() === 'ozon') return NrAbOz.openNew();
         abWizardStep = 1;
         abSelectedCard = null;
         abVariantFiles = {};
@@ -15529,6 +15531,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     async function rotateTestPhoto(testId, variantIndex, photoUrl, nmId, variantLabel) {
+        if (window.NrAbOz && NrAbOz.isOz(testId)) return NrAbOz.rotate(testId, variantIndex, photoUrl, variantLabel);
         if (!photoUrl || !nmId) return false;
         const data = await callWbProxy('media_save', { nmId: Number(nmId), photoUrl });
         if (!data) return false;
@@ -15633,7 +15636,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     function renderABTests() {
         const container = document.getElementById('abtests-list');
-        let list = allABTests;
+        let list = window.NrAbOz ? NrAbOz.filter(allABTests) : allABTests;
         if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
         else if (currentTestFilter === 'finished') list = list.filter(t => t.status === 'finished');
         if (abTestQuery) list = list.filter(t => String(t.product_name || '').toLowerCase().includes(abTestQuery) || String(t.nm_id || '').includes(abTestQuery));

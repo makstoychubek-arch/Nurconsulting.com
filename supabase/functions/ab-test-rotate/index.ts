@@ -29,6 +29,7 @@ import {
 } from '../_shared/wb-main-photo.ts';
 import { decideAbAutoStop } from '../_shared/ab-test-auto-stop.ts';
 import { attributeSnapshots, takeAdSnapshots } from '../_shared/ab-adv-snapshots.ts';
+import { setOzonMainPhoto } from '../_shared/ozon-photo.ts';
 import { CHECK_EVERY_MIN, decideRotation, isFinalWindow, quotaOf, windowImpressions } from '../_shared/ab-quota.ts';
 
 const CORS = {
@@ -146,13 +147,15 @@ Deno.serve(async (req) => {
                 }));
                 if (rotationRows.length) await admin.from('ab_test_rotations').insert(rotationRows);
 
-                const { data: orders } = await admin
-                    .from('wb_orders')
-                    .select('order_date, price, is_return, data')
-                    .eq('cabinet_id', test.cabinet_id)
-                    .eq('nm_id', test.nm_id)
-                    .gte('order_date', String(test.started_at || '').split('T')[0] || '2020-01-01')
-                    .lte('order_date', windowEndNow.toISOString().split('T')[0]);
+                const orders = test.marketplace === 'ozon'
+                    ? await ozonOrdersAsRows(admin, test, windowEndNow)
+                    : (await admin
+                        .from('wb_orders')
+                        .select('order_date, price, is_return, data')
+                        .eq('cabinet_id', test.cabinet_id)
+                        .eq('nm_id', test.nm_id)
+                        .gte('order_date', String(test.started_at || '').split('T')[0] || '2020-01-01')
+                        .lte('order_date', windowEndNow.toISOString().split('T')[0])).data;
 
                 const tally = new Map<string, { orders: number; revenue: number; impressions: number; clicks: number; atbs: number; adSpend: number }>();
                 for (const v of variants) tally.set(v.variant_label, { orders: 0, revenue: 0, impressions: 0, clicks: 0, atbs: 0, adSpend: 0 });
@@ -160,7 +163,7 @@ Deno.serve(async (req) => {
                 for (const order of orders || []) {
                     if (order.is_return) continue;
                     const rawDate = (order.data as Record<string, unknown> | null)?.date as string | undefined;
-                    const ts = rawDate ? parseWbMoscowDate(rawDate) : new Date(`${order.order_date}T00:00:00+03:00`);
+                    const ts = (order as Record<string, unknown>).__ts ? new Date(String((order as Record<string, unknown>).__ts)) : rawDate ? parseWbMoscowDate(rawDate) : new Date(`${order.order_date}T00:00:00+03:00`);
                     if (!ts) continue;
                     const label = labelAt(windows, ts);
                     if (!label || !tally.has(label)) continue;
@@ -900,6 +903,44 @@ async function pauseAbCampaigns(
 
 type Admin = ReturnType<typeof createClient>;
 
+async function rotateOnOzon(admin: Admin, test: Record<string, unknown>, photoUrl: string): Promise<{ ok: boolean; errorText?: string }> {
+    const oz = ((test.settings as Record<string, unknown> | null)?.ozon || {}) as { products?: { product_id: number; rest?: string[] }[] };
+    const products = Array.isArray(oz.products) ? oz.products : [];
+    if (!products.length) return { ok: false, errorText: 'ozon_products_missing' };
+    const { data: cab } = await admin.from('cabinets').select('ozon_client_id, ozon_api_key').eq('id', test.cabinet_id as string).maybeSingle();
+    if (!cab?.ozon_client_id || !cab?.ozon_api_key) return { ok: false, errorText: 'ozon_credentials_missing' };
+    const creds = { clientId: String(cab.ozon_client_id), apiKey: String(cab.ozon_api_key) };
+    const fetchFn = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => fetch(url, init);
+    let bad = '';
+    for (const p of products) {
+        const r = await setOzonMainPhoto(creds, Number(p.product_id), photoUrl, Array.isArray(p.rest) ? p.rest : [], fetchFn);
+        if (!r.ok) bad = r.error || 'ozon_error';
+    }
+    return bad ? { ok: false, errorText: bad } : { ok: true };
+}
+
+/** Заказы Ozon по товарам теста в формате строк wb_orders (по штуке на единицу товара), чтобы считать окна ротации тем же кодом. */
+async function ozonOrdersAsRows(admin: Admin, test: Record<string, unknown>, until: Date): Promise<Array<Record<string, unknown>>> {
+    const oz = ((test.settings as Record<string, unknown> | null)?.ozon || {}) as { offer_ids?: string[] };
+    const offers = new Set((oz.offer_ids || []).map(String));
+    if (!offers.size) return [];
+    const { data } = await admin.from('ozon_postings')
+        .select('created_at, status, items')
+        .eq('cabinet_id', test.cabinet_id as string)
+        .neq('status', 'cancelled')
+        .gte('created_at', String(test.started_at || '2020-01-01'))
+        .lte('created_at', until.toISOString());
+    const rows: Array<Record<string, unknown>> = [];
+    for (const p of data || []) {
+        for (const it of (Array.isArray(p.items) ? p.items : []) as Array<Record<string, unknown>>) {
+            if (!offers.has(String(it.offer_id))) continue;
+            const price = Number((it.price as Record<string, unknown> | number | undefined) && typeof it.price === 'object' ? (it.price as Record<string, unknown>).amount : it.price) || 0;
+            for (let i = 0; i < (Number(it.quantity) || 1); i++) rows.push({ order_date: String(p.created_at).slice(0, 10), price, is_return: false, __ts: p.created_at });
+        }
+    }
+    return rows;
+}
+
 async function rotateActiveTest(
     admin: Admin,
     test: Record<string, unknown>,
@@ -939,27 +980,32 @@ async function rotateActiveTest(
         return { test_id: test.id, skipped: 'final_window', window_impressions: Math.round(windowImps), quota };
     }
 
-    const { data: cab, error: cabErr } = await admin
-        .from('cabinets')
-        .select('wb_token')
-        .eq('id', test.cabinet_id)
-        .maybeSingle();
-    if (cabErr || !cab?.wb_token) {
-        return { test_id: test.id, error: 'cabinet_or_token_missing' };
-    }
-    const WB_TOKEN = sanitizeWbToken(cab.wb_token);
-    if (!isValidWbToken(WB_TOKEN)) {
-        return { test_id: test.id, error: 'invalid_wb_token' };
-    }
-
     const curIdx = Number(test.current_variant_index) || 0;
     const nextIdx = (curIdx + 1) % variants.length;
     const currentVariant = variants[curIdx];
     const nextVariant = variants[nextIdx];
 
-    const rotateOk = await saveMediaOnWb(admin, WB_TOKEN, Number(test.nm_id), nextVariant.photo_url);
+    let rotateOk: { ok: boolean; errorText?: string };
+    if (test.marketplace === 'ozon') {
+        // Тест на Ozon: новое главное фото ставим на все товары артикула (размеры), остальные фото карточек сохраняем.
+        rotateOk = await rotateOnOzon(admin, test, nextVariant.photo_url);
+    } else {
+        const { data: cab, error: cabErr } = await admin
+            .from('cabinets')
+            .select('wb_token')
+            .eq('id', test.cabinet_id)
+            .maybeSingle();
+        if (cabErr || !cab?.wb_token) {
+            return { test_id: test.id, error: 'cabinet_or_token_missing' };
+        }
+        const WB_TOKEN = sanitizeWbToken(cab.wb_token);
+        if (!isValidWbToken(WB_TOKEN)) {
+            return { test_id: test.id, error: 'invalid_wb_token' };
+        }
+        rotateOk = await saveMediaOnWb(admin, WB_TOKEN, Number(test.nm_id), nextVariant.photo_url);
+    }
     if (!rotateOk.ok) {
-        return { test_id: test.id, error: rotateOk.errorText || 'wb_media_save_failed' };
+        return { test_id: test.id, error: rotateOk.errorText || (test.marketplace === 'ozon' ? 'ozon_photo_failed' : 'wb_media_save_failed') };
     }
 
     if (currentVariant) {
