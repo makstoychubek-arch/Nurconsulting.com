@@ -322,30 +322,40 @@
         return { n: n, r: r, price: price, comm: comm, retPct: r / n * 100, log: log, stoPen: sto + pen, cost: cst, tax: tax,
             resid: Math.max(0, price - tt - commU), commU: commU, profit: profit, margin: price > 0 ? profit / price * 100 : 0, total: profit * n, sales: ss };
     }
-    function uCacheKey(cab) { return 'nr_ru_' + cab; }
+    function mpMode() { return (root.NrMp && root.NrMp.get()) || 'wb'; }
+    function uCacheKey(cab) { var m = mpMode(); return 'nr_ru_' + cab + (m !== 'wb' ? '_' + m : ''); }
     function uSchedule() { if (U.raf) return; U.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { U.raf = 0; paintUnit(); }) : (paintUnit(), 0); }
     function openUnit() {
         var cab = cabId(); if (!cab || !sb()) { paintUnit(); return; }
-        var my = ++U.token;
-        if (cab !== U.cab || !U.arts.length) {
-            U.cab = cab; U.arts = []; U.agg = {}; U.tax = 0;
+        var my = ++U.token, mode = mpMode();
+        if (cab !== U.cab || U.mode !== mode || !U.arts.length) {
+            U.cab = cab; U.mode = mode; U.arts = []; U.agg = {}; U.tax = 0;
             try { var c = JSON.parse(root.localStorage.getItem(uCacheKey(cab)) || 'null'); if (c) { U.arts = c.arts || []; U.agg = c.agg || {}; U.tax = c.tax || 0; } } catch (_) {}
         }
         U.load = true; paintUnit();
         var per = period();
-        Promise.all([
+        var wbP = mode === 'ozon' ? Promise.resolve([[], []]) : Promise.all([
             pageAll(function () { return sb().from('rnp_articles').select('nm_id,name,photo_url,imt_id,card_title,subject_name,cost_price').eq('cabinet_id', cab).eq('is_active', true); }),
-            pageAll(function () { return sb().from('rnp_daily_data').select('nm_id,sales_count,sales_sum,returns_count,to_transfer,delivery_sum,storage_sum,penalty_sum,deduction_sum,commission_pct').eq('cabinet_id', cab).gte('date', per.from).lte('date', per.to); }),
-            Promise.resolve(sb().from('rnp_settings').select('options').eq('cabinet_id', cab).limit(1)).then(function (r) { return (r && r.data && r.data[0] && r.data[0].options) || {}; }, function () { return {}; })
-        ]).then(function (a) {
-            if (my !== U.token) return;
+            pageAll(function () { return sb().from('rnp_daily_data').select('nm_id,sales_count,sales_sum,returns_count,to_transfer,delivery_sum,storage_sum,penalty_sum,deduction_sum,commission_pct').eq('cabinet_id', cab).gte('date', per.from).lte('date', per.to); })
+        ]);
+        // Ozon: артикулы без размера и их расходы из финотчёта Ozon (ozon_unit_rows считает на сервере)
+        var ozP = mode === 'wb' ? Promise.resolve([[], []]) : Promise.all([
+            Promise.resolve(sb().rpc('ozon_rnp_articles', { p_cabinet: cab })).then(function (r) { return (r && r.data) || []; }, function () { return []; }),
+            Promise.resolve(sb().rpc('ozon_unit_rows', { p_cabinet: cab, p_from: per.from, p_to: per.to })).then(function (r) { return (r && r.data) || []; }, function () { return []; })
+        ]);
+        var stP = Promise.resolve(sb().from('rnp_settings').select('options').eq('cabinet_id', cab).limit(1)).then(function (r) { return (r && r.data && r.data[0] && r.data[0].options) || {}; }, function () { return {}; });
+        Promise.all([wbP, ozP, stP]).then(function (a) {
+            if (my !== U.token || mpMode() !== mode) return;
             var agg = {};
-            a[1].forEach(function (x) {
+            a[0][1].forEach(function (x) {
                 var g = agg[x.nm_id] = agg[x.nm_id] || { n: 0, r: 0, ss: 0, tt: 0, dl: 0, st: 0, pn: 0, cm: 0 };
                 g.n += num(x.sales_count); g.r += num(x.returns_count); g.ss += num(x.sales_sum); g.tt += num(x.to_transfer); g.dl += num(x.delivery_sum);
                 g.st += num(x.storage_sum); g.pn += num(x.penalty_sum) + num(x.deduction_sum); g.cm += num(x.commission_pct) * num(x.sales_sum);
             });
-            U.arts = a[0]; U.agg = agg; U.tax = num(a[2] && a[2].taxRate); U.load = false; uSchedule();
+            var arts = a[0][0].slice();
+            a[1][1].forEach(function (x) { agg[x.nm_id] = { n: num(x.n), r: num(x.r), ss: num(x.ss), tt: num(x.tt), dl: num(x.dl), st: num(x.st), pn: num(x.pn), cm: num(x.cm) }; });
+            a[1][0].forEach(function (x) { arts.push({ nm_id: x.nm_id, name: x.name, photo_url: x.photo_url, card_title: x.card_title, subject_name: x.subject_name, cost_price: x.cost_price, oz: 1 }); });
+            U.arts = arts; U.agg = agg; U.tax = num(a[2] && a[2].taxRate); U.load = false; uSchedule();
             try { root.localStorage.setItem(uCacheKey(cab), JSON.stringify({ arts: U.arts, agg: U.agg, tax: U.tax, at: Date.now() })); } catch (_) {}
         }, function () { if (my === U.token) { U.load = false; uSchedule(); } });
     }
@@ -354,13 +364,13 @@
         if (!u) return '';
         var parts = [[u.commU, '#b9b9b9'], [u.resid, '#8a8a8a'], [u.log, '#5a5a5a'], [u.stoPen, '#3a3a3a'], [u.cost, '#d0d0d0'], [u.tax, '#7a7a7a']].map(function (p) { return '<i style="width:' + Math.max(0, p[0] / u.price * 100).toFixed(1) + '%;background:' + p[1] + '"></i>'; }).join('') +
             '<i style="width:' + Math.max(0, u.profit / u.price * 100).toFixed(1) + '%;background:var(--text-primary)"></i>';
-        return '<tr data-nm="' + a.nm_id + '"><td class="ru-nm"><span class="ru-im">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span><div><b>' + esc(a.name || a.nm_id) + '</b><small>WB ' + a.nm_id + '</small></div></td>' +
+        return '<tr data-nm="' + a.nm_id + '"><td class="ru-nm"><span class="ru-im">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span><div><b>' + esc(a.name || a.nm_id) + '</b><small>' + (a.oz ? 'Ozon' : 'WB ' + a.nm_id) + '</small></div></td>' +
             cell(fmt(u.n)) + cell('<b>' + fmt(u.price) + '</b>') + cell(u.comm.toFixed(1).replace('.', ',') + '%') + cell(u.retPct.toFixed(0) + '%') + cell(fmt(u.log)) + cell(u.stoPen ? fmt(u.stoPen) : '—') + cell(fmt(u.cost)) +
             cell('<b class="' + (u.profit <= 0 ? 'dn' : (u.margin >= 15 ? 'up' : '')) + '">' + fmt(u.profit) + '</b>') + cell('<span class="' + (u.margin < 10 ? 'dn' : '') + '">' + u.margin.toFixed(0) + '%</span>') + '<td class="ru-bar"><div class="ru-bw">' + parts + '</div></td></tr>';
     }
     function paintUnit() {
         var pane = doc.getElementById('rnp-unit-pane'); if (!pane || S.view !== 'unit') return;
-        var legend = '<div class="ru-leg"><span><i style="background:#b9b9b9"></i>Комиссия WB</span><span><i style="background:#8a8a8a"></i>Возвраты и эквайринг</span><span><i style="background:#5a5a5a"></i>Логистика</span><span><i style="background:#3a3a3a"></i>Хранение и штрафы</span><span><i style="background:#d0d0d0"></i>Себестоимость</span><span><i style="background:var(--text-primary)"></i>Прибыль</span></div>';
+        var legend = '<div class="ru-leg"><span><i style="background:#b9b9b9"></i>Комиссия ' + (mpMode() === 'ozon' ? 'Ozon' : mpMode() === 'all' ? 'площадки' : 'WB') + '</span><span><i style="background:#8a8a8a"></i>Возвраты и эквайринг</span><span><i style="background:#5a5a5a"></i>Логистика</span><span><i style="background:#3a3a3a"></i>Хранение и штрафы</span><span><i style="background:#d0d0d0"></i>Себестоимость</span><span><i style="background:var(--text-primary)"></i>Прибыль</span></div>';
         if (!U.arts.length) {
             pane.innerHTML = '<div class="ru-kp rp-ld"><div class="k"><b>0 000 тыс.</b><span>прибыль</span></div><div><b>00%</b><span>маржа</span></div></div>' + (U.load ? '<div class="rp-cat rp-ld">Загружаем артикулы</div>' : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b></div>');
             return;
@@ -375,7 +385,7 @@
         var order = CATS.filter(function (c) { return cats[c]; }).sort(function (x, y) {
             var tx = cats[x].reduce(function (s, r) { return s + r.u.total; }, 0), ty = cats[y].reduce(function (s, r) { return s + r.u.total; }, 0); return ty - tx;
         });
-        var head = '<thead><tr><th class="l">Артикул</th><th>Продаж</th><th>Цена</th><th>Комиссия WB</th><th>Возвраты</th><th>Логистика</th><th>Хран.+штрафы</th><th>Себест.</th><th>Прибыль/шт</th><th>Маржа</th><th class="l">Куда уходит цена</th></tr></thead>';
+        var head = '<thead><tr><th class="l">Артикул</th><th>Продаж</th><th>Цена</th><th>Комиссия ' + (mpMode() === 'ozon' ? 'Ozon' : mpMode() === 'all' ? '' : 'WB') + '</th><th>Возвраты</th><th>Логистика</th><th>Хран.+штрафы</th><th>Себест.</th><th>Прибыль/шт</th><th>Маржа</th><th class="l">Куда уходит цена</th></tr></thead>';
         var html = order.map(function (c) {
             var list = cats[c].sort(function (x, y) { return y.u.total - x.u.total; }), cp = 0, cs = 0, cn = 0;
             list.forEach(function (r) { cp += r.u.total; cs += r.u.sales; cn += r.u.n; });
@@ -441,6 +451,7 @@
     // Сайт сообщает о смене кабинета событием document «cabinet-changed» (кабинет к этому моменту уже выбран): сбрасываем чужие данные и грузим новые
     function onCabinetChanged() { S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; U.cab = ''; U.arts = []; U.agg = {}; U.token++; closeModal(); if (S.view === 'prices') open(); else if (S.view === 'unit') openUnit(); }
     doc.addEventListener('cabinet-changed', onCabinetChanged);
+    doc.addEventListener('nr-mp-change', function () { if (S.view === 'unit' && doc.getElementById('tab-rnp') && doc.getElementById('tab-rnp').classList.contains('active')) openUnit(); });
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
 
     root.NrRnpPrices = { open: open, setView: setView, _catOf: catOf, _build: build, _nextPrice: nextPrice, _beforeDiscount: beforeDiscount, _ratioPct: ratioPct, _unitOf: unitOf };
