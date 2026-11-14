@@ -10152,6 +10152,15 @@ const RNP = (() => {
         o.cur_daily = Object.keys(by).sort().map((k) => by[k]);
         return { data: o, error: null };
     }
+    // «Вместе»: Ozon в сомах, WB в рублях; приводим Ozon к рублям по курсу сайта, чтобы суммы складывались верно (дашборд сам переводит в сомы)
+    function _dashRate() { try { const v = Number(localStorage.getItem('nr_rub_kgs_v1')); return v > 0 ? v : 0; } catch (_) { return 0; } }
+    function _dashScale(name, res) {
+        const k = _dashRate(); if (!k || !res || res.error || !res.data) return res;
+        const sc = (o, keys) => { const c = Object.assign({}, o); keys.forEach((x) => { if (c[x] != null) c[x] = Number(c[x]) / k; }); return c; };
+        if (name === 'dashboard_finance_rows') return { data: res.data.map((r) => sc(r, ['retail_price', 'retail_price_withdisc_rub', 'retail_amount', 'ppvz_for_pay', 'delivery_rub', 'storage_fee', 'penalty', 'deduction', 'acquiring_fee'])), error: null };
+        if (name === 'dashboard_summary') { const d = Object.assign({}, res.data); d.cur = sc(d.cur, ['orders_sum']); d.prev = sc(d.prev, ['orders_sum']); d.cur_daily = (d.cur_daily || []).map((x) => sc(x, ['sum'])); return { data: d, error: null }; }
+        return res;
+    }
     const _DASH_MAP = { dashboard_summary: 'ozon_dashboard_summary', dashboard_finance_rows: 'ozon_dashboard_finance_rows', dashboard_finance_coverage: 'ozon_dashboard_coverage' };
     function _dashOzArgs(args) { const o = Object.assign({}, args || {}); if ('p_cabinet_id' in o) { o.p_cabinet = o.p_cabinet_id; delete o.p_cabinet_id; } return o; }
     async function _dashOzonAds(cab, from, to) {
@@ -10173,7 +10182,7 @@ const RNP = (() => {
                 if (mp === 'wb' || !_DASH_MAP[name]) return orig(name, args);
                 const oz = orig(_DASH_MAP[name], _dashOzArgs(args));
                 if (mp === 'ozon') return oz;
-                return Promise.all([orig(name, args), oz]).then((r) => _dashMerge(name, r[0], r[1]));
+                return Promise.all([orig(name, args), oz]).then((r) => _dashMerge(name, r[0], _dashScale(name, r[1])));
             };
         },
         ads: async function (cab, from, to, wbAds) {
@@ -10181,12 +10190,13 @@ const RNP = (() => {
             const oz = await _dashOzonAds(cab, from, to);
             if (mp === 'ozon') return oz;
             const byDay = Object.assign({}, (wbAds && wbAds.byDay) || {});
-            Object.keys(oz.byDay).forEach((d) => { byDay[d] = (byDay[d] || 0) + oz.byDay[d]; });
-            return { spend: ((wbAds && wbAds.spend) || 0) + oz.spend, byDay };
+            const k = _dashRate() || 1;
+            Object.keys(oz.byDay).forEach((d) => { byDay[d] = (byDay[d] || 0) + oz.byDay[d] / k; });
+            return { spend: ((wbAds && wbAds.spend) || 0) + oz.spend / k, byDay };
         },
         cost: async function (map) {
             if (_mp() === 'wb') return map;
-            try { const arts = await _ozCall('ozon_rnp_articles', {}); const out = _mp() === 'ozon' ? {} : Object.assign({}, map); (arts || []).forEach((a) => { if (Number(a.cost_price) > 0) out[String(a.nm_id)] = Number(a.cost_price); }); return out; } catch (_) { return map; }
+            try { const arts = await _ozCall('ozon_rnp_articles', {}); const out = _mp() === 'ozon' ? {} : Object.assign({}, map); const k = _mp() === 'ozon' ? 1 : (_dashRate() || 1); (arts || []).forEach((a) => { if (Number(a.cost_price) > 0) out[String(a.nm_id)] = Number(a.cost_price) / k; }); return out; } catch (_) { return map; }
         },
     };
     function _mpDashRender() { const b = document.getElementById('nr-mp-dash'); if (b) b.remove(); }
