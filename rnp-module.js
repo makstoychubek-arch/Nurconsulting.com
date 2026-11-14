@@ -10101,6 +10101,13 @@ const RNP = (() => {
     document.addEventListener('nr-articles-changed', _refreshArticlesFresh);
 
     // В режиме Ozon все подписи про WB (комиссия, склад, баланс, подсказки, окна) называем Ozon: данные на странице Ozon, а слово «WB» вводит в заблуждение.
+    const _pfOrig = new WeakMap();
+    // при возврате на WB подписи Дашборда и РНП снова «WB»
+    function _pfRestore(rootEl) {
+        if (!rootEl) return;
+        const w = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null); let n;
+        while ((n = w.nextNode())) { if (_pfOrig.has(n)) { n.nodeValue = _pfOrig.get(n); _pfOrig.delete(n); } }
+    }
     function _pfDom(rootEl) {
         if (_mp() !== 'ozon' || !rootEl) return;
         const re = /\bWB\b/g;
@@ -10109,7 +10116,7 @@ const RNP = (() => {
         while ((n = w.nextNode())) {
             const p = n.parentNode && n.parentNode.nodeName;
             if (p === 'SCRIPT' || p === 'STYLE') continue;
-            if (re.test(n.nodeValue)) { re.lastIndex = 0; n.nodeValue = n.nodeValue.replace(re, 'Ozon'); }
+            if (re.test(n.nodeValue)) { re.lastIndex = 0; if (!_pfOrig.has(n)) _pfOrig.set(n, n.nodeValue); n.nodeValue = n.nodeValue.replace(re, 'Ozon'); }
             re.lastIndex = 0;
         }
         rootEl.querySelectorAll('[title],[aria-label],[placeholder]').forEach((el) => {
@@ -10119,65 +10126,71 @@ const RNP = (() => {
     let _pfT = 0;
     function _pfSoon() {
         if (_pfT || _mp() !== 'ozon') return;
-        _pfT = setTimeout(() => { _pfT = 0; _pfDom(document.getElementById('tab-rnp')); _pfDom(document.getElementById('rnp-modal')); _pfDom(document.querySelector('.rnp-tip, .rnp-tooltip, #rnp-tip')); }, 120);
+        _pfT = setTimeout(() => { _pfT = 0; _pfDom(document.getElementById('tab-rnp')); _pfDom(document.getElementById('tab-dashboard')); _pfDom(document.getElementById('rnp-modal')); _pfDom(document.querySelector('.rnp-tip, .rnp-tooltip, #rnp-tip')); }, 120);
     }
     new MutationObserver(_pfSoon).observe(document.documentElement, { childList: true, subtree: true });
-    document.addEventListener('nr-mp-change', () => setTimeout(_pfSoon, 50));
+    document.addEventListener('nr-mp-change', () => { if (_mp() !== 'ozon') { _pfRestore(document.getElementById('tab-dashboard')); _pfRestore(document.getElementById('tab-rnp')); } setTimeout(_pfSoon, 50); });
 
-    // ── Дашборд: блок Ozon (режимы «Ozon» и «Вместе»). Показываем сразу из кэша устройства, свежее подставляем без перерисовки каркаса.
-    function _mpDashEsc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-    function _mpDashNum(v) { return Math.round(Number(v) || 0).toLocaleString('ru-RU').replace(/ /g, ' '); }
-    function _mpDashCompute(orders, fin, arts) {
-        const name = {}; (arts || []).forEach((a) => { name[a.nm_id] = a.name; });
-        const by = {}; let o = 0, os = 0, sc = 0, ss = 0, cc = 0, tr = 0;
-        (orders || []).forEach((r) => { o += +r.orders_count || 0; os += +r.orders_sum || 0; sc += +r.sales_count || 0; ss += +r.sales_sum || 0; cc += +r.cancels_count || 0;
-            const b = by[r.nm_id] || (by[r.nm_id] = { n: name[r.nm_id] || String(r.nm_id), o: 0, s: 0, sum: 0 }); b.o += +r.orders_count || 0; b.s += +r.sales_count || 0; b.sum += +r.sales_sum || 0; });
-        (fin || []).forEach((r) => { tr += +r.to_transfer || 0; });
-        return { o, os, sc, ss, cc, tr, top: Object.values(by).sort((a, b) => b.sum - a.sum).slice(0, 5) };
+    // ── Дашборд: тот же каркас, что у WB. В режимах «Ozon» и «Вместе» подменяем только источники цифр:
+    // dashboard_summary / dashboard_finance_rows / dashboard_finance_coverage берутся из ozon_dashboard_* (та же форма ответа).
+    // «Вместе» складывает ответы WB и Ozon. Старый отдельный блок Ozon убирается.
+    function _dashMerge(name, wb, oz) {
+        if (!wb || wb.error || !wb.data) return oz && !oz.error ? oz : wb;
+        if (!oz || oz.error || !oz.data) return wb;
+        const a = wb.data, b = oz.data;
+        if (name === 'dashboard_finance_rows') return { data: (a || []).concat(b || []), error: null };
+        if (name === 'dashboard_finance_coverage') {
+            const lo = (x, y) => (x && y ? (x < y ? x : y) : x || y), hi = (x, y) => (x && y ? (x > y ? x : y) : x || y);
+            return { data: Object.assign({}, a, { from: lo(a.from, b.from), to: hi(a.to, b.to) }), error: null };
+        }
+        const o = Object.assign({}, a);
+        ['stock_total', 'stock_fbo', 'stock_fbs'].forEach((k) => { o[k] = (Number(a[k]) || 0) + (Number(b[k]) || 0); });
+        o.stock_by_warehouse = (a.stock_by_warehouse || []).concat(b.stock_by_warehouse || []).sort((x, y) => (y.qty || 0) - (x.qty || 0));
+        ['cur', 'prev'].forEach((k) => { o[k] = { orders_count: (Number(a[k] && a[k].orders_count) || 0) + (Number(b[k] && b[k].orders_count) || 0), orders_sum: (Number(a[k] && a[k].orders_sum) || 0) + (Number(b[k] && b[k].orders_sum) || 0), returns_count: (Number(a[k] && a[k].returns_count) || 0) + (Number(b[k] && b[k].returns_count) || 0) }; });
+        const by = {};
+        (a.cur_daily || []).concat(b.cur_daily || []).forEach((d) => { const k = String(d.date).slice(0, 10); const t = by[k] || (by[k] = { date: k, sum: 0, count: 0, returns: 0 }); t.sum += Number(d.sum) || 0; t.count += Number(d.count) || 0; t.returns += Number(d.returns) || 0; });
+        o.cur_daily = Object.keys(by).sort().map((k) => by[k]);
+        return { data: o, error: null };
     }
-    function _mpDashHtml(m, loading) {
-        const kp = (l, v, sub) => `<div class="nr-mp-k"><span>${l}</span><b>${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
-        const buy = m.o ? Math.round(m.sc * 100 / m.o) : 0;
-        return `<div class="nr-mp-h"><b>OZON</b><span>${m.empty ? 'У этого кабинета нет данных Ozon: ключ не подключён или первая загрузка ещё идёт' : 'за 30 дней · оценка по заказам Ozon'}</span></div>
-          <div class="nr-mp-kp${loading ? ' nr-mp-blur' : ''}">${kp('Заказы', _mpDashNum(m.o), _mpDashNum(m.os) + ' сом')}${kp('Продажи', _mpDashNum(m.sc), _mpDashNum(m.ss) + ' сом')}${kp('Выкуп', buy + '%', 'отмен ' + _mpDashNum(m.cc))}${kp('К перечислению ≈', _mpDashNum(m.tr), 'комиссия и логистика учтены оценкой')}</div>
-          <div class="nr-mp-top${loading ? ' nr-mp-blur' : ''}"><div class="nr-mp-t">Топ товаров по продажам</div>${m.top.length ? m.top.map((t, i) => `<div class="nr-mp-r"><em>${i + 1}</em><span>${_mpDashEsc(t.n)}</span><b>${_mpDashNum(t.sum)}</b><small>${_mpDashNum(t.s)} шт</small></div>`).join('') : '<div class="nr-mp-r"><span>Продаж за период нет</span></div>'}</div>`;
-    }
-    let _mpDashBusy = false;
-    async function _mpDashRender() {
-        const tab = document.getElementById('tab-dashboard');
-        if (!tab) return;
-        let box = document.getElementById('nr-mp-dash');
-        if (_mp() === 'wb') { if (box) box.remove(); return; }
-        if (!tab.classList.contains('active')) return;
-        if (!box) { box = document.createElement('section'); box.id = 'nr-mp-dash'; box.className = 'nr-mp-dash'; tab.insertBefore(box, tab.firstChild); }
-        const cab = _cab || (typeof currentCabinetId !== 'undefined' ? currentCabinetId : null);
-        const to = _wbTodayStr(), from = new Date(Date.parse(to) - 29 * 864e5).toISOString().slice(0, 10);
-        const args = { p_from: from, p_to: to };
-        // Каркас показываем сразу, не дожидаясь запуска РНП: цифры из кэша устройства, а если их нет, размытые заглушки.
-        if (!box.dataset.painted && cab) {
-            const mem = (fn, a) => { try { return JSON.parse(localStorage.getItem(_ozCacheKey(fn, a, cab)) || 'null'); } catch (_) { return null; } };
-            const c = [mem('ozon_orders_daily', args), mem('ozon_finance_daily', args), mem('ozon_rnp_articles', {})];
-            box.innerHTML = _mpDashHtml(_mpDashCompute(c[0] || [], c[1] || [], c[2] || []), !c[0]); box.dataset.painted = '1';
-        } else if (!box.dataset.painted) box.innerHTML = _mpDashHtml(_mpDashCompute([], [], []), true);
-        if (!_db || !cab || cab !== _cab) { const n = Number(box.dataset.tries || 0); if (n < 50) { box.dataset.tries = String(n + 1); setTimeout(_mpDashRender, 300); } return; }
-        if (_mpDashBusy) return; _mpDashBusy = true;
+    const _DASH_MAP = { dashboard_summary: 'ozon_dashboard_summary', dashboard_finance_rows: 'ozon_dashboard_finance_rows', dashboard_finance_coverage: 'ozon_dashboard_coverage' };
+    function _dashOzArgs(args) { const o = Object.assign({}, args || {}); if ('p_cabinet_id' in o) { o.p_cabinet = o.p_cabinet_id; delete o.p_cabinet_id; } return o; }
+    async function _dashOzonAds(cab, from, to) {
         try {
-            const [o, f, a] = await Promise.all([_ozCall('ozon_orders_daily', args), _ozCall('ozon_finance_daily', args), _ozCall('ozon_rnp_articles', {})]);
-            if (cab !== _cab || _mp() === 'wb') return;
-            const m = _mpDashCompute(o, f, a); m.empty = !o.length && !a.length; box.innerHTML = _mpDashHtml(m); box.dataset.done = '1';
-        } catch (e) {
-            if (!box.dataset.done) box.innerHTML = '<div class="nr-mp-h"><b>OZON</b><span>Не удалось загрузить данные Ozon.</span><button type="button" class="rnp-action-btn" onclick="window.NrMpDash.render()">Повторить</button></div>';
-        } finally { _mpDashBusy = false; }
+            const rows = await _ozCall('ozon_finance_daily', { p_from: from, p_to: to });
+            const byDay = {}; let spend = 0;
+            (rows || []).forEach((r) => { const v = Number(r.ad_spend) || 0; spend += v; const d = String(r.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + v; });
+            return { spend, byDay };
+        } catch (_) { return { spend: 0, byDay: {} }; }
     }
+    window.NrDashMp = {
+        mode: () => _mp(),
+        suffix: () => (_mp() === 'wb' ? '' : '~' + _mp()),
+        wrap: function (sb) {
+            if (!sb || sb.__nrMpWrapped) return; sb.__nrMpWrapped = true;
+            const orig = sb.rpc.bind(sb);
+            sb.rpc = function (name, args) {
+                const mp = _mp();
+                if (mp === 'wb' || !_DASH_MAP[name]) return orig(name, args);
+                const oz = orig(_DASH_MAP[name], _dashOzArgs(args));
+                if (mp === 'ozon') return oz;
+                return Promise.all([orig(name, args), oz]).then((r) => _dashMerge(name, r[0], r[1]));
+            };
+        },
+        ads: async function (cab, from, to, wbAds) {
+            const mp = _mp(); if (mp === 'wb') return wbAds;
+            const oz = await _dashOzonAds(cab, from, to);
+            if (mp === 'ozon') return oz;
+            const byDay = Object.assign({}, (wbAds && wbAds.byDay) || {});
+            Object.keys(oz.byDay).forEach((d) => { byDay[d] = (byDay[d] || 0) + oz.byDay[d]; });
+            return { spend: ((wbAds && wbAds.spend) || 0) + oz.spend, byDay };
+        },
+        cost: async function (map) {
+            if (_mp() === 'wb') return map;
+            try { const arts = await _ozCall('ozon_rnp_articles', {}); const out = _mp() === 'ozon' ? {} : Object.assign({}, map); (arts || []).forEach((a) => { if (Number(a.cost_price) > 0) out[String(a.nm_id)] = Number(a.cost_price); }); return out; } catch (_) { return map; }
+        },
+    };
+    function _mpDashRender() { const b = document.getElementById('nr-mp-dash'); if (b) b.remove(); }
     window.NrMpDash = { render: _mpDashRender };
-    document.addEventListener('nr-mp-change', () => { const b = document.getElementById('nr-mp-dash'); if (b) delete b.dataset.done; _mpDashRender(); });
-    document.addEventListener('cabinet-changed', () => { const b = document.getElementById('nr-mp-dash'); if (b) b.remove(); setTimeout(_mpDashRender, 300); });
-    (function watchDash() {
-        const t = document.getElementById('tab-dashboard');
-        if (!t) { document.addEventListener('DOMContentLoaded', watchDash, { once: true }); return; }
-        new MutationObserver(() => { if (t.classList.contains('active')) _mpDashRender(); }).observe(t, { attributes: true, attributeFilter: ['class'] });
-        if (t.classList.contains('active')) setTimeout(_mpDashRender, 600);
-    })();
 
     function _bindCabinetListener() {
         if (_cabinetListenerBound) return;

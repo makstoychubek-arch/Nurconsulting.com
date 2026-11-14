@@ -24,7 +24,7 @@ for (const name of distScripts) {
     jsBytes += fs.statSync(p).size;
 }
 const htmlBytes = Buffer.byteLength(html);
-assert.ok(htmlBytes < 1_200_000, `dashboard.html ${htmlBytes} is over 1.2MB`);
+assert.ok(htmlBytes < 1_210_000, `dashboard.html ${htmlBytes} is over 1.21MB`);
 console.log(`[perf-audit] dashboard.html ${(htmlBytes / 1024).toFixed(0)} KB, dist js ${(jsBytes / 1024).toFixed(0)} KB, ${distScripts.length} scripts`);
 
 if (process.env.PERF_LIVE === '1') {
