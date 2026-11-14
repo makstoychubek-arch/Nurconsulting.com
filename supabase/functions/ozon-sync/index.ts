@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { buildAdsRows, chunk as adsChunk } from '../_shared/ozon-ads.ts';
 import { buildReturnRows } from '../_shared/ozon-returns.ts';
 import { buildFunnelRows, FUNNEL_METRICS, funnelWindows } from '../_shared/ozon-funnel.ts';
 import {
@@ -163,6 +164,31 @@ async function syncBalance(admin: Admin, cabinetId: string, c: OzonCreds): Promi
     return await upsert(admin, 'ozon_balance_daily', [{ cabinet_id: cabinetId, d: today, closing: Number(t.closing_balance.value) || 0, opening: Number(t.opening_balance?.value) || 0, currency: t.closing_balance.currency_code || 'RUB', synced_at: now.toISOString() }] as unknown as Record<string, unknown>[], 'cabinet_id,d');
 }
 
+/** Реклама Ozon по кампаниям и дням (Performance API, отдельный ключ рекламного кабинета). Без ключа часть пропускается. */
+async function syncAds(admin: Admin, cabinetId: string, perf: { id: string; secret: string }, days: number): Promise<number> {
+    if (!perf.id || !perf.secret) return 0;
+    const tr = await fetch('https://api-performance.ozon.ru/api/client/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: perf.id, client_secret: perf.secret, grant_type: 'client_credentials' }), signal: AbortSignal.timeout(20000) });
+    if (!tr.ok) throw new Error(`Ozon Performance token ${tr.status}`);
+    const token = String((await tr.json()).access_token || '');
+    const H = { Authorization: `Bearer ${token}` };
+    const cr = await fetch('https://api-performance.ozon.ru/api/client/campaign', { headers: H, signal: AbortSignal.timeout(30000) });
+    if (!cr.ok) throw new Error(`Ozon Performance campaigns ${cr.status}`);
+    const ids = (((await cr.json()).list || []) as { id?: string }[]).map((c) => String(c.id || '')).filter(Boolean);
+    const to = new Date().toISOString().slice(0, 10);
+    // Ozon отдаёт статистику рекламы не больше чем за 62 дня
+    const from = new Date(Date.now() - Math.min(60, Math.max(days, 7)) * 86400_000).toISOString().slice(0, 10);
+    let total = 0;
+    for (const part of adsChunk(ids, 10)) {
+        const q = part.map((i) => 'campaignIds=' + encodeURIComponent(i)).join('&');
+        const r = await fetch(`https://api-performance.ozon.ru/api/client/statistics/daily/json?${q}&dateFrom=${from}&dateTo=${to}`, { headers: H, signal: AbortSignal.timeout(60000) });
+        if (!r.ok) throw new Error(`Ozon Performance stats ${r.status}`);
+        const rows = ((await r.json()).rows || []) as Record<string, unknown>[];
+        total += await upsert(admin, 'ozon_ads_daily', buildAdsRows(cabinetId, rows, new Date().toISOString()) as unknown as Record<string, unknown>[], 'cabinet_id,d,campaign_id');
+        await sleep(300);
+    }
+    return total;
+}
+
 /** Воронка Ozon (показы, просмотры карточки, корзина, заказы) по SKU и дням за последние дни. Нужна подписка Premium; без неё Ozon вернёт ошибку. */
 async function syncFunnel(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
     const to = new Date().toISOString().slice(0, 10);
@@ -191,15 +217,15 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const only = body?.cabinet_id ? String(body.cabinet_id) : '';
     const days = Math.min(120, Math.max(1, Number(body?.days) || 14));
-    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings', 'finance', 'funnel', 'returns', 'balance'];
+    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings', 'finance', 'funnel', 'returns', 'balance', 'ads'];
 
-    let q = admin.from('cabinets').select('id, name, ozon_client_id, ozon_api_key').not('ozon_api_key', 'is', null).neq('ozon_api_key', '');
+    let q = admin.from('cabinets').select('id, name, ozon_client_id, ozon_api_key, ozon_perf_client_id, ozon_perf_secret').not('ozon_api_key', 'is', null).neq('ozon_api_key', '');
     if (only) q = q.eq('id', only);
     const { data: cabs, error } = await q;
     if (error) return json({ error: error.message }, 500);
 
     const results: Record<string, unknown>[] = [];
-    for (const cab of (cabs || []) as { id: string; name: string; ozon_client_id: string; ozon_api_key: string }[]) {
+    for (const cab of (cabs || []) as { id: string; name: string; ozon_client_id: string; ozon_api_key: string; ozon_perf_client_id?: string; ozon_perf_secret?: string }[]) {
         const creds: OzonCreds = { clientId: String(cab.ozon_client_id || '').trim(), apiKey: String(cab.ozon_api_key || '').trim() };
         if (!creds.clientId || !creds.apiKey) continue;
         const res: Record<string, unknown> = { cabinet: cab.name };
@@ -211,6 +237,7 @@ Deno.serve(async (req) => {
             funnel: () => syncFunnel(admin, cab.id, creds, days),
             returns: () => syncReturns(admin, cab.id, creds, days),
             balance: () => syncBalance(admin, cab.id, creds),
+            ads: () => syncAds(admin, cab.id, { id: String(cab.ozon_perf_client_id || '').trim(), secret: String(cab.ozon_perf_secret || '').trim() }, days),
         };
         for (const p of parts) {
             if (!jobs[p]) continue;
