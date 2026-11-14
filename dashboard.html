@@ -6136,7 +6136,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.592d6cc14b.css">
+<link rel="stylesheet" href="/dist/nr-mono.568e66644e.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8102,7 +8102,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.a78ba18561.min.js"></script>
+<script src="/dist/rnp-module.86a6b02cf0.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -8277,6 +8277,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     var supabase = (__nrSupabaseLib && window.NrAuth)
         ? window.NrAuth.createClient(__nrSupabaseLib, SUPABASE_URL, SUPABASE_KEY)
         : null;
+    if (supabase && window.NrDashMp) window.NrDashMp.wrap(supabase);
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
@@ -13620,6 +13621,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     async function loadAdsSpendForDash(cabinetId, from, to) {
+        const w = await loadAdsSpendForDashWb(cabinetId, from, to);
+        return window.NrDashMp ? window.NrDashMp.ads(cabinetId, from, to, w) : w;
+    }
+    async function loadAdsSpendForDashWb(cabinetId, from, to) {
         if (!cabinetId || !from || !to || typeof fetchAllRows !== 'function') return { spend: 0 };
         try {
             const rows = await fetchAllRows('advertising_daily_stats', [
@@ -13680,15 +13685,24 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         };
     })();
     let _dashPass = null;
-    const dashCacheKey = (cab, range) => cab + '|' + range.from + '|' + range.to;
+    const dashMpSuf = () => (window.NrDashMp ? window.NrDashMp.suffix() : '');
+    const dashCacheKey = (cab, range) => cab + dashMpSuf() + '|' + range.from + '|' + range.to;
 
+    // WB | Ozon | Вместе: меняются только цифры; без кэша площадки они размыты до прихода свежих
+    document.addEventListener('nr-mp-change', async () => {
+        if (!currentCabinetId) return;
+        const tab = document.getElementById('tab-dashboard');
+        const have = (await DASH_CACHE.get(dashCacheKey(currentCabinetId, getActiveDateRange()))) || (await DASH_CACHE.get(currentCabinetId + dashMpSuf() + '|last'));
+        if (!have && tab) tab.classList.add('nr-dash-wait');
+        try { await loadFromDB(); } finally { if (tab) tab.classList.remove('nr-dash-wait'); }
+    });
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
         const cab = currentCabinetId;
         const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
         const key = dashCacheKey(cab, range);
         // Точного кэша нет (новый день, другой период): показываем последний срез кабинета (цифры размыты до прихода свежих).
-        const hit = (await DASH_CACHE.get(key)) || (await DASH_CACHE.get(cab + '|last'));
+        const hit = (await DASH_CACHE.get(key)) || (await DASH_CACHE.get(cab + dashMpSuf() + '|last'));
         if (hit && hit.summary && cab === currentCabinetId) {
             const p = { mode: 'cache', hit, key };
             _dashPass = p;
@@ -14133,6 +14147,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     const _costMapCache = {};
     async function loadCostOfGoodsMap(cabinetId) {
+        const w = await loadCostOfGoodsMapWb(cabinetId);
+        return window.NrDashMp ? window.NrDashMp.cost(w) : w;
+    }
+    async function loadCostOfGoodsMapWb(cabinetId) {
         if (_costMapCache[cabinetId] && Date.now() - _costMapCache[cabinetId].at < 5 * 60 * 1000) return _costMapCache[cabinetId].map;
         const map = {};
         try {

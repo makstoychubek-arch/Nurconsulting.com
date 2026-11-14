@@ -2119,7 +2119,8 @@ html body .nr-zoom input[type=range]::-webkit-slider-thumb { -webkit-appearance:
 html body .nr-zoom input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--text-primary); border: 0; }
 
 /* Дашборд: блок Ozon и скрытие WB-части в режиме «Ozon» */
-html[data-mp="ozon"] #tab-dashboard > :not(#nr-mp-dash) { display: none !important; }
+/* Ozon-дашборд: тот же каркас, что у WB; пока нет кэша площадки, цифры размыты */
+#tab-dashboard.nr-dash-wait [id^="pnl-"], #tab-dashboard.nr-dash-wait .kpi-hero-value, #tab-dashboard.nr-dash-wait .metric-card-value, #tab-dashboard.nr-dash-wait .pnl-mini-val { filter: blur(7px); transition: filter .2s; }
 .nr-mp-dash { border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 26px; padding: 22px 24px; margin-bottom: 16px; }
 .nr-mp-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 .nr-mp-h b { font-weight: 800; font-size: 13px; letter-spacing: .1em; }
