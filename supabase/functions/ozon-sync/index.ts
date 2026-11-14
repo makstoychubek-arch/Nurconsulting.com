@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { buildFunnelRows, FUNNEL_METRICS, funnelWindows } from '../_shared/ozon-funnel.ts';
 import {
     buildPostingRows, buildProductRows, buildStockRows, matchByBarcode, ozonCall, OzonError,
     type FetchFn, type OzonCreds,
@@ -134,6 +135,26 @@ async function syncFinance(admin: Admin, cabinetId: string, c: OzonCreds, days: 
     return total;
 }
 
+/** Воронка Ozon (показы, просмотры карточки, корзина, заказы) по SKU и дням за последние дни. Нужна подписка Premium; без неё Ozon вернёт ошибку. */
+async function syncFunnel(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
+    const to = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - Math.max(days, 7) * 86400_000).toISOString().slice(0, 10);
+    let total = 0;
+    for (const w of funnelWindows(from, to)) {
+        let offset = 0;
+        for (let i = 0; i < 20; i++) {
+            const r = await ozonCall(c, '/v1/analytics/data', { date_from: w.from, date_to: w.to, metrics: [...FUNNEL_METRICS], dimension: ['sku', 'day'], limit: 1000, offset }, fetchFn);
+            const data = ((r.result as { data?: Record<string, unknown>[] } | undefined)?.data || []) as { dimensions?: { id?: string }[]; metrics?: number[] }[];
+            total += await upsert(admin, 'ozon_funnel_daily', buildFunnelRows(cabinetId, data, new Date().toISOString()) as unknown as Record<string, unknown>[], 'cabinet_id,d,sku');
+            if (data.length < 1000) break;
+            offset += 1000;
+            await sleep(250);
+        }
+        await sleep(250);
+    }
+    return total;
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -142,7 +163,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const only = body?.cabinet_id ? String(body.cabinet_id) : '';
     const days = Math.min(120, Math.max(1, Number(body?.days) || 14));
-    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings', 'finance'];
+    const parts: string[] = Array.isArray(body?.parts) && body.parts.length ? body.parts : ['products', 'stocks', 'postings', 'finance', 'funnel'];
 
     let q = admin.from('cabinets').select('id, name, ozon_client_id, ozon_api_key').not('ozon_api_key', 'is', null).neq('ozon_api_key', '');
     if (only) q = q.eq('id', only);
@@ -159,6 +180,7 @@ Deno.serve(async (req) => {
             stocks: () => syncStocks(admin, cab.id, creds),
             postings: () => syncPostings(admin, cab.id, creds, days),
             finance: () => syncFinance(admin, cab.id, creds, days),
+            funnel: () => syncFunnel(admin, cab.id, creds, days),
         };
         for (const p of parts) {
             if (!jobs[p]) continue;
