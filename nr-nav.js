@@ -43,7 +43,7 @@
             fly: 'fly-rnp', title: 'РНП',
             items: [
                 { id: 'unit', label: 'Юнит-экономика', ico: 'calc', sel: '#rnp-views [data-rv="unit"]', on: '#rnp-views [data-rv="unit"].is-on' },
-                { id: 'prices', label: 'Цены', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' },
+                { id: 'prices', label: 'Товары', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' },
                 { id: 'planning', label: 'Планирование', ico: 'calc', act: 'openPlanning', always: true },
                 { id: 'rnp', label: 'РНП', ico: 'tbl', sel: '#rnp-views [data-rv="rnp"]', on: '#rnp-views [data-rv="rnp"].is-on', dflt: true },
                 { id: 'planfact', label: 'План/факт', ico: 'tbl', act: 'openPlanFact', always: true }

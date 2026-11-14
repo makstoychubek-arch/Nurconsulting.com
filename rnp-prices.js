@@ -1,4 +1,4 @@
-/* РНП → Цены: все артикулы кабинета на одной странице «Полки».
+/* РНП → Товары (бывшие «Цены»): все артикулы кабинета на одной странице «Полки».
  * Склейки WB (imt_id) стоят на полках внутри групп. У каждого артикула две строки: цена со скидкой и остаток.
  * Над локомотивом строки (больше всего заказов за 30 дней, сами заказы не показываем) корона. Нажали на артикул, и открывается РНП на нём.
  * Страница живёт внутри вкладки РНП: показ и скрытие переключает полоска #rnp-views (меню слева нажимает её кнопки). */
@@ -163,6 +163,10 @@
             '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' +
             '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s></div>';
     }
+    function costBox(key, g) {
+        var c = gcost(g);
+        return '<label class="rp-cost"><span>Себестоимость, сом</span><input class="rp-cost-in" data-gc="' + key + '" inputmode="decimal" autocomplete="off" placeholder="' + (c < 0 ? 'у артикулов разная' : '0') + '" value="' + (c > 0 ? c : '') + '"></label>';
+    }
     function rings(g) {
         var ld = function (k) { return S.load[k] ? ' rp-ld' : ''; };
         var fx = g.fboPct < 0 ? '<div class="rp-ring"><b>—</b><span>ФБО / ФБС</span></div>' : '<div class="rp-ring fx' + ld('stock') + '" style="--fbo:' + g.fboPct + '"><b>' + g.fboPct + ' / ' + (100 - g.fboPct) + '</b><span>ФБО / ФБС</span></div>';
@@ -187,7 +191,7 @@
                 var key = 'g' + (gi++); S.gmap[key] = { title: g.title, nms: g.items.map(function (a) { return a.nm_id; }), imt: g.items[0].imt_id || 0, avg: g.avg };
                 return '<div class="rp-row"><div class="rp-nm" data-nm="' + (g.loco || g.items[0].nm_id) + '"><b>' + esc(g.title) + '</b><span>' + g.items.length + ' арт.' + (g.min ? ' · ' + fmt(g.min) + (g.max > g.min ? '–' + fmt(g.max) : '') : '') + '</span></div>' +
                     '<div class="rp-shelf">' + g.items.map(function (a) { return tile(a, a.nm_id === g.loco); }).join('') + '</div>' +
-                    '<div class="rp-side">' + rings(g) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button><button type="button" class="rp-btn" data-act="move" data-g="' + key + '">Перенести</button></div></div></div>';
+                    '<div class="rp-side">' + rings(g) + costBox(key, g) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button><button type="button" class="rp-btn" data-act="move" data-g="' + key + '">Перенести</button></div></div></div>';
             }).join('');
         }).join('');
         var nsel = Object.keys(S.sel).length, bar = '';
@@ -199,6 +203,25 @@
         var sc = pane.scrollTop;
         pane.innerHTML = legend + '<div class="rp-stage">' + html + '</div><div class="rp-foot">' + total + ' артикулов</div>' + bar;
         pane.scrollTop = sc;
+    }
+    /* Себестоимость одна на склейку: у всех артикулов склейки одно значение (вводится здесь, раньше было в «Остатках»). */
+    function gcost(g) {
+        var v = g.items.map(function (a) { return Number(a.cost_price) || 0; }), first = v[0];
+        return v.every(function (x) { return x === first; }) ? first : -1;
+    }
+    function saveGroupCost(key, raw) {
+        var g = S.gmap[key], cab = S.cab; if (!g || !cab) return;
+        var val = Math.max(0, Math.round((Number(String(raw).replace(',', '.').replace(/\s/g, '')) || 0) * 100) / 100);
+        var prev = {}; g.nms.forEach(function (nm) { var a = artOf(nm); if (a) { prev[nm] = a.cost_price; a.cost_price = val; } });
+        writeCache(); paint();
+        Promise.resolve(sb().from('rnp_articles').update({ cost_price: val }).eq('cabinet_id', cab).in('nm_id', g.nms)).then(function (r) {
+            if (r && r.error) throw new Error(r.error.message);
+            toast('success', 'Себестоимость сохранена', g.title + ': ' + (val ? fmt(val) + ' сом на все артикулы склейки' : 'сброшена'));
+            try { doc.dispatchEvent(new root.Event('nr-articles-changed')); } catch (_) {}
+        }).catch(function (e) {
+            g.nms.forEach(function (nm) { var a = artOf(nm); if (a) a.cost_price = prev[nm]; }); writeCache(); paint();
+            toast('error', 'Себестоимость не сохранилась', String(e && e.message || e).slice(0, 120));
+        });
     }
     function artOf(nm) { for (var i = 0; i < S.arts.length; i++) if (String(S.arts[i].nm_id) === String(nm)) return S.arts[i]; return null; }
     function toast(type, title, text) { try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast(type, title, text || ''); } catch (_) {} }
@@ -413,7 +436,7 @@
         }
         if (doc.getElementById('rnp-views')) return;
         var bar = doc.createElement('div'); bar.id = 'rnp-views'; bar.setAttribute('role', 'tablist');
-        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" role="tab" aria-selected="true" data-rv="rnp">РНП</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="prices">Цены</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="unit">Юнит-экономика</button>';
+        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" role="tab" aria-selected="true" data-rv="rnp">РНП</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="prices">Товары</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="unit">Юнит-экономика</button>';
         var pane = doc.createElement('div'); pane.id = 'rnp-prices-pane'; pane.className = 'rp-pane';
         var upane = doc.createElement('div'); upane.id = 'rnp-unit-pane'; upane.className = 'rp-pane';
         tab.insertBefore(bar, tab.firstChild); tab.appendChild(pane); tab.appendChild(upane);
@@ -434,7 +457,8 @@
             }
             if ((b = e.target.closest('[data-nm]'))) goRnp(b.getAttribute('data-nm'));
         });
-        pane.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('rp-it')) { e.preventDefault(); goRnp(e.target.getAttribute('data-nm')); } });
+        pane.addEventListener('change', function (e) { var i = e.target.closest && e.target.closest('.rp-cost-in'); if (i) saveGroupCost(i.getAttribute('data-gc'), i.value); });
+        pane.addEventListener('keydown', function (e) { if (e.target.classList && e.target.classList.contains('rp-cost-in')) { if (e.key === 'Enter') e.target.blur(); return; } if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('rp-it')) { e.preventDefault(); goRnp(e.target.getAttribute('data-nm')); } });
         // с кнопки РНП на левой панели всегда открывается сам РНП
         doc.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.rail-btn[data-tab="rnp"]') && S.view !== 'rnp') setView('rnp'); }, true);
     }
