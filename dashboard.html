@@ -6136,7 +6136,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.316d348921.css">
+<link rel="stylesheet" href="/dist/nr-mono.6300f7d5fa.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8102,7 +8102,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.86a6b02cf0.min.js"></script>
+<script src="/dist/rnp-module.0cf4acf233.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -14314,7 +14314,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const a = Number(total) || 0, b = Number(_pnlMiniPrev[key]);
             const dyn = b > 0 ? Math.round((a - b) / b * 100) : null;
             const good = dyn == null ? '' : ((dyn >= 0) !== !!costLike ? 'up' : 'down');
-            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 ? n(total * _rubKgs) : n(total)}</div>
+            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 && !(window.NrMp && NrMp.get() === 'ozon') ? n(total * _rubKgs) : n(total)}</div>
               <div class="pnl-mini-dyn ${good}">${dyn == null ? '' : (dyn >= 0 ? '▲ ' : '▼ ') + Math.abs(dyn) + '%'}</div>${spark(vals, color)}</div>`;
         };
         const m = totalMetrics;
