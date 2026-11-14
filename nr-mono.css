@@ -2249,5 +2249,14 @@ html:not(.nr-pin-plan) #dash-plan-cabs, html:not(.nr-pin-plan) #dash-plan-skus {
 .nr-wg-b { border: 1px solid var(--text-primary); border-radius: 999px; padding: 8px 14px; background: transparent; color: var(--text-primary); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; cursor: pointer; }
 .nr-wg-b.on { background: var(--text-primary); color: var(--bg-card, #fff); }
 /* карточки ряда не обрезают нижнюю строку (В стоке: «В пути» была обрезана) */
-html body #tab-dashboard .pnl-grid.ff-row { grid-auto-rows: minmax(140px, auto) !important; }
+html body #tab-dashboard .pnl-grid.ff-row { grid-auto-rows: auto !important; }
+html body #tab-dashboard .pnl-grid.ff-row > :not(#ff-chart):not(#nrdb-bal) { min-height: 140px !important; }
 html body #tab-dashboard .pnl-grid.ff-row > :not(#ff-chart) { height: auto !important; max-height: none !important; overflow: visible !important; }
+
+/* Баланс: тонкая полоса на всю ширину ряда (одна строка), добавленные виджеты идут ниже */
+html body #tab-dashboard .pnl-grid.ff-row > #nrdb-bal { grid-column: 1 / -1; display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px 36px; padding: 16px 22px !important; min-height: 0 !important; }
+html body #tab-dashboard #nrdb-bal .l { margin: 0 !important; padding-right: 0 !important; min-width: 150px; }
+html body #tab-dashboard #nrdb-bal .v { font-size: 26px; }
+html body #tab-dashboard #nrdb-bal .r { gap: 14px; align-items: baseline; }
+html body #tab-dashboard #nrdb-bal .hint { margin: 0; }
+@media (max-width: 760px) { html body #tab-dashboard #nrdb-bal { gap: 4px 18px; } }
