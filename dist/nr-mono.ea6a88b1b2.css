@@ -2227,3 +2227,20 @@ html body .nrs-ed { display: grid; gap: 2px; font-size: 9px; font-weight: 800; l
 html body .nrs-ed input { width: 100%; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text-primary); height: 28px; padding: 0 8px; font: 800 13px inherit; font-family: inherit; box-sizing: border-box; }
 html body .nrs-sk { height: 120px; border: 1px solid var(--border); border-radius: 26px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 5%, transparent), transparent) 0 0 / 200% 100%; animation: ab-skel 1.4s linear infinite; }
 @media (max-width: 760px) { html body .nrs-kp { grid-template-columns: repeat(2, minmax(0, 1fr)); } html body .nrs-k:nth-child(3) { border-left: 0; } html body .nrs-k:nth-child(n+3) { border-top: 1px solid var(--border); } html body .nrs-q { margin-left: 0; width: 100%; } html body .nrs-dots { margin-left: 0; } }
+
+/* Дашборд: карточки показываются только если включены ползунком в своём разделе (nr-dash-blocks.js, класс nr-pin-* на html) */
+html:not(.nr-pin-ff) #ff-sum, html:not(.nr-pin-transit) #nrdb-transit, html:not(.nr-pin-prod) #nrdb-prod, html:not(.nr-pin-stock) #nrdb-stock,
+html:not(.nr-pin-plan) #dash-plan-cabs, html:not(.nr-pin-plan) #dash-plan-skus { display: none !important; }
+.nr-pinbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 18px; margin-bottom: 12px; border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 999px; }
+.nr-pinbar[hidden] { display: none !important; }
+.nr-pincap { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
+.nr-sw { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text-primary); }
+.nr-sw input { position: absolute; opacity: 0; pointer-events: none; }
+.nr-sw i { width: 34px; height: 20px; border: 1px solid var(--text-primary); border-radius: 999px; position: relative; display: inline-block; transition: background .12s; }
+.nr-sw i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--text-primary); transition: left .12s, background .12s; }
+.nr-sw input:checked + i { background: var(--text-primary); }
+.nr-sw input:checked + i::after { left: 17px; background: var(--bg-card, #fff); }
+.nr-sw input:focus-visible + i { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+/* карточки ряда не обрезают нижнюю строку (В стоке: «В пути» была обрезана) */
+html body #tab-dashboard .pnl-grid.ff-row { grid-auto-rows: minmax(140px, auto) !important; }
+html body #tab-dashboard .pnl-grid.ff-row > :not(#ff-chart) { height: auto !important; max-height: none !important; overflow: visible !important; }

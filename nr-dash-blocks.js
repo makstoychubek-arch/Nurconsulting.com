@@ -446,6 +446,44 @@
     function moveAll() { moveBell(); liftPicker(); cabinetSearch(); headerHeightVar(); }
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
 
+    // Дашборд: главные метрики всегда, остальные карточки только если включены ползунком в своём разделе.
+    // Состояние на устройстве (nr_pins), классы nr-pin-* на <html> включают показ карточки (правила в nr-mono.css).
+    var PIN_KEY = 'nr_pins';
+    var PINS = {
+        stock: { label: 'В стоке', tab: 'tab-goods-groups', on: '#gg-view-now-btn.is-on' },
+        transit: { label: 'Товары в пути', tab: 'tab-goods-groups', on: '#gg-view-ship-btn.is-on' },
+        ff: { label: 'Фулфилмент', tab: 'tab-goods-groups', on: '#gg-view-ship-btn.is-on' },
+        prod: { label: 'Производство', tab: 'tab-goods-groups', on: '#gg-view-ship-btn.is-on' },
+        plan: { label: 'Выполнение плана', tab: 'tab-rnp', on: '#rnp-views [data-rv="rnp"].is-on' }
+    };
+    function pinsGet() { try { return JSON.parse(root.localStorage.getItem(PIN_KEY) || '{}') || {}; } catch (e) { return {}; } }
+    function pinsApply() { if (!doc) return; var p = pinsGet(); Object.keys(PINS).forEach(function (k) { doc.documentElement.classList.toggle('nr-pin-' + k, !!p[k]); }); }
+    function pinsSet(k, v) { var p = pinsGet(); if (v) p[k] = 1; else delete p[k]; try { root.localStorage.setItem(PIN_KEY, JSON.stringify(p)); } catch (e) { /* без хранилища работает до перезагрузки */ } pinsApply(); }
+    function pinsBar(tabId) {
+        var tab = doc.getElementById(tabId); if (!tab) return;
+        var bar = tab.querySelector(':scope > .nr-pinbar');
+        var keys = Object.keys(PINS).filter(function (k) { return PINS[k].tab === tabId && doc.querySelector(PINS[k].on); });
+        if (!bar) {
+            bar = doc.createElement('div'); bar.className = 'nr-pinbar';
+            bar.addEventListener('change', function (e) { var k = e.target && e.target.getAttribute('data-pin'); if (k) pinsSet(k, e.target.checked); });
+            tab.insertBefore(bar, tab.firstChild);
+        }
+        var p = pinsGet(), h = keys.map(function (k) { return '<label class="nr-sw"><input type="checkbox" data-pin="' + k + '"' + (p[k] ? ' checked' : '') + '><i></i><span>' + esc(PINS[k].label) + '</span></label>'; }).join('');
+        var html = h ? '<span class="nr-pincap">Показать на дашборде</span>' + h : '';
+        if (bar.__h !== html) { bar.innerHTML = html; bar.__h = html; }
+        bar.hidden = !html;
+    }
+    function pinsRefresh() { ['tab-goods-groups', 'tab-rnp'].forEach(pinsBar); }
+    pinsApply();
+    if (doc) {
+        var pinsT = 0, pinsSoon = function () { clearTimeout(pinsT); pinsT = setTimeout(pinsRefresh, 60); };
+        doc.addEventListener('click', pinsSoon, true);
+        doc.addEventListener('nr-mp-change', pinsSoon);
+        new MutationObserver(pinsSoon).observe(doc.documentElement, { attributes: true, subtree: true, attributeFilter: ['class'] });
+        if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', pinsSoon); else pinsSoon();
+    }
+    root.NrPins = { get: pinsGet, set: pinsSet };
+
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
     root.NrPnlDelta = function (m, base) {
         if (typeof document === 'undefined' || !m) return;
