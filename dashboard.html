@@ -17242,7 +17242,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     async function loadOzonTokenPage() {
         const el = document.getElementById('ozon-token-list');
         if (!el) return;
-        const { data, error } = await supabase.from('cabinets').select('id, name, ozon_client_id, ozon_api_key_set').order('name');
+        const { data, error } = await supabase.from('cabinets').select('id, name, ozon_client_id, ozon_api_key_set, ozon_perf_client_id, ozon_perf_set').order('name');
         if (error) {
             el.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">${escapeHtml(error.message)}</div>`;
             return;
@@ -17269,6 +17269,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         <button class="ui-btn ui-btn-primary" onclick="saveOzonForCabinet('${c.id}')">Сохранить</button>
                         <button class="ui-btn ui-btn-secondary" onclick="toggleEditOzon('${c.id}')">Отмена</button>
                     </div>
+                </div>
+                <div class="ui-list-row"><div><div class="ui-list-row-main">Реклама Ozon</div><div class="ui-list-row-sub">${c.ozon_perf_set ? 'ключ рекламного кабинета задан · ' + escapeHtml(String(c.ozon_perf_client_id || '')) : 'ключ рекламного кабинета не задан'}</div></div>
+                    <button class="ui-btn ui-btn-secondary" onclick="document.getElementById('edit-perf-${c.id}').classList.toggle('hidden')">${c.ozon_perf_set ? 'Изменить' : 'Добавить'}</button></div>
+                <div id="edit-perf-${c.id}" class="hidden" style="padding:0 4px 14px">
+                    <input type="text" id="perf-client-${c.id}" placeholder="Client ID (…@advertising.performance.ozon.ru)" value="${escapeHtml(c.ozon_perf_client_id || '')}" class="ui-input mb-2" style="font-family:monospace">
+                    <input type="password" id="perf-secret-${c.id}" placeholder="Client Secret" autocomplete="off" class="ui-input" style="font-family:monospace">
+                    <div class="flex gap-2 mt-2"><button class="ui-btn ui-btn-primary" onclick="saveOzonPerf('${c.id}')">Сохранить</button></div>
                 </div>
             </div>`;
         }).join('') + `</div>`;
@@ -17303,6 +17310,21 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             : 'Ключ записан, но Ozon сейчас не ответил: проверим при первой загрузке.';
         const pass = document.getElementById('ozon-key-' + cabinetId); if (pass) pass.value = '';
         showPremiumModal('success', 'Токен Ozon сохранён', note);
+        loadOzonTokenPage();
+    }
+
+    async function saveOzonPerf(cabinetId) {
+        const clientId = document.getElementById('perf-client-' + cabinetId)?.value.trim();
+        const secret = document.getElementById('perf-secret-' + cabinetId)?.value.trim();
+        if (!clientId || !secret) { showPremiumModal('warning', 'Заполните оба поля', 'Нужны Client ID и Client Secret рекламного кабинета Ozon.'); return; }
+        const btn = document.querySelector('#edit-perf-' + cabinetId + ' .ui-btn-primary');
+        if (btn) { btn.disabled = true; btn.textContent = 'Проверяем ключ…'; }
+        let data = null, err = null;
+        try { const r = await supabase.functions.invoke('cabinet-token', { body: { action: 'ozon_perf_set', cabinet_id: cabinetId, client_id: clientId, client_secret: secret } }); data = r.data; err = r.error; } catch (e) { err = e; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; }
+        if (err || !data) { showPremiumModal('error', 'Не получилось сохранить', 'Связь прервалась. Ключ не записан, повторите через минуту.'); return; }
+        if (!data.ok) { showPremiumModal('error', 'Ключ не сохранён', data.message || 'Проверьте Client ID и Client Secret.'); return; }
+        showPremiumModal('success', 'Ключ рекламы Ozon сохранён', data.checked ? 'Ozon принял ключ.' : 'Ключ записан, но Ozon сейчас не ответил: проверим при первой загрузке.');
         loadOzonTokenPage();
     }
 
