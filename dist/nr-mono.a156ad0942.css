@@ -2153,3 +2153,16 @@ html body .nr-mp button { padding: 0 9px; display: inline-flex; align-items: cen
 html body .nr-mp button svg { height: 12px; width: auto; display: block; }
 @media (max-width: 768px) { html body .main-content > .nr-mp button { padding: 0 12px; } html body .main-content > .nr-mp button svg { height: 13px; } }
 html body .nr-mp button svg text { text-transform: none; }
+
+/* А/Б для Ozon: переключатель площадки в панели раздела и список товаров мастера */
+html body #tab-ab-testing .ab-mp { display: inline-flex; margin: 0; }
+html body .ab-oz-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow: auto; margin-top: 10px; }
+html body .ab-oz-row { appearance: none; text-align: left; border: 1px solid var(--border, rgba(0,0,0,.14)); background: transparent; color: inherit; border-radius: 16px; padding: 10px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; font-family: inherit; }
+html body .ab-oz-row:hover { background: var(--sel, rgba(0,0,0,.05)); }
+html body .ab-oz-row small { color: var(--text-muted, #777); font-size: 11px; }
+html body .ab-var-slot { position: relative; width: 84px; height: 108px; border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 14px; overflow: hidden; display: inline-block; margin: 0 8px 8px 0; }
+html body .ab-var-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html body .ab-var-slot b { position: absolute; left: 6px; top: 6px; background: var(--accent, #000); color: var(--on-accent, #fff); font-size: 10px; border-radius: 999px; padding: 2px 7px; }
+html body .ab-var-slot small { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 10px; background: rgba(0,0,0,.6); color: #fff; padding: 2px 0; }
+html body .ab-var-slot button { position: absolute; right: 4px; top: 4px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; line-height: 1; }
+html body .ab-oz-file { display: inline-block; cursor: pointer; margin-top: 4px; }
