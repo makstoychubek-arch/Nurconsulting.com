@@ -96,7 +96,7 @@
         var stock = a.fbo + a.fbs, sizes = a.sz ? Object.keys(a.sz).sort(function (x, y) { return sizeKey(x) - sizeKey(y); }) : [], key = a.nm + (a.oz ? 'o' : 'w');
         var grid = sizes.length ? '<div class="nrs-sz" style="grid-template-columns:repeat(' + sizes.length + ',1fr)">' + sizes.map(function (z) { return '<span>' + esc(z) + '</span>'; }).join('') +
             sizes.map(function (z) { var v = a.sz[z] || 0; return '<b class="' + (v > 0 ? '' : 'z') + '">' + fmt(v) + '</b>'; }).join('') + '</div>' : '';
-        var more = '<div class="nrs-more"><small>ФБО ' + fmt(a.fbo) + ' · ФБС ' + fmt(a.fbs) + '</small>' + (a.oz ? '' : '<div class="nrs-eds">' + edit(a, 'transit', a.transit, 'В пути') + edit(a, 'plan', a.plan, 'В плане') + '</div>') + '</div>';
+        var more = '<div class="nrs-more"><small>ФБО ' + fmt(a.fbo) + ' · ФБС ' + fmt(a.fbs) + '</small></div>';
         return '<div class="nrs-t' + (S.open[key] ? ' open' : '') + (stock <= 0 ? ' zero' : '') + '" data-k="' + esc(key) + '" data-nm="' + esc(a.nm) + '"><div class="nrs-top">' + photo(a, ph) +
             '<div><b title="' + esc(a.name) + '">' + esc(a.name || '—') + '</b><strong>' + fmt(stock) + '</strong></div></div>' + grid + more + '</div>';
     }
@@ -130,16 +130,16 @@
             }
             var all = 0, n = 0, way = 0, plan = 0, fbo = 0, fbs = 0, zr = 0;
             groups.forEach(function (g) { g.z = 0; g.items.forEach(function (a) { var z = zerosOf(a); g.z += z; if (z) zr++; all += a.fbo + a.fbs; n++; way += a.transit || 0; plan += a.plan || 0; fbo += a.fbo; fbs += a.fbs; }); });
-            var third = m === 'ozon' ? ['ФБО', fbo] : ['в пути', way], fourth = m === 'wb' ? ['в плане', plan] : m === 'ozon' ? ['ФБС', fbs] : ['нулей по размерам', zr];
+            var third = ['ФБО', fbo], fourth = ['ФБС', fbs];
             var f = S.filter === 'zero';
             var list = groups.filter(function (g) { return !f || g.z > 0; }).slice().sort(function (a, b) { return (b.z > 0) - (a.z > 0) || b.z - a.z; });
             var html = '<div class="nrs-kp"><div class="nrs-k blk"><b>' + fmt(all) + ' шт</b><span>на складах</span></div><div class="nrs-k"><b>' + n + '</b><span>артикулов</span></div><div class="nrs-k"><b>' + fmt(third[1]) + '</b><span>' + third[0] + '</span></div><div class="nrs-k"><b>' + fmt(fourth[1]) + '</b><span>' + fourth[0] + '</span></div></div>' +
-                '<div class="nrs-bar"><button type="button" class="nrs-chip' + (f ? ' on' : '') + '" data-f="zero">С нулевыми размерами ' + zr + '</button><span class="nrs-hint">Склейки с нулевыми размерами идут первыми. Нажмите на название склейки, чтобы свернуть её; на плитку, чтобы открыть «в пути» и «в плане».</span><input class="nrs-q" type="search" placeholder="Поиск по названию или артикулу" value="' + esc(S.q) + '"></div><div class="nrs-groups">';
+                '<div class="nrs-bar"><button type="button" class="nrs-chip' + (f ? ' on' : '') + '" data-f="zero">С нулевыми размерами ' + zr + '</button><span class="nrs-hint">Склейки с нулевыми размерами идут первыми. Нажмите на название склейки, чтобы свернуть её; на плитку, чтобы увидеть ФБО и ФБС.</span><input class="nrs-q" type="search" placeholder="Поиск по названию или артикулу" value="' + esc(S.q) + '"></div><div class="nrs-groups">';
             list.forEach(function (g) {
                 var items = g.items.filter(matches); if (!items.length) return;
                 var q = 0, w = 0, p = 0; items.forEach(function (a) { q += a.fbo + a.fbs; w += a.transit || 0; p += a.plan || 0; });
                 var gk = (g.oz ? 'o:' : 'w:') + g.name, tag = m === 'all' ? '<span class="nrs-tag">' + (g.oz ? 'ozon' : 'WB') + '</span>' : '';
-                html += '<div class="nrs-grp' + (S.shut[gk] ? ' shut' : '') + '" data-g="' + esc(gk) + '"><div class="nrs-rh"><span class="nrs-chev">▼</span>' + tag + '<b>' + esc(g.name) + '</b><span class="nrs-sum"><b>' + fmt(q) + '</b>' + (g.oz ? '' : ' · в пути ' + fmt(w) + ' · в плане ' + fmt(p)) + '</span>' +
+                html += '<div class="nrs-grp' + (S.shut[gk] ? ' shut' : '') + '" data-g="' + esc(gk) + '"><div class="nrs-rh"><span class="nrs-chev">▼</span>' + tag + '<b>' + esc(g.name) + '</b><span class="nrs-sum"><b>' + fmt(q) + '</b> шт</span>' +
                     (g.z ? '<span class="nrs-dots"><i></i>' + g.z + ' нулей</span>' : '') + '</div><div class="nrs-strip">' + items.map(function (a) { return tile(a, ph); }).join('') + '</div></div>';
             });
             html += '</div>';
