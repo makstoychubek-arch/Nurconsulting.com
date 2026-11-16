@@ -57,12 +57,14 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];
-        assert.ok(!(await labelsOf()).includes('Прибыль на единицу'), 'в «Общем» «Прибыль на единицу» не показывается');
+        assert.ok(!(await labelsOf()).includes('Прибыль на единицу') && !(await labelsOf()).includes('От WB на единицу'), 'в «Общем» «Прибыль на единицу» не показывается');
         await page.evaluate(() => RNP.pick('byart')); await page.waitForTimeout(1500);
         const byart = (await labelsOf()).filter((t) => LADDER.includes(t));
         assert.ok(byart.includes('Реализация') && byart.includes('Себестоимость') && byart.includes('Прибыль'), '«Общее по артикулам»: ' + byart.join(', '));
         await page.evaluate(() => RNP.pick(1001)); await page.waitForTimeout(1500);
         const one = await labelsOf();
+        assert.ok(one.includes('К перечислению от WB') && one.includes('От WB на единицу') && one.includes('Комиссия и эквайринг'), 'у артикула есть «К перечислению от WB» и «От WB на единицу»: ' + one.slice(0, 20).join(', '));
+        const tt = await read('К перечислению от WB'), tu = await read('От WB на единицу'); assert.ok(tt > 0 && tu > 0 && Math.abs(tt / tu - Math.round(tt / tu)) < 0.1, 'на единицу = К перечислению ÷ штуки: ' + tt + ' / ' + tu);
         assert.ok(one.includes('Прибыль на единицу') && one.includes('Налог'), 'у одного артикула есть «Прибыль на единицу» и «Налог»: ' + one.slice(0, 40).join(', '));
         console.log('ok   «Общее по артикулам» и один артикул: лесенка на месте, «Прибыль на единицу» только у артикула');
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
