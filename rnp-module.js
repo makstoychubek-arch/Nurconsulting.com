@@ -6387,8 +6387,21 @@ const RNP = (() => {
             { key: 'ded_util',  label: 'Утилизация товара' },
             { key: 'ded_other', label: 'Другое' },
         ] },
+        // «Прочие удержания и доплаты» в лесенке расходов: за что удержано, по видам; доплаты и компенсации уменьшают сумму
+        other_net_sum: { cls: 'ded', hint: 'За что удержано: по видам', subs: [
+            { key: 'ded_adv',   label: 'WB Продвижение' },
+            { key: 'ded_jam',   label: 'Подписка «Джем»' },
+            { key: 'ded_util',  label: 'Утилизация товара' },
+            { key: 'ded_other', label: 'Другое' },
+            { key: 'ded_add',   label: 'Доплаты и компенсации (уменьшают)' },
+        ] },
+        // «Комиссия»: по нажатию показывает процент от реализации
+        wb_commission: { cls: 'com', hint: 'Показать комиссию в процентах от реализации', subs: [
+            { key: 'comm_pct_real', label: 'Комиссия, % от реализации', type: 'pct' },
+        ] },
     };
-    const FIN_SPLIT_KEYS = Object.values(FIN_SPLITS).flatMap(g => g.subs.map(x => x.key));
+    // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
+    const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct').map(x => x.key)))];
 
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count',
@@ -6466,6 +6479,7 @@ const RNP = (() => {
         a.logistics_pct = wPct('logistics_pct');
         a.storage_pct = wPct('storage_pct');
         a.commission_pct = parts.reduce((s, d) => s + (d.commission_pct || 0), 0) / Math.max(parts.length, 1);
+        a.comm_pct_real = a.realization > 0 ? (a.wb_commission || 0) / a.realization * 100 : 0;
         const salesSomAll = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0) * _rateFor(d.date, d), 0);
         const adFromSalesAll = salesSomAll > 0 ? a.ad_spend / salesSomAll * 100 : 0;
         a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + adFromSalesAll;
@@ -6492,6 +6506,7 @@ const RNP = (() => {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
             m.other_net_sum = Number(m.deduction_sum) || 0;
+            m.ded_other = m.other_net_sum;
         }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
     }
@@ -6513,6 +6528,8 @@ const RNP = (() => {
         m.additional_sum = n(t.additional);
         m.wb_commission = Math.max(0, m.realization - m.acquiring_sum - (m.to_transfer - m.compensation_sum));
         m.other_net_sum = m.deduction_sum - m.additional_sum - m.compensation_sum; // расход со знаком «плюс», как остальные строки; эквайринг отдельной строкой
+        m.ded_add = -(m.additional_sum + m.compensation_sum);
+        m.comm_pct_real = m.realization > 0 ? m.wb_commission / m.realization * 100 : 0;
         m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
         m.wb_for_withdraw = t.balance_for_withdraw == null ? null : n(t.balance_for_withdraw);
         m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
@@ -8735,6 +8752,7 @@ const RNP = (() => {
         const rgb = def.cls === 'pen' ? '239,68,68' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
         return def.subs.map(sub => {
+            const pctSub = sub.type === 'pct';
             const rowTotal = cols.reduce((x, c) => x + (c.type === 'day' && c.data && !c.isFuture ? Math.abs(Number(c.data[sub.key]) || 0) : 0), 0);
             const cells = cols.map((col, ci) => {
                 const d = col.data;
@@ -8752,10 +8770,10 @@ const RNP = (() => {
                 const sticky = _stickyDataAttrs(ci, cols);
                 let txt = '', style = sticky.style || '';
                 if (!col.isFuture && d) {
-                    const v = Math.round(Number(d[sub.key]) || 0);
+                    const v = pctSub ? (Number(d[sub.key]) || 0) : Math.round(Number(d[sub.key]) || 0);
                     const pending = isDay && col.isToday && !(Number(d[m.key]) > 0);
-                    txt = pending ? '—' : _fmt(v, 'som');
-                    if (v !== 0 && isDay) {
+                    txt = pending ? '—' : (pctSub ? _fmt(v, 'pct') : _fmt(v, 'som'));
+                    if (v !== 0 && isDay && !pctSub) {
                         const a = Math.min(1, Math.abs(v) / mx);
                         style += `${style ? ';' : ''}background:rgba(${rgb},${(0.10 + 0.35 * a).toFixed(2)})`;
                     }
@@ -9126,7 +9144,7 @@ const RNP = (() => {
             const splitOpen = splittable && _splitOpen.has(m.key);
             const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';
             const labelHtml = splittable
-                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="${splitHint}">${splitOpen ? '▾' : '▸'} ${m.label}</span>`
+                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="${splitHint}"><i class="rnp-split-arrow">${splitOpen ? '▾' : '▸'}</i> ${m.label}</span>`
                 : m.label;
             let out = `<tr class="${rowCls}">
               <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>
