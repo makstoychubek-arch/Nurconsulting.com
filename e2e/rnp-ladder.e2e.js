@@ -30,6 +30,10 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         assert.deepStrictEqual(idx, [...idx].sort((a, b) => a - b), 'порядок строк: ' + first.join(' → '));
         for (const need of ['Реализация', 'Логистика', 'Реклама (РК)', 'Себестоимость', 'К выводу', 'Прибыль']) assert.ok(first.includes(need), 'есть строка «' + need + '»: ' + first.join(', '));
         assert.ok(!first.includes('Налог') && !first.includes('Фулфилмент'), 'по умолчанию «Налог» (тумблер выключен) и «Фулфилмент» (ползунок выключен) не показываются: ' + first.join(', '));
+        const ADS = ['Расход', 'Показы', 'Клики', 'Корзины', 'Заказы', 'Выручка', 'CTR', 'CPC', 'CPM', 'CR', 'CPO', 'ДРР %', 'ДРРп %', 'ROAS'];
+        const allLabels = await labels(), adIdx = ADS.map((t) => allLabels.indexOf(t));
+        assert.ok(adIdx.every((i) => i >= 0) && adIdx.every((v, k) => k === 0 || v > adIdx[k - 1]), 'рекламный блок по цепочке: ' + allLabels.join(' | '));
+        assert.ok(!allLabels.includes('Доля рекламы %'), '«Доля рекламы %» убрана');
         console.log('ok   РНП: расходы лесенкой (' + first.length + ' строк в верном порядке)');
         // налог: по умолчанию тумблер выключен и строки нет; включили, ставка 10% от реализации, строка встаёт перед себестоимостью
         const read = (name) => page.evaluate((n) => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => ((x.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim().replace(/\s*[▸▾]$/, '') === n); if (!r) return null; const c = r.querySelector('td:last-child, th:last-child'); return Number(String(c.innerText).replace(/[^0-9,.-]/g, '').replace(',', '.')); }, name);
