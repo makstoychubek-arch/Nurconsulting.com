@@ -1,5 +1,5 @@
 /* Чёрно-белый стиль всего сайта: акцент это чёрный (в тёмной теме белый), цвет остаётся только у зелёного и красного в метриках. */
-:root {
+:root, [data-theme="ios"] {
     --bg: #F6F6F7; --surface: #FFFFFF; --surface-solid: #FFFFFF; --sidebar-bg: #FFFFFF;
     --border: #ECECEF; --border-strong: #DCDCE0; --border-color: #ECECEF;
     --text-secondary: #3F3F46; --text-muted: #8B8B92;
@@ -47,10 +47,10 @@
 :root[data-theme="dark"] .rnp-gh-loss, [data-theme="neon"] .rnp-gh-loss { background: var(--surface) !important; }
 .rail-logo-name { border-color: var(--text-primary) !important; color: var(--text-primary) !important; }
 #nr-topbar b { background: var(--accent) !important; }
-:root { --on-accent: #FFFFFF; }
+:root, [data-theme="ios"] { --on-accent: #FFFFFF; }
 [data-theme="neon"] { --on-accent: #262624; }
 /* Серая шкала для долей в полосках и точках */
-:root { --mono-1: #0B0B0C; --mono-2: #52525B; --mono-3: #A1A1AA; --mono-4: #D4D4D8; }
+:root, [data-theme="ios"] { --mono-1: #0B0B0C; --mono-2: #52525B; --mono-3: #A1A1AA; --mono-4: #D4D4D8; }
 [data-theme="neon"] { --mono-1: #F1EFE8; --mono-2: #B5B2A9; --mono-3: #7A7770; --mono-4: #4A4A45; }
 .pnl-mini svg { color: var(--text-primary); }
 .pnl-mini svg polygon { opacity: .07 !important; }
@@ -207,7 +207,7 @@ html body #tab-dashboard #dash-pnl > .pnl-card--profit .pnl-row b { display: non
 
 /* ===== Шапка без «плашки»: название и период в строке с контентом, без фона, тени и лисёнка ===== */
 header.glass.app-header { background: transparent !important; box-shadow: none !important; border: 0 !important; backdrop-filter: none !important; }
-[data-theme="neon"] header.glass { background: transparent !important; box-shadow: none !important; }
+[data-theme="ios"] header.glass, [data-theme="neon"] header.glass { background: transparent !important; box-shadow: none !important; }
 header.glass.app-header .nr-hdr-fox, header.glass.app-header .nr-fox-slot { display: none !important; }
 html body header.glass .header-title { font-size: 28px; font-weight: 900; letter-spacing: -.035em; }
 html body header.glass #header-date-chip-wrap { border: 1px solid var(--text-primary) !important; background: transparent !important; border-radius: 99px; font-weight: 700; }
