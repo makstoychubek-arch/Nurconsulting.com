@@ -217,9 +217,6 @@ const RNP = (() => {
             { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
-            { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
         ]},
         { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
