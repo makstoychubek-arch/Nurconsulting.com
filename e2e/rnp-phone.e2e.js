@@ -38,6 +38,21 @@ const tables = {
         assert.ok(saved.length > 1000, 'снимок экрана сохранён');
         assert.ok(!/rnp-sheet-body--swap|nr-stale/.test(saved), 'в сохранённом снимке нет классов приглушения');
         console.log('ok   телефон: снимок экрана не хранит приглушение');
+        // пока идёт прокрутка, перерисовка листа откладывается и выполняется после остановки
+        const defer = await page.evaluate(async () => {
+            const body = document.getElementById('rnp-sheet-body');
+            body.dispatchEvent(new Event('scroll'));
+            const mark = body.querySelector('tbody tr'); mark.__m = 1;
+            const before = body.querySelectorAll('tbody tr').length;
+            RNP.toggleSplit('delivery_sum');
+            const immediate = body.querySelectorAll('tbody tr').length;
+            await new Promise((r) => setTimeout(r, 600));
+            const after = body.querySelectorAll('tbody tr').length;
+            RNP.toggleSplit('delivery_sum');
+            return { before, immediate, after };
+        });
+        assert.ok(defer.immediate === defer.before && defer.after !== defer.before, 'во время прокрутки лист не перерисовывается, после остановки обновляется: ' + JSON.stringify(defer));
+        console.log('ok   телефон: во время прокрутки лист не перерисовывается');
         // жест почти по диагонали, но больше вправо: едет только вправо, вертикаль не плывёт
         const cdp = await page.context().newCDPSession(page);
         const pos = () => page.evaluate(() => { const b = document.getElementById('rnp-sheet-body'); return { l: b.scrollLeft, t: b.scrollTop, sw: b.scrollWidth - b.clientWidth, sh: b.scrollHeight - b.clientHeight }; });
@@ -80,18 +95,16 @@ const tables = {
         await page.evaluate(() => RNP.openPlanFact());
         await page.locator('.pf-sheet .pf-b').first().waitFor({ state: 'visible', timeout: 5000 });
         await page.waitForTimeout(600);
+        // План/факт теперь открывается отдельной страницей (вкладка), а не окном: на телефоне она помещается в ширину экрана
         const pf = await page.evaluate(() => {
-            const d = document.querySelector('.rnp-plan-fact-dialog').getBoundingClientRect();
+            const sheet = document.querySelector('.pf-scroll').getBoundingClientRect();
             const b = document.querySelector('.pf-sheet tbody td.pf-b').getBoundingClientRect();
             const back = document.querySelector('.pf-back').getBoundingClientRect();
-            return { dl: d.left, dw: d.width, vw: innerWidth, bw: b.width, bl: back.left, bt: back.top, bv: back.width > 0, ov: getComputedStyle(document.querySelector('.pf-scroll')).overscrollBehaviorX };
+            return { sl: sheet.left, sw: sheet.width, vw: innerWidth, bw: b.width, bl: back.left, bt: back.top, bv: back.width > 0, ov: getComputedStyle(document.querySelector('.pf-scroll')).overscrollBehaviorX, title: document.getElementById('page-title').textContent.trim() };
         });
-        assert.ok(Math.abs(pf.dl) < 1 && Math.abs(pf.dw - pf.vw) < 1, 'план/факт на весь экран: ' + JSON.stringify(pf));
+        assert.ok(pf.sl >= 0 && pf.sl + pf.sw <= pf.vw + 1 && /План/.test(pf.title), 'план/факт открыт страницей, прокручиваемая область не шире экрана: ' + JSON.stringify(pf));
         assert.ok(pf.bw <= 96, 'столбец артикулов узкий: ' + pf.bw);
-        assert.ok(pf.bv && pf.bl < 40 && pf.bt < 30, '«Назад» на краю сверху: ' + JSON.stringify(pf));
-        assert.strictEqual(pf.ov, 'none', 'таблицу плана нельзя оттянуть за край');
-        await page.locator('.pf-back').click();
-        assert.strictEqual(await page.evaluate(() => document.getElementById('rnp-plan-fact-overlay').classList.contains('is-open')), false, '«Назад» закрывает план/факт');
+        assert.ok(pf.bv && pf.bl < 40 && pf.bt < 160, '«Назад» вверху слева: ' + JSON.stringify(pf));
         console.log('ok   телефон: план/факт на весь экран, «Назад» на краю, узкий столбец артикулов');
         // Общий замок оси: любой прокручиваемый блок (например в РК) на телефоне едет по одной оси за жест
         await page.evaluate(() => {
@@ -125,6 +138,7 @@ const tables = {
         const prevented = await page.evaluate(() => { document.getElementById('free-probe').remove(); return window.__tmPrevented; });
         assert.ok(prevented > 0, 'горизонтальный жест вне прокручиваемых блоков гасится: ' + prevented);
         console.log('ok   телефон: экран целиком не уезжает вбок во всех разделах');
+        await page.evaluate(() => showTab('rnp')); await page.waitForSelector('.rnp-ph2-bar', { state: 'visible', timeout: 8000 }); await page.waitForTimeout(500);
         // свёрнутая шапка: стрелка раскрывает панель с ответственным, статусом, ценой и заметками
         const vis = () => page.evaluate(() => { const e = document.querySelector('.rnp-ph2-panel .rnp-ph2-meta'); return !!e && e.getBoundingClientRect().height > 10; });
         assert.strictEqual(await vis(), false, 'панель закрыта');
