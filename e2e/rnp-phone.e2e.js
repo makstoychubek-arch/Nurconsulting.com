@@ -38,6 +38,10 @@ const tables = {
         assert.ok(saved.length > 1000, 'снимок экрана сохранён');
         assert.ok(!/rnp-sheet-body--swap|nr-stale/.test(saved), 'в сохранённом снимке нет классов приглушения');
         console.log('ok   телефон: снимок экрана не хранит приглушение');
+        // последняя строка таблицы при прокрутке до конца видна над нижним меню
+        const endRow = await page.evaluate(async () => { const b = document.getElementById('rnp-sheet-body'); b.scrollTop = b.scrollHeight; await new Promise((r) => setTimeout(r, 200)); const rows = [...b.querySelectorAll('tbody tr')]; const last = rows[rows.length - 1].getBoundingClientRect(), nav = document.getElementById('nr-bottom-nav').getBoundingClientRect(); return { last: Math.round(last.bottom), nav: Math.round(nav.top) }; });
+        assert.ok(endRow.last <= endRow.nav + 2, 'последняя строка РНП не прячется под нижним меню: ' + JSON.stringify(endRow));
+        console.log('ok   телефон: последняя строка таблицы видна над нижним меню');
         // пока идёт прокрутка, перерисовка листа откладывается и выполняется после остановки
         const defer = await page.evaluate(async () => {
             const body = document.getElementById('rnp-sheet-body');
