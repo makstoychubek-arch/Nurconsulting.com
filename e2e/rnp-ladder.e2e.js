@@ -29,6 +29,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         const idx = first.map((t) => LADDER.indexOf(t));
         assert.deepStrictEqual(idx, [...idx].sort((a, b) => a - b), 'порядок строк: ' + first.join(' → '));
         for (const need of ['Реализация', 'Логистика', 'Реклама (РК)', 'Себестоимость', 'К выводу', 'Прибыль']) assert.ok(first.includes(need), 'есть строка «' + need + '»: ' + first.join(', '));
+        assert.ok(!(await labels()).includes('В доставке'), 'у WB строки «В доставке» нет (она только у Ozon)');
         assert.ok(!first.includes('Налог') && !first.includes('Фулфилмент'), 'по умолчанию «Налог» (тумблер выключен) и «Фулфилмент» (ползунок выключен) не показываются: ' + first.join(', '));
         const ADS = ['Расход', 'Показы', 'Клики', 'Корзины', 'Заказы', 'Выручка', 'CTR', 'CPC', 'CPM', 'CR', 'CPO', 'ДРР %', 'ДРРп %', 'ROAS'];
         const allLabels = await labels(), adIdx = ADS.map((t) => allLabels.indexOf(t));
