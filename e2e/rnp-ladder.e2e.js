@@ -18,7 +18,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
     const srv = await serve();
     const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     try {
-        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async () => ({}) } });
+        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, rnp_cabinet_totals: Array.from({ length: 5 }, (_, d) => ({ d: day(d), realization: 10000, to_transfer: 7000, delivery: 1000, storage: 100, penalty: 50, deduction: 0, acceptance: 0, to_withdraw: 5000, ad_spend: 200, acquiring: 0, compensation: 0, additional: 0 })), rnp_cabinet_log_split: Array.from({ length: 5 }, (_, d) => ({ d: day(d), log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })) }, functions: { 'wb-proxy': async () => ({}) } });
         const { page } = env;
         await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); NrMp.set('wb'); showTab('rnp'); });
         await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Реализация/.test((r.children[0] || {}).innerText || '')), null, { timeout: 15000 });
@@ -45,7 +45,9 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         assert.ok(arrows.every((a) => a.c === 'rgb(37, 99, 235)'), 'стрелки синие: ' + JSON.stringify(arrows.map((a) => a.c)));
         await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
         const open = [...new Set(await labels())];
-        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты', 'Доставка до покупателя', 'Возвраты и прочая логистика', 'Логистика, % от продаж', 'Средняя доставка до ПВЗ, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты', 'К клиенту при продаже', 'К клиенту при отмене', 'От клиента при возврате', 'Доля отмен в логистике, %', 'Логистика на 1 проданную шт, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        const lg = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).filter((c) => /^(К клиенту при отмене|Доля отмен в логистике, %)/.test(c[0])));
+        assert.ok(lg.length === 2 && lg.every((r) => r.slice(1).some((x) => /[1-9]/.test(x))), 'логистика по причинам показывает цифры: ' + JSON.stringify(lg));
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];

@@ -6387,12 +6387,17 @@ const RNP = (() => {
             { key: 'ded_other', label: 'Другое' },
             { key: 'ded_add',   label: 'Доплаты и компенсации (уменьшают)' },
         ] },
-        // «Логистика»: доставка до покупателя и всё остальное (возвраты, обратная логистика)
-        delivery_sum: { cls: 'log', hint: 'Логистика по видам', subs: [
-            { key: 'log_client', label: 'Доставка до покупателя' },
-            { key: 'log_back',   label: 'Возвраты и прочая логистика' },
-            { key: 'logistics_pct', label: 'Логистика, % от продаж', type: 'pct' },
-            { key: 'log_to_pvz_avg', label: 'Средняя доставка до ПВЗ, сом', type: 'avg' },
+        // «Логистика»: по причинам из финотчёта WB; отмены показываем отдельно, это самые дорогие доставки
+        delivery_sum: { cls: 'log', hint: 'Логистика по причинам', subs: [
+            { key: 'log_sale',        label: 'К клиенту при продаже' },
+            { key: 'log_cancel_to',   label: 'К клиенту при отмене' },
+            { key: 'log_cancel_from', label: 'От клиента при отмене' },
+            { key: 'log_return',      label: 'От клиента при возврате' },
+            { key: 'log_other',       label: 'Прочая (возврат брака, коррекции)' },
+            { key: 'log_cancel_pct',  label: 'Доля отмен в логистике, %', type: 'pct' },
+            { key: 'logistics_pct',   label: 'Логистика, % от продаж', type: 'pct' },
+            { key: 'log_per_unit',    label: 'Логистика на 1 проданную шт, сом', type: 'avg' },
+            { key: 'log_to_pvz_avg',  label: 'Средняя доставка до ПВЗ, сом', type: 'avg' },
         ] },
         // «Комиссия»: по нажатию показывает процент от реализации
         wb_commission: { cls: 'com', hint: 'Показать комиссию в процентах от реализации', subs: [
@@ -6400,6 +6405,12 @@ const RNP = (() => {
         ] },
     };
     // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
+    // Доля отмен и логистика на штуку считаются заново после суммирования
+    function _logDerived(m) {
+        const dl = Number(m.delivery_sum) || 0;
+        m.log_cancel_pct = dl > 0 ? ((Number(m.log_cancel_to) || 0) + (Number(m.log_cancel_from) || 0)) / dl * 100 : 0;
+        m.log_per_unit = (Number(m.sales_count) || 0) > 0 ? dl / m.sales_count : 0;
+    }
     const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg').map(x => x.key)))];
 
     const DERIVED_SUM_KEYS = [
@@ -6478,6 +6489,7 @@ const RNP = (() => {
         a.logistics_pct = wPct('logistics_pct');
         a.storage_pct = wPct('storage_pct');
         a.commission_pct = parts.reduce((s, d) => s + (d.commission_pct || 0), 0) / Math.max(parts.length, 1);
+        _logDerived(a);
         a.comm_pct_real = a.realization > 0 ? (a.wb_commission || 0) / a.realization * 100 : 0;
         const salesSomAll = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0) * _rateFor(d.date, d), 0);
         const adFromSalesAll = salesSomAll > 0 ? a.ad_spend / salesSomAll * 100 : 0;
@@ -6519,8 +6531,8 @@ const RNP = (() => {
         m.delivery_sum = n(t.delivery);
         m.penalty_sum = n(t.penalty);
         m.deduction_sum = n(t.deduction);
-        FIN_SPLIT_KEYS.forEach(k => { if (k !== 'log_client' && k !== 'log_back') m[k] = n(t[k]); });
-        m.log_back = Math.max(0, m.delivery_sum - (Number(m.log_client) || 0));
+        FIN_SPLIT_KEYS.forEach(k => { m[k] = n(t[k]); });
+        _logDerived(m);
         m.acceptance_sum = n(t.acceptance);
         m.to_withdraw = n(t.to_withdraw);
         m.acquiring_sum = n(t.acquiring);
@@ -6590,6 +6602,20 @@ const RNP = (() => {
             });
         } catch (e) {
             console.warn('[RNP] rnp_cabinet_fin_split:', e.message || e);
+        }
+        // Логистика по причинам (подстроки «Логистики»)
+        try {
+            const { data: lg, error: lgErr } = await _db.rpc('rnp_cabinet_log_split', {
+                p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
+                p_nm_ids: _rnpVisibleArticles().map(a => Number(a.nm_id)),
+            });
+            if (lgErr) throw lgErr;
+            (lg || []).forEach(r => {
+                const k = String(r.d).split('T')[0];
+                if (fresh[k]) Object.assign(fresh[k], r, { d: fresh[k].d });
+            });
+        } catch (e) {
+            console.warn('[RNP] rnp_cabinet_log_split:', e.message || e);
         }
         if (cab0 === _cab && (Object.keys(fresh).length || !Object.keys(_cabTotals).length)) _cabTotals = fresh;
     }
@@ -6797,8 +6823,6 @@ const RNP = (() => {
         }
         d.wb_share_pct = (d.logistics_pct || 0) + (d.storage_pct || 0) + (d.commission_pct || 0) + adFromSalesPct;
         // Средняя стоимость одной доставки до ПВЗ покупателя (выкуп и невыкуп), всё в сомах.
-        d.log_client = Math.min(Number(d.log_to_client_sum) || 0, Number(d.delivery_sum) || 0);
-        d.log_back = Math.max(0, (Number(d.delivery_sum) || 0) - d.log_client);
         d.log_to_pvz_avg = (d.log_to_client_cnt || 0) > 0 ? (d.log_to_client_sum || 0) / d.log_to_client_cnt * er : 0;
 
         // Прибыль по финотчёту WB. «К перечислению» (ppvz_for_pay) ещё не учитывает логистику, хранение,
