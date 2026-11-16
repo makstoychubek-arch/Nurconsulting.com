@@ -165,11 +165,11 @@ const RNP = (() => {
         { id: 'price', label: 'ЦЕНА', color: '#6d4fe8', rows: [
             { key: 'price_disc',         label: 'Цена со скидкой',                  type: 'som', src: 'auto', carry: true, articleOnly: true },
         ]},
-        { id: 'cash', label: 'Сумма продаж в кассе', color: '#1a73e8', rows: [
+        { id: 'cash', label: 'Касса', color: '#1a73e8', rows: [
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
             { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
-        { id: 'funnel', label: 'Показатели воронки', color: '#f59e0b', rows: [
+        { id: 'funnel', label: 'Воронка', color: '#f59e0b', rows: [
             { key: 'organic_imp_pct',    label: 'Органика переходов %',             type: 'pct',  src: 'calc' },
             { key: 'plan_impressions',   label: 'План переходов',                   type: 'int',  src: 'manual', isPlan: true },
             { key: 'clicks',             label: 'Переходы в карточку',              type: 'int',  src: 'promo' },
@@ -178,7 +178,7 @@ const RNP = (() => {
             { key: 'orders_conv_pct',    label: 'Заказы%',                          type: 'pct2', src: 'calc' },
             { key: 'cro_pct',            label: 'CR0 %',                            type: 'pct2', src: 'calc' },
         ]},
-        { id: 'buyout', label: 'Выкупы и возвраты', color: '#06b6d4', rows: [
+        { id: 'buyout', label: 'Выкупы', color: '#06b6d4', rows: [
             { key: 'cancels_count',      label: 'Отказы',                           type: 'int',  src: 'auto' },
             { key: 'returns_count',      label: 'Возвраты',                         type: 'int',  src: 'auto' },
             { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
@@ -9216,7 +9216,7 @@ const RNP = (() => {
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
             const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : null;
-            const splittable = m.key === 'orders_count' || m.key === 'sales_count' || m.key === 'storage_sum' || !!finSplit;
+            const splittable = m.key === 'orders_count' || m.key === 'sales_count' || !!finSplit;
             const splitOpen = splittable && _splitOpen.has(m.key);
             const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';
             const labelHtml = splittable
