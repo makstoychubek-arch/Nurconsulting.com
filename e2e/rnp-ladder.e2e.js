@@ -76,6 +76,20 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         let lg1 = await findLg(); if (!lg1) { await page.evaluate(() => RNP.toggleSplit('delivery_sum')); await page.waitForTimeout(600); lg1 = await findLg(); }
         assert.ok(lg1 && lg1.slice(1).some((x) => /[1-9]/.test(x)), 'у артикула «Логистика» раскрывается по причинам: ' + JSON.stringify(lg1));
         console.log('ok   «Общее по артикулам» и один артикул: лесенка на месте, «Прибыль на единицу» только у артикула');
+        // подсветка строки и столбца под курсором стоит ровно под курсором, и при масштабе страницы тоже
+        await page.evaluate(() => RNP.pick('general')); await page.waitForTimeout(1200);
+        for (const zoom of [1, 0.75]) {
+            await page.evaluate((z) => { const t = document.getElementById('tab-rnp'); if (t) t.style.zoom = String(z); }, zoom);
+            await page.waitForTimeout(300);
+            const td = page.locator('#tab-rnp .rnp-sheet-table tr:has-text("Реализация") td').nth(4);
+            await td.scrollIntoViewIfNeeded(); await td.hover(); await page.waitForTimeout(300);
+            const m = await page.evaluate(() => { const r = document.querySelector('.rnp-xh-row'), c = document.querySelector('.rnp-xh-col'); const q = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; }; const tdE = document.querySelector('#tab-rnp .rnp-sheet-table td:hover'); return { row: r && getComputedStyle(r).display !== 'none' ? q(r) : null, col: c && getComputedStyle(c).display !== 'none' ? q(c) : null, td: tdE ? q(tdE) : null, tr: tdE ? q(tdE.parentElement) : null }; });
+            assert.ok(m.row && m.col && m.td, 'подсветка показана при zoom ' + zoom + ': ' + JSON.stringify(m));
+            assert.ok(Math.abs(m.row[1] - m.tr[1]) <= 2 && Math.abs(m.row[3] - m.tr[3]) <= 2, 'строка подсвечена на своём месте (zoom ' + zoom + '): ' + JSON.stringify([m.row, m.tr]));
+            assert.ok(Math.abs(m.col[0] - m.td[0]) <= 2 && Math.abs(m.col[2] - m.td[2]) <= 2, 'столбец подсвечен на своём месте (zoom ' + zoom + '): ' + JSON.stringify([m.col, m.td]));
+        }
+        await page.evaluate(() => { const t = document.getElementById('tab-rnp'); if (t) t.style.zoom = ''; });
+        console.log('ok   подсветка под курсором стоит на месте (масштаб 100% и 75%)');
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
     } catch (e) { console.error('FAIL', e.message); process.exitCode = 1; } finally { await browser.close(); srv.close(); }
 })();

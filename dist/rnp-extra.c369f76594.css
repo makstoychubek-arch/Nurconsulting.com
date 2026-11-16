@@ -529,12 +529,9 @@ transition: opacity .18s ease, transform .18s ease;
 #tab-goods-groups .gs-ship tr.gs-grp td .gs-batch, #tab-goods-groups .gs-ship tr.gs-grp td .gs-gtot, #tab-goods-groups .gs-ship tr.gs-grp td .gs-addrow { display: inline-block; vertical-align: middle; }
 
 /* РНП «Общий»: подстроки «Штрафы» (красные) и «Прочие удержания» (жёлтые) */
-.rnp-row-fin-pen .rnp-metric-sub{color:#dc2626;font-weight:600}
-.rnp-row-fin-ded .rnp-metric-sub{color:#b45309;font-weight:600}
 .rnp-row-split-sub.rnp-sub-zero td{opacity:.45}
-:root[data-theme="dark"] .rnp-row-fin-pen .rnp-metric-sub{color:#f87171}
-:root[data-theme="dark"] .rnp-row-fin-ded .rnp-metric-sub{color:#fbbf24}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rnp-row-fin-pen .rnp-metric-sub{color:#f87171}:root:not([data-theme="light"]) .rnp-row-fin-ded .rnp-metric-sub{color:#fbbf24}}
+/* подстроки раскрытия (логистика, штрафы, удержания, комиссия, ФФ): без цветной подсветки, название серое */
+.rnp-row-split-sub[class*="rnp-row-fin-"] .rnp-metric-sub{color:var(--text-muted,#8a8a8a);font-weight:500}
 
 /* Логистика: переключатель «В РНП» у поставки и подсветка артикула без совпадения */
 .gs-rnp-sw { margin-left: 10px; padding: 3px 12px; border: 1px solid rgba(255,255,255,.7); border-radius: 999px; background: transparent; color: #fff; font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; vertical-align: middle; }
