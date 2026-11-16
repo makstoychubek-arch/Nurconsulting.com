@@ -2374,3 +2374,51 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
   html body .rnp-sheet-table .rnp-metric-sub { padding-left: 10px !important; }
   html body .rnp-sheet-table .rnp-metric-col { word-break: normal; overflow-wrap: anywhere; hyphens: auto; line-height: 1.15; }
 }
+
+/* ───────── Телефон: «живое стекло» и плавающие элементы (макет «Мобильный NR Space», версия 5, 16.11.2026) ─────────
+   Нижнее меню плавает пилюлей над страницей, а не панелью на всю ширину; справа сверху две круглые кнопки одного размера:
+   площадка (WB / Ozon / Вместе) и календарь без текста даты (дата стоит под названием страницы).
+   Стекло только у плавающих элементов (меню, круглые кнопки, список площадки); страница и таблицы без стекла, чтобы не лагала прокрутка. */
+@media (max-width: 768px) {
+  html body {
+    --g-bg: rgba(255,255,255,.09); --g-line: rgba(255,255,255,.2); --g-hi: rgba(255,255,255,.28); --g-lo: rgba(0,0,0,.25); --g-sh: rgba(0,0,0,.35);
+  }
+  html:not([data-theme="neon"]) body { --g-bg: rgba(255,255,255,.58); --g-line: rgba(255,255,255,.9); --g-hi: rgba(255,255,255,.95); --g-lo: rgba(0,0,0,.08); --g-sh: rgba(0,0,0,.16); }
+  /* нижнее меню: плавающая стеклянная пилюля */
+  html body .bottom-nav { left: 14px !important; right: 14px !important; bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; width: auto; padding: 5px 6px !important; border: 1px solid var(--g-line) !important; border-radius: 30px; background: var(--g-bg) !important; backdrop-filter: blur(20px) saturate(190%); -webkit-backdrop-filter: blur(20px) saturate(190%); box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 var(--g-lo), 0 10px 26px var(--g-sh) !important; align-items: center; }
+  html body .bottom-nav-btn { border-radius: 24px; padding: 6px 2px !important; border: 1px solid transparent; }
+  html body .bottom-nav-btn.active { background: var(--g-bg); border-color: var(--g-line); box-shadow: inset 0 1px 0 var(--g-hi), 0 2px 8px var(--g-sh); }
+  html, html body { background-color: var(--bg) !important; }
+  /* страница идёт до нижнего края: полосы под меню нет, последние строки доезжают выше пилюли прокруткой */
+  html body .main-rail { padding-bottom: 0 !important; }
+  html body .main-rail .main-content:not(#nr-x) { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* верхний ряд: название читаемо, под ним дата периода; справа две круглые стеклянные кнопки одного размера (34px) */
+  html body header.glass.app-header #page-title { font-size: 17px; font-weight: 900; color: var(--text-primary); letter-spacing: -.01em; }
+  html body header.glass.app-header .nr-subdate { display: block; margin-top: 2px; font-size: 11px; font-weight: 700; line-height: 1.1; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html body header.glass.app-header #header-date-chip-wrap { position: relative; width: 34px !important; height: 34px !important; min-height: 34px !important; max-height: 34px !important; overflow: visible; order: 4; }
+  html body header.glass.app-header #header-date-chip-wrap::before { width: 34px; height: 34px; border: 1px solid var(--g-line); background-color: var(--g-bg); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%); box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 var(--g-lo); }
+  html body header.glass.app-header #header-date-chip-wrap #date-range { position: absolute !important; inset: 0; width: 34px !important; max-width: 34px !important; height: 34px; font-size: 0 !important; opacity: 0; overflow: hidden; }
+  html#nr-root.nr-f-adv header.glass.app-header #header-date-chip-wrap #date-range { font-size: 0 !important; }
+  /* площадка: круг с текущей площадкой, по нажатию страница темнеет и выходит список */
+  html body header.glass.app-header .app-header-main > .nr-mp, html#nr-root.nr-f-adv header.glass.app-header .app-header-main > .nr-mp { order: 3; position: relative; width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 1px solid var(--g-line); background: var(--g-bg); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%); box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 var(--g-lo); justify-content: center; }
+  html body header.glass.app-header .nr-mp button { display: none; }
+  html body header.glass.app-header .nr-mp button.on { display: inline-flex; width: 100%; height: 100%; padding: 0; background: transparent; color: var(--text-primary); }
+  html body header.glass.app-header .nr-mp button.on svg { height: 10px; }
+  html body header.glass.app-header .nr-mp.open { z-index: 10060; }
+  html body header.glass.app-header .nr-mp.open button { display: flex; align-items: center; gap: 10px; position: relative; width: 100%; height: 44px; padding: 0 16px; border-radius: 16px; color: var(--text-primary); background: transparent; }
+  html body header.glass.app-header .nr-mp.open button.on { background: var(--g-bg); box-shadow: inset 0 1px 0 var(--g-hi); }
+  html body header.glass.app-header .nr-mp.open button { justify-content: flex-start; } html body header.glass.app-header .nr-mp.open button svg { height: 12px; width: 34px; flex: none; }
+  html body header.glass.app-header .nr-mp.open button::after { content: attr(aria-label); font-size: 13px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+  html body header.glass.app-header .nr-mp.open { position: absolute; right: 12px; top: calc(100% - 4px); width: 176px; height: auto; flex-direction: column; align-items: stretch; padding: 6px; border-radius: 22px; background: var(--g-bg); backdrop-filter: blur(22px) saturate(190%); -webkit-backdrop-filter: blur(22px) saturate(190%); box-shadow: inset 0 1px 0 var(--g-hi), 0 14px 34px var(--g-sh); }
+  html body header.glass.app-header .nr-mp.open .nr-mp-cur { display: none; }
+  .nr-mp-dim { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity .12s; }
+  .nr-mp-dim.on { opacity: 1; pointer-events: auto; }
+  html body:has(.nr-mp.open) header.glass.app-header { z-index: 10070 !important; background: transparent !important; }
+  html body:has(.nr-mp.open) header.glass.app-header .app-header-main > *:not(.nr-mp) { opacity: .3; transition: opacity .12s; }
+  html body:has(.nr-mp.open) header.glass.app-header #header-date-chip-wrap { opacity: .3; }
+  html body .bottom-nav-btn .bn-lbl { font-size: 9px; letter-spacing: -.03em; overflow: visible; text-overflow: clip; }
+  html body .bottom-nav-btn { padding-left: 0 !important; padding-right: 0 !important; }
+}
+@media (min-width: 769px) { .nr-mp-dim { display: none; } }
+.nr-subdate { display: none; }
