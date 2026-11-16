@@ -18,7 +18,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
     const srv = await serve();
     const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     try {
-        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, rnp_cabinet_totals: Array.from({ length: 5 }, (_, d) => ({ d: day(d), realization: 10000, to_transfer: 7000, delivery: 1000, storage: 100, penalty: 50, deduction: 0, acceptance: 0, to_withdraw: 5000, ad_spend: 200, acquiring: 0, compensation: 0, additional: 0 })), rnp_fin_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, acquiring: 100, compensation: 0, comm_base: 1000, comm_true: 280 })), rnp_cabinet_comm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), comm_base: 10000, comm_true: 3000 })), rnp_log_split_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })), rnp_cabinet_log_split: Array.from({ length: 5 }, (_, d) => ({ d: day(d), log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })) }, functions: { 'wb-proxy': async () => ({}) } });
+        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, rnp_cabinet_totals: Array.from({ length: 5 }, (_, d) => ({ d: day(d), realization: 10000, to_transfer: 7000, delivery: 1000, storage: 100, penalty: 50, deduction: 0, acceptance: 0, to_withdraw: 5000, ad_spend: 200, acquiring: 0, compensation: 0, additional: 0 })), rnp_fin_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, acquiring: 100, compensation: 0, comm_base: 1000, comm_true: 280, acceptance: 30, pen_dims: 20, pen_accept: 0, pen_sub: 0, pen_cancel: 10, pen_pvz: 0, pen_supply: 0, pen_other: 0 })), rnp_cabinet_comm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), comm_base: 10000, comm_true: 3000 })), rnp_log_split_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })), rnp_cabinet_log_split: Array.from({ length: 5 }, (_, d) => ({ d: day(d), log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })) }, functions: { 'wb-proxy': async () => ({}) } });
         const { page } = env;
         await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); NrMp.set('wb'); showTab('rnp'); });
         await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Реализация/.test((r.children[0] || {}).innerText || '')), null, { timeout: 15000 });
@@ -55,7 +55,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         assert.ok(arrows.every((a) => a.c !== 'rgb(37, 99, 235)' && a.o > 0 && a.o < 0.6), 'стрелки не синие, а чёрные и еле заметные: ' + JSON.stringify(arrows));
         await page.evaluate(() => { for (const k of ['other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
         const open = [...new Set(await labels())];
-        for (const need of ['WB Продвижение', 'Подписка «Джем»', 'Доплаты (минус)', 'Габариты', 'Продажа → клиенту', 'Отмена → клиенту', 'Возврат ← от клиента', 'Доля отмен %', 'На 1 шт, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        for (const need of ['WB Продвижение', 'Подписка «Джем»', 'Доплаты (минус)', 'Габариты', 'Продажа → клиенту', 'Отмена → клиенту', 'Возврат ← от клиента', 'Доля отмен %']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
         const lg = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).filter((c) => /^(Отмена → клиенту|Доля отмен %)/.test(c[0])));
         assert.ok(lg.length === 2 && lg.every((r) => r.slice(1).some((x) => /[1-9]/.test(x))), 'логистика по причинам показывает цифры: ' + JSON.stringify(lg));
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
@@ -79,7 +79,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         await page.evaluate(() => RNP.pick('general')); await page.waitForTimeout(1200);
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];
-        assert.ok(!(await labelsOf()).includes('Прибыль на единицу') && !(await labelsOf()).includes('От WB на единицу'), 'в «Общем» «Прибыль на единицу» не показывается');
+        assert.ok(!(await labelsOf()).includes('Прибыль на единицу') && !(await labelsOf()).includes('От WB на единицу') && !(await labelsOf()).includes('Логистика на единицу') && !(await labelsOf()).includes('Хранение на единицу'), 'в «Общем» «Прибыль на единицу» не показывается');
         await page.evaluate(() => RNP.pick('byart')); await page.waitForTimeout(1500);
         const byart = (await labelsOf()).filter((t) => LADDER.includes(t));
         assert.ok(byart.includes('Реализация') && byart.includes('Себестоимость') && byart.includes('Прибыль'), '«Общее по артикулам»: ' + byart.join(', '));
@@ -90,6 +90,12 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         assert.ok(one.includes('Прибыль на единицу') && one.includes('Налог'), 'у одного артикула есть «Прибыль на единицу» и «Налог»: ' + one.slice(0, 40).join(', '));
         const cm = await read('Комиссия'), cp = await read('Комиссия %'), rz = await read('Реализация'), aq = await read('Эквайринг'), tt2 = await read('К перечислению');
         assert.ok(cm > 0 && Math.abs(cm + aq + tt2 - rz) <= 3 && Math.abs(cp - 28) < 0.2, 'комиссия + эквайринг + к перечислению = реализация, процент от цены продавца (28%): ' + [rz, cm, cp, aq, tt2].join(' / '));
+        const perUnit = await labels();
+        for (const need of ['Приёмка и обработка', 'Логистика на единицу', 'Хранение на единицу', 'Реклама на единицу']) assert.ok(perUnit.includes(need), 'у артикула есть «' + need + '»: ' + perUnit.join(' | '));
+        const accRow = await read('Приёмка и обработка'); assert.ok(accRow > 0, 'приёмка у артикула не нулевая: ' + accRow);
+        const penFind = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).find((c) => /^Габариты/.test(c[0])));
+        let pen1 = await penFind(); if (!pen1) { await page.evaluate(() => RNP.toggleSplit('penalty_sum')); await page.waitForTimeout(600); pen1 = await penFind(); }
+        assert.ok(pen1 && pen1.slice(1).some((x) => /[1-9]/.test(x)), 'штрафы у артикула раскрываются по видам: ' + JSON.stringify(pen1));
         const oneIdx = (await labels()).indexOf('К выводу на единицу'), pay = await read('К выводу'), payU = await read('К выводу на единицу');
         assert.ok(oneIdx > (await labels()).indexOf('К выводу') && payU !== null, '«К выводу на единицу» стоит после «К выводу»');
         const findLg = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).find((c) => /^Отмена → клиенту/.test(c[0])));
