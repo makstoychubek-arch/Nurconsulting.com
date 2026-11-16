@@ -85,6 +85,9 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         await page.evaluate(() => RNP.toggleSplit('delivery_sum'));
         console.log('ok   раскрытие строки не перерисовывает лист целиком');
         await page.evaluate(() => RNP.pick('general')); await page.waitForTimeout(1200);
+        // оттенки «хорошо / плохо» только цветом шрифта: у ячеек данных нет цветной заливки
+        const fills = await page.evaluate(() => [...document.querySelectorAll('#rnp-sheet-body td[style]')].filter((c) => /background(?!-)\s*:\s*(rgba?\(|#)/.test(c.getAttribute('style') || '')).length);
+        assert.strictEqual(fills, 0, 'у ячеек РНП нет цветной заливки (только цвет шрифта): ' + fills);
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];
         assert.ok(!(await labelsOf()).includes('Прибыль на единицу') && !(await labelsOf()).includes('От WB на единицу') && !(await labelsOf()).includes('Логистика на единицу') && !(await labelsOf()).includes('Хранение на единицу'), 'в «Общем» «Прибыль на единицу» не показывается');

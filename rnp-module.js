@@ -9039,6 +9039,12 @@ const RNP = (() => {
     const AD_MIN_SPEND = 50;
     const _isSeriesCol = c => !c.isFuture && c.data && (c.type === 'day' || c.type === 'week' || c.type === 'month');
 
+    // Оттенки «хорошо / плохо» только цветом шрифта, без заливки ячейки: чем дальше от середины, тем насыщеннее зелёный или красный.
+    function _heatText(k, a) {
+        const pct = Math.round(35 + Math.min(1, a / 0.6) * 65);
+        return `color:color-mix(in srgb, ${k > 0 ? 'var(--green, #16a34a)' : 'var(--red, #dc2626)'} ${pct}%, var(--text-primary))${a > 0.35 ? ';font-weight:700' : ''}`;
+    }
+
     /** Доля расхода РК в прибыли до рекламы: ≤35% — зелёный, ≥90% (или прибыль до рекламы ≤ 0) — красный. */
     function _adEffTone(d) {
         const spend = Number(d.ad_spend) || 0;
@@ -9048,7 +9054,7 @@ const RNP = (() => {
         const k = r <= 0.35 ? 1 : r >= 0.9 ? -1 : 1 - ((r - 0.35) / 0.55) * 2;
         const a = Math.min(1, Math.abs(k)) * 0.6;
         if (a < 0.04) return '';
-        return k > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+        return _heatText(k, a);
     }
 
     function _scaleFn(m, cols) {
@@ -9081,7 +9087,7 @@ const RNP = (() => {
                 if (dir === 'low') k = -k;
                 const a = Math.min(1, Math.abs(k)) * 0.62;
                 if (a < 0.02) return '';
-                return k > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+                return _heatText(k, a);
             };
         });
         if (!Object.keys(fns).length) return null;
@@ -9273,12 +9279,12 @@ const RNP = (() => {
                 const str = (isFuture || manualEmpty) ? '' : ((financePending || noBalance) ? '—' : _fmt(val, m.type));
                 const cc  = (m.hm && !scaleFn) ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
-                if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
-                else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'background:#b6d7a8;color:#38761d';
-                else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:#d9ead3;color:#38761d';
+                if (cc === 'rnp-green')  style += (style ? ';' : '') + 'color:var(--green, #16a34a);font-weight:700';
+                else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'font-weight:600';
+                else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'color:var(--red, #dc2626);font-weight:700';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
-                if (priceChanged) style += (style ? ';' : '') + 'background:#e6f6ec;color:#17653a;font-weight:800';
+                if (priceChanged) style += (style ? ';' : '') + 'color:var(--green, #16a34a);font-weight:800';
                 if (scaleFn && !isFuture) { const sc = scaleFn(col, val); if (sc) style += (style ? ';' : '') + sc; }
                 // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.
                 // No extra DOM/flex inside the td — that blew up the sheet layout.
