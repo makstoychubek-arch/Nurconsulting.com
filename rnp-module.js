@@ -8885,7 +8885,7 @@ const RNP = (() => {
                     const v = pctSub ? (Number(d[sub.key]) || 0) : Math.round(Number(d[sub.key]) || 0);
                     const pending = isDay && col.isToday && !(Number(d[m.key]) > 0);
                     txt = pending ? '—' : (pctSub ? _fmt(v, 'pct') : _fmt(v, 'som'));
-                    if (v !== 0 && isDay && !pctSub && sub.type !== 'avg' && sub.type !== 'ff') {
+                    if (false) { // подстроки без цветной подсветки: цифры на тёмном/светлом фоне как есть
                         const a = Math.min(1, Math.abs(v) / mx);
                         style += `${style ? ';' : ''}background:rgba(${rgb},${(0.10 + 0.35 * a).toFixed(2)})`;
                     }

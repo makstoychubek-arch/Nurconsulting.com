@@ -162,10 +162,19 @@
         if (!tbl || !inScope(td)) { xhHide(); return; }
         var host = tbl.parentElement;
         if (!xhEnsure(host)) return;
-        var h = host.getBoundingClientRect(), t = tbl.getBoundingClientRect(), c = td.getBoundingClientRect(), r = td.parentElement.getBoundingClientRect();
-        xh.row.style.cssText = 'display:block;left:' + (t.left - h.left) + 'px;top:' + (r.top - h.top) + 'px;width:' + t.width + 'px;height:' + r.height + 'px';
+        // Позиционируем относительно ближайшего позиционированного родителя с учётом его прокрутки и масштаба страницы (zoom):
+        // getBoundingClientRect даёт пиксели экрана, а left/top/width/height внутри увеличенного блока считаются в его пикселях.
+        var op = xh.row.offsetParent || host;
+        var h = op.getBoundingClientRect(), t = tbl.getBoundingClientRect(), c = td.getBoundingClientRect(), r = td.parentElement.getBoundingClientRect();
+        // масштаб блока меряем самой подсветкой: ставим ширину 100px и смотрим, сколько это на экране
+        xh.row.style.cssText = 'display:block;left:0;top:0;width:100px;height:1px';
+        var sc = xh.row.getBoundingClientRect().width / 100;
+        if (!(sc > 0.05)) sc = 1;
+        var ox = (op.scrollLeft || 0) - (op.clientLeft || 0), oy = (op.scrollTop || 0) - (op.clientTop || 0);
+        var X = function (v) { return (v - h.left) / sc + ox; }, Y = function (v) { return (v - h.top) / sc + oy; };
+        xh.row.style.cssText = 'display:block;left:' + X(t.left) + 'px;top:' + Y(r.top) + 'px;width:' + (t.width / sc) + 'px;height:' + (r.height / sc) + 'px';
         if (td.cellIndex === 0) xh.col.style.display = 'none';
-        else xh.col.style.cssText = 'display:block;left:' + (c.left - h.left) + 'px;top:' + (t.top - h.top) + 'px;width:' + c.width + 'px;height:' + t.height + 'px';
+        else xh.col.style.cssText = 'display:block;left:' + X(c.left) + 'px;top:' + Y(t.top) + 'px;width:' + (c.width / sc) + 'px;height:' + (t.height / sc) + 'px';
     }
     function onHover(e) {
         var td = e.target && e.target.closest ? e.target.closest('td') : null;
