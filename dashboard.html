@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="ios">
+<html lang="ru" data-theme="neon" data-bg="flow">
 <head>
     <meta charset="UTF-8">
     <script id="nr-splash-js">
@@ -66,7 +66,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
 
         /* ============ WBRADAR-LIKE (default / ios) ============ */
-        :root, [data-theme="ios"] {
+        :root {
             --bg: #F4F4F5;
             --bg-mesh: none;
             --surface: #FFFFFF;
@@ -160,60 +160,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
 
         /* Tabler tokens — третья тема, откат: Тема → Светлая */
-        [data-theme="tabler"] {
-            --bg: #f1f5f9;
-            --bg-mesh: none;
-            --surface: #ffffff;
-            --surface-solid: #ffffff;
-            --sidebar-bg: #ffffff;
-            --border: rgba(24, 36, 51, 0.1);
-            --border-strong: rgba(24, 36, 51, 0.16);
-            --text-primary: #182433;
-            --text-secondary: #4b5563;
-            --text-muted: #6b7280;
-            --accent: #066fd1;
-            --accent-hover: #0b5cab;
-            --accent-soft: #e8f1fb;
-            --accent-border: rgba(6, 111, 209, 0.28);
-            --purple: #4263eb;
-            --purple-soft: rgba(66, 99, 235, 0.12);
-            --accent-gradient: #066fd1;
-            --green: #2fb344;
-            --red: #d63939;
-            --amber: #f76707;
-            --blue: #4299e1;
-            --green-soft: rgba(47, 179, 68, 0.15);
-            --red-soft: rgba(214, 57, 57, 0.15);
-            --amber-soft: rgba(247, 103, 7, 0.16);
-            --muted-soft: var(--sel);
-            --card-shadow: 0 1px 3px rgba(24, 36, 51, 0.08);
-            --card-shadow-lg: 0 8px 24px rgba(24, 36, 51, 0.08);
-            --use-blur: none;
-            --use-glow: none;
-            --radius-card: 8px;
-            --radius-control: 6px;
-            --apple-glass: #ffffff;
-            --sel: #eef2f6;
-            --logo-mark: #ffffff;
-            --logo-ink: #182433;
-            --logo-mark-border: rgba(24, 36, 51, 0.12);
-            --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            --font-display: "Inter", system-ui, sans-serif;
-            --bg-primary: #f1f5f9;
-            --bg-secondary: #e7edf3;
-            --bg-card: #ffffff;
-            --border-color: rgba(24, 36, 51, 0.1);
-            color-scheme: light;
-        }
-        [data-theme="tabler"] .metric-card,
-        [data-theme="tabler"] .widget-card,
-        [data-theme="tabler"] .kpi-hero-card {
-            border-radius: 8px;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border);
-        }
-        [data-theme="tabler"] .ui-btn { border-radius: 6px !important; }
-        [data-theme="tabler"] header.glass { box-shadow: var(--card-shadow-lg) !important; }
+
+
+
+
 
         /* Единая шкала: KPI 13px Inter, сетки/таблицы 11px, подписи 10px */
         :root {
@@ -954,8 +904,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .beta-theme-ico { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .beta-theme-ico svg { width: 16px; height: 16px; display: block; }
         .beta-theme-ico-moon, .beta-theme-ico-tabler { display: none; }
-        [data-theme="tabler"] .beta-theme-ico-sun { display: none; }
-        [data-theme="tabler"] .beta-theme-ico-tabler { display: flex; }
+
+
         [data-theme="neon"] .beta-theme-ico-sun { display: none; }
         [data-theme="neon"] .beta-theme-ico-tabler { display: none; }
         [data-theme="neon"] .beta-theme-ico-moon { display: flex; }
@@ -966,10 +916,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             background: #EF4444; color: #fff;
             border: none;
         }
-        [data-theme="ios"] .nav-beta-badge {
-            background: #EF4444; color: #fff;
-            border-color: transparent;
-        }
+
         .flyout-body .nav-item.active .nav-beta-badge {
             background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
             border-color: rgba(255,255,255,0.2);
@@ -1105,9 +1052,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             width: 14px; height: 14px; flex-shrink: 0; opacity: 0.45;
             color: var(--text-muted);
         }
-        [data-theme="ios"] .cabinet-picker-face {
-            border-color: rgba(0,0,0,0.08); background: rgba(0,0,0,0.03);
-        }
+
         .cabinet-select { display: none; }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
@@ -1178,8 +1123,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         [data-theme="neon"] .theme-pill-thumb { transform: translateX(26px); }
         [data-theme="neon"] .theme-icon-sun { opacity: 0.25; }
         [data-theme="neon"] .theme-icon-moon { opacity: 0.9; color: var(--accent); }
-        [data-theme="ios"] .theme-icon-sun { opacity: 0.9; color: var(--amber); }
-        [data-theme="ios"] .theme-icon-moon { opacity: 0.25; }
+
+
         .section-title { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
         .section-title::before { display: none; }
         .kpi-hero-card {
@@ -1221,9 +1166,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 1;
             background: radial-gradient(160px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(255,255,255,0.12), transparent 58%);
         }
-        [data-theme="ios"] .nr-wow-spot {
-            background: radial-gradient(160px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(6,111,209,0.10), transparent 58%);
-        }
+
         .widget-card, .abtest-card, .adv-kpi-tile, .agents-canvas-card,
         .cf-card-preview, .rnp-stock-donut, .rnp-stock-scheme-wrap, .ev-kpi, .dash-plan-card {
             position: relative;
@@ -5085,7 +5028,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         header.glass > div { overflow: visible; }
         .app-header-main { padding: 12px 24px; min-height: 56px; box-sizing: border-box; }
         [data-theme="neon"] header.glass { border: none !important; background: var(--surface-solid) !important; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
-        [data-theme="ios"] header.glass { background: var(--surface-solid) !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); }
+
 
         /* Левая панель — такая же скруглённая «карточка», как шапка и блоки справа; шапка и контент выровнены
            по одним краям (6 px от панели и от края окна). */
@@ -5304,7 +5247,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .abtest-card { border: 1px solid var(--border) !important; box-shadow: none !important; background: var(--surface) !important; }
         .chart-box { border: none !important; box-shadow: none !important; }
         header.glass { border-bottom: none !important; box-shadow: none; }
-        [data-theme="ios"] header.glass { background: var(--surface) !important; }
+
 
         /* ===== Тарифы (Apple) ===== */
         .pricing-wrap { padding: 8px 4px 4px; }
@@ -6143,7 +6086,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.783f88e9d7.css">
+<link rel="stylesheet" href="/dist/nr-mono.fa3c70f8fe.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}

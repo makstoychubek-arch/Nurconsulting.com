@@ -367,10 +367,6 @@ assert.ok(
     html.includes('--bg-secondary:'),
     'both themes expose --bg-primary / --bg-card aliases from the TZ'
 );
-assert.ok(
-    html.includes('[data-theme="ios"] header.glass { background: var(--surface'),
-    'ios header uses the theme surface, not hardcoded white'
-);
 assert.ok(html.includes('.mobile-menu-btn { display: none !important; }'),
     'hamburger stays hidden on mobile once the bottom nav is the entry');
 assert.ok(
@@ -767,7 +763,7 @@ assert.ok(
     'dark theme is applied before first paint so RNP does not flash white'
 );
 assert.ok(
-    html.indexOf('var __nrTheme') < html.indexOf(':root, [data-theme="ios"]'),
+    html.indexOf('var __nrTheme') < html.indexOf('        :root {'),
     'nr_theme is restored before CSS variables, not after the RNP shell HTML'
 );
 assert.ok(
