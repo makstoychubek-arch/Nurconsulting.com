@@ -215,7 +215,7 @@ const RNP = (() => {
             { key: 'acceptance_sum',     label: 'Приёмка и обработка',              type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'other_net_sum',      label: 'Прочие удержания и доплаты',       type: 'som',  src: 'auto',  cabinetOnly: true },
-            { key: 'ad_spend',           label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
+            { key: 'ad_charged',         label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
             { key: 'ff_sum',             label: 'Фулфилмент',                       type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
@@ -6405,7 +6405,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6446,7 +6446,6 @@ const RNP = (() => {
         ] },
         // «Прочие удержания и доплаты» в лесенке расходов: за что удержано, по видам; доплаты и компенсации уменьшают сумму
         other_net_sum: { cls: 'ded', hint: 'За что удержано: по видам', subs: [
-            { key: 'ded_adv',   label: 'WB Продвижение' },
             { key: 'ded_jam',   label: 'Подписка «Джем»' },
             { key: 'ded_util',  label: 'Утилизация товара' },
             { key: 'ded_other', label: 'Другое' },
@@ -6493,7 +6492,7 @@ const RNP = (() => {
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
-        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true',
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -6600,6 +6599,8 @@ const RNP = (() => {
     function _applyCabinetTotals(m, t, date) {
         if (!m || !t) return m;
         const n = (v) => Number(v) || 0;
+        // прочие расходы на единицу (из настроек артикулов) к финотчёту не относятся, их сохраняем как есть
+        const otherCosts = Math.max(0, (m.net_payout || 0) - (m.profit || 0) - (m.cost_price_val || 0));
         m.realization = n(t.realization);
         m.to_transfer = n(t.to_transfer);
         m.delivery_sum = n(t.delivery);
@@ -6622,7 +6623,9 @@ const RNP = (() => {
         m.compensation_sum = n(t.compensation);
         m.additional_sum = n(t.additional);
         m.wb_commission = Math.max(0, m.realization - m.acquiring_sum - (m.to_transfer - m.compensation_sum));
-        m.other_net_sum = m.deduction_sum - m.additional_sum - m.compensation_sum; // расход со знаком «плюс», как остальные строки; эквайринг отдельной строкой
+        // Реклама в «К выводу» = то, что WB реально удержал («WB Продвижение»), чтобы итог сходился с финотчётом; в «Прочие» она не входит
+        m.ad_charged = n(t.ded_adv);
+        m.other_net_sum = m.deduction_sum - m.ad_charged - m.additional_sum - m.compensation_sum; // расход со знаком «плюс», как остальные строки; эквайринг отдельной строкой
         m.ded_add = -(m.additional_sum + m.compensation_sum);
         m.comm_pct_real = _commPct(m);
         m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
@@ -6638,8 +6641,9 @@ const RNP = (() => {
         // Прибыль: реклама WB, списанная с баланса (в «Прочих удержаниях»), не вычитается второй раз — РК учтена расходом.
         m.ff_sum = (m.ff_ship || 0) + (m.ff_storage || 0) + (m.ff_extra || 0);
         m.tax_sum = _taxPct() / 100 * (m.realization || 0);
-        m.net_payout = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - m.ad_spend - m.ff_sum - m.tax_sum;
-        m.profit = m.net_payout - (m.cost_price_val || 0);
+        // Как «Итого к оплате» WB: перечисление + доплаты − логистика − хранение − приёмка − штрафы − все удержания (в них и реклама), затем ФФ и налог
+        m.net_payout = m.to_transfer + m.additional_sum - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - m.deduction_sum - m.ff_sum - m.tax_sum;
+        m.profit = m.net_payout - (m.cost_price_val || 0) - otherCosts;
         m.profit_per_unit = m.sales_count > 0 ? m.profit / m.sales_count : 0;
         m.margin_pct = m.to_transfer > 0 ? m.profit / m.to_transfer * 100 : 0;
         m.roi_pct = m.cost_price_val > 0 ? m.profit / m.cost_price_val * 100 : 0;
@@ -6948,6 +6952,7 @@ const RNP = (() => {
         d.acquiring_sum   = Number(d.acquiring_sum) || 0;
         d.wb_commission   = Math.max(0, (d.realization || 0) - d.acquiring_sum - ((d.to_transfer || 0) - (Number(d.compensation_sum) || 0)));
         d.comm_pct_real   = _commPct(d);
+        d.ad_charged      = d.ad_spend || 0; // у артикула реклама по статистике кампаний
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
         d.net_payout      = revenue - wbCosts - adSpend - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
