@@ -809,6 +809,7 @@ const RNP = (() => {
         // Сначала упакованная выгрузка с кэшем устройства (nr-snap.js): одна компактная загрузка вместо десятков страниц.
         // null = не получилось / не подходит, идём прежним постраничным путём.
         if (window.NrSnap && !_noSnap) {
+            _pwRecord(table, filters);
             const packed = await window.NrSnap.fetchRows(_db, table, filters, columns);
             if (packed) return packed;
         }
@@ -10219,6 +10220,50 @@ const RNP = (() => {
     };
     function _mpDashRender() { const b = document.getElementById('nr-mp-dash'); if (b) b.remove(); }
     window.NrMpDash = { render: _mpDashRender };
+
+    // ── Предзагрузка в фоне: после входа, пока человек ещё на дашборде, тихо прогреваем кэш устройства (nr-snap.js) по тем же
+    // выгрузкам, что нужны РНП (артикулы, остатки, дневные данные за последний открытый период). К открытию РНП всё уже на месте.
+    // Это только чтение базы: никакого экрана, карточки загрузки и запросов к WB. Включено без отдельной кнопки.
+    const _PW_KEY = 'nr_rnp_pw_v1';
+    function _pwRecord(table, filters) {
+        if (table !== 'rnp_daily_data' || !_cab) return;
+        try {
+            let f = null, t = null;
+            for (const x of (filters || [])) { if (x.column === 'date' && x.op === 'gte') f = x.value; if (x.column === 'date' && x.op === 'lte') t = x.value; }
+            if (!f || !t) return;
+            const today = _wbTodayStr(), d = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 864e5);
+            localStorage.setItem(_PW_KEY + '_' + _cab, JSON.stringify({ from: d(f, today), to: d(t, today) }));
+        } catch (e) { /* без хранилища просто прогреем период по умолчанию */ }
+    }
+    const _pwAt = {};
+    let _pwTimer = 0;
+    async function _prewarm() {
+        const cab = window.currentCabinetId, db = window.supabase || _db;
+        if (!cab || !db || !window.NrSnap) return;
+        const tab = document.getElementById('tab-rnp');
+        if ((tab && tab.classList.contains('active')) || document.hidden) return;
+        try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) { /* ок */ }
+        const k = cab + '|' + _mp();
+        if (Date.now() - (_pwAt[k] || 0) < 10 * 60e3) return;
+        _pwAt[k] = Date.now();
+        const today = _wbTodayStr(), add = (s0, n) => new Date(Date.parse(s0) + n * 864e5).toISOString().slice(0, 10);
+        let rec = null; try { rec = JSON.parse(localStorage.getItem(_PW_KEY + '_' + cab) || 'null'); } catch (e) { rec = null; }
+        const from = add(today, rec && isFinite(rec.from) ? rec.from : -40), to = add(today, rec && isFinite(rec.to) ? rec.to : 0);
+        const base = [{ op: 'eq', column: 'cabinet_id', value: cab }];
+        const jobs = [['rnp_articles', base], ['wb_stocks', base], ['rnp_daily_data', base.concat([{ op: 'gte', column: 'date', value: from }, { op: 'lte', column: 'date', value: to }])]];
+        for (const [t, fl] of jobs) {
+            if ((tab && tab.classList.contains('active')) || document.hidden) return;
+            try { await window.NrSnap.fetchRows(db, t, fl, '*'); } catch (e) { /* прогрев не должен ничего ломать */ }
+            await new Promise((r) => setTimeout(r, 300));
+        }
+    }
+    function _pwSoon(ms) {
+        clearTimeout(_pwTimer);
+        _pwTimer = setTimeout(() => { const run = () => { _prewarm().catch(() => {}); }; if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 5000 }); else run(); }, ms);
+    }
+    window.addEventListener('load', () => _pwSoon(5000));
+    document.addEventListener('cabinet-changed', () => _pwSoon(3000));
+    window.RNP_prewarm = _prewarm;
 
     function _bindCabinetListener() {
         if (_cabinetListenerBound) return;
