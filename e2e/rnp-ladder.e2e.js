@@ -12,7 +12,7 @@ const tables = {
     rnp_articles: [{ id: 'a0', cabinet_id: CAB, nm_id: 1001, name: 'a', category: 'К', is_active: true, cost_price: 100, sort_order: 0 }],
     rnp_daily_data: Array.from({ length: 5 }, (_, d) => ({ cabinet_id: CAB, nm_id: 1001, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, to_transfer: 7000, delivery_sum: 1000, storage_sum: 100, penalty_sum: 50, ad_spend: 200 })),
 };
-const LADDER = ['Реализация', 'Комиссия', 'Эквайринг', 'Логистика', 'Хранение', 'Приёмка и обработка', 'Штрафы', 'Прочие удержания и доплаты', 'Реклама (РК)', 'Фулфилмент', 'Налог', 'Себестоимость', 'К выводу', 'Прибыль'];
+const LADDER = ['Реализация', 'Комиссия', 'Эквайринг', 'Логистика', 'Хранение', 'Приёмка и обработка', 'Штрафы', 'Прочие удержания и доплаты', 'Реклама (РК)', 'Фулфилмент', 'Налог', 'К выводу', 'Себестоимость', 'Прибыль'];
 
 (async () => {
     const srv = await serve();
@@ -41,8 +41,8 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         const profit1 = await read('Прибыль'), tax1 = await read('Налог'), real = await read('Реализация'), payout1 = await read('К выводу');
         assert.ok(tax1 > 0 && Math.abs(tax1 - real * 0.1) <= Math.max(2, real * 0.002), 'налог 10% от реализации: ' + tax1 + ' из ' + real);
         assert.ok(profit1 < profit0 && Math.abs((profit0 - profit1) - tax1) <= 3, 'прибыль уменьшилась на налог: ' + profit0 + ' → ' + profit1);
-        assert.strictEqual(payout1, profit1, 'налог до себестоимости: «К выводу» уже после налога');
-        const order = await labels(); assert.ok(order.indexOf('Налог') < order.indexOf('Себестоимость') && order.indexOf('Себестоимость') < order.indexOf('К выводу'), 'налог стоит перед себестоимостью');
+        const cost1 = await read('Себестоимость'); assert.ok(Math.abs(payout1 - cost1 - profit1) <= 2, 'К выводу − себестоимость = прибыль: ' + payout1 + ' − ' + cost1 + ' ≠ ' + profit1);
+        const order = await labels(); assert.ok(order.indexOf('Налог') < order.indexOf('К выводу') && order.indexOf('К выводу') < order.indexOf('Себестоимость') && order.indexOf('Себестоимость') < order.indexOf('Прибыль'), 'налог стоит перед себестоимостью');
         console.log('ok   налог 10% от реализации (' + tax1 + ') вычитается из прибыли (' + profit0 + ' → ' + profit1 + ')');
         // раскрытие: «Комиссия» показывает процент, «Прочие удержания и доплаты» и «Штрафы» показывают виды; стрелки синие
         await page.evaluate(() => { RNP.pick('general'); }); await page.waitForTimeout(1200);
