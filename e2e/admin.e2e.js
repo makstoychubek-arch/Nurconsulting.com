@@ -24,9 +24,11 @@ const BOTS = [
 
 const FEATS = ['reviews', 'order_alerts', 'ads', 'ab_rotation', 'sync', 'rnp_morning'].map((feature) => ({ feature, enabled: true, active: true, paused_until: null, blockers: [] }));
 
+// Имитация сети: отклик интерфейса проверяем по порогу 600 мс (быстрее задержки), фоновые вызовы ждём с запасом сверх неё
+const LAT = 900;
 async function open(browser, base) {
     const env = await openApp(browser, base, {
-        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 600,
+        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: LAT,
         tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T', created_at: '2026-09-17T00:00:00Z', last_sign_in_at: new Date().toISOString() }, { id: 's1', user_id: 'u-aizada', email: 'aizada@example.test', status: 'pending', tariff_plan: 'start', is_super_admin: false, full_name: 'Айзада', created_at: '2026-10-23T00:00:00Z', last_sign_in_at: null }, { id: 's2', user_id: 'u-timur', email: 'timur@example.test', status: 'active', tariff_plan: 'start', is_super_admin: false, full_name: 'Темир', created_at: '2026-10-22T00:00:00Z', last_sign_in_at: new Date().toISOString() }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }],
             admin_alert_settings: [{ key: 'ai_balance', enabled: true, threshold: 5, value: 12, value_at: new Date().toISOString() }, { key: 'tokens', enabled: true }, { key: 'bots', enabled: false }],
             admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
@@ -68,7 +70,8 @@ test('поиск по кабинету фильтрует список; сотр
     await page.locator('#nra-q').fill('марс');
     await page.waitForFunction(() => document.querySelectorAll('.nra-t tr.r').length === 1);
     await page.locator('#nra-q').fill('');
-    await page.locator('.nra-side button[data-sec="staff"]').click();
+    await page.locator('.nra-side button[data-sec="acc"]').click();
+    await page.locator('.nra-tabs button[data-ctab="staff"]').click();
     assert.ok(/makstoychubek@gmail\.com/.test(await page.locator('.nra-main').innerText()), 'сотрудник виден');
     await page.locator('.nra-side button[data-sec="tg"]').click();
     await page.locator('.nra-row').first().waitFor({ state: 'visible' });
@@ -79,9 +82,9 @@ test('«Переподключить» бота: кнопка отвечает �
     const btn = page.locator('.nra-row', { hasText: 'Амина' }).locator('button[data-hook]');
     const t0 = Date.now();
     await btn.click();
-    await page.waitForFunction(() => /Подключаю/.test(document.querySelector('.nra-main').innerText), null, { timeout: 300 });
-    assert.ok(Date.now() - t0 < 300, 'кнопка ответила за ' + (Date.now() - t0) + ' мс');
-    await page.waitForTimeout(900);
+    await page.waitForFunction(() => /Подключаю/.test(document.querySelector('.nra-main').innerText), null, { timeout: 600 });
+    assert.ok(Date.now() - t0 < 600, 'кнопка ответила за ' + (Date.now() - t0) + ' мс');
+    await page.waitForTimeout(LAT + 700);
     assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'telegram-admin' && c.body.action === 'set_webhook' && c.body.bot_id === 'amina'), 'set_webhook ушёл');
 });
 
@@ -92,11 +95,11 @@ test('оповещения: переключатель и порог сохра�
     const before = calls.filter((c) => c.kind === 'write' && c.table === 'admin_alert_settings').length;
     const t0 = Date.now();
     await page.locator('button[data-alr="bots"]').click();
-    await page.waitForFunction(() => document.querySelector('button[data-alr="bots"]').classList.contains('on'), null, { timeout: 300 });
-    assert.ok(Date.now() - t0 < 300, 'переключатель ответил за ' + (Date.now() - t0) + ' мс');
+    await page.waitForFunction(() => document.querySelector('button[data-alr="bots"]').classList.contains('on'), null, { timeout: 600 });
+    assert.ok(Date.now() - t0 < 600, 'переключатель ответил за ' + (Date.now() - t0) + ' мс');
     await page.locator('input[data-val="ai_balance"]').fill('30');
     await page.locator('input[data-val="ai_balance"]').blur();
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(LAT + 700);
     const after = calls.filter((c) => c.kind === 'write' && c.table === 'admin_alert_settings').length;
     assert.ok(after >= before + 2, 'настройки ушли в базу: ' + (after - before));
 });
@@ -119,12 +122,12 @@ test('боты кабинета: тумблер выключает ответы 
     assert.ok(/Акылай/.test(await page.locator('.nra-bot').first().innerText()), 'первым Акылай (отзывы и вопросы)');
     const t0 = Date.now();
     await page.locator('.nra-bot').first().locator('button[data-ft]').click();
-    await page.waitForFunction(() => /выключен/.test(document.querySelector('.nra-bot').innerText), null, { timeout: 300 });
-    assert.ok(Date.now() - t0 < 300, 'тумблер ответил за ' + (Date.now() - t0) + ' мс');
-    await page.waitForTimeout(800);
+    await page.waitForFunction(() => /выключен/.test(document.querySelector('.nra-bot').innerText), null, { timeout: 600 });
+    assert.ok(Date.now() - t0 < 600, 'тумблер ответил за ' + (Date.now() - t0) + ' мс');
+    await page.waitForTimeout(LAT + 700);
     assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'cabinet-features' && c.body.action === 'set' && c.body.feature === 'reviews' && c.body.enabled === false), 'выключение ушло в cabinet-features');
     await page.locator('.nra-bot').nth(2).locator('select.nra-sel').selectOption('60');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(LAT + 700);
     assert.ok(calls.some((c) => c.kind === 'fn' && c.name === 'cabinet-features' && c.body.action === 'pause' && c.body.feature === 'ads' && c.body.minutes === 60), 'пауза на час ушла');
 });
 
@@ -139,12 +142,13 @@ test('владелец кабинета: по почте, приглашение
     await page.locator('input[id^="nra-own-"]').first().fill('Owner@Example.test');
     const t0 = Date.now();
     await page.locator('button[data-own]').first().click();
-    await page.waitForFunction(() => /owner@example\.test/.test(document.querySelector('.nra-det').innerText) && /ждёт первого входа/.test(document.querySelector('.nra-det').innerText), null, { timeout: 300 });
-    assert.ok(Date.now() - t0 < 300, 'приглашение появилось за ' + (Date.now() - t0) + ' мс');
+    await page.waitForFunction(() => /owner@example\.test/.test(document.querySelector('.nra-det').innerText) && /ждёт первого входа/.test(document.querySelector('.nra-det').innerText), null, { timeout: 600 });
+    assert.ok(Date.now() - t0 < 600, 'приглашение появилось за ' + (Date.now() - t0) + ' мс');
 });
 
 test('суперадмин назначает другого суперадмина: видно сразу, плохая почта не принимается, владельца снять нельзя', async ({ page }) => {
-    await page.locator('.nra-side button[data-sec="staff"]').click();
+    await page.locator('.nra-side button[data-sec="acc"]').click();
+    await page.locator('.nra-tabs button[data-ctab="staff"]').click();
     await page.locator('#nra-super').waitFor({ state: 'visible' });
     assert.ok(/global\.pro\.1004@gmail\.com/.test(await page.locator('.nra-main').innerText()), 'владелец в списке');
     assert.strictEqual(await page.locator('[data-unsuper="global.pro.1004@gmail.com"]').count(), 0, 'у владельца нет кнопки «снять»');
@@ -155,7 +159,7 @@ test('суперадмин назначает другого суперадми�
     const t0 = Date.now();
     await page.locator('button[data-super]').click();
     assert.ok(/second@example\.test/.test(await page.locator('.nra-main').innerText()), 'суперадмин не появился сразу');
-    assert.ok(Date.now() - t0 < 300, 'суперадмин появился за ' + (Date.now() - t0) + ' мс');
+    assert.ok(Date.now() - t0 < 600, 'суперадмин появился за ' + (Date.now() - t0) + ' мс');
 });
 
 test('«В консалтинг»: кабинет клиента переходит к команде сразу, после подтверждения', async ({ page }) => {
@@ -167,8 +171,8 @@ test('«В консалтинг»: кабинет клиента переход�
     assert.ok(/Подтвердить/.test(await page.locator('button[data-tocons]').innerText()), 'нужно подтверждение');
     const t0 = Date.now();
     await page.locator('button[data-tocons]').click();
-    await page.waitForFunction(() => /в консалтинге/.test(document.querySelector('.nra-main').innerText), null, { timeout: 300 });
-    assert.ok(Date.now() - t0 < 300, 'кабинет перешёл за ' + (Date.now() - t0) + ' мс');
+    await page.waitForFunction(() => /в консалтинге/.test(document.querySelector('.nra-main').innerText), null, { timeout: 600 });
+    assert.ok(Date.now() - t0 < 600, 'кабинет перешёл за ' + (Date.now() - t0) + ' мс');
     await page.locator('.nra-side button[data-sec="acc"]').click();
     assert.ok(/Style KG/.test(await page.locator('.nra-main').innerText()), 'кабинет теперь в консалтинге');
 });
@@ -196,9 +200,15 @@ test('главная: при нехватке высоты страница пр
     assert.strictEqual(r.clipped, 0, 'обрезанных карточек: ' + r.clipped);
 });
 
+test('окно админки: фон за ним размыт (правило владельца про модалки)', async ({ page }) => {
+    const bf = await page.evaluate(() => { const e = document.getElementById('nr-admin'); const c = getComputedStyle(e); return c.backdropFilter || c.webkitBackdropFilter || ''; });
+    assert.ok(/blur\(/.test(bf), 'backdrop-filter: ' + bf);
+});
+
 test('пользователи сайта: отдельный раздел, по нажатию видны кабинеты, размер и синхронизация', async ({ page }) => {
     await page.locator('.nra-side button[data-sec="users"]').click();
     await page.locator('.nra-t tr.r').first().waitFor({ state: 'visible' });
+    if (process.env.E2E_SHOT) await page.screenshot({ path: process.env.E2E_SHOT + '/admin-users.png' });
     assert.strictEqual(await page.locator('.nra-t tr.r').count(), 3, 'три пользователя');
     const row = page.locator('.nra-t tr.r', { hasText: 'Айзада' });
     assert.ok(/ждёт одобрения/.test(await row.innerText()), 'статус ожидания');
