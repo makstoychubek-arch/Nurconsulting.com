@@ -34,8 +34,8 @@
 
     // Живой фон допустим только на своей базе: live — на светлой, flow — на тёмной.
     function syncBg() {
-        var theme = html.getAttribute('data-theme') || 'ios', want = savedBg();
-        var ok = (want === 'live' && theme === 'ios') || (want === 'flow' && theme === 'neon');
+        var theme = 'neon', want = 'flow';
+        var ok = true;
         if (ok) { ensureLayer(); html.setAttribute('data-bg', want); } else html.removeAttribute('data-bg');
         var label = current().label;
         Array.prototype.forEach.call(doc.querySelectorAll('.beta-theme-label'), function (el) { el.textContent = label; });
@@ -94,11 +94,8 @@
             root.applyTheme = function (theme) { base.apply(this, arguments); syncBg(); };
             root.applyTheme._nrt = true;
         }
-        root.toggleTheme = function () {
-            var ev = root.event, a = ev && (ev.currentTarget || ev.target);
-            if (a && a.closest) a = a.closest('button,.beta-theme-row,[role="button"]') || a;
-            openMenu(a);
-        };
+        // Одна тема (тёмное живое стекло): переключать нечего
+        root.toggleTheme = function () {};
         syncBg();
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install); else install();
