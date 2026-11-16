@@ -2354,3 +2354,11 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
 @media (max-width: 768px) {
   html#nr-root.nr-f-adv header.glass.app-header .app-header-main > .nr-mp { display: inline-flex !important; grid-column: auto; grid-row: auto; order: 3; height: 26px; }
 }
+
+/* Телефон, iPhone: шапка не «закреплённая» (position: fixed), а лежит наверху страницы (absolute), как в приложении WB.
+   iOS размывает закреплённые у верхнего края элементы под строкой состояния; цвет шапки теперь тот же, что у страницы, без отдельной плашки. */
+@media (max-width: 768px) {
+  html body header.glass.app-header { position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; transform: none !important; will-change: auto !important; background: var(--bg) !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  /* подпанель «РНП ▾» на телефоне не нужна: подразделы РНП есть в меню «Ещё» */
+  html body #rnp-views.nr-subbar { display: none !important; }
+}
