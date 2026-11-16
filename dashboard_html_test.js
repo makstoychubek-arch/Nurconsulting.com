@@ -662,7 +662,7 @@ assert.ok(rnpSrc.includes("from('exchange_rates')"), 'RNP must read the fixed ex
 assert.ok(rnpSrc.includes('function _latestNbkr'), 'the official NBKR rate is still read for the daily rate');
 assert.ok(!rnpSrc.includes('Курс ₽ → сом</label>') && !rnpSrc.includes('Период расчёта метрик</label>'),
     'the «Основные настройки» card (rates, period, default plan, months) is gone: everything is automatic');
-assert.ok(/key: 'storage_sum',\s+label: 'Хранение \(сверено\)'/.test(rnpSrc), 'RNP shows reconciled storage row');
+assert.ok(/key: 'storage_sum',\s+label: 'Хранение'/.test(rnpSrc), 'RNP shows storage row in the expense ladder');
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903152000_rnp_nbkr_rate_cron.sql')),
     'daily NBKR cron migration must exist'
