@@ -7463,9 +7463,18 @@ const RNP = (() => {
         const liveTbody = liveTable.tBodies[0];
         const nextTbody = nextTable.tBodies[0];
         if (!liveTbody || !nextTbody) return false;
-        if (liveTbody.rows.length !== nextTbody.rows.length) return false;
         // Строка заметок добавляется/убирается в шапке — это новая структура, а не правка ячеек.
         if (liveTable.tHead && nextTable.tHead && liveTable.tHead.rows.length !== nextTable.tHead.rows.length) return false;
+        // Раскрыли или свернули строку («Логистика ▸»): меняется только набор строк тела таблицы. Подменяем одно тело,
+        // а шапку, фото и всё остальное на экране не трогаем, чтобы лист не «обновлялся».
+        const sameHeadCols = !(liveTable.tHead && nextTable.tHead) || [...liveTable.tHead.rows].every((r, i) => r.cells.length === nextTable.tHead.rows[i].cells.length);
+        if (liveTbody.rows.length !== nextTbody.rows.length) {
+            if (!sameHeadCols || liveTbody.querySelector('tr.rnp-lazy-sec') || nextTbody.querySelector('tr.rnp-lazy-sec')) return false;
+            liveTbody.innerHTML = nextTbody.innerHTML;
+            const lh = liveTable.tHead, nh = nextTable.tHead;
+            if (lh && nh) for (let i = 0; i < lh.rows.length; i++) { if (!lh.rows[i].classList.contains('rnp-head-panel')) _patchSubtree(lh.rows[i], nh.rows[i]); }
+            return true;
+        }
         // Число колонок должно совпасть во ВСЕХ строках и в шапке: у первой строки бывает одна «широкая» ячейка (colspan),
         // и тогда смена периода (например, до 14-го вместо 11-го) правила только цифры, а новые колонки не появлялись.
         for (let i = 0; i < liveTbody.rows.length; i++) if (liveTbody.rows[i].cells.length !== nextTbody.rows[i].cells.length) return false;

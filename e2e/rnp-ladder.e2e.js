@@ -59,6 +59,20 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         const lg = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).filter((c) => /^(Отмена → клиенту|Доля отмен %)/.test(c[0])));
         assert.ok(lg.length === 2 && lg.every((r) => r.slice(1).some((x) => /[1-9]/.test(x))), 'логистика по причинам показывает цифры: ' + JSON.stringify(lg));
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
+        // раскрытие строки не пересобирает весь лист: таблица и шапка остаются теми же узлами, прокрутка на месте
+        await page.evaluate(() => RNP.pick(1001)); await page.waitForTimeout(1500);
+        const keep = await page.evaluate(async () => {
+            const body = document.getElementById('rnp-sheet-body'), tbl = body.querySelector('table'), headSel = '.rnp-head-wide, .rnp-article-panel, .rnp-head-wide-info', head = body.querySelector(headSel);
+            body.scrollTop = 120; const st = body.scrollTop;
+            const tgl = [...document.querySelectorAll('.rnp-split-toggle')].find((e) => /Логистика/.test(e.innerText));
+            const rowsBefore = document.querySelectorAll('#rnp-sheet-body tbody tr').length;
+            tgl.click(); await new Promise((r) => setTimeout(r, 700));
+            return { sameTable: tbl === body.querySelector('table'), sameHead: !head || head === body.querySelector(headSel), scroll: body.scrollTop === st, rowsChanged: document.querySelectorAll('#rnp-sheet-body tbody tr').length !== rowsBefore };
+        });
+        assert.deepStrictEqual(keep, { sameTable: true, sameHead: true, scroll: true, rowsChanged: true }, 'раскрытие «Логистики» не обновляет весь лист: ' + JSON.stringify(keep));
+        await page.evaluate(() => RNP.toggleSplit('delivery_sum'));
+        console.log('ok   раскрытие строки не перерисовывает лист целиком');
+        await page.evaluate(() => RNP.pick('general')); await page.waitForTimeout(1200);
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];
         assert.ok(!(await labelsOf()).includes('Прибыль на единицу') && !(await labelsOf()).includes('От WB на единицу'), 'в «Общем» «Прибыль на единицу» не показывается');
