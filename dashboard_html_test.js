@@ -2573,8 +2573,8 @@ assert.ok(
     );
 }
 
-assert.ok(html.includes("NR_THEMES = ['neon']") && !html.includes("NR_THEMES = ['ios'"),
-    'тема одна: тёмное живое стекло, переключатель убран (решение владельца 16.11.2026)');
+assert.ok(html.includes("NR_THEMES = ['neon', 'ios']") && !html.includes('data-theme="tabler"'),
+    'две темы живого стекла: чёрная и белая; Tabler удалён (решение владельца 16.11.2026)');
 assert.ok(html.includes('id="evidence-report-root"') && html.includes('EvidenceReport.paint'),
     'Сводный отчёт paints Evidence P&L from dashboard metrics');
 assert.ok(
