@@ -109,8 +109,8 @@ html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolut
     html .mobile-overlay.active { z-index: 10000 !important; }
     html .sidebar-app.mobile-open .sidebar-rail { box-shadow: 8px 0 32px rgba(0, 0, 0, .25); }
     html, html body { background-color: var(--surface-solid) !important; }
-    html .bottom-nav { display: none !important; }
-    html .main-rail { padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important; }
+    /* нижнее меню на телефоне включено (по макету владельца); место под него оставляем снизу */
+    html .main-rail { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 @media (max-width: 768px) {
     html#nr-root.nr-f-drawer body header.app-header, html#nr-root.nr-f-drawer body .bottom-nav { z-index: 1 !important; }

@@ -297,17 +297,17 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
 {
     const bn = html.slice(html.indexOf('id="nr-bottom-nav"'), html.indexOf('id="nr-beta-overlay"'));
     assert.ok(
-        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-rnp"') &&
-        bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
-        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-goods"') &&
+        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rnp"') &&
+        bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-rk"') &&
+        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-goods"') &&
         bn.indexOf('id="bn-goods"') < bn.indexOf('id="bn-beta"'),
-        'bottom nav order: РК, РНП, Дашборд, Остатки, Меню'
+        'bottom nav order: Дашборд, РНП, Продвижение, Логистика, Ещё'
     );
     assert.ok(
-        bn.includes('bn-lbl">Продвиж') &&
+        bn.includes('bn-lbl">Продвижение') &&
         !bn.includes('id="bn-agents"') &&
-        bn.includes('bn-lbl">Остатки') &&
-        bn.includes('bn-lbl">Меню') &&
+        bn.includes('bn-lbl">Логистика') &&
+        bn.includes('bn-lbl">Ещё') &&
         !bn.includes('id="bn-ab"') &&
         !bn.includes('id="bn-settings"'),
         'Agents, A/B and settings live in the menu sheet; RK is on the bar'
@@ -315,8 +315,8 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
     assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
         'theme toggle is not on the bottom nav');
 }
-assert.ok(html.includes('bottom-nav-btn--home') && html.includes('id="bn-dash"'),
-    'dashboard is the accent center item on the bottom nav');
+assert.ok(html.includes('id="bn-dash"') && html.indexOf('id="bn-dash"') < html.indexOf('id="bn-rnp"'),
+    'dashboard is the first item on the bottom nav');
 assert.ok(
     html.includes('function toggleBetaSheet') &&
     html.includes('function openBetaSheet') &&

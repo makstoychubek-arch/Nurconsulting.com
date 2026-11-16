@@ -2260,3 +2260,38 @@ html body #tab-dashboard #nrdb-bal .v { font-size: 26px; }
 html body #tab-dashboard #nrdb-bal .r { gap: 14px; align-items: baseline; }
 html body #tab-dashboard #nrdb-bal .hint { margin: 0; }
 @media (max-width: 760px) { html body #tab-dashboard #nrdb-bal { gap: 4px 18px; } }
+
+/* ───────── Телефон: шапка и нижнее меню (макет «Мобильный NR Space», 16.11.2026) ─────────
+   Сверху один ряд: круглая аватарка кабинета (по нажатию список кабинетов), название страницы, круглый календарь с маленькой датой.
+   Строка состояния iPhone размывает всё под собой, поэтому ряд опущен на env(safe-area-inset-top) + 8px.
+   Снизу: разделы с иконкой и подписью, как в мобильном WB. */
+@media (max-width: 768px) {
+  html body header.glass.app-header { padding-top: calc(env(safe-area-inset-top, 0px) + 8px) !important; padding-bottom: 6px !important; }
+  html body header.glass.app-header .app-header-main { display: flex !important; align-items: center; gap: 8px; flex-wrap: nowrap; }
+  html body header.glass.app-header .app-header-main > div { display: contents !important; }
+  html body header.glass.app-header #mobile-menu-btn { display: none !important; }
+  html body header.glass.app-header #cabinet-picker-wrap { order: 0; flex: none; margin: 0; }
+  html body header.glass.app-header #header-back-btn { order: 1; flex: none; }
+  html body header.glass.app-header .header-page-title { order: 2; display: block !important; flex: 1 1 auto; min-width: 0; }
+  html body header.glass.app-header #page-title { display: block !important; font-size: 17px; font-weight: 900; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html body header.glass.app-header #header-date-chip-wrap { order: 3; flex: none; gap: 6px; padding: 0 !important; height: auto !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+  html body header.glass.app-header #header-date-chip-wrap::before { content: ""; flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--text-primary); background: center / 16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9a9a' stroke-width='1.8' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M8 3v4M16 3v4M3 10h18'/%3E%3C/svg%3E"); }
+  html body header.glass.app-header #header-date-chip-wrap .date-chip-chevron { display: none; }
+  html body header.glass.app-header #date-range { font-size: 10px !important; font-weight: 700; line-height: 1.15 !important; width: 44px !important; max-width: 44px !important; white-space: normal !important; color: var(--text-muted) !important; }
+  html body header.glass.app-header .nr-notify { order: 4; }
+  html body header.glass.app-header .nr-zoom { display: none !important; }
+  /* аватарка кабинета: круг с первой буквой */
+  html body header.glass.app-header #cabinet-picker-btn { width: 36px; height: 36px; min-width: 36px; padding: 0 !important; border-radius: 50% !important; border: 0 !important; background: var(--text-primary) !important; color: var(--surface-solid) !important; display: grid; place-items: center; }
+  html body header.glass.app-header #cabinet-picker-btn .cabinet-picker-face { display: grid; place-items: center; gap: 0; }
+  html body header.glass.app-header #cabinet-picker-btn .cabinet-picker-chevron { display: none; }
+  html body header.glass.app-header #cabinet-picker-label { display: inline-block; font-size: 0; line-height: 1; max-width: none !important; overflow: visible; color: var(--surface-solid) !important; }
+  html body header.glass.app-header #cabinet-picker-label::first-letter { font-size: 15px; font-weight: 900; text-transform: uppercase; color: var(--surface-solid); }
+  html body header.glass.app-header #cabinet-dropdown-menu { position: fixed; left: 12px; right: auto; top: calc(env(safe-area-inset-top, 0px) + 56px); width: min(300px, calc(100vw - 24px)); }
+  /* нижнее меню */
+  html body .bottom-nav { display: flex !important; padding-top: 6px; }
+  html body .bottom-nav-btn { gap: 3px; }
+  html body .bottom-nav-btn .bn-ico { width: 24px; height: 24px; background: transparent !important; }
+  html body .bottom-nav-btn .bn-ico svg { width: 22px; height: 22px; stroke-width: 1.6; }
+  html body .bottom-nav-btn .bn-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0; }
+  html body .bottom-nav-btn.active .bn-lbl { font-weight: 900; }
+}
