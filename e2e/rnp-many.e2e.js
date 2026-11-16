@@ -28,6 +28,8 @@ const tables = {
         page.on('console', (m) => { if (m.type() === 'warning' && /WB API 4\d\d|too many/i.test(m.text())) warns.push(m.text().slice(0, 160)); });
         await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); showTab('rnp'); });
         await page.waitForTimeout(6000);
+        const firstTab = await page.evaluate(() => { const t = document.querySelector('.rnp-sheet-tab.active'); return t ? t.textContent.replace(/\s+/g, ' ').trim() : ''; });
+        assert.ok(/Общий/.test(firstTab), 'у кабинета с 45 артикулами РНП открывается на «Общем», а не на первом артикуле: «' + firstTab + '»');
         const big = calls.filter((c) => c.kind === 'fn' && ((c.body && (c.body.params || c.body).nmIds) || []).length > 20);
         assert.equal(big.length, 0, 'запросов к WB с более чем 20 артикулами: ' + big.length);
         assert.equal(warns.length, 0, 'ошибки WB API в консоли: ' + warns.join(' | '));

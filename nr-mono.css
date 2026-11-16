@@ -2269,17 +2269,17 @@ html body #tab-dashboard #nrdb-bal .hint { margin: 0; }
 @media (max-width: 768px) {
   html body header.glass.app-header { padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important; padding-bottom: 8px !important; }
   html body header.glass.app-header .app-header-main { display: flex !important; align-items: center; gap: 8px; flex-wrap: nowrap; }
-  html body header.glass.app-header .app-header-main > div { display: contents !important; }
+  html body header.glass.app-header .app-header-main > div:not(.nr-mp) { display: contents !important; }
   html body header.glass.app-header #mobile-menu-btn { display: none !important; }
   html body header.glass.app-header #cabinet-picker-wrap { order: 0; flex: none; margin: 0; }
   html body header.glass.app-header #header-back-btn { order: 1; flex: none; }
   html body header.glass.app-header .header-page-title { order: 2; display: block !important; flex: 1 1 auto; min-width: 0; }
   html body header.glass.app-header #page-title { display: block !important; font-size: 17px; font-weight: 900; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  html body header.glass.app-header #header-date-chip-wrap { order: 3; flex: none; gap: 6px; padding: 0 !important; height: auto !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+  html body header.glass.app-header #header-date-chip-wrap { order: 4; flex: none; gap: 6px; padding: 0 !important; height: auto !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
   html body header.glass.app-header #header-date-chip-wrap::before { content: ""; flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--text-primary); background: center / 16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9a9a' stroke-width='1.8' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M8 3v4M16 3v4M3 10h18'/%3E%3C/svg%3E"); }
   html body header.glass.app-header #header-date-chip-wrap .date-chip-chevron { display: none; }
   html body header.glass.app-header #date-range { font-size: 10px !important; font-weight: 700; line-height: 1.15 !important; width: 44px !important; max-width: 44px !important; white-space: normal !important; color: var(--text-muted) !important; }
-  html body header.glass.app-header .nr-notify { order: 4; }
+  html body header.glass.app-header .nr-notify { order: 5; }
   html body header.glass.app-header .nr-zoom { display: none !important; }
   /* аватарка кабинета: круг с первой буквой */
   html body header.glass.app-header #cabinet-picker-btn { width: 36px; height: 36px; min-width: 36px; padding: 0 !important; border-radius: 50% !important; border: 0 !important; background: var(--text-primary) !important; color: var(--surface-solid) !important; display: grid; place-items: center; }
@@ -2341,4 +2341,16 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
   html#nr-root.nr-f-adv header.glass.app-header #header-date-chip-wrap #date-range { font-size: 10px !important; }
   html#nr-root.nr-f-adv header.glass.app-header #cabinet-picker-btn { width: 36px !important; height: 36px !important; padding: 0 !important; }
   html#nr-root.nr-f-adv header.glass.app-header .nr-crumbs { white-space: normal; font-size: 12px; line-height: 1.15; }
+}
+
+/* Телефон: переключатель WB | Ozon | Вместе маленьким тумблером в верхнем ряду шапки */
+@media (max-width: 768px) {
+  html body header.glass.app-header .app-header-main > .nr-mp { order: 3; flex: none; height: 26px; padding: 1px; margin: 0; }
+  html body header.glass.app-header .nr-mp button { height: 22px; padding: 0 6px; min-width: 0; }
+  html body header.glass.app-header .nr-mp button svg { height: 9px; width: auto; }
+  html#nr-root.nr-f-adv header.glass.app-header .nr-mp { order: 3; }
+  html#nr-root.nr-f-adv header.glass.app-header #header-date-chip-wrap { order: 4; }
+}
+@media (max-width: 768px) {
+  html#nr-root.nr-f-adv header.glass.app-header .app-header-main > .nr-mp { display: inline-flex !important; grid-column: auto; grid-row: auto; order: 3; height: 26px; }
 }

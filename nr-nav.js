@@ -420,8 +420,9 @@
         // ПК: в шапке сразу справа от даты. Телефон: шапка тесная, поэтому отдельной строкой над содержимым.
         function place(bar) {
             var phone = root.matchMedia && root.matchMedia('(max-width: 768px)').matches;
-            var date = doc.getElementById('header-date-chip-wrap'), host = doc.querySelector('.main-content');
-            if (phone && host) { if (bar.parentNode !== host || host.firstChild !== bar) host.insertBefore(bar, host.firstChild); }
+            var date = doc.getElementById('header-date-chip-wrap'), host = doc.querySelector('header.app-header .app-header-main');
+            // Телефон: маленький тумблер прямо в верхнем ряду шапки (порядок задаёт CSS), а не отдельной строкой над содержимым
+            if (phone && host) { if (bar.parentNode !== host) host.appendChild(bar); }
             else if (date && date.parentNode) { if (date.nextSibling !== bar) date.parentNode.insertBefore(bar, date.nextSibling); }
         }
         if (root.addEventListener) root.addEventListener('resize', function () { var b = doc.getElementById('nr-mp'); if (b) place(b); });
