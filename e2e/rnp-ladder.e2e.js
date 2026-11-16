@@ -38,6 +38,15 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         assert.ok(tax1 > 0 && Math.abs(tax1 - real * 0.1) <= Math.max(2, real * 0.002), 'налог 10% от реализации: ' + tax1 + ' из ' + real);
         assert.ok(profit1 < profit0 && Math.abs((profit0 - profit1) - (tax1 - tax0)) <= 3, 'прибыль уменьшилась на налог: ' + profit0 + ' → ' + profit1);
         console.log('ok   налог 10% от реализации (' + tax1 + ') вычитается из прибыли (' + profit0 + ' → ' + profit1 + ')');
+        // раскрытие: «Комиссия» показывает процент, «Прочие удержания и доплаты» и «Штрафы» показывают виды; стрелки синие
+        await page.evaluate(() => { RNP.pick('general'); }); await page.waitForTimeout(1200);
+        const arrows = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp .rnp-split-toggle')].map((e) => ({ t: e.innerText.replace(/\s+/g, ' ').trim(), c: getComputedStyle(e.querySelector('.rnp-split-arrow')).color })));
+        for (const need of ['Комиссия', 'Штрафы', 'Прочие удержания и доплаты']) assert.ok(arrows.some((a) => a.t.endsWith(need)), 'у строки «' + need + '» есть стрелка раскрытия: ' + JSON.stringify(arrows.map((a) => a.t)));
+        assert.ok(arrows.every((a) => a.c === 'rgb(37, 99, 235)'), 'стрелки синие: ' + JSON.stringify(arrows.map((a) => a.c)));
+        await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
+        const open = [...new Set(await labels())];
+        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];
         assert.ok(!(await labelsOf()).includes('Прибыль на единицу'), 'в «Общем» «Прибыль на единицу» не показывается');
