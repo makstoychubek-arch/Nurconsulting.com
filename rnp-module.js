@@ -219,6 +219,7 @@ const RNP = (() => {
             { key: 'ff_sum',             label: 'Фулфилмент',                       type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
+            { key: 'net_payout_unit',    label: 'К выводу на единицу',              type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
             { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  bold: true, articleOnly: true },
@@ -3105,6 +3106,7 @@ const RNP = (() => {
         to_transfer: ['К перечислению от WB', 'Сколько WB переводит вам за проданные штуки этого артикула, до логистики, хранения, штрафов и рекламы: реализация минус комиссия и эквайринг (по финотчёту).'],
         to_transfer_unit: ['От WB на единицу', 'К перечислению от WB ÷ проданные штуки: сколько WB отдаёт с одной вещи до всех расходов.'],
         comm_acq_sum: ['Комиссия и эквайринг', 'Реализация минус то, что WB переводит вам: комиссия WB и эквайринг вместе.'],
+        net_payout_unit: ['К выводу на единицу', 'К выводу ÷ проданные штуки: сколько остаётся с одной вещи после всех расходов WB, до себестоимости.'],
         net_payout: ['К выводу', 'Реализация − комиссия − эквайринг − логистика − хранение − приёмка − штрафы − прочие удержания − реклама (− фулфилмент и налог, если включены). Себестоимость ещё не вычтена: она идёт следующей строкой, затем прибыль.'],
         tax_sum: ['Налог', 'Ставка из «Настройки РНП → Налог» × реализация. В финотчётах налога нет: это ваш налог государству. Ставка 0 — не считается.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
@@ -5600,6 +5602,27 @@ const RNP = (() => {
         } catch (e) { console.warn('[RNP] fbs split:', e.message); }
     }
 
+    // Логистика по причинам (финотчёт WB) по артикулам и дням: раскрытие строки «Логистика» у отдельного артикула.
+    async function _mergeLogSplit(nmIds, cal) {
+        if (_mp() === 'ozon' || !nmIds.length) return;
+        const allDates = _calAllDates(cal);
+        if (!allDates.length) return;
+        const cab0 = _cab, idSet = new Set(nmIds.map(Number));
+        try {
+            const { data, error } = await _db.rpc('rnp_log_split_by_nm', {
+                p_cabinet: cab0, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: nmIds.map(Number),
+            });
+            if (error) throw error;
+            if (cab0 !== _cab) return;
+            idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.log_sale = 0; row.log_cancel_to = 0; row.log_cancel_from = 0; row.log_return = 0; row.log_other = 0; } }));
+            (data || []).forEach(r => {
+                const row = _dataCache[r.nm_id] && _dataCache[r.nm_id][String(r.d).split('T')[0]];
+                if (!row) return;
+                ['log_sale', 'log_cancel_to', 'log_cancel_from', 'log_return', 'log_other'].forEach(k => { row[k] = Number(r[k]) || 0; });
+            });
+        } catch (e) { console.warn('[RNP] rnp_log_split_by_nm:', e.message || e); }
+    }
+
     async function _mergeFinanceDailyFromDb(nmIds, cal) {
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length) return;
@@ -5864,6 +5887,8 @@ const RNP = (() => {
             await _mergeFinanceDailyFromDb(missing, _buildCalendar());
             if (_cab !== snapCab || renderId !== _mainRenderGen) return;
             await _mergeAdStatsFromDb(missing, _buildCalendar());
+            if (_cab !== snapCab || renderId !== _mainRenderGen) return;
+            await _mergeLogSplit(missing, _buildCalendar());
         }
         if (_cab !== snapCab || renderId !== _mainRenderGen) return;
         const focus = Number(_activeNm);
@@ -6073,6 +6098,7 @@ const RNP = (() => {
         if (_isStaleLoad2(snapReq, snapCab)) { await totalsP; return false; }
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
         await _mergeFbsSplit(nmIds, cal);
+        await _mergeLogSplit(nmIds, cal);
         await totalsP;
         _overlayPriceDaily(dailyRows, nmIds);
         _seedTodayLiveZeros(nmIds, cal);
@@ -6362,7 +6388,8 @@ const RNP = (() => {
                      'ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing','to_transfer','profit','net_payout','tax_sum','giveaways','in_production',
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
-                     'log_to_client_sum','log_to_client_cnt'];
+                     'log_to_client_sum','log_to_client_cnt',
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6891,10 +6918,12 @@ const RNP = (() => {
         const adSpend  = (d.ad_spend || 0); // расход РК WB для кабинетов КР уже в сомах
         d.cost_price_val  = totalCost; // Себестоимость = (продажи − возвраты), шт × себест. за ед.
         // Фулфилмент (отправки + хранение ФФ) и налог (процент от реализации) идут расходами до себестоимости; прибыль = К выводу.
+        _logDerived(d);
         d.comm_acq_sum    = Math.max(0, (d.realization || 0) - (d.to_transfer || 0)); // у артикула: комиссия и эквайринг вместе
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
         d.net_payout      = revenue - wbCosts - adSpend - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
+        d.net_payout_unit = units > 0 ? d.net_payout / units : 0;
         d.profit          = d.net_payout - totalCost - otherCosts;                      // Прибыль: после себестоимости
         d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
@@ -9222,7 +9251,7 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : null;
+            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : (art.nm_id > 0 && m.key === 'delivery_sum' && _mp() !== 'ozon' ? FIN_SPLITS[m.key] : null);
             const splittable = m.key === 'orders_count' || m.key === 'sales_count' || !!finSplit;
             const splitOpen = splittable && _splitOpen.has(m.key);
             const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';
