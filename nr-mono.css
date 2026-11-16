@@ -10,19 +10,20 @@
     --bg-primary: #F6F6F7; --bg-secondary: #EFEFF1; --bg-card: #FFFFFF;
 }
 [data-theme="neon"] {
-    --bg: #0A0A0B; --surface: #141416; --surface-solid: #141416; --sidebar-bg: #0A0A0B;
-    --border: #222226; --border-strong: #2E2E33; --border-color: #222226;
-    --text-secondary: #B4B4BB; --text-muted: #7C7C84;
-    --accent: #F5F5F6; --accent-hover: #FFFFFF; --accent-soft: rgba(255,255,255,.07); --accent-border: rgba(255,255,255,.16);
-    --accent-gradient: #F5F5F6; --blue: #F5F5F6; --purple: #F5F5F6; --purple-soft: rgba(255,255,255,.07);
-    --amber: #8E8E93; --amber-soft: rgba(255,255,255,.07); --sel: #1E1E22;
+    /* тёмная тема: тёплый серый, как у Claude, а не чёрный */
+    --bg: #262624; --surface: #30302D; --surface-solid: #30302D; --sidebar-bg: #262624;
+    --border: #45453F; --border-strong: #57574F; --border-color: #45453F;
+    --text-primary: #F1EFE8; --text-secondary: #C9C6BD; --text-muted: #9A978F;
+    --accent: #F1EFE8; --accent-hover: #FFFFFF; --accent-soft: rgba(255,255,255,.07); --accent-border: rgba(255,255,255,.16);
+    --accent-gradient: #F1EFE8; --blue: #F1EFE8; --purple: #F1EFE8; --purple-soft: rgba(255,255,255,.07);
+    --amber: #9A978F; --amber-soft: rgba(255,255,255,.07); --sel: #3B3B37;
     --green: #4ADE80; --red: #F87171; --green-soft: rgba(74,222,128,.12); --red-soft: rgba(248,113,113,.12);
     --card-shadow: none; --card-shadow-lg: none; --radius-card: 18px;
-    --bg-primary: #0A0A0B; --bg-secondary: #141416; --bg-card: #141416;
+    --bg-primary: #262624; --bg-secondary: #30302D; --bg-card: #30302D;
 }
 /* Текст на акценте: в тёмной теме акцент светлый, текст на нём тёмный */
-[data-theme="neon"] :is(.tg-switch.on, .plan-metric-tab.active, .abtest-active-badge, .ab-pill.active, .ab-btn-primary, .ab-var-cur, .gc-ai, [style*="background:var(--accent)"], [style*="background: var(--accent)"]) { color: #0A0A0B !important; }
-[data-theme="neon"] :is(.tg-switch.on) * { color: #0A0A0B !important; }
+[data-theme="neon"] :is(.tg-switch.on, .plan-metric-tab.active, .abtest-active-badge, .ab-pill.active, .ab-btn-primary, .ab-var-cur, .gc-ai, [style*="background:var(--accent)"], [style*="background: var(--accent)"]) { color: #262624 !important; }
+[data-theme="neon"] :is(.tg-switch.on) * { color: #262624 !important; }
 /* Левая колонка: как было, выбранный раздел светло-серой плашкой */
 .rail-btn.active { background: var(--sel) !important; color: var(--text-primary) !important; }
 
@@ -36,7 +37,7 @@
 .rnp-gh-balance, .rnp-gh-health { background: var(--accent) !important; color: var(--bg) !important; border: 0 !important; }
 .rnp-gh-balance *, .rnp-gh-health * { color: inherit !important; }
 .rnp-gh-balance :is(.rnp-gh-lbl, small), .rnp-gh-health :is(.rnp-gh-lbl, small) { opacity: .65; }
-[data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #0A0A0B !important; }
+[data-theme="neon"] .rnp-gh-balance, [data-theme="neon"] .rnp-gh-health { color: #262624 !important; }
 #nrdb-bal { background: var(--surface) !important; color: var(--text-primary) !important; border: 1px solid var(--border) !important; }
 #nrdb-bal :is(.l, .r span, .v small, .hint) { color: var(--text-muted) !important; }
 #nrdb-bal .chip { background: var(--sel) !important; color: var(--text-primary) !important; }
@@ -47,10 +48,10 @@
 .rail-logo-name { border-color: var(--text-primary) !important; color: var(--text-primary) !important; }
 #nr-topbar b { background: var(--accent) !important; }
 :root, [data-theme="ios"] { --on-accent: #FFFFFF; }
-[data-theme="neon"] { --on-accent: #0A0A0B; }
+[data-theme="neon"] { --on-accent: #262624; }
 /* Серая шкала для долей в полосках и точках */
 :root, [data-theme="ios"] { --mono-1: #0B0B0C; --mono-2: #52525B; --mono-3: #A1A1AA; --mono-4: #D4D4D8; }
-[data-theme="neon"] { --mono-1: #F5F5F6; --mono-2: #A1A1AA; --mono-3: #63636B; --mono-4: #3A3A40; }
+[data-theme="neon"] { --mono-1: #F1EFE8; --mono-2: #B5B2A9; --mono-3: #7A7770; --mono-4: #4A4A45; }
 .pnl-mini svg { color: var(--text-primary); }
 .pnl-mini svg polygon { opacity: .07 !important; }
 #pnl-real-bar { background: var(--accent) !important; }
@@ -2295,3 +2296,6 @@ html body #tab-dashboard #nrdb-bal .hint { margin: 0; }
   html body .bottom-nav-btn .bn-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0; }
   html body .bottom-nav-btn.active .bn-lbl { font-weight: 900; }
 }
+
+/* Тёмная тема: кнопки с инлайн-градиентом акцента (светлый фон) получают тёмный текст, а не белый */
+[data-theme="neon"] :is([style*="background:var(--accent-gradient)"], [style*="background: var(--accent-gradient)"]) { color: var(--on-accent) !important; }
