@@ -28,6 +28,8 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
         assert.ok(m.av.l < m.ttl.l && m.ttl.l < m.dt.l && m.dt.l + m.dt.w <= m.vw + 1, 'порядок слева направо: аватарка, название, календарь, ничего не вылезает за экран');
         assert.ok(m.dt.w < 110, 'дата маленькая: ' + m.dt.w);
         assert.ok(!m.scrollX, 'нет горизонтальной прокрутки страницы');
+        const cut = await page.evaluate(() => [...document.querySelectorAll('#nr-bottom-nav .bn-lbl')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
+        assert.deepStrictEqual(cut, [], 'подписи нижнего меню не обрезаются: ' + cut.join(', '));
         await page.click('#cabinet-picker-btn'); await page.waitForTimeout(500);
         const dd = await page.evaluate(() => { const d = document.querySelector('#cabinet-dropdown-menu .cabinet-dropdown-item'); return d ? { shown: d.getBoundingClientRect().width > 100, text: d.textContent.trim() } : null; });
         assert.ok(dd && dd.shown, 'по нажатию на аватарку выходит список кабинетов: ' + JSON.stringify(dd));
