@@ -26,7 +26,7 @@ const FEATS = ['reviews', 'order_alerts', 'ads', 'ab_rotation', 'sync', 'rnp_mor
 
 async function open(browser, base) {
     const env = await openApp(browser, base, {
-        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 200,
+        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 600,
         tables: { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T', created_at: '2026-09-17T00:00:00Z', last_sign_in_at: new Date().toISOString() }, { id: 's1', user_id: 'u-aizada', email: 'aizada@example.test', status: 'pending', tariff_plan: 'start', is_super_admin: false, full_name: 'Айзада', created_at: '2026-10-23T00:00:00Z', last_sign_in_at: null }, { id: 's2', user_id: 'u-timur', email: 'timur@example.test', status: 'active', tariff_plan: 'start', is_super_admin: false, full_name: 'Темир', created_at: '2026-10-22T00:00:00Z', last_sign_in_at: new Date().toISOString() }], cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }], admin_map_nodes: [{ title: 'Штрафы за день', subtitle: 'каждый час', status: 'bad', meta: { lastStatus: 'error' } }],
             admin_alert_settings: [{ key: 'ai_balance', enabled: true, threshold: 5, value: 12, value_at: new Date().toISOString() }, { key: 'tokens', enabled: true }, { key: 'bots', enabled: false }],
             admin_audit: [{ at: new Date().toISOString(), actor_email: 'makstoychubek@gmail.com', action: 'access_granted', target: 'Zevina 1', detail: 'aizada@example.test' }],
@@ -135,7 +135,7 @@ test('владелец кабинета: по почте, приглашение
     await input.waitFor({ state: 'visible' });
     await input.fill('нет-собаки');
     await page.locator('button[data-own]').first().click();
-    assert.ok(/Введи почту целиком/.test(await page.locator('.nra-toast').innerText()), 'плохая почта не принята');
+    assert.ok(/Введи почту целиком/.test(await page.locator('.nra-toast, .nru-toast').last().innerText()), 'плохая почта не принята');
     await page.locator('input[id^="nra-own-"]').first().fill('Owner@Example.test');
     const t0 = Date.now();
     await page.locator('button[data-own]').first().click();
@@ -150,7 +150,7 @@ test('суперадмин назначает другого суперадми�
     assert.strictEqual(await page.locator('[data-unsuper="global.pro.1004@gmail.com"]').count(), 0, 'у владельца нет кнопки «снять»');
     await page.locator('#nra-super').fill('нет-собаки');
     await page.locator('button[data-super]').click();
-    assert.ok(/Введи почту целиком/.test(await page.locator('.nra-toast').innerText()), 'плохая почта не принята');
+    assert.ok(/Введи почту целиком/.test(await page.locator('.nra-toast, .nru-toast').last().innerText()), 'плохая почта не принята');
     await page.locator('#nra-super').fill('Second@Example.test');
     const t0 = Date.now();
     await page.locator('button[data-super]').click();
@@ -176,7 +176,7 @@ test('«В консалтинг»: кабинет клиента переход�
 test('ресурсы слева: сайт на Vercel и остаток ИИ показываются, «Вернуть клиенту» двойным нажатием', async ({ page }) => {
     const side = await page.locator('.nra-res').innerText();
     assert.ok(/Vercel/.test(side) && /сайт работает/.test(side), 'Vercel: ' + side);
-    assert.ok(/ИИ-токены/.test(side) && /\$12/.test(side), 'ИИ: ' + side);
+    assert.ok(/ИИ-токены/.test(side) && /\$(12|30)/.test(side), 'ИИ: ' + side); // $30: предыдущий тест вводит остаток 30 вручную, тесты идут в одной сессии
     await page.locator('.nra-side button[data-sec="acc"]').click();
     if (!(await page.locator('button[data-retc]').count())) await page.locator('.nra-t tr.r', { hasText: 'Zevina 1' }).click();
     await page.locator('button[data-retc]').first().waitFor({ state: 'visible' });
