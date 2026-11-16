@@ -10,7 +10,7 @@
     var html = doc.documentElement;
     var OPTS = [
         { id: 'light', label: 'Светлая', theme: 'ios', bg: '', sw: '#f4f5f8' },
-        { id: 'dark', label: 'Тёмная', theme: 'neon', bg: '', sw: '#1c1c1e' },
+        { id: 'dark', label: 'Тёмная', theme: 'neon', bg: '', sw: '#262624' },
         { id: 'live', label: 'Живая светлая', theme: 'ios', bg: 'live', sw: 'linear-gradient(135deg,#ffffff,#e4e4e7 60%,#bdbdc2)' },
         { id: 'flow', label: 'Flow тёмная', theme: 'neon', bg: 'flow', sw: 'linear-gradient(135deg,#050506,#26262a 60%,#4a4a50)' },
         { id: 'tabler', label: 'Tabler', theme: 'tabler', bg: '', sw: '#ffffff' },
