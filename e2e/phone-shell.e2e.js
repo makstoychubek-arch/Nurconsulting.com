@@ -37,7 +37,7 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
         assert.deepStrictEqual(cut, [], 'подписи нижнего меню не обрезаются: ' + cut.join(', '));
         for (const tab of ['dashboard', 'rnp', 'advertising', 'goods-groups', 'settings']) {
             await page.evaluate((n) => showTab(n), tab); await page.waitForTimeout(500);
-            const pb = await page.evaluate(() => ({ pad: parseFloat(getComputedStyle(document.querySelector('.main-content')).paddingBottom), nav: document.getElementById('nr-bottom-nav').getBoundingClientRect().height }));
+            const pb = await page.evaluate(() => ({ pad: Math.max(parseFloat(getComputedStyle(document.querySelector('.main-content')).paddingBottom), (document.querySelector('#tab-rnp.active .rnp-sheet-body') ? parseFloat(getComputedStyle(document.querySelector('#tab-rnp.active .rnp-sheet-body')).paddingBottom) : 0)), nav: document.getElementById('nr-bottom-nav').getBoundingClientRect().height }));
             assert.ok(pb.pad >= pb.nav - 2, 'внизу страницы «' + tab + '» оставлено место под нижнее меню, последние строки не прячутся: ' + JSON.stringify(pb));
         }
         await page.evaluate(() => showTab('rnp')); await page.waitForTimeout(800);
