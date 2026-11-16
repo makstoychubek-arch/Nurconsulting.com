@@ -42,6 +42,12 @@ const tables = {
         const endRow = await page.evaluate(async () => { const b = document.getElementById('rnp-sheet-body'); b.scrollTop = b.scrollHeight; await new Promise((r) => setTimeout(r, 200)); const rows = [...b.querySelectorAll('tbody tr')]; const last = rows[rows.length - 1].getBoundingClientRect(), nav = document.getElementById('nr-bottom-nav').getBoundingClientRect(); return { last: Math.round(last.bottom), nav: Math.round(nav.top) }; });
         assert.ok(endRow.last <= endRow.nav + 2, 'последняя строка РНП не прячется под нижним меню: ' + JSON.stringify(endRow));
         console.log('ok   телефон: последняя строка таблицы видна над нижним меню');
+        // названия метрик читаются: колонка названий не обрезает слова
+        const clipped = await page.evaluate(() => [...document.querySelectorAll('.rnp-sheet-table .rnp-metric-col')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent.trim().slice(0, 30)));
+        assert.deepStrictEqual(clipped, [], 'названия метрик на телефоне помещаются в колонку: ' + clipped.join(', '));
+        const mw = await page.evaluate(() => document.querySelector('.rnp-sheet-table .rnp-metric-col').getBoundingClientRect().width);
+        assert.ok(mw >= 110, 'колонка названий достаточно широкая: ' + mw);
+        console.log('ok   телефон: названия метрик читаются');
         // пока идёт прокрутка, перерисовка листа откладывается и выполняется после остановки
         const defer = await page.evaluate(async () => {
             const body = document.getElementById('rnp-sheet-body');
