@@ -8112,9 +8112,24 @@ const RNP = (() => {
         _saveRnpShell();
     }
 
+    // Телефон: пока палец ведёт прокрутку, лист не перерисовываем (фоновое обновление цифр дёргало бы кадры): перерисуем сразу после остановки.
+    let _scrollBusyAt = 0, _scrollDeferTimer = 0;
+    function _bindScrollBusy() {
+        if (_bindScrollBusy.done || typeof document === 'undefined') return;
+        _bindScrollBusy.done = true;
+        const mark = () => { _scrollBusyAt = Date.now(); };
+        document.addEventListener('scroll', (e) => { if (e.target && e.target.id === 'rnp-sheet-body') mark(); }, { passive: true, capture: true });
+        document.addEventListener('touchmove', (e) => { if (e.target && e.target.closest && e.target.closest('#rnp-sheet-body')) mark(); }, { passive: true, capture: true });
+    }
     async function _renderActiveTable() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
+        _bindScrollBusy();
+        if (_isPhone() && Date.now() - _scrollBusyAt < 180) {
+            clearTimeout(_scrollDeferTimer);
+            _scrollDeferTimer = setTimeout(() => { _renderActiveTable(); }, 220);
+            return;
+        }
         _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
         _hydratePhotoCacheFromDom();
