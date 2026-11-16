@@ -229,7 +229,17 @@
         });
         return out;
     }
-    var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт одобрения'], blocked: ['bd', 'заблокирован'] };
+        // Тариф человеку: те же названия, что в «Настройки → аккаунт» и в карточке доступа (раньше показывали сырое «premium»)
+    var PLAN_NAMES = { start: 'Бесплатный', free: 'Бесплатный', basic: 'Базовый', business: 'Бизнес', premium: 'Фулл', vip: 'VIP' };
+    function planLabel(u) {
+        var p = u && u.tariff_plan, name = PLAN_NAMES[p] || (p ? String(p) : '—');
+        if ((p === 'premium' || p === 'vip') && u.plan_until) {
+            var t = new Date(u.plan_until).getTime();
+            if (isFinite(t)) return t > Date.now() ? esc(name) + ' до ' + esc(new Date(t).toLocaleDateString('ru-RU')) : esc(name) + ' закончился';
+        }
+        return esc(name);
+    }
+var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт одобрения'], blocked: ['bd', 'заблокирован'] };
     function usersH() {
         var h = '<div class="nra-h">Пользователи сайта</div>';
         if (!S.users || !S.ov) return h + '<div class="nra-card"><div class="nra-skel"></div></div>';
@@ -240,7 +250,7 @@
         rows.forEach(function (u) {
             var cabs = userCabs(u), st = STATUS[u.status] || ['off', u.status], name = u.full_name && String(u.full_name).trim() ? u.full_name : String(u.email || '').replace(/@.*/, '');
             h += '<tr class="r" data-user="' + esc(u.user_id) + '"><td><span class="who"><i class="av" style="background:' + colorOf(u.email) + '">' + initials(name) + '</i><span><b>' + esc(name) + '</b>' + (staff[String(u.email).toLowerCase()] ? ' <span class="nra-chip ok"><i></i>команда</span>' : '') + '<br><small class="m">' + esc(u.email) + '</small></span></span></td>' +
-                '<td><span class="nra-chip ' + st[0] + '"><i></i>' + st[1] + '</span></td><td>' + esc(u.tariff_plan || '—') + '</td>' +
+                '<td><span class="nra-chip ' + st[0] + '"><i></i>' + st[1] + '</span></td><td>' + planLabel(u) + '</td>' +
                 '<td>' + (cabs.length ? cabs.slice(0, 3).map(function (x) { return '<span class="nra-chip off">' + esc(x.c.name) + '</span>'; }).join(' ') + (cabs.length > 3 ? ' +' + (cabs.length - 3) : '') : '<span class="m">нет</span>') + '</td>' +
                 '<td>' + ago(u.last_sign_in_at) + '</td><td>' + (u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '—') + '</td></tr>';
             if (S.uopen[u.user_id]) {
