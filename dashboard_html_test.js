@@ -908,7 +908,7 @@ assert.ok(
 assert.ok(html.includes('.cabinet-picker-label { max-width: 96px'), 'cabinet name must not crowd the iPhone header');
 assert.ok(rnpSrc.includes('function _isPhone()'), 'RNP must detect a phone viewport');
 assert.ok(rnpSrc.includes('function _isNarrow()'), 'iPad uses the same swipe sheet as iPhone');
-assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 62'), 'phone metric column is narrower than desktop');
+assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 118') && 118 < 132, 'phone metric column is narrower than desktop (132) but wide enough to read the names');
 assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
 assert.ok(rnpSrc.includes('function togglePrevWeeks') && rnpSrc.includes('rnp-action-bar--phone'),
     'phone RNP bar still exists; last-month weeks are opt-in via compare');
