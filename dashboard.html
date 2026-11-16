@@ -4178,6 +4178,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .abtest-variant.winner { border-color: var(--green); box-shadow: none; }
         .abtest-variant.current-active { border-color: var(--accent); box-shadow: none; }
         .abtest-variant img { width: 100%; height: 100px; object-fit: cover; display: block; }
+        /* Каркас фото сразу после создания теста: превью и кольцо «загружается», пока фото уходят на сервер */
+        .abtest-variant.is-pending img { opacity: .45; filter: grayscale(.4); }
+        .abtest-variant.is-pending .abtest-ph { height: 100px; background: linear-gradient(100deg, var(--surface) 30%, rgba(128,128,128,.14) 50%, var(--surface) 70%); background-size: 200% 100%; animation: abtestShimmer 1.2s linear infinite; }
+        .abtest-pend-ring { position: absolute; left: 50%; top: 50px; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; border: 2px solid rgba(128,128,128,.35); border-top-color: var(--text-primary, #000); animation: abtestSpin .8s linear infinite; }
+        @keyframes abtestSpin { to { transform: rotate(360deg); } }
+        @keyframes abtestShimmer { to { background-position: -200% 0; } }
+        @media (prefers-reduced-motion: reduce) { .abtest-pend-ring, .abtest-variant.is-pending .abtest-ph { animation: none; } }
         .abtest-variant-meta { padding: 7px 6px; text-align: center; }
         .abtest-ctr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
         .abtest-orders { font-size: 11px; color: var(--text-secondary); }
@@ -15513,10 +15520,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     // Фоновое создание: тест, фото, варианты, первое фото на WB. Если не вышло, короткая ошибка и «Повторить».
+    const abPending = {}; // тест → превью фото, пока они загружаются (каркас не пропадает)
     async function runABCreate(snap) {
         let testId = null;
+        const previews = snap.abFiles.map((f) => { try { return f && f.url ? f.url : (typeof Blob !== 'undefined' && f instanceof Blob ? URL.createObjectURL(f) : ''); } catch (_) { return ''; } });
         // Сразу показываем карточку в списке, пока тест сохраняется.
         const tmp = { id: 'tmp-' + Date.now(), cabinet_id: snap.cabinetId, nm_id: snap.nmId, product_name: snap.name, status: 'active', rotation_interval_min: snap.interval, started_at: new Date().toISOString(), settings: snap.settings, variants: [] };
+        abPending[tmp.id] = { previews };
         allABTests.unshift(tmp); renderABTests();
         try {
             const { data: test, error } = await supabase.from('ab_tests').insert({
@@ -15532,6 +15542,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }).select().single();
             if (error || !test) throw new Error(error?.message || 'Тест не сохранился.');
             testId = test.id;
+            abPending[test.id] = { previews };
             saveABSettings(test.id, snap.settings);
             loadABTests();
 
@@ -15545,7 +15556,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (snap.abFiles[0] && snap.abFiles[0].current) await supabase.from('ab_test_rotation_log').insert({ test_id: test.id, variant_label: variantRows[0].variant_label, action: 'start' });
             else if (!await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label)) throw new Error('WB не принял первое фото.');
             abOk('Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
-            loadABTests();
+            await loadABTests();
         } catch (e) {
             if (testId) { try { await supabase.from('ab_tests').delete().eq('id', testId); } catch (_) {} }
             allABTests = allABTests.filter(t => t !== tmp); renderABTests();
@@ -15553,6 +15564,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const msg = String(e && e.message || e || 'Попробуйте ещё раз.');
             if (window.NrUi) window.NrUi.toast('error', 'Тест не создался', msg, { action: { label: 'Повторить', onClick: () => runABCreate(snap) } });
             else showPremiumModal('error', 'Тест не создался', msg);
+        } finally {
+            delete abPending[tmp.id]; if (testId) delete abPending[testId];
+            previews.forEach((u) => { if (u && u.startsWith('blob:')) { try { URL.revokeObjectURL(u); } catch (_) {} } });
         }
     }
 
@@ -15721,7 +15735,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             ? `${Math.floor(nextRotateMs / 60000)}м ${Math.floor((nextRotateMs % 60000) / 1000)}с`
             : 'сейчас';
 
-        const variantsHtml = withRate.map(v => {
+        const pend = !withRate.length ? abPending[test.id] : null;
+        const variantsHtml = pend ? pend.previews.map((u, i) => `
+            <div class="abtest-variant is-pending" title="Фото загружается">
+                ${u ? `<img src="${escapeHtml(u)}" alt="">` : '<div class="abtest-ph"></div>'}
+                <span class="abtest-pend-ring" aria-hidden="true"></span>
+                <div class="abtest-variant-meta"><div class="abtest-ctr">&nbsp;</div></div>
+            </div>`).join('') : withRate.map(v => {
             const isWinner = winner && v.id === winner.id && maxScore > 0;
             const isActive = v.is_currently_on_wb;
             const scoreStr = metric === 'ctr' ? v.ctr.toFixed(2) + '%' : metric === 'cr' ? v.cr.toFixed(2) + '%' : v.ordersPerHour.toFixed(2);
