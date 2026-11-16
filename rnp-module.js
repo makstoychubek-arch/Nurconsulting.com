@@ -212,7 +212,7 @@ const RNP = (() => {
             { key: 'to_transfer_unit',   label: 'От WB на единицу',                 type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'delivery_sum',       label: 'Логистика',                        type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'storage_sum',        label: 'Хранение',                         type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'acceptance_sum',     label: 'Приёмка и обработка',              type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
+            { key: 'acceptance_sum',     label: 'Приёмка и обработка',              type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'other_net_sum',      label: 'Прочие удержания и доплаты',       type: 'som',  src: 'auto',  cabinetOnly: true },
             { key: 'ad_spend',           label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
@@ -220,6 +220,10 @@ const RNP = (() => {
             { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
             { key: 'net_payout_unit',    label: 'К выводу на единицу',              type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'log_per_unit',       label: 'Логистика на единицу',             type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'storage_per_unit',   label: 'Хранение на единицу',              type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'ad_per_unit',        label: 'Реклама на единицу',               type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'ff_per_unit',        label: 'Фулфилмент на единицу',            type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
             { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  bold: true, articleOnly: true },
@@ -1348,6 +1352,7 @@ const RNP = (() => {
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
             if (m.key === 'ff_sum' && (!_ffShow || _mp() === 'ozon')) return false;
+            if (m.key === 'ff_per_unit' && (!_ffShow || _mp() === 'ozon')) return false;
             if (m.key === 'tax_sum' && _settings.taxOn !== true) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
             if (m.competitor && !_settings.showCompetitor) return false;
@@ -5602,6 +5607,7 @@ const RNP = (() => {
         } catch (e) { console.warn('[RNP] fbs split:', e.message); }
     }
 
+    const PEN_KEYS = ['pen_dims', 'pen_accept', 'pen_sub', 'pen_cancel', 'pen_pvz', 'pen_supply', 'pen_other'];
     // Логистика по причинам (финотчёт WB) по артикулам и дням: раскрытие строки «Логистика» у отдельного артикула.
     async function _mergeLogSplit(nmIds, cal) {
         if (_mp() === 'ozon' || !nmIds.length) return;
@@ -5619,10 +5625,10 @@ const RNP = (() => {
                 const { data: fz, error: fzErr } = await _db.rpc('rnp_fin_by_nm', { p_cabinet: cab0, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: nmIds.map(Number) });
                 if (fzErr) throw fzErr;
                 if (cab0 !== _cab) return;
-                idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.acquiring_sum = 0; row.compensation_sum = 0; row.comm_base = 0; row.comm_true = 0; } }));
+                idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.acquiring_sum = 0; row.compensation_sum = 0; row.comm_base = 0; row.comm_true = 0; row.acceptance_sum = 0; PEN_KEYS.forEach(k => { row[k] = 0; }); } }));
                 (fz || []).forEach(r => {
                     const row = _dataCache[r.nm_id] && _dataCache[r.nm_id][String(r.d).split('T')[0]];
-                    if (row) { row.acquiring_sum = Number(r.acquiring) || 0; row.compensation_sum = Number(r.compensation) || 0; row.comm_base = Number(r.comm_base) || 0; row.comm_true = Number(r.comm_true) || 0; }
+                    if (row) { row.acquiring_sum = Number(r.acquiring) || 0; row.compensation_sum = Number(r.compensation) || 0; row.comm_base = Number(r.comm_base) || 0; row.comm_true = Number(r.comm_true) || 0; row.acceptance_sum = Number(r.acceptance) || 0; PEN_KEYS.forEach(k => { row[k] = Number(r[k]) || 0; }); }
                 });
             } catch (e) { console.warn('[RNP] rnp_fin_by_nm:', e.message || e); }
             (data || []).forEach(r => {
@@ -6399,7 +6405,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6455,7 +6461,6 @@ const RNP = (() => {
             { key: 'log_other',       label: 'Прочая' },
             { key: 'log_cancel_pct',  label: 'Доля отмен %', type: 'pct' },
             { key: 'logistics_pct',   label: 'Логистика %', type: 'pct' },
-            { key: 'log_per_unit',    label: 'На 1 шт, сом', type: 'avg' },
             { key: 'log_to_pvz_avg',  label: 'До ПВЗ ср., сом', type: 'avg' },
         ] },
         // «Фулфилмент»: отправки и хранение по артикулам, доп. услуги из журнала ФФ (только в «Общем»)
@@ -6931,7 +6936,7 @@ const RNP = (() => {
         // штрафы и прочие удержания — их вычитаем отдельно. Всё из отчёта уже в сомах.
         // Себестоимость — только за штуки, которые остались у покупателя (продажи минус возвраты).
         const revenue  = (d.to_transfer || 0) * er;
-        const wbCosts  = ((d.delivery_sum || 0) + (d.storage_sum || 0) + (d.penalty_sum || 0) + (d.deduction_sum || 0)) * er;
+        const wbCosts  = ((d.delivery_sum || 0) + (d.storage_sum || 0) + (d.penalty_sum || 0) + (d.deduction_sum || 0) + (d.acceptance_sum || 0)) * er;
         const netUnits = Math.max(0, units - (d.returns_count || 0));
         const totalCost = netUnits * cost;
         const otherCosts = netUnits * otherCostsUnitSom;
@@ -6947,6 +6952,9 @@ const RNP = (() => {
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
         d.net_payout      = revenue - wbCosts - adSpend - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
         d.net_payout_unit = units > 0 ? d.net_payout / units : 0;
+        d.storage_per_unit = units > 0 ? (d.storage_sum || 0) / units : 0;
+        d.ad_per_unit = units > 0 ? (d.ad_spend || 0) / units : 0;
+        d.ff_per_unit = units > 0 ? d.ff_sum / units : 0;
         d.profit          = d.net_payout - totalCost - otherCosts;                      // Прибыль: после себестоимости
         d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
@@ -9283,7 +9291,7 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : (art.nm_id > 0 && m.key === 'delivery_sum' && _mp() !== 'ozon' ? FIN_SPLITS[m.key] : null);
+            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : (art.nm_id > 0 && (m.key === 'delivery_sum' || m.key === 'penalty_sum') && _mp() !== 'ozon' ? FIN_SPLITS[m.key] : null);
             const splittable = m.key === 'orders_count' || m.key === 'sales_count' || !!finSplit;
             const splitOpen = splittable && _splitOpen.has(m.key);
             const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';
