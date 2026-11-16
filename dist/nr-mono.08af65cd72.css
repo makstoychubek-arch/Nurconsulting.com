@@ -2264,10 +2264,10 @@ html body #tab-dashboard #nrdb-bal .hint { margin: 0; }
 
 /* ───────── Телефон: шапка и нижнее меню (макет «Мобильный NR Space», 16.11.2026) ─────────
    Сверху один ряд: круглая аватарка кабинета (по нажатию список кабинетов), название страницы, круглый календарь с маленькой датой.
-   Строка состояния iPhone размывает всё под собой, поэтому ряд опущен на env(safe-area-inset-top) + 8px.
+   Строка состояния iPhone размывает всё под собой, поэтому ряд опущен на env(safe-area-inset-top) + 14px.
    Снизу: разделы с иконкой и подписью, как в мобильном WB. */
 @media (max-width: 768px) {
-  html body header.glass.app-header { padding-top: calc(env(safe-area-inset-top, 0px) + 8px) !important; padding-bottom: 6px !important; }
+  html body header.glass.app-header { padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important; padding-bottom: 8px !important; }
   html body header.glass.app-header .app-header-main { display: flex !important; align-items: center; gap: 8px; flex-wrap: nowrap; }
   html body header.glass.app-header .app-header-main > div { display: contents !important; }
   html body header.glass.app-header #mobile-menu-btn { display: none !important; }
