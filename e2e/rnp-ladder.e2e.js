@@ -12,13 +12,13 @@ const tables = {
     rnp_articles: [{ id: 'a0', cabinet_id: CAB, nm_id: 1001, name: 'a', category: 'К', is_active: true, cost_price: 100, sort_order: 0 }],
     rnp_daily_data: Array.from({ length: 5 }, (_, d) => ({ cabinet_id: CAB, nm_id: 1001, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, to_transfer: 7000, delivery_sum: 1000, storage_sum: 100, penalty_sum: 50, ad_spend: 200 })),
 };
-const LADDER = ['Реализация', 'Комиссия', 'Эквайринг', 'Логистика', 'Хранение', 'Приёмка и обработка', 'Штрафы', 'Прочие удержания и доплаты', 'Реклама (РК)', 'Фулфилмент', 'Налог', 'К выводу', 'Себестоимость', 'Прибыль'];
+const LADDER = ['Реализация', 'Комиссия', 'Комиссия %', 'Эквайринг', 'Логистика', 'Хранение', 'Приёмка и обработка', 'Штрафы', 'Прочие удержания и доплаты', 'Реклама (РК)', 'Фулфилмент', 'Налог', 'К выводу', 'Себестоимость', 'Прибыль'];
 
 (async () => {
     const srv = await serve();
     const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     try {
-        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, rnp_cabinet_totals: Array.from({ length: 5 }, (_, d) => ({ d: day(d), realization: 10000, to_transfer: 7000, delivery: 1000, storage: 100, penalty: 50, deduction: 0, acceptance: 0, to_withdraw: 5000, ad_spend: 200, acquiring: 0, compensation: 0, additional: 0 })), rnp_log_split_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })), rnp_cabinet_log_split: Array.from({ length: 5 }, (_, d) => ({ d: day(d), log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })) }, functions: { 'wb-proxy': async () => ({}) } });
+        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, rnp_cabinet_totals: Array.from({ length: 5 }, (_, d) => ({ d: day(d), realization: 10000, to_transfer: 7000, delivery: 1000, storage: 100, penalty: 50, deduction: 0, acceptance: 0, to_withdraw: 5000, ad_spend: 200, acquiring: 0, compensation: 0, additional: 0 })), rnp_fin_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, acquiring: 100, compensation: 0 })), rnp_log_split_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })), rnp_cabinet_log_split: Array.from({ length: 5 }, (_, d) => ({ d: day(d), log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })) }, functions: { 'wb-proxy': async () => ({}) } });
         const { page } = env;
         await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); NrMp.set('wb'); showTab('rnp'); });
         await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Реализация/.test((r.children[0] || {}).innerText || '')), null, { timeout: 15000 });
@@ -51,11 +51,11 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         // раскрытие: «Комиссия» показывает процент, «Прочие удержания и доплаты» и «Штрафы» показывают виды; стрелки синие
         await page.evaluate(() => { RNP.pick('general'); }); await page.waitForTimeout(1200);
         const arrows = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp .rnp-split-toggle')].map((e) => ({ t: e.innerText.replace(/\s+/g, ' ').trim(), c: getComputedStyle(e.querySelector('.rnp-split-arrow')).color, o: Number(getComputedStyle(e.querySelector('.rnp-split-arrow')).opacity) })));
-        for (const need of ['Комиссия', 'Штрафы', 'Прочие удержания и доплаты']) assert.ok(arrows.some((a) => a.t.replace(/ [▸▾]$/, '') === need), 'у строки «' + need + '» есть стрелка раскрытия: ' + JSON.stringify(arrows.map((a) => a.t)));
+        for (const need of ['Штрафы', 'Прочие удержания и доплаты']) assert.ok(arrows.some((a) => a.t.replace(/ [▸▾]$/, '') === need), 'у строки «' + need + '» есть стрелка раскрытия: ' + JSON.stringify(arrows.map((a) => a.t)));
         assert.ok(arrows.every((a) => a.c !== 'rgb(37, 99, 235)' && a.o > 0 && a.o < 0.6), 'стрелки не синие, а чёрные и еле заметные: ' + JSON.stringify(arrows));
-        await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
+        await page.evaluate(() => { for (const k of ['other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
         const open = [...new Set(await labels())];
-        for (const need of ['Комиссия %', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты (минус)', 'Габариты', 'Продажа → клиенту', 'Отмена → клиенту', 'Возврат ← от клиента', 'Доля отмен %', 'На 1 шт, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        for (const need of ['WB Продвижение', 'Подписка «Джем»', 'Доплаты (минус)', 'Габариты', 'Продажа → клиенту', 'Отмена → клиенту', 'Возврат ← от клиента', 'Доля отмен %', 'На 1 шт, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
         const lg = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).filter((c) => /^(Отмена → клиенту|Доля отмен %)/.test(c[0])));
         assert.ok(lg.length === 2 && lg.every((r) => r.slice(1).some((x) => /[1-9]/.test(x))), 'логистика по причинам показывает цифры: ' + JSON.stringify(lg));
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
@@ -67,9 +67,11 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         assert.ok(byart.includes('Реализация') && byart.includes('Себестоимость') && byart.includes('Прибыль'), '«Общее по артикулам»: ' + byart.join(', '));
         await page.evaluate(() => RNP.pick(1001)); await page.waitForTimeout(1500);
         const one = await labelsOf();
-        assert.ok(one.includes('К перечислению от WB') && one.includes('От WB на единицу') && one.includes('Комиссия и эквайринг'), 'у артикула есть «К перечислению от WB» и «От WB на единицу»: ' + one.slice(0, 20).join(', '));
-        const tt = await read('К перечислению от WB'), tu = await read('От WB на единицу'); assert.ok(tt > 0 && tu > 0 && Math.abs(tt / tu - Math.round(tt / tu)) < 0.1, 'на единицу = К перечислению ÷ штуки: ' + tt + ' / ' + tu);
+        assert.ok(one.includes('К перечислению') && one.includes('От WB на единицу') && one.includes('Комиссия') && one.includes('Комиссия %') && one.includes('Эквайринг'), 'у артикула есть Комиссия, Комиссия %, Эквайринг, К перечислению, От WB на единицу: ' + one.slice(0, 20).join(', '));
+        const tt = await read('К перечислению'), tu = await read('От WB на единицу'); assert.ok(tt > 0 && tu > 0 && Math.abs(tt / tu - Math.round(tt / tu)) < 0.1, 'на единицу = К перечислению ÷ штуки: ' + tt + ' / ' + tu);
         assert.ok(one.includes('Прибыль на единицу') && one.includes('Налог'), 'у одного артикула есть «Прибыль на единицу» и «Налог»: ' + one.slice(0, 40).join(', '));
+        const cm = await read('Комиссия'), cp = await read('Комиссия %'), rz = await read('Реализация'), aq = await read('Эквайринг'), tt2 = await read('К перечислению');
+        assert.ok(cm > 0 && Math.abs(cm + aq + tt2 - rz) <= 3 && Math.abs(cp - cm / rz * 100) < 0.2, 'комиссия + эквайринг + к перечислению = реализация, процент считается: ' + [rz, cm, cp, aq, tt2].join(' / '));
         const oneIdx = (await labels()).indexOf('К выводу на единицу'), pay = await read('К выводу'), payU = await read('К выводу на единицу');
         assert.ok(oneIdx > (await labels()).indexOf('К выводу') && payU !== null, '«К выводу на единицу» стоит после «К выводу»');
         const findLg = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).find((c) => /^Отмена → клиенту/.test(c[0])));
