@@ -2106,7 +2106,7 @@ html body .ps-wtab.hide-per .ps-gh-per, html body .ps-wtab.hide-per .ps-g-per { 
 
 /* Переключатель площадки WB | Ozon | Вместе: в шапке рядом с датой, только на РНП и Дашборде, чёрно-белый */
 html body .nr-mp { display: none; align-items: center; height: 32px; box-sizing: border-box; padding: 2px; gap: 0; border: 1px solid var(--text-primary); border-radius: 999px; flex: none; }
-html body:has(#tab-rnp.active) .nr-mp, html body:has(#tab-dashboard.active) .nr-mp, html body:has(#tab-goods-groups.active) .nr-mp { display: inline-flex; }
+html body:has(#tab-rnp.active) .nr-mp, html body:has(#tab-dashboard.active) .nr-mp, html body:has(#tab-goods-groups.active) .nr-mp, html body:has(#tab-advertising.active) .nr-mp { display: inline-flex; }
 html body .nr-mp button { appearance: none; border: 0; background: transparent; color: var(--text-muted, #777); font: 800 10.5px/1 inherit; font-family: inherit; letter-spacing: .08em; text-transform: uppercase; height: 100%; padding: 0 11px; border-radius: 999px; cursor: pointer; transition: background .08s, color .08s; }
 html body .nr-mp button.on { background: var(--accent, #000); color: var(--on-accent, #fff); }
 @media (max-width: 768px) { html body .nr-mp button { padding: 0 9px; } }
@@ -2293,9 +2293,52 @@ html body #tab-dashboard #nrdb-bal .hint { margin: 0; }
   html body .bottom-nav-btn { gap: 3px; }
   html body .bottom-nav-btn .bn-ico { width: 24px; height: 24px; background: transparent !important; }
   html body .bottom-nav-btn .bn-ico svg { width: 22px; height: 22px; stroke-width: 1.6; }
-  html body .bottom-nav-btn .bn-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0; }
-  html body .bottom-nav-btn.active .bn-lbl { font-weight: 900; }
+  html body .bottom-nav-btn .bn-lbl { font-size: 9.5px; font-weight: 700; letter-spacing: -.01em; text-overflow: clip; }
+  html body .bottom-nav-btn.active .bn-lbl { font-weight: 800; }
 }
 
 /* Тёмная тема: кнопки с инлайн-градиентом акцента (светлый фон) получают тёмный текст, а не белый */
 [data-theme="neon"] :is([style*="background:var(--accent-gradient)"], [style*="background: var(--accent-gradient)"]) { color: var(--on-accent) !important; }
+
+
+/* Продвижение: Ozon. Переключатель WB | Ozon | Вместе; у Ozon свой блок с кампаниями рекламного кабинета (nr-ads-ozon.js) */
+html body #adv-view-ozon { display: none; }
+html[data-mp="ozon"] body #adv-view-ozon, html[data-mp="all"] body #adv-view-ozon { display: block; }
+html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: none !important; }
+.aoz { margin-bottom: 16px; }
+.aoz-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 4px 2px 12px; }
+.aoz-h b { font-size: 13px; font-weight: 800; letter-spacing: .1em; }
+.aoz-h span { font-size: 12px; color: var(--text-muted); }
+.aoz-card { border: 1px solid var(--text-primary); border-radius: 26px; padding: 16px 20px; background: transparent; min-width: 0; }
+.aoz-k { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.aoz-k .aoz-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 18px; }
+.aoz-k span { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+.aoz-k b { font-size: 26px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.aoz-t { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.aoz-tw { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.aoz table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+.aoz th { text-align: right; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 6px 10px; white-space: nowrap; border-bottom: 1px solid var(--border-strong, var(--border)); }
+.aoz td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.aoz th:first-child, .aoz td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface-solid, var(--bg)); max-width: 220px; white-space: normal; z-index: 1; }
+.aoz td:first-child b { display: block; font-weight: 700; }
+.aoz td:first-child small { color: var(--text-muted); font-size: 11px; }
+.aoz-empty { text-align: center; padding: 28px 20px; color: var(--text-secondary); }
+.aoz-empty small { color: var(--text-muted); }
+.aoz-note { margin: 10px 2px 0; font-size: 12px; color: var(--text-muted); }
+@media (max-width: 768px) {
+  .aoz-k { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .aoz-k b { font-size: 22px; }
+  .aoz-card { border-radius: 22px; padding: 14px 16px; }
+  .aoz td:first-child, .aoz th:first-child { min-width: 130px; max-width: 150px; }
+}
+
+/* Телефон, страница «Продвижение»: у неё своя сетка шапки (кабинет над датой); возвращаем один ряд: аватарка, название, круглый календарь */
+@media (max-width: 768px) {
+  html#nr-root.nr-f-adv header.glass.app-header .app-header-main { display: flex !important; grid-template-columns: none; align-items: center; gap: 8px; }
+  html#nr-root.nr-f-adv header.glass.app-header #cabinet-picker-wrap { grid-column: auto; grid-row: auto; justify-self: auto; order: 0; }
+  html#nr-root.nr-f-adv header.glass.app-header .header-page-title { grid-column: auto; grid-row: auto; order: 2; flex: 1 1 auto; }
+  html#nr-root.nr-f-adv header.glass.app-header #header-date-chip-wrap { grid-column: auto; grid-row: auto; justify-self: auto; order: 3; height: auto !important; min-height: 0 !important; max-height: none !important; padding: 0 !important; overflow: visible !important; }
+  html#nr-root.nr-f-adv header.glass.app-header #header-date-chip-wrap #date-range { font-size: 10px !important; }
+  html#nr-root.nr-f-adv header.glass.app-header #cabinet-picker-btn { width: 36px !important; height: 36px !important; padding: 0 !important; }
+  html#nr-root.nr-f-adv header.glass.app-header .nr-crumbs { white-space: normal; font-size: 12px; line-height: 1.15; }
+}
