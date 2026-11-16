@@ -2362,3 +2362,8 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
   /* подпанель «РНП ▾» на телефоне не нужна: подразделы РНП есть в меню «Ещё» */
   html body #rnp-views.nr-subbar { display: none !important; }
 }
+
+/* Телефон: нижнее меню лежит поверх страницы, поэтому снизу у каждой страницы оставляем под него место (иначе последние строки не видны) */
+@media (max-width: 768px) {
+  html body .main-rail .main-content:not(#nr-x) { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; box-sizing: border-box; }
+}

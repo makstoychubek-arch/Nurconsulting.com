@@ -35,6 +35,11 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
         assert.ok(clear.contentTop >= clear.hdrBottom - 1, 'страница начинается под шапкой, не заезжает под неё: ' + JSON.stringify(clear));
         const cut = await page.evaluate(() => [...document.querySelectorAll('#nr-bottom-nav .bn-lbl')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
         assert.deepStrictEqual(cut, [], 'подписи нижнего меню не обрезаются: ' + cut.join(', '));
+        for (const tab of ['dashboard', 'rnp', 'advertising', 'goods-groups', 'settings']) {
+            await page.evaluate((n) => showTab(n), tab); await page.waitForTimeout(500);
+            const pb = await page.evaluate(() => ({ pad: parseFloat(getComputedStyle(document.querySelector('.main-content')).paddingBottom), nav: document.getElementById('nr-bottom-nav').getBoundingClientRect().height }));
+            assert.ok(pb.pad >= pb.nav - 2, 'внизу страницы «' + tab + '» оставлено место под нижнее меню, последние строки не прячутся: ' + JSON.stringify(pb));
+        }
         await page.evaluate(() => showTab('rnp')); await page.waitForTimeout(800);
         const mp = await page.evaluate(() => { const b = document.getElementById('nr-mp'), h = document.querySelector('header.app-header'), r = b.getBoundingClientRect(), a = document.getElementById('cabinet-picker-btn').getBoundingClientRect(); return { inHeader: h.contains(b), disp: getComputedStyle(b).display, h: r.height, w: r.width, sameRow: Math.abs((r.top + r.height / 2) - (a.top + a.height / 2)) < 14, vw: innerWidth, right: r.right }; });
         assert.ok(mp.inHeader && mp.disp !== 'none' && mp.disp !== 'contents' && mp.h <= 30 && mp.w < 120 && mp.sameRow && mp.right <= mp.vw, 'WB | Ozon маленьким тумблером в верхнем ряду шапки: ' + JSON.stringify(mp));
