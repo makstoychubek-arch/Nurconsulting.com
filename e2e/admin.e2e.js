@@ -184,6 +184,18 @@ test('ресурсы слева: сайт на Vercel и остаток ИИ п�
     assert.ok(/Подтвердить возврат/.test(await page.locator('button[data-retc]').first().innerText()), 'нужно подтверждение');
 });
 
+test('главная: при нехватке высоты страница прокручивается, карточки не сжимаются и не обрезаются', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 520 });
+    await page.locator('.nra-side button[data-sec="home"]').click();
+    const r = await page.evaluate(() => {
+        const m = document.querySelector('.nra-main');
+        const cards = [...m.querySelectorAll('.nra-card')];
+        return { scroll: m.scrollHeight - m.clientHeight, clipped: cards.filter((c) => c.scrollHeight > c.clientHeight + 1).length, cards: cards.length };
+    });
+    assert.ok(r.scroll > 20, 'есть что прокручивать: ' + r.scroll);
+    assert.strictEqual(r.clipped, 0, 'обрезанных карточек: ' + r.clipped);
+});
+
 test('пользователи сайта: отдельный раздел, по нажатию видны кабинеты, размер и синхронизация', async ({ page }) => {
     await page.locator('.nra-side button[data-sec="users"]').click();
     await page.locator('.nra-t tr.r').first().waitFor({ state: 'visible' });
