@@ -10,11 +10,11 @@
     var OPEN_KEY = 'nr_admin_open', CACHE_KEY = 'nr_admin_cache_v1';
     var PLAN_DB = 8 * 1024 * 1024 * 1024; // 8 ГБ на тарифе Pro
     var el = null;
-    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {}, supers: null, ctab: 'clients', uf: 'all' };
+    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {}, supers: null, ctab: 'clients', uf: 'all', stab: 'jobs' };
 
     var NAV = [
         ['home', 'Главная'], ['acc', 'Консалтинг'], ['users', 'Пользователи сайта'],
-        ['tg', 'Telegram и боты'], ['sys', 'Система и задачи'], ['alr', 'Оповещения'], ['log', 'Журнал'], ['own', 'Спейс владельца'],
+        ['tg', 'Telegram и боты'], ['sys', 'Система'],
     ];
     var FEATURE_LABEL = { reviews: 'Ответы на отзывы', sync: 'Автосинхронизация', ads: 'РК и автоставки', ab_rotation: 'Ротация А/Б', rnp_morning: 'Утренний РНП', order_alerts: 'Уведомления о заказах' };
 
@@ -69,7 +69,8 @@
         return a;
     }
     function sectionDot(sec, att) {
-        var bad = att.filter(function (x) { return x.go === sec && x.d === 'bd'; }).length, wn = att.filter(function (x) { return x.go === sec && x.d === 'wn'; }).length;
+        var own = function (x) { return x.go === sec || (sec === 'sys' && (x.go === 'alr' || x.go === 'log')); };
+        var bad = att.filter(function (x) { return own(x) && x.d === 'bd'; }).length, wn = att.filter(function (x) { return own(x) && x.d === 'wn'; }).length;
         if (sec === 'home') return att.some(function (x) { return x.d === 'bd'; }) ? 'bd' : att.length ? 'wn' : '';
         return bad ? 'bd' : wn ? 'wn' : '';
     }
@@ -240,6 +241,19 @@
         return esc(name);
     }
 var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт одобрения'], blocked: ['bd', 'заблокирован'] };
+    // «Система»: три вкладки, задачи, оповещения и журнал (раньше были тремя пунктами меню)
+    function sysTabsH() {
+        var T = [['jobs', 'Задачи'], ['alr', 'Оповещения'], ['log', 'Журнал']];
+        return '<div class="nra-tabs">' + T.map(function (t) { return '<button type="button" data-stab="' + t[0] + '" class="' + (S.stab === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>';
+    }
+    // Старые ссылки на разделы «alr» и «log» ведут во вкладки «Системы»
+    function goSec(v) {
+        if (v === 'alr' || v === 'log') { S.stab = v; return 'sys'; }
+        if (v === 'sys') S.stab = 'jobs';
+        if (v === 'staff') { S.ctab = 'staff'; return 'acc'; }
+        if (v === 'acc') S.ctab = 'clients';
+        return v;
+    }
     // «Консалтинг»: две вкладки, клиенты (кабинеты) и сотрудники команды
     function consTabsH() {
         var nc = S.ov && S.ov.cabinets ? S.ov.cabinets.length : '', ns = S.ov && S.ov.staff ? S.ov.staff.length : '';
@@ -406,7 +420,6 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
             if (r.error) { toast('Не сохранилось: ' + (r.error.message || 'ошибка')); }
         });
     }
-    function soon(title, text) { return '<div class="nra-h">' + title + '</div><p class="nra-sub">' + text + '</p><div class="nra-card"><p class="m" style="padding:18px 16px">Этот раздел подключим на следующем шаге.</p></div>'; }
 
     function render() {
         if (!el) return;
@@ -416,10 +429,7 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
         else if (S.sec === 'acc') body = consTabsH() + (S.ctab === 'staff' ? staffH() : accH());
         else if (S.sec === 'users') body = usersH();
         else if (S.sec === 'tg') body = tgH();
-        else if (S.sec === 'sys') body = sysH();
-        else if (S.sec === 'alr') body = alrH();
-        else if (S.sec === 'log') body = logH();
-        else if (S.sec === 'own') body = soon('Спейс владельца', 'Здесь будет превью кабинета глазами владельца и подключение его Telegram.');
+        else if (S.sec === 'sys') body = sysTabsH() + (S.stab === 'alr' ? alrH() : S.stab === 'log' ? logH() : sysH());
         var nav = NAV.map(function (n) {
             var d = sectionDot(n[0], att);
             return '<button type="button" data-sec="' + n[0] + '" class="' + (S.sec === n[0] ? 'on' : '') + '">' + n[1] + '<i class="sd ' + d + '"></i></button>';
@@ -476,7 +486,8 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper],[data-tocons],[data-retc],[data-ctab],[data-uf]'); if (!t) return;
+            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper],[data-tocons],[data-retc],[data-ctab],[data-uf],[data-stab]'); if (!t) return;
+            if (t.dataset.stab) { S.stab = t.dataset.stab; S.sec = 'sys'; render(); return; }
             if (t.dataset.ctab) { S.ctab = t.dataset.ctab; S.sec = 'acc'; render(); return; }
             if (t.dataset.uf) { S.uf = t.dataset.uf; render(); return; }
             if (t.dataset.user) { S.uopen[t.dataset.user] = !S.uopen[t.dataset.user]; render(); return; }
@@ -491,8 +502,8 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
             if (t.dataset.featreload) { e.preventDefault(); S.feat[t.dataset.featreload] = null; loadFeat(t.dataset.featreload); render(); return; }
             if (t.dataset.close) return close();
             if (t.dataset.alr) { if (S.al) saveAlert(t.dataset.alr, { enabled: !(S.al[t.dataset.alr] && S.al[t.dataset.alr].enabled) }); return; }
-            if (t.dataset.sec) { S.sec = t.dataset.sec === 'staff' ? 'acc' : t.dataset.sec; S.ctab = t.dataset.sec === 'staff' ? 'staff' : 'clients'; }
-            else if (t.dataset.go) { S.sec = t.dataset.go; if (t.dataset.open) { S.open[t.dataset.open] = true; if (!S.feat[t.dataset.open]) loadFeat(t.dataset.open); } }
+            if (t.dataset.sec) { S.sec = goSec(t.dataset.sec); }
+            else if (t.dataset.go) { S.sec = goSec(t.dataset.go); if (t.dataset.open) { S.open[t.dataset.open] = true; if (!S.feat[t.dataset.open]) loadFeat(t.dataset.open); } }
             else if (t.dataset.cab) { S.open[t.dataset.cab] = !S.open[t.dataset.cab]; if (S.open[t.dataset.cab] && !S.feat[t.dataset.cab]) loadFeat(t.dataset.cab); }
             else if (t.dataset.hook) { reconnect(t.dataset.hook); return; }
             else if (t.dataset.reload) { loadBots(); return; }

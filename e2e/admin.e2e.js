@@ -89,7 +89,8 @@ test('«Переподключить» бота: кнопка отвечает �
 });
 
 test('оповещения: переключатель и порог сохраняются, остаток ИИ вводится вручную', async ({ page, calls }) => {
-    await page.locator('.nra-side button[data-sec="alr"]').click();
+    await page.locator('.nra-side button[data-sec="sys"]').click();
+    await page.locator('.nra-tabs button[data-stab="alr"]').click();
     await page.locator('.nra-sw').first().waitFor({ state: 'visible' });
     assert.ok(/Баланс ИИ ниже порога/.test(await page.locator('.nra-main').innerText()), 'настройки показаны');
     const before = calls.filter((c) => c.kind === 'write' && c.table === 'admin_alert_settings').length;
@@ -105,7 +106,8 @@ test('оповещения: переключатель и порог сохра�
 });
 
 test('журнал показывает записи, а раздел «Система» показывает сайт и ошибки браузеров', async ({ page }) => {
-    await page.locator('.nra-side button[data-sec="log"]').click();
+    await page.locator('.nra-side button[data-sec="sys"]').click();
+    await page.locator('.nra-tabs button[data-stab="log"]').click();
     await page.locator('.nra-row').first().waitFor({ state: 'visible' });
     const log = await page.locator('.nra-main').innerText();
     assert.ok(/Выдан доступ: Zevina 1/.test(log) && /aizada@example\.test/.test(log), 'запись журнала: ' + log.slice(0, 120));
@@ -203,6 +205,14 @@ test('главная: при нехватке высоты страница пр
 test('окно админки: фон за ним размыт (правило владельца про модалки)', async ({ page }) => {
     const bf = await page.evaluate(() => { const e = document.getElementById('nr-admin'); const c = getComputedStyle(e); return c.backdropFilter || c.webkitBackdropFilter || ''; });
     assert.ok(/blur\(/.test(bf), 'backdrop-filter: ' + bf);
+});
+
+test('меню: пять пунктов, «Оповещения» и «Журнал» внутри «Системы», заглушки «Спейс владельца» нет', async ({ page }) => {
+    const items = await page.locator('.nra-side > button[data-sec]').allInnerTexts();
+    assert.deepStrictEqual(items.map((t) => t.trim()), ['Главная', 'Консалтинг', 'Пользователи сайта', 'Telegram и боты', 'Система'], 'пункты меню: ' + items.join(' | '));
+    await page.locator('.nra-side button[data-sec="sys"]').click();
+    const tabs = await page.locator('.nra-tabs button').allInnerTexts();
+    assert.deepStrictEqual(tabs.map((t) => t.trim()), ['Задачи', 'Оповещения', 'Журнал'], 'вкладки: ' + tabs.join(' | '));
 });
 
 test('пользователи сайта: отдельный раздел, по нажатию видны кабинеты, размер и синхронизация', async ({ page }) => {
