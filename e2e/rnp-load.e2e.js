@@ -51,6 +51,15 @@ const tables = {
         page.evaluate(() => fetch('https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'full', cabinet_id: 'x' }) }).catch(() => {})).catch(() => {});
         await page.waitForSelector('.nru-toast.on', { timeout: 4000 });
         console.log('ok   первая загрузка нового кабинета показывает уведомление');
+        // повторный заход: цифры из сохранённого снимка, карточка «Загружаем РНП» не появляется, даже если свежие данные едут долго
+        {
+            await page.route(/rnp_articles|rnp_daily_data/, async (r) => { await new Promise((x) => setTimeout(x, 2800)); r.fallback(); });
+            await page.reload();
+            let seen = 0; const t0 = Date.now();
+            while (Date.now() - t0 < 3000) { seen += await page.locator('.nrl-card').count(); await page.waitForTimeout(100); }
+            assert.strictEqual(seen, 0, 'карточка «Загружаем РНП» при повторном заходе: ' + seen);
+            console.log('ok   повторный заход: карточки «Загружаем РНП» нет, цифры из снимка');
+        }
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
         console.log('e2e загрузки РНП: все проверки прошли');
     } catch (e) {

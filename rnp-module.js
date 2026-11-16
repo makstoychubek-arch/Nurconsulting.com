@@ -7700,12 +7700,20 @@ const RNP = (() => {
     }
     async function _renderMain() {
         const L = window.NrLoader, silent = _rnpMainRendered();
-        if (L && !silent) L.begin('rnp', 'Загружаем РНП', RNP_LOAD_STEPS);
+        // Карточка «Загружаем РНП» нужна только в самый первый раз (нет сохранённых цифр). Если на устройстве есть снимок,
+        // экран рисуется из него сразу, а свежее подтягивается в фоне без карточки; даём снимку 450 мс, чтобы встать на место.
+        let loaderOn = false, finished = false;
+        const loaderTimer = (L && !silent) ? setTimeout(() => {
+            if (finished) return;
+            try { const ws = document.querySelector('#tab-rnp .rnp-workspace'); if (ws && _rnpHasRealData(ws)) return; } catch (e) {}
+            L.begin('rnp', 'Загружаем РНП', RNP_LOAD_STEPS); loaderOn = true;
+        }, 450) : 0;
         if (!silent) _showFirstSkeleton();
         _startFirstBusy();
         const busyEnd = window._rnpBusyEnd;
         try { return await _renderMainImpl(); } finally {
-            if (L && !silent) L.end('rnp');
+            finished = true; clearTimeout(loaderTimer);
+            if (L && loaderOn) L.end('rnp');
             document.querySelectorAll('#tab-rnp .rnp-first-skel').forEach((n) => n.remove());
             // если дозагрузка воронки взяла снятие размытия на себя, оно снимется там; иначе снимаем сейчас
             if (busyEnd && !window._rnpBusyLate) _endFirstBusy();
