@@ -1,5 +1,5 @@
 /* Чёрно-белый стиль всего сайта: акцент это чёрный (в тёмной теме белый), цвет остаётся только у зелёного и красного в метриках. */
-:root {
+:root, [data-theme="ios"] {
     --bg: #F6F6F7; --surface: #FFFFFF; --surface-solid: #FFFFFF; --sidebar-bg: #FFFFFF;
     --border: #ECECEF; --border-strong: #DCDCE0; --border-color: #ECECEF;
     --text-secondary: #3F3F46; --text-muted: #8B8B92;
@@ -47,10 +47,10 @@
 :root[data-theme="dark"] .rnp-gh-loss, [data-theme="neon"] .rnp-gh-loss { background: var(--surface) !important; }
 .rail-logo-name { border-color: var(--text-primary) !important; color: var(--text-primary) !important; }
 #nr-topbar b { background: var(--accent) !important; }
-:root { --on-accent: #FFFFFF; }
+:root, [data-theme="ios"] { --on-accent: #FFFFFF; }
 [data-theme="neon"] { --on-accent: #262624; }
 /* Серая шкала для долей в полосках и точках */
-:root { --mono-1: #0B0B0C; --mono-2: #52525B; --mono-3: #A1A1AA; --mono-4: #D4D4D8; }
+:root, [data-theme="ios"] { --mono-1: #0B0B0C; --mono-2: #52525B; --mono-3: #A1A1AA; --mono-4: #D4D4D8; }
 [data-theme="neon"] { --mono-1: #F1EFE8; --mono-2: #B5B2A9; --mono-3: #7A7770; --mono-4: #4A4A45; }
 .pnl-mini svg { color: var(--text-primary); }
 .pnl-mini svg polygon { opacity: .07 !important; }
@@ -207,7 +207,7 @@ html body #tab-dashboard #dash-pnl > .pnl-card--profit .pnl-row b { display: non
 
 /* ===== Шапка без «плашки»: название и период в строке с контентом, без фона, тени и лисёнка ===== */
 header.glass.app-header { background: transparent !important; box-shadow: none !important; border: 0 !important; backdrop-filter: none !important; }
-[data-theme="neon"] header.glass { background: transparent !important; box-shadow: none !important; }
+[data-theme="ios"] header.glass, [data-theme="neon"] header.glass { background: transparent !important; box-shadow: none !important; }
 header.glass.app-header .nr-hdr-fox, header.glass.app-header .nr-fox-slot { display: none !important; }
 html body header.glass .header-title { font-size: 28px; font-weight: 900; letter-spacing: -.035em; }
 html body header.glass #header-date-chip-wrap { border: 1px solid var(--text-primary) !important; background: transparent !important; border-radius: 99px; font-weight: 700; }
@@ -2440,61 +2440,67 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
 }
 
 /* ═══════════ «Живое стекло»: единственная тема сайта (от владельца, 16 ноября 2026, «делай») ═══════════
-   Тема одна: тёмное стекло (data-theme="neon" всегда, живой фон data-bg="flow" всегда). Светлая, Tabler и переключатель темы убраны.
+   Две темы: чёрная (neon, по умолчанию, живой фон flow) и белая (ios, живой фон live). Tabler удалён.
    Стекло: полупрозрачная заливка + размытие того, что под ним + светлая кромка сверху + мягкая тень.
    Стеклянные: окна и модалки, всплывающие списки, уведомления и тосты, карточки, меню, шапка. Таблицы (ячейки) плоские: стеклянная только рамка.
    Новый плавающий или карточный элемент добавляем в списки ниже. */
+html[data-theme="ios"] {
+  --g-bg: rgba(255,255,255,.55); --g-bg-strong: rgba(255,255,255,.82); --g-win: rgba(255,255,255,.78);
+  --g-line: rgba(0,0,0,.09); --g-hi: rgba(255,255,255,.95); --g-lo: rgba(0,0,0,.05); --g-sh: rgba(20,20,30,.14);
+  --g-blur: blur(18px) saturate(170%);
+}
 html[data-theme="neon"] {
   --g-bg: rgba(255,255,255,.065); --g-bg-strong: rgba(255,255,255,.12); --g-win: rgba(40,40,38,.72);
   --g-line: rgba(255,255,255,.16); --g-hi: rgba(255,255,255,.24); --g-lo: rgba(0,0,0,.28); --g-sh: rgba(0,0,0,.38);
   --g-blur: blur(18px) saturate(170%);
 }
-#rail-theme-btn, .beta-theme-row, button[onclick="toggleTheme()"] { display: none !important; }
 
 /* 1. Окна и модалки: панели стеклянные (фон за ними уже затемнён и размыт правилом выше) */
-html[data-theme="neon"] body :is(.nr-win, .nr-win.nr-win-photo, .ab-new-dialog.nr-win, .adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp, .rnp-plan-panel.rnp-modal-panel, #nrdb-modal > *, .bottom-beta-sheet, .nw-modal, #premium-modal > *, #add-cabinet-modal > *, #autobidder-modal > *, #supply-detail-modal > *, #ab-edit-modal > *, #ab-report-modal > *, #rp-modal > *, .rnp-settings-overlay > *, .rnp-plan-fact-overlay > *, .tg-overlay > *, #nr-wg-ov > *) {
+html[data-theme] body :is(.nr-win, .nr-win.nr-win-photo, .ab-new-dialog.nr-win, .adp2-md, .shv-dlg, .ffm, .gc-dialog, .adx-gp, .rnp-plan-panel.rnp-modal-panel, #nrdb-modal > *, .bottom-beta-sheet, .nw-modal, #premium-modal > *, #add-cabinet-modal > *, #autobidder-modal > *, #supply-detail-modal > *, #ab-edit-modal > *, #ab-report-modal > *, #rp-modal > *, .rnp-settings-overlay > *, .rnp-plan-fact-overlay > *, .tg-overlay > *, #nr-wg-ov > *) {
   background: var(--g-win) !important; border: 1px solid var(--g-line) !important;
   -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
   box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 var(--g-lo), 0 24px 70px var(--g-sh) !important;
 }
-html[data-theme="neon"] body .nr-win:not(.nr-win-photo):not(.nw-modal) > .nr-win-bar { background: transparent !important; }
+html[data-theme] body .nr-win:not(.nr-win-photo):not(.nw-modal) > .nr-win-bar { background: transparent !important; }
 
 /* 2. Всплывающие слои без затемнения: списки, календарь, подсказки, панель уведомлений, боковое меню, площадка */
-html[data-theme="neon"] body :is(#cabinet-dropdown-menu, #date-picker, .nr-notify-panel, .rnp-help-tip, .sidebar-flyout, .flyout, .nr-mp.open, .nrt-pop, [role="menu"], [role="listbox"], .rnp-ctx-menu) {
+html[data-theme] body :is(#cabinet-dropdown-menu, #date-picker, .nr-notify-panel, .rnp-help-tip, .sidebar-flyout, .flyout, .nr-mp.open, .nrt-pop, [role="menu"], [role="listbox"], .rnp-ctx-menu) {
   background: var(--g-win) !important; border: 1px solid var(--g-line) !important;
   -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
   box-shadow: inset 0 1px 0 var(--g-hi), 0 16px 40px var(--g-sh) !important;
 }
 
 /* 3. Уведомления, тосты, баннеры, ошибки */
-html[data-theme="neon"] body :is(.toast, .nr-toast, #space-pending-banner, .flash, .alert) {
+html[data-theme] body :is(.toast, .nr-toast, #space-pending-banner, .flash, .alert) {
   background: var(--g-win) !important; color: var(--text-primary) !important; border: 1px solid var(--g-line) !important;
   -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
   box-shadow: inset 0 1px 0 var(--g-hi), 0 12px 32px var(--g-sh) !important;
 }
 
 /* 4. Карточки (контурные): заливка стеклом вместо пустого контура */
-html[data-theme="neon"] body :is(#tab-dashboard :is(#dash-pnl > .pnl-card, .pnl-mini-grid > .pnl-mini, .pnl-grid.ff-row > .pnl-card, .pnl-grid.ff-row > .nrdb, .dash-plan-card, .dash-plan-skus-col, .dash-cost-card, .chart-box, #dashboard-top-margin-card, #pnl-chart-card), .ggx-k, .ggx-grp, .nmd-card, .fbf, .fbs-card, .an-tile, .an-col, .beta-module-hero, .ffm-top > div, .ffl-tiles > div, .aoz-card, .nr-mp-dash, .nr-mp-k, .rnp-gh-hero, .nrs-cab, .nw-card) {
+html[data-theme] body :is(#tab-dashboard :is(#dash-pnl > .pnl-card, .pnl-mini-grid > .pnl-mini, .pnl-grid.ff-row > .pnl-card, .pnl-grid.ff-row > .nrdb, .dash-plan-card, .dash-plan-skus-col, .dash-cost-card, .chart-box, #dashboard-top-margin-card, #pnl-chart-card), .ggx-k, .ggx-grp, .nmd-card, .fbf, .fbs-card, .an-tile, .an-col, .beta-module-hero, .ffm-top > div, .ffl-tiles > div, .aoz-card, .nr-mp-dash, .nr-mp-k, .rnp-gh-hero, .nrs-cab, .nw-card) {
   background: var(--g-bg) !important; border: 1px solid var(--g-line) !important;
   -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
   box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 var(--g-lo), 0 10px 28px var(--g-sh) !important;
 }
 /* Главные (раньше светлые, залитые цветом акцента) карточки: стекло ярче остальных, текст светлый */
-html[data-theme="neon"] body :is(#tab-dashboard #dash-pnl > .pnl-card:nth-child(1), .rnp-gh-balance, .rnp-gh-health, .rnp-gh-hero.rnp-gh-profit, .ffm-hero, .nrs-cab, .nmd-hero, .an-tile.an-dark, .nw-s0 .nw-dark, .nw-s0 > .nw-card:nth-child(2), .ffl-tiles .ffl-due) {
-  background: var(--g-bg-strong) !important; color: var(--text-primary) !important; border: 1px solid rgba(255,255,255,.28) !important;
+html[data-theme] body :is(#tab-dashboard #dash-pnl > .pnl-card:nth-child(1), .rnp-gh-balance, .rnp-gh-health, .rnp-gh-hero.rnp-gh-profit, .ffm-hero, .nrs-cab, .nmd-hero, .an-tile.an-dark, .nw-s0 .nw-dark, .nw-s0 > .nw-card:nth-child(2), .ffl-tiles .ffl-due) {
+  background: var(--g-bg-strong) !important; color: var(--text-primary) !important; border: 1px solid var(--g-line) !important;
   --on-accent: var(--text-primary);
 }
-html[data-theme="neon"] body :is(.rnp-gh-balance, .rnp-gh-health) { color: var(--text-primary) !important; }
+html[data-theme] body :is(.rnp-gh-balance, .rnp-gh-health) { color: var(--text-primary) !important; }
 
 /* 5. Меню, шапка, нижнее меню: стекло */
-html[data-theme="neon"] body :is(#sidebar-app, .rail, .main-rail > header.app-header, header.glass.app-header, .bottom-nav) {
+html[data-theme] body :is(#sidebar-app, .rail, .main-rail > header.app-header, header.glass.app-header, .bottom-nav) {
   background: var(--g-bg) !important;
   -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
   border-color: var(--g-line);
 }
 /* 6. Таблицы: ячейки плоские, стеклянная только рамка (блюр под сотнями ячеек на телефоне даёт лаги) */
-html[data-theme="neon"] body :is(.rnp-sheet-table, .rnp-sheet-table *, .ads-hq-table, .ads-hq-table *, .rnp-byart, .rnp-byart *, .aoz table, .aoz table *) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html[data-theme] body :is(.rnp-sheet-table, .rnp-sheet-table *, .ads-hq-table, .ads-hq-table *, .rnp-byart, .rnp-byart *, .aoz table, .aoz table *) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 @media (max-width: 768px) {
   /* на телефоне шапка лежит на ровном фоне: размытие под ней ничего не даёт */
-  html[data-theme="neon"] body :is(header.glass.app-header, .main-rail > header.app-header):not(#nr-x) { -webkit-backdrop-filter: none; backdrop-filter: none; background: transparent !important; border-color: transparent; box-shadow: none !important; }
+  html[data-theme] body :is(header.glass.app-header, .main-rail > header.app-header):not(#nr-x) { -webkit-backdrop-filter: none; backdrop-filter: none; background: transparent !important; border-color: transparent; box-shadow: none !important; }
 }
+html[data-theme="neon"] body .nmd-hero .nmd-chart i { background: rgba(255,255,255,.2); }
+html[data-theme="neon"] body .nmd-hero .nmd-chart i.hl { background: var(--text-primary); }
