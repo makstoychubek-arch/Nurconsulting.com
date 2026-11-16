@@ -2386,7 +2386,7 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
   html:not([data-theme="neon"]) body { --g-bg: rgba(255,255,255,.58); --g-line: rgba(255,255,255,.9); --g-hi: rgba(255,255,255,.95); --g-lo: rgba(0,0,0,.08); --g-sh: rgba(0,0,0,.16); }
   /* нижнее меню: плавающая стеклянная пилюля */
   html body .bottom-nav { left: 14px !important; right: 14px !important; bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; width: auto; padding: 5px 6px !important; border: 1px solid var(--g-line) !important; border-radius: 30px; background: var(--g-bg) !important; backdrop-filter: blur(20px) saturate(190%); -webkit-backdrop-filter: blur(20px) saturate(190%); box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 var(--g-lo), 0 10px 26px var(--g-sh) !important; align-items: center; }
-  html body .bottom-nav-btn { border-radius: 24px; padding: 6px 2px !important; border: 1px solid transparent; }
+  html body .bottom-nav-btn { border-radius: 999px; padding: 7px 2px !important; border: 1px solid transparent; }
   html body .bottom-nav-btn.active { background: var(--g-bg); border-color: var(--g-line); box-shadow: inset 0 1px 0 var(--g-hi), 0 2px 8px var(--g-sh); }
   html, html body { background-color: var(--bg) !important; }
   /* страница идёт до нижнего края: полосы под меню нет, последние строки доезжают выше пилюли прокруткой */
@@ -2430,4 +2430,11 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
   html body header.glass.app-header #header-date-chip-wrap::before, html body header.glass.app-header .app-header-main > .nr-mp:not(.open) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
   /* затемнение под списком площадки: пока список закрыт, слой не рисуется совсем (прозрачный полноэкранный blur считался бы на каждом кадре) */
   .nr-mp-dim:not(.on) { visibility: hidden; }
+}
+
+/* Телефон, РНП: таблица прокручивается внутри себя, поэтому нижний запас под меню кладём в её прокрутку, а не под всю страницу:
+   рамка таблицы идёт до самого низа экрана, последние строки доезжают выше пилюли меню. */
+@media (max-width: 768px) {
+  html body:has(#tab-rnp.active) .main-rail .main-content:not(#nr-x) { padding-bottom: 0 !important; }
+  html body #tab-rnp .rnp-sheet-body { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important; box-sizing: border-box; }
 }
