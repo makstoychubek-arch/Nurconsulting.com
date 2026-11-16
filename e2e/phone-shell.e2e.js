@@ -13,6 +13,8 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
         const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true }, functions: {} });
         const { page } = env;
         await page.setViewportSize({ width: 390, height: 844 });
+        const cdp = await page.context().newCDPSession(page);
+        try { await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34, left: 0, right: 0 } }); } catch (e) { /* без эмуляции проверка отступа пропускается ниже */ }
         await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); });
         await page.waitForTimeout(1500);
         const m = await page.evaluate(() => {
@@ -28,6 +30,9 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
         assert.ok(m.av.l < m.ttl.l && m.ttl.l < m.dt.l && m.dt.l + m.dt.w <= m.vw + 1, 'порядок слева направо: аватарка, название, календарь, ничего не вылезает за экран');
         assert.ok(m.dt.w < 110, 'дата маленькая: ' + m.dt.w);
         assert.ok(!m.scrollX, 'нет горизонтальной прокрутки страницы');
+        const clear = await page.evaluate(() => { const h = document.querySelector('header.app-header').getBoundingClientRect(), av = document.getElementById('cabinet-picker-btn').getBoundingClientRect(), mc = document.querySelector('.main-content'); const first = [...mc.children].find((e) => getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0); return { avTop: av.top, hdrBottom: h.bottom, contentTop: first ? first.getBoundingClientRect().top : 0 }; });
+        assert.ok(clear.avTop >= 95, 'содержимое шапки начинается ниже зоны, которую iOS затушёвывает сверху (>= 95px при безопасной зоне 59): ' + JSON.stringify(clear));
+        assert.ok(clear.contentTop >= clear.hdrBottom - 1, 'страница начинается под шапкой, не заезжает под неё: ' + JSON.stringify(clear));
         const cut = await page.evaluate(() => [...document.querySelectorAll('#nr-bottom-nav .bn-lbl')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
         assert.deepStrictEqual(cut, [], 'подписи нижнего меню не обрезаются: ' + cut.join(', '));
         await page.evaluate(() => showTab('rnp')); await page.waitForTimeout(800);
