@@ -20,7 +20,7 @@
     function T() { return root.FfTerms; }
     function today() { return new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10); }
 
-    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], rawTerms: [], canon: {}, rawNames: [], host: null, rnpShip: true, rnpStorage: true, rub: 1, sel: '' };
+    var state = { supabase: null, cabinetId: null, rows: [], ffs: [], terms: [], rawTerms: [], canon: {}, rawNames: [], host: null, rnpShow: false, rub: 1, sel: '' };
 
     async function fetchAll(table, cabinetId, cols, extra) {
         var out = [];
@@ -79,10 +79,9 @@
             state.rub = rr.data && rr.data[0] ? Number(rr.data[0].rate) || 1 : 1;
         } catch (e) { state.rub = 1; }
         try {
-            var st = await state.supabase.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', cab).maybeSingle();
-            state.rnpShip = st && st.data ? st.data.rnp_ship_costs !== false : true;
-            state.rnpStorage = st && st.data ? st.data.rnp_storage_costs !== false : true;
-        } catch (e) { state.rnpShip = true; state.rnpStorage = true; }
+            var st = await state.supabase.from('ff_settings').select('rnp_show_ff').eq('cabinet_id', cab).maybeSingle();
+            state.rnpShow = !!(st && st.data && st.data.rnp_show_ff === true);
+        } catch (e) { state.rnpShow = false; }
         state.ffs = Object.keys(perFf).map(function (k) { return { name: k, qty: perFf[k].qty, arts: Object.keys(perFf[k].arts).length }; }).sort(function (a, b) { return b.qty - a.qty; });
         state.rows = Object.keys(qty).filter(function (id) { return qty[id] > 0; }).map(function (id) {
             var a = arts[id] || {}, md = a.manual_data || {};
@@ -238,20 +237,19 @@
 
     // Переключатели «Учитывать в РНП» (лежат в окне «Тарифы»)
     function inclHtml() {
-        return '<div class="fbs-sws"><label class="fbx-sw" title="Учитывать отправку ФФ в РНП. Выключите, если отправка уже в себестоимости (как у Zevina). На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_ship_costs"' + (state.rnpShip ? ' checked' : '') + '><i></i>В РНП: отправка</label>' +
-            '<label class="fbx-sw" title="Учитывать хранение ФФ в РНП. На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_storage_costs"' + (state.rnpStorage ? ' checked' : '') + '><i></i>В РНП: хранение</label></div>';
+        return '<div class="fbs-sws"><label class="fbx-sw" title="Показывать фулфилмент в РНП: строка «Фулфилмент» (отправки, хранение, доп. услуги) перед себестоимостью. Выключено: в РНП ФФ не попадает. На дашборде учитывается всегда"><input type="checkbox" data-inc="rnp_show_ff"' + (state.rnpShow ? ' checked' : '') + '><i></i>Показывать в РНП</label></div>';
     }
     function bindIncl(scope) {
         scope.querySelectorAll('[data-inc]').forEach(function (inc) {
             inc.addEventListener('change', async function () {
-                var col = inc.getAttribute('data-inc'), key = col === 'rnp_ship_costs' ? 'rnpShip' : 'rnpStorage';
+                var prev = !inc.checked;
                 try {
-                    var row = { cabinet_id: state.cabinetId, updated_at: new Date().toISOString() };
-                    row[col] = inc.checked;
+                    var row = { cabinet_id: state.cabinetId, updated_at: new Date().toISOString(), rnp_show_ff: inc.checked };
                     var r = await state.supabase.from('ff_settings').upsert(row);
                     if (r.error) throw r.error;
-                    state[key] = inc.checked;
-                } catch (e) { inc.checked = state[key]; say('Не удалось сохранить: ' + String((e && e.message) || e)); }
+                    state.rnpShow = inc.checked;
+                    try { if (window.RNP && RNP.refreshAll) RNP.refreshAll(); } catch (e) { /* РНП обновится при открытии */ }
+                } catch (e) { inc.checked = prev; say('Не удалось сохранить: ' + String((e && e.message) || e)); }
             });
         });
     }

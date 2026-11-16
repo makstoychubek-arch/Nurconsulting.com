@@ -12,7 +12,7 @@ const tables = {
     rnp_articles: [{ id: 'a0', cabinet_id: CAB, nm_id: 1001, name: 'a', category: 'К', is_active: true, cost_price: 100, sort_order: 0 }],
     rnp_daily_data: Array.from({ length: 5 }, (_, d) => ({ cabinet_id: CAB, nm_id: 1001, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, to_transfer: 7000, delivery_sum: 1000, storage_sum: 100, penalty_sum: 50, ad_spend: 200 })),
 };
-const LADDER = ['Реализация', 'Комиссия', 'Эквайринг', 'Логистика', 'Хранение', 'Приёмка и обработка', 'Штрафы', 'Прочие удержания и доплаты', 'Реклама (РК)', 'Себестоимость', 'К выводу', 'Налог', 'Прибыль'];
+const LADDER = ['Реализация', 'Комиссия', 'Эквайринг', 'Логистика', 'Хранение', 'Приёмка и обработка', 'Штрафы', 'Прочие удержания и доплаты', 'Реклама (РК)', 'Фулфилмент', 'Налог', 'Себестоимость', 'К выводу', 'Прибыль'];
 
 (async () => {
     const srv = await serve();
@@ -28,21 +28,27 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         // «Общий» видит все строки, в порядке лесенки
         const idx = first.map((t) => LADDER.indexOf(t));
         assert.deepStrictEqual(idx, [...idx].sort((a, b) => a - b), 'порядок строк: ' + first.join(' → '));
-        for (const need of ['Реализация', 'Логистика', 'Реклама (РК)', 'Себестоимость', 'К выводу', 'Налог', 'Прибыль']) assert.ok(first.includes(need), 'есть строка «' + need + '»: ' + first.join(', '));
+        for (const need of ['Реализация', 'Логистика', 'Реклама (РК)', 'Себестоимость', 'К выводу', 'Прибыль']) assert.ok(first.includes(need), 'есть строка «' + need + '»: ' + first.join(', '));
+        assert.ok(!first.includes('Налог') && !first.includes('Фулфилмент'), 'по умолчанию «Налог» (тумблер выключен) и «Фулфилмент» (ползунок выключен) не показываются: ' + first.join(', '));
         console.log('ok   РНП: расходы лесенкой (' + first.length + ' строк в верном порядке)');
-        // налог из настроек: 10% от реализации, прибыль уменьшается на налог
-        const read = (name) => page.evaluate((n) => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => ((x.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim().replace(/^▸\s*/, '') === n); if (!r) return null; const c = r.querySelector('td:last-child, th:last-child'); return Number(String(c.innerText).replace(/[^\d-]/g, '')) || 0; }, name);
-        const profit0 = await read('Прибыль'), tax0 = await read('Налог');
-        await page.evaluate(() => RNP.setTaxPct('10')); await page.waitForTimeout(800);
-        const profit1 = await read('Прибыль'), tax1 = await read('Налог'), real = await read('Реализация');
+        // налог: по умолчанию тумблер выключен и строки нет; включили, ставка 10% от реализации, строка встаёт перед себестоимостью
+        const read = (name) => page.evaluate((n) => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => ((x.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim().replace(/\s*[▸▾]$/, '') === n); if (!r) return null; const c = r.querySelector('td:last-child, th:last-child'); return Number(String(c.innerText).replace(/[^0-9,.-]/g, '').replace(',', '.')); }, name);
+        const profit0 = await read('Прибыль');
+        await page.evaluate(() => RNP.setTaxPct('10')); await page.waitForTimeout(600);
+        assert.strictEqual(await read('Налог'), null, 'ставка есть, но тумблер выключен: налога нет');
+        assert.strictEqual(await read('Прибыль'), profit0, 'прибыль не меняется, пока тумблер выключен');
+        await page.evaluate(() => RNP.setTaxOn(true)); await page.waitForTimeout(800);
+        const profit1 = await read('Прибыль'), tax1 = await read('Налог'), real = await read('Реализация'), payout1 = await read('К выводу');
         assert.ok(tax1 > 0 && Math.abs(tax1 - real * 0.1) <= Math.max(2, real * 0.002), 'налог 10% от реализации: ' + tax1 + ' из ' + real);
-        assert.ok(profit1 < profit0 && Math.abs((profit0 - profit1) - (tax1 - tax0)) <= 3, 'прибыль уменьшилась на налог: ' + profit0 + ' → ' + profit1);
+        assert.ok(profit1 < profit0 && Math.abs((profit0 - profit1) - tax1) <= 3, 'прибыль уменьшилась на налог: ' + profit0 + ' → ' + profit1);
+        assert.strictEqual(payout1, profit1, 'налог до себестоимости: «К выводу» уже после налога');
+        const order = await labels(); assert.ok(order.indexOf('Налог') < order.indexOf('Себестоимость') && order.indexOf('Себестоимость') < order.indexOf('К выводу'), 'налог стоит перед себестоимостью');
         console.log('ok   налог 10% от реализации (' + tax1 + ') вычитается из прибыли (' + profit0 + ' → ' + profit1 + ')');
         // раскрытие: «Комиссия» показывает процент, «Прочие удержания и доплаты» и «Штрафы» показывают виды; стрелки синие
         await page.evaluate(() => { RNP.pick('general'); }); await page.waitForTimeout(1200);
-        const arrows = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp .rnp-split-toggle')].map((e) => ({ t: e.innerText.replace(/\s+/g, ' ').trim(), c: getComputedStyle(e.querySelector('.rnp-split-arrow')).color })));
+        const arrows = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp .rnp-split-toggle')].map((e) => ({ t: e.innerText.replace(/\s+/g, ' ').trim(), c: getComputedStyle(e.querySelector('.rnp-split-arrow')).color, o: Number(getComputedStyle(e.querySelector('.rnp-split-arrow')).opacity) })));
         for (const need of ['Комиссия', 'Штрафы', 'Прочие удержания и доплаты']) assert.ok(arrows.some((a) => a.t.replace(/ [▸▾]$/, '') === need), 'у строки «' + need + '» есть стрелка раскрытия: ' + JSON.stringify(arrows.map((a) => a.t)));
-        assert.ok(arrows.every((a) => a.c === 'rgb(37, 99, 235)'), 'стрелки синие: ' + JSON.stringify(arrows.map((a) => a.c)));
+        assert.ok(arrows.every((a) => a.c !== 'rgb(37, 99, 235)' && a.o > 0 && a.o < 0.6), 'стрелки не синие, а чёрные и еле заметные: ' + JSON.stringify(arrows));
         await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
         const open = [...new Set(await labels())];
         for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты', 'К клиенту при продаже', 'К клиенту при отмене', 'От клиента при возврате', 'Доля отмен в логистике, %', 'Логистика на 1 проданную шт, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');

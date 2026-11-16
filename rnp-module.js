@@ -20,6 +20,7 @@ const RNP = (() => {
         showGiveaways: true,
         showCompetitor: true,
         taxPct: 0,
+        taxOn: false,
         hiddenGroups: [],
         groupNames: {},
         wbGroups: false,
@@ -210,9 +211,10 @@ const RNP = (() => {
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'other_net_sum',      label: 'Прочие удержания и доплаты',       type: 'som',  src: 'auto',  cabinetOnly: true },
             { key: 'ad_spend',           label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
+            { key: 'ff_sum',             label: 'Фулфилмент',                       type: 'som',  src: 'calc',  hm: 'cost' },
+            { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
-            { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
             { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
@@ -1169,6 +1171,7 @@ const RNP = (() => {
             showGiveaways: o.showGiveaways !== false,
             showCompetitor: o.showCompetitor !== false,
             taxPct: Math.min(60, Math.max(0, Number(o.taxPct) || 0)),
+            taxOn: o.taxOn === true,
             hiddenGroups: Array.isArray(o.hiddenGroups)
                 ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
                 : [],
@@ -1181,7 +1184,13 @@ const RNP = (() => {
     }
 
     // Налог, % от реализации (одна ставка на кабинет, хранится в настройках РНП в аккаунте; в финотчётах WB и Ozon налога нет).
-    function _taxPct() { return Math.min(60, Math.max(0, Number(_settings.taxPct) || 0)); }
+    function _taxPct() { return _settings.taxOn === true ? Math.min(60, Math.max(0, Number(_settings.taxPct) || 0)) : 0; }
+    async function setTaxOn(on) {
+        _settings.taxOn = !!on;
+        _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null;
+        try { await _saveSettings({ options: { taxOn: !!on } }); } catch (e) { console.warn('[RNP] налог:', e.message || e); }
+        try { _renderActiveTable(); } catch (e) { /* таблица обновится при следующем открытии */ }
+    }
     async function setTaxPct(v) {
         const n = Math.min(60, Math.max(0, parseFloat(String(v).replace(',', '.')) || 0));
         _settings.taxPct = n;
@@ -1194,6 +1203,7 @@ const RNP = (() => {
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div><h3 class="font-semibold" style="color:var(--text-primary)">Налог</h3>
               <p class="text-xs leading-snug" style="color:var(--text-muted);max-width:520px">Процент от реализации. В финотчётах WB и Ozon налога нет, его платите вы сами, поэтому ставка вводится здесь. 0 — налог не считается. Общая для WB и Ozon.</p></div>
+            <label class="flex items-center gap-2 text-sm" style="color:var(--text-primary)"><input id="rnp-tax-on" type="checkbox" ${_settings.taxOn === true ? 'checked' : ''} onchange="RNP.setTaxOn(this.checked)"> Показывать в РНП</label>
             <label class="flex items-center gap-2 text-sm" style="color:var(--text-primary)">Налог, %
               <input id="rnp-tax-pct" type="number" min="0" max="60" step="0.1" value="${_taxPct() || ''}" placeholder="0" class="ui-input" style="width:90px" onchange="RNP.setTaxPct(this.value)"></label>
           </div></div>`;
@@ -1208,6 +1218,7 @@ const RNP = (() => {
             showGiveaways: _settings.showGiveaways,
             showCompetitor: _settings.showCompetitor,
             taxPct: Math.min(60, Math.max(0, Number(_settings.taxPct) || 0)),
+            taxOn: _settings.taxOn === true,
             responsibles: Array.isArray(_settings.responsibles) ? _settings.responsibles : [],
             hiddenGroups: _hiddenGroupList(),
             groupNames: _normGroupNames(_settings.groupNames),
@@ -1323,11 +1334,15 @@ const RNP = (() => {
 
     // Для Ozon нет СПП, раздач, обработки товара, логистики до ПВЗ и баланса WB по строкам
     const _OZ_HIDE = new Set(['acquiring_sum', 'ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
+    let _ffShow = false;      // ползунок «Показывать в РНП» в разделе ФФ
+    let _ffExtra = {};        // доп. услуги ФФ по дням (₽)
     function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
             if (_mp() === 'ozon' && _OZ_HIDE.has(m.key)) return false;
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
+            if (m.key === 'ff_sum' && (!_ffShow || _mp() === 'ozon')) return false;
+            if (m.key === 'tax_sum' && _settings.taxOn !== true) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
             if (m.competitor && !_settings.showCompetitor) return false;
             return true;
@@ -5473,7 +5488,7 @@ const RNP = (() => {
             const lastDate = allDates[allDates.length - 1];
             const [splitRes, setRes, rateRes, termRes, fbsStocks, fbsOrders] = await Promise.all([
                 _mp() === 'ozon' ? Promise.resolve({ data: [] }) : _db.rpc('rnp_fbs_split', { p_cabinet: _cab, p_from: allDates[0], p_to: lastDate }),
-                Promise.resolve(_db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle()).catch(() => null),
+                Promise.resolve(_db.from('ff_settings').select('rnp_show_ff').eq('cabinet_id', _cab).maybeSingle()).catch(() => null),
                 Promise.resolve(_db.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).range(0, 120)).catch(() => null),
                 FT ? Promise.resolve(_db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', _cab).range(0, 999)).catch(e => ({ error: e })) : null,
                 FT ? _fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: _cab }, { op: 'eq', column: 'stock_scheme', value: 'fbs' }]).catch(() => null) : null,
@@ -5487,8 +5502,11 @@ const RNP = (() => {
             if (error) throw error;
             if (cab0 !== _cab) return;
             // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт: тарифы КАЖДОГО ФФ вносят в «Товары → FBS» (ff_terms, по периодам)
-            let includeShip = true, includeStorage = true;
-            if (setRes && setRes.data) { includeShip = setRes.data.rnp_ship_costs !== false; includeStorage = setRes.data.rnp_storage_costs !== false; }
+            // Пока ползунок «Показывать в РНП» в разделе ФФ выключен, расходы ФФ в РНП не считаются совсем.
+            const showFf = !!(setRes && setRes.data && setRes.data.rnp_show_ff === true);
+            const prevShow = _ffShow; _ffShow = showFf;
+            if (prevShow !== showFf) { try { _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null; } catch (e) { /* кэш колонок сам обновится */ } }
+            let includeShip = showFf, includeStorage = showFf;
             let idx = {}, shares = {}, dailyQty = {}, rubRates = {};
             ((rateRes && rateRes.data) || []).forEach(x => { rubRates[x.date] = Number(x.rate); });
             if (FT && (includeShip || includeStorage)) {
@@ -5548,7 +5566,7 @@ const RNP = (() => {
             const apply = (row, nm, o, d) => {
                 const p = { ship: includeShip ? shipPrice(nm, d) : 0 };
                 const cost = o * p.ship;
-                row.delivery_sum = (row.delivery_sum || 0) - (row.fbs_ship_cost || 0) + cost;
+                row.ff_ship = cost; // отдельной строкой «Фулфилмент», в «Логистику» не вшиваем
                 row.fbs_ship_cost = cost;
                 row.fbs_ship_missing = includeShip && o > 0 && !p.ship ? o : 0;
             };
@@ -5569,10 +5587,8 @@ const RNP = (() => {
                     if (!row || d > today) return;
                     if (!seen.has(`${nm}:${d}`)) apply(row, nm, 0, d);
                     const c = includeStorage ? storageOf(nm, d) : 0;
-                    if (c > 0 || row.fbs_storage_cost) {
-                        row.storage_sum = (row.storage_sum || 0) - (row.fbs_storage_cost || 0) + c;
-                        row.fbs_storage_cost = c;
-                    }
+                    row.ff_storage = c;
+                    row.fbs_storage_cost = c;
                 });
             });
         } catch (e) { console.warn('[RNP] fbs split:', e.message); }
@@ -6399,6 +6415,12 @@ const RNP = (() => {
             { key: 'log_per_unit',    label: 'Логистика на 1 проданную шт, сом', type: 'avg' },
             { key: 'log_to_pvz_avg',  label: 'Средняя доставка до ПВЗ, сом', type: 'avg' },
         ] },
+        // «Фулфилмент»: отправки и хранение по артикулам, доп. услуги из журнала ФФ (только в «Общем»)
+        ff_sum: { cls: 'ff', hint: 'Фулфилмент: отправки, хранение, доп. услуги', subs: [
+            { key: 'ff_ship',    label: 'Отправки',     type: 'ff' },
+            { key: 'ff_storage', label: 'Хранение',     type: 'ff' },
+            { key: 'ff_extra',   label: 'Доп. услуги',  type: 'ff' },
+        ] },
         // «Комиссия»: по нажатию показывает процент от реализации
         wb_commission: { cls: 'com', hint: 'Показать комиссию в процентах от реализации', subs: [
             { key: 'comm_pct_real', label: 'Комиссия, % от реализации', type: 'pct' },
@@ -6411,7 +6433,7 @@ const RNP = (() => {
         m.log_cancel_pct = dl > 0 ? ((Number(m.log_cancel_to) || 0) + (Number(m.log_cancel_from) || 0)) / dl * 100 : 0;
         m.log_per_unit = (Number(m.sales_count) || 0) > 0 ? dl / m.sales_count : 0;
     }
-    const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg').map(x => x.key)))];
+    const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg' && x.type !== 'ff').map(x => x.key)))];
 
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count',
@@ -6420,6 +6442,7 @@ const RNP = (() => {
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -6533,6 +6556,14 @@ const RNP = (() => {
         m.deduction_sum = n(t.deduction);
         FIN_SPLIT_KEYS.forEach(k => { m[k] = n(t[k]); });
         _logDerived(m);
+        if (_ffShow && _mp() !== 'ozon') {
+            const ex = n(_ffExtra[date]);
+            const er = _rateFor(date, { wb_rate: m.wb_rate });
+            m.ff_extra = ex;
+            m.ff_sum = (m.ff_ship || 0) + (m.ff_storage || 0) + ex;
+            m.net_payout = (m.net_payout || 0) - ex * er;
+            m.profit = m.net_payout;
+        }
         m.acceptance_sum = n(t.acceptance);
         m.to_withdraw = n(t.to_withdraw);
         m.acquiring_sum = n(t.acquiring);
@@ -6553,9 +6584,10 @@ const RNP = (() => {
         m.ad_cpm = m.ad_impressions > 0 ? m.ad_spend / m.ad_impressions * 1000 : 0;
         m.ad_roas = m.ad_spend > 0 ? (m.ad_revenue || 0) / m.ad_spend : 0;
         // Прибыль: реклама WB, списанная с баланса (в «Прочих удержаниях»), не вычитается второй раз — РК учтена расходом.
-        m.net_payout = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - (m.cost_price_val || 0) - m.ad_spend;
+        m.ff_sum = (m.ff_ship || 0) + (m.ff_storage || 0) + (m.ff_extra || 0);
         m.tax_sum = _taxPct() / 100 * (m.realization || 0);
-        m.profit = m.net_payout - m.tax_sum;
+        m.net_payout = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - (m.cost_price_val || 0) - m.ad_spend - m.ff_sum - m.tax_sum;
+        m.profit = m.net_payout;
         m.profit_per_unit = m.sales_count > 0 ? m.profit / m.sales_count : 0;
         m.margin_pct = m.to_transfer > 0 ? m.profit / m.to_transfer * 100 : 0;
         m.roi_pct = m.cost_price_val > 0 ? m.profit / m.cost_price_val * 100 : 0;
@@ -6603,6 +6635,23 @@ const RNP = (() => {
         } catch (e) {
             console.warn('[RNP] rnp_cabinet_fin_split:', e.message || e);
         }
+        // Доп. услуги ФФ из журнала (ff_ledger): без артикула, только в «Общем». Запись с периодом «[с..по]» делится по дням поровну.
+        try {
+            const [st, lr] = await Promise.all([
+                _db.from('ff_settings').select('rnp_show_ff').eq('cabinet_id', _cab).maybeSingle(),
+                _db.from('ff_ledger').select('kind,title,amount,entry_date').eq('cabinet_id', _cab).neq('kind', 'payment').gte('entry_date', allDates[0]).lte('entry_date', allDates[allDates.length - 1]).range(0, 999),
+            ]);
+            const ex = {};
+            if (st && st.data && st.data.rnp_show_ff === true && lr && !lr.error) {
+                (lr.data || []).filter(r => r.kind !== 'payment').forEach(r => {
+                    const amt = Number(r.amount) || 0, mm = /^\[(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})\]/.exec(r.title || '');
+                    const days = mm ? allDates.filter(d => d >= mm[1] && d <= mm[2]) : [];
+                    if (days.length) days.forEach(d => { ex[d] = (ex[d] || 0) + amt / days.length; });
+                    else { const d = String(r.entry_date).slice(0, 10); ex[d] = (ex[d] || 0) + amt; }
+                });
+            }
+            _ffExtra = ex;
+        } catch (e) { _ffExtra = {}; }
         // Логистика по причинам (подстроки «Логистики»)
         try {
             const { data: lg, error: lgErr } = await _db.rpc('rnp_cabinet_log_split', {
@@ -6835,10 +6884,11 @@ const RNP = (() => {
         const otherCosts = netUnits * otherCostsUnitSom;
         const adSpend  = (d.ad_spend || 0); // расход РК WB для кабинетов КР уже в сомах
         d.cost_price_val  = totalCost; // Себестоимость = (продажи − возвраты), шт × себест. за ед.
-        // «К выводу» после себестоимости (до налога); налог — процент от реализации; прибыль = К выводу − налог.
-        d.net_payout      = revenue - wbCosts - totalCost - adSpend - otherCosts;
+        // Фулфилмент (отправки + хранение ФФ) и налог (процент от реализации) идут расходами до себестоимости; прибыль = К выводу.
+        d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
-        d.profit          = d.net_payout - d.tax_sum;
+        d.net_payout      = revenue - wbCosts - totalCost - adSpend - otherCosts - d.ff_sum * er - d.tax_sum;
+        d.profit          = d.net_payout;
         d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
         d.roi_pct         = totalCost > 0 ? d.profit / totalCost * 100 : 0;
@@ -8799,7 +8849,7 @@ const RNP = (() => {
                     const v = pctSub ? (Number(d[sub.key]) || 0) : Math.round(Number(d[sub.key]) || 0);
                     const pending = isDay && col.isToday && !(Number(d[m.key]) > 0);
                     txt = pending ? '—' : (pctSub ? _fmt(v, 'pct') : _fmt(v, 'som'));
-                    if (v !== 0 && isDay && !pctSub && sub.type !== 'avg') {
+                    if (v !== 0 && isDay && !pctSub && sub.type !== 'avg' && sub.type !== 'ff') {
                         const a = Math.min(1, Math.abs(v) / mx);
                         style += `${style ? ';' : ''}background:rgba(${rgb},${(0.10 + 0.35 * a).toFixed(2)})`;
                     }
@@ -10489,7 +10539,7 @@ const RNP = (() => {
         return fn.apply(this, a);
     };
     const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
-    return { init, initCore, ensureReady, setDateRange, setTaxPct, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
 })();
