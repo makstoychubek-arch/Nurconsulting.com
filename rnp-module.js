@@ -205,11 +205,11 @@ const RNP = (() => {
         ]},
         { id: 'expenses', label: 'Все расходы', color: '#0ea5e9', rows: [
             { key: 'realization',        label: 'Реализация',                       type: 'som',  src: 'auto',  bold: true },
-            { key: 'comm_acq_sum',       label: 'Комиссия и эквайринг',             type: 'som',  src: 'calc',  hm: 'cost', articleOnly: true },
-            { key: 'to_transfer',        label: 'К перечислению от WB',             type: 'som',  src: 'auto',  bold: true, articleOnly: true },
+            { key: 'wb_commission',      label: 'Комиссия',                         type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'comm_pct_real',      label: 'Комиссия %',                       type: 'pct',  src: 'calc' },
+            { key: 'acquiring_sum',      label: 'Эквайринг',                        type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto',  bold: true, articleOnly: true },
             { key: 'to_transfer_unit',   label: 'От WB на единицу',                 type: 'som',  src: 'calc',  articleOnly: true },
-            { key: 'wb_commission',      label: 'Комиссия',                         type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
-            { key: 'acquiring_sum',      label: 'Эквайринг',                        type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'delivery_sum',       label: 'Логистика',                        type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'storage_sum',        label: 'Хранение',                         type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'acceptance_sum',     label: 'Приёмка и обработка',              type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
@@ -3103,9 +3103,9 @@ const RNP = (() => {
         other_net_sum: ['Прочие удержания и доплаты', 'Удержания маркетплейса по финотчёту (подписки, утилизация, услуги поставок и т. п.) минус доплаты и компенсации. Расход показывается положительным числом. У Ozon эквайринг входит в комиссию.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
-        to_transfer: ['К перечислению от WB', 'Сколько WB переводит вам за проданные штуки этого артикула, до логистики, хранения, штрафов и рекламы: реализация минус комиссия и эквайринг (по финотчёту).'],
+        to_transfer: ['К перечислению', 'Сколько WB переводит вам за проданные штуки этого артикула, до логистики, хранения, штрафов и рекламы: реализация минус комиссия и эквайринг (по финотчёту).'],
         to_transfer_unit: ['От WB на единицу', 'К перечислению от WB ÷ проданные штуки: сколько WB отдаёт с одной вещи до всех расходов.'],
-        comm_acq_sum: ['Комиссия и эквайринг', 'Реализация минус то, что WB переводит вам: комиссия WB и эквайринг вместе.'],
+        comm_pct_real: ['Комиссия %', 'Комиссия WB ÷ реализация × 100: какой процент от цены продажи WB берёт себе (по финотчёту: реализация − эквайринг − к перечислению).'],
         net_payout_unit: ['К выводу на единицу', 'К выводу ÷ проданные штуки: сколько остаётся с одной вещи после всех расходов WB, до себестоимости.'],
         net_payout: ['К выводу', 'Реализация − комиссия − эквайринг − логистика − хранение − приёмка − штрафы − прочие удержания − реклама (− фулфилмент и налог, если включены). Себестоимость ещё не вычтена: она идёт следующей строкой, затем прибыль.'],
         tax_sum: ['Налог', 'Ставка из «Настройки РНП → Налог» × реализация. В финотчётах налога нет: это ваш налог государству. Ставка 0 — не считается.'],
@@ -5615,6 +5615,16 @@ const RNP = (() => {
             if (error) throw error;
             if (cab0 !== _cab) return;
             idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.log_sale = 0; row.log_cancel_to = 0; row.log_cancel_from = 0; row.log_return = 0; row.log_other = 0; } }));
+            try {
+                const { data: fz, error: fzErr } = await _db.rpc('rnp_fin_by_nm', { p_cabinet: cab0, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: nmIds.map(Number) });
+                if (fzErr) throw fzErr;
+                if (cab0 !== _cab) return;
+                idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.acquiring_sum = 0; row.compensation_sum = 0; } }));
+                (fz || []).forEach(r => {
+                    const row = _dataCache[r.nm_id] && _dataCache[r.nm_id][String(r.d).split('T')[0]];
+                    if (row) { row.acquiring_sum = Number(r.acquiring) || 0; row.compensation_sum = Number(r.compensation) || 0; }
+                });
+            } catch (e) { console.warn('[RNP] rnp_fin_by_nm:', e.message || e); }
             (data || []).forEach(r => {
                 const row = _dataCache[r.nm_id] && _dataCache[r.nm_id][String(r.d).split('T')[0]];
                 if (!row) return;
@@ -6389,7 +6399,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6453,10 +6463,6 @@ const RNP = (() => {
             { key: 'ff_ship',    label: 'Отправки',     type: 'ff' },
             { key: 'ff_storage', label: 'Хранение',     type: 'ff' },
             { key: 'ff_extra',   label: 'Доп. услуги',  type: 'ff' },
-        ] },
-        // «Комиссия»: по нажатию показывает процент от реализации
-        wb_commission: { cls: 'com', hint: 'Показать комиссию в процентах от реализации', subs: [
-            { key: 'comm_pct_real', label: 'Комиссия %', type: 'pct' },
         ] },
     };
     // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
@@ -6919,7 +6925,10 @@ const RNP = (() => {
         d.cost_price_val  = totalCost; // Себестоимость = (продажи − возвраты), шт × себест. за ед.
         // Фулфилмент (отправки + хранение ФФ) и налог (процент от реализации) идут расходами до себестоимости; прибыль = К выводу.
         _logDerived(d);
-        d.comm_acq_sum    = Math.max(0, (d.realization || 0) - (d.to_transfer || 0)); // у артикула: комиссия и эквайринг вместе
+        // Комиссия WB: реализация − эквайринг − (к перечислению − компенсации); у артикула считается так же, как по кабинету
+        d.acquiring_sum   = Number(d.acquiring_sum) || 0;
+        d.wb_commission   = Math.max(0, (d.realization || 0) - d.acquiring_sum - ((d.to_transfer || 0) - (Number(d.compensation_sum) || 0)));
+        d.comm_pct_real   = (d.realization || 0) > 0 ? d.wb_commission / d.realization * 100 : 0;
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
         d.net_payout      = revenue - wbCosts - adSpend - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
