@@ -140,7 +140,9 @@ async function syncFinance(admin: Admin, cabinetId: string, c: OzonCreds, days: 
 
 /** Начисления Ozon по отправлениям (новый метод /v1/finance/accrual/postings, 200 отправлений за запрос): точные комиссия, логистика, эквайринг, подписка по каждому заказу. */
 async function syncAccruals(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
-    const since = new Date(Date.now() - Math.max(days, 14) * 86400_000).toISOString();
+    // Начисления появляются по мере доставки и возвратов (иногда через несколько недель после создания отправления),
+    // поэтому окно шире обычного: перечитываем отправления за последние 75 дней.
+    const since = new Date(Date.now() - Math.max(days, 75) * 86400_000).toISOString();
     // справочник типов начислений (редко меняется)
     try {
         const t = await ozonCall(c, '/v1/finance/accrual/types', {}, fetchFn);
