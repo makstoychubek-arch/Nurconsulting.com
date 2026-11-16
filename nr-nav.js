@@ -43,7 +43,7 @@
             fly: 'fly-rnp', title: 'РНП',
             items: [
                 { id: 'unit', label: 'Юнит-экономика', ico: 'calc', sel: '#rnp-views [data-rv="unit"]', on: '#rnp-views [data-rv="unit"].is-on' },
-                { id: 'prices', label: 'Цены', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' },
+                { id: 'prices', label: 'Товары', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' },
                 { id: 'planning', label: 'Планирование', ico: 'calc', act: 'openPlanning', always: true },
                 { id: 'rnp', label: 'РНП', ico: 'tbl', sel: '#rnp-views [data-rv="rnp"]', on: '#rnp-views [data-rv="rnp"].is-on', dflt: true },
                 { id: 'planfact', label: 'План/факт', ico: 'tbl', act: 'openPlanFact', always: true }
@@ -227,7 +227,11 @@
         else if (tab === 'agents' || tab === 'akylai') { secTitle = 'Инструменты'; label = 'Агенты'; }
         else if (tab === 'tariffs') { secTitle = 'Настройки'; label = 'Тарифы'; go1 = '*settings'; }
         // Подраздела нет (например, основной РНП): забываем подраздел прошлой вкладки, иначе наблюдатель вернёт его в заголовок
-        if (!label) { desired = ''; el.innerHTML = ''; el.classList.remove('on'); return; }
+        if (!label) {
+            // Вернулись на основную страницу раздела (например, из «Юнит-экономики» в РНП): прежний заголовок подраздела заменяем обычным
+            if (title && s && desired) { try { var d0 = typeof tabTitles !== 'undefined' && tabTitles[tab]; if (d0 && title.textContent !== d0) title.textContent = d0; } catch (e) { /* заголовок остаётся */ } }
+            desired = ''; el.innerHTML = ''; el.classList.remove('on'); return;
+        }
         el.classList.add('on');
         el.innerHTML = '<button type="button" class="nr-crumb" data-nrc="' + (go1 ? (go1.charAt(0) === '*' ? go1 : tab + ':' + go1) : '') + '">' + esc(secTitle) + '</button><span class="nr-crumb-sep">›</span><span class="nr-crumb-cur">' + esc(label) + '</span>';
         desired = (s && label !== secTitle) ? label : '';
@@ -416,8 +420,9 @@
         // ПК: в шапке сразу справа от даты. Телефон: шапка тесная, поэтому отдельной строкой над содержимым.
         function place(bar) {
             var phone = root.matchMedia && root.matchMedia('(max-width: 768px)').matches;
-            var date = doc.getElementById('header-date-chip-wrap'), host = doc.querySelector('.main-content');
-            if (phone && host) { if (bar.parentNode !== host || host.firstChild !== bar) host.insertBefore(bar, host.firstChild); }
+            var date = doc.getElementById('header-date-chip-wrap'), host = doc.querySelector('header.app-header .app-header-main');
+            // Телефон: маленький тумблер прямо в верхнем ряду шапки (порядок задаёт CSS), а не отдельной строкой над содержимым
+            if (phone && host) { if (bar.parentNode !== host) host.appendChild(bar); }
             else if (date && date.parentNode) { if (date.nextSibling !== bar) date.parentNode.insertBefore(bar, date.nextSibling); }
         }
         if (root.addEventListener) root.addEventListener('resize', function () { var b = doc.getElementById('nr-mp'); if (b) place(b); });
@@ -425,9 +430,28 @@
             var anchor = doc.getElementById('header-date-chip-wrap') || doc.getElementById('nr-zoom'); if (!anchor || doc.getElementById('nr-mp')) { paint(); return; }
             var bar = doc.createElement('div'); bar.id = 'nr-mp'; bar.className = 'nr-mp'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Площадка');
             bar.innerHTML = MODES.map(function (m) { return '<button type="button" data-mp="' + m + '" title="' + LBL[m] + '" aria-label="' + LBL[m] + '">' + LOGO[m] + '</button>'; }).join('');
-            bar.addEventListener('click', function (e) { var b = e.target.closest('button[data-mp]'); if (b) set(b.getAttribute('data-mp')); });
+            // Телефон: круг показывает текущую площадку; по нажатию страница темнеет и выходит список (WB / Ozon / Вместе)
+            var dim = doc.createElement('div'); dim.className = 'nr-mp-dim'; doc.body.appendChild(dim);
+            function shut() { bar.classList.remove('open'); dim.classList.remove('on'); }
+            dim.addEventListener('click', shut);
+            doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') shut(); });
+            bar.addEventListener('click', function (e) {
+                var phone = root.matchMedia && root.matchMedia('(max-width: 768px)').matches;
+                var b = e.target.closest('button[data-mp]');
+                if (phone && !bar.classList.contains('open')) { bar.classList.add('open'); dim.classList.add('on'); return; }
+                if (b) set(b.getAttribute('data-mp'));
+                shut();
+            });
             place(bar); paint();
         }
+        // Телефон: дата периода стоит под названием страницы (в круглой кнопке календаря текста нет)
+        function syncDate() {
+            var dr = doc.getElementById('date-range'), t = doc.getElementById('page-title'); if (!dr || !t || !t.parentNode) return;
+            var sd = doc.getElementById('nr-subdate');
+            if (!sd) { sd = doc.createElement('span'); sd.id = 'nr-subdate'; sd.className = 'nr-subdate'; t.parentNode.insertBefore(sd, t.nextSibling); }
+            var v = (dr.textContent || '').replace(/\s+/g, ' ').trim(); if (sd.textContent !== v) sd.textContent = v;
+        }
+        var dt0 = 0; new MutationObserver(function () { if (dt0) return; dt0 = setTimeout(function () { dt0 = 0; syncDate(); }, 60); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true, characterData: true });
         if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
         var mt = 0; new MutationObserver(function () { if (mt || doc.getElementById('nr-mp')) return; mt = setTimeout(function () { mt = 0; mount(); }, 200); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true });
     })();

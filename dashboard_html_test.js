@@ -297,17 +297,17 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
 {
     const bn = html.slice(html.indexOf('id="nr-bottom-nav"'), html.indexOf('id="nr-beta-overlay"'));
     assert.ok(
-        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-rnp"') &&
-        bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
-        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-goods"') &&
+        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rnp"') &&
+        bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-rk"') &&
+        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-goods"') &&
         bn.indexOf('id="bn-goods"') < bn.indexOf('id="bn-beta"'),
-        'bottom nav order: РК, РНП, Дашборд, Остатки, Меню'
+        'bottom nav order: Дашборд, РНП, Продвижение, Логистика, Ещё'
     );
     assert.ok(
-        bn.includes('bn-lbl">Продвиж') &&
+        bn.includes('bn-lbl">Продвижение') &&
         !bn.includes('id="bn-agents"') &&
-        bn.includes('bn-lbl">Остатки') &&
-        bn.includes('bn-lbl">Меню') &&
+        bn.includes('bn-lbl">Логистика') &&
+        bn.includes('bn-lbl">Ещё') &&
         !bn.includes('id="bn-ab"') &&
         !bn.includes('id="bn-settings"'),
         'Agents, A/B and settings live in the menu sheet; RK is on the bar'
@@ -315,8 +315,8 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
     assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
         'theme toggle is not on the bottom nav');
 }
-assert.ok(html.includes('bottom-nav-btn--home') && html.includes('id="bn-dash"'),
-    'dashboard is the accent center item on the bottom nav');
+assert.ok(html.includes('id="bn-dash"') && html.indexOf('id="bn-dash"') < html.indexOf('id="bn-rnp"'),
+    'dashboard is the first item on the bottom nav');
 assert.ok(
     html.includes('function toggleBetaSheet') &&
     html.includes('function openBetaSheet') &&
@@ -662,7 +662,7 @@ assert.ok(rnpSrc.includes("from('exchange_rates')"), 'RNP must read the fixed ex
 assert.ok(rnpSrc.includes('function _latestNbkr'), 'the official NBKR rate is still read for the daily rate');
 assert.ok(!rnpSrc.includes('Курс ₽ → сом</label>') && !rnpSrc.includes('Период расчёта метрик</label>'),
     'the «Основные настройки» card (rates, period, default plan, months) is gone: everything is automatic');
-assert.ok(/key: 'storage_sum',\s+label: 'Хранение \(сверено\)'/.test(rnpSrc), 'RNP shows reconciled storage row');
+assert.ok(/key: 'storage_sum',\s+label: 'Хранение'/.test(rnpSrc), 'RNP shows storage row in the expense ladder');
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903152000_rnp_nbkr_rate_cron.sql')),
     'daily NBKR cron migration must exist'
@@ -846,7 +846,7 @@ assert.ok(rnpSrc.includes('function _mergeAdStatsFromDb'), 'RNP must merge adver
 assert.ok(rnpSrc.includes("from('advertising_daily_stats')") || rnpSrc.includes("'advertising_daily_stats'"),
     'RNP must read advertising_daily_stats, not only rnp_daily_data');
 assert.ok(rnpSrc.includes('_hydrateFunnelAfterPaint'), 'organic impressions must hydrate after first paint');
-assert.ok(rnpSrc.includes("label: 'Показатели воронки'"), 'funnel section title stays short for sellers');
+assert.ok(rnpSrc.includes("label: 'Воронка'"), 'funnel section title stays short for sellers');
 assert.ok(!rnpSrc.includes('WB 7 дней, старше из кэша'), 'technical funnel footnote must stay off the sheet');
 assert.ok(!rnpSrc.includes('•live'), 'live badge text must not sit on the grid');
 assert.ok(!rnpSrc.includes('enrichment ограничен'), 'English enrichment warning must stay hidden');
@@ -908,7 +908,7 @@ assert.ok(
 assert.ok(html.includes('.cabinet-picker-label { max-width: 96px'), 'cabinet name must not crowd the iPhone header');
 assert.ok(rnpSrc.includes('function _isPhone()'), 'RNP must detect a phone viewport');
 assert.ok(rnpSrc.includes('function _isNarrow()'), 'iPad uses the same swipe sheet as iPhone');
-assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 62'), 'phone metric column is narrower than desktop');
+assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 118') && 118 < 132, 'phone metric column is narrower than desktop (132) but wide enough to read the names');
 assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
 assert.ok(rnpSrc.includes('function togglePrevWeeks') && rnpSrc.includes('rnp-action-bar--phone'),
     'phone RNP bar still exists; last-month weeks are opt-in via compare');
@@ -1029,16 +1029,16 @@ assert.ok(
     const desk = make(false);
     assert.strictEqual(phone._isPhone(), true);
     assert.strictEqual(phone._isNarrow(), true);
-    assert.strictEqual(phone._metricW(), 62);
+    assert.strictEqual(phone._metricW(), 118);
     assert.strictEqual(phone._sparkW(), 0);
     assert.strictEqual(phone._dayColW(), 28);
-    assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 62);
+    assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 118);
     assert.strictEqual(desk._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 412);
     assert.strictEqual(phone._frozenLeft(0, [{ type: 'week' }]), null);
     assert.strictEqual(desk._frozenLeft(0, [{ type: 'week' }]), 172);
     const cal = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30) };
     assert.strictEqual(phone._sheetDataColCount(cal), 36);
-    assert.strictEqual(phone._sheetMinWidthPx(cal), 62 + 0 + 36 * 28);
+    assert.strictEqual(phone._sheetMinWidthPx(cal), 118 + 0 + 36 * 28);
     assert.ok(phone._colgroupHTML(cal).includes('<colgroup>'));
     assert.strictEqual((phone._colgroupHTML(cal).match(/<col /g) || []).length, 38);
 }
@@ -2622,7 +2622,7 @@ assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' &
 {
     // Тарифы рисует nr-tariffs.js (Старт / Рост / Лидер), на странице остаётся только место под них.
     const tr = require('fs').readFileSync(__dirname + '/nr-tariffs.js', 'utf8');
-    assert.ok(html.includes('id="tab-tariffs"') && html.includes('<div id="nr-tr"></div>') && /<script src="\/(?:dist\/nr-tariffs\.[0-9a-f]+\.min|nr-tariffs)\.js"><\/script>/.test(html), 'tariffs page mounts nr-tariffs.js');
+    assert.ok(html.includes('id="settings-tariffs"') && html.includes('<div id="nr-tr"></div>') && /<script src="\/(?:dist\/nr-tariffs\.[0-9a-f]+\.min|nr-tariffs)\.js"><\/script>/.test(html), 'tariffs page mounts nr-tariffs.js');
     assert.ok(tr.includes('Акылай бесплатно до 1 ноября') && tr.includes("showTab(\\'dashboard\\')") && tr.includes('Подключить магазин'), 'Akylai stays free until 1 November');
     assert.ok(tr.includes("name: 'Старт', base: 2599, old: 5999") && tr.includes("name: 'Рост', base: 5599, old: 7999") && tr.includes("name: 'Лидер', base: 8999"), 'prices: 2 599 (was 5 999), 5 599 (was 7 999), 8 999');
     assert.ok(tr.includes('off: 0.1') && tr.includes('off: 0.15') && tr.includes('off: 0.2'), 'period discounts 3/6/12 months');

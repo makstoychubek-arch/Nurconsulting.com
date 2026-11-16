@@ -113,6 +113,17 @@
             persist(); paint();
         }).catch(function () { /* WB не ответил: остаётся то, что было */ });
     }
+    // Баланс Ozon (в режиме Ozon на карточке «Баланс» нельзя показывать баланс WB под подписью Ozon)
+    function mpIsOz() { return !!(root.NrMp && root.NrMp.get() === 'ozon'); }
+    function loadOzBal(c) {
+        var d = db(); if (!d || !c) return;
+        Promise.resolve(d.from('ozon_balance_daily').select('d,closing,opening,currency').eq('cabinet_id', c).order('d', { ascending: false }).limit(1)).then(function (r) {
+            if (c !== cab()) return;
+            S.ozBal = r && !r.error && r.data && r.data[0] ? { date: r.data[0].d, current: Number(r.data[0].closing) || 0, opening: Number(r.data[0].opening) || 0, currency: r.data[0].currency } : null;
+            S.ozBalCab = c; paint();
+        }, function () {});
+    }
+    if (doc) doc.addEventListener('nr-mp-change', function () { if (mpIsOz() && S.ozBalCab !== cab()) loadOzBal(cab()); else paint(); });
     function load(c) {
         var d = db();
         if (!d || !c || S.busy) return;
@@ -184,11 +195,13 @@
         if (!row || !D) return;
         var today = todayBishkek();
         // Валюта баланса приходит от WB вместе с суммой (у кабинетов Кыргызстана это сомы): раньше здесь всегда стоял знак рубля.
-        var cur = curSign(D.bal && D.bal.currency);
-        var ly = D.ly ? '<div class="hint" title="Вывод за тот же месяц год назад">В ' + MONTHS[D.ly.month - 1] + ' ' + D.ly.year + ': ≈ ' + fmt(D.ly.sum) + '</div>' : '';
+        var oz = mpIsOz(), bal = oz ? S.ozBal : D.bal, next = oz ? null : D.next;
+        if (oz && S.ozBalCab !== cab()) loadOzBal(cab());
+        var cur = curSign(bal && bal.currency);
+        var ly = !oz && D.ly ? '<div class="hint" title="Вывод за тот же месяц год назад">В ' + MONTHS[D.ly.month - 1] + ' ' + D.ly.year + ': ≈ ' + fmt(D.ly.sum) + '</div>' : '';
         var set = function (k, html) { var el = doc.getElementById('nrdb-' + k); if (el && el.__h !== html) { el.innerHTML = html; el.__h = html; } };
-        set('bal', '<div class="l"><span>Баланс WB</span>' + (D.bal ? '<em class="chip">' + dm(D.bal.date) + '</em>' : '') + '</div><div class="v">' + (D.bal ? fmt(D.bal.current) : '—') + (D.bal && cur ? ' <small>' + cur + '</small>' : '') + '</div>' +
-            (D.next ? '<div class="r hi"><span>К выводу ' + dm(D.next.date) + '</span><b>' + fmt(D.next.amount) + '</b></div>' : '<div class="r"><span>К выводу</span><b>—</b></div>') + ly);
+        set('bal', '<div class="l"><span>Баланс ' + (oz ? 'Ozon' : 'WB') + '</span>' + (bal ? '<em class="chip">' + dm(bal.date) + '</em>' : '') + '</div><div class="v">' + (bal ? fmt(bal.current) : '—') + (bal && cur ? ' <small>' + cur + '</small>' : '') + '</div>' +
+            (oz ? (bal ? '<div class="r"><span>На начало месяца</span><b>' + fmt(bal.opening) + '</b></div>' : '') : next ? '<div class="r hi"><span>К выводу ' + dm(next.date) + '</span><b>' + fmt(next.amount) + '</b></div>' : '<div class="r"><span>К выводу</span><b>—</b></div>') + ly);
         var T = D.transit, W = D.wb || { total: 0, n: 0, byWh: {}, list: [] };
         var whRows = Object.keys(W.byWh).sort(function (a, b) { return W.byWh[b].qty - W.byWh[a].qty; }).slice(0, 3).map(function (k) { return '<div class="r"><span>→ ' + esc(k) + '</span><b>' + (W.byWh[k].qty ? fmt(W.byWh[k].qty) + ' шт' : W.byWh[k].n + ' пост.') + '</b></div>'; }).join('');
         var manual = ROUTES.map(function (r) { var n = T.routes[r[0]].reduce(function (a, x) { return a + x.qty; }, 0); return n ? '<div class="r"><span>' + r[1] + '</span><b>' + fmt(n) + ' шт</b></div>' : ''; }).join('');
@@ -445,6 +458,80 @@
     }
     function moveAll() { moveBell(); liftPicker(); cabinetSearch(); headerHeightVar(); }
     if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', moveAll); else moveAll(); }
+
+    // Дашборд: главные метрики и Баланс всегда; остальные виджеты добавляются кнопкой «+» внизу (окно «Виджеты»), убираются крестиком.
+    // Выбор хранится на устройстве (nr_pins, мгновенно) и в аккаунте (nr_user_prefs, подтягивается в фоне): телефон и компьютер совпадают.
+    // Классы nr-pin-* на <html> включают показ карточки (правила в nr-mono.css).
+    var PIN_KEY = 'nr_pins';
+    var PINS = {
+        ff: { label: 'Фулфилмент', hint: 'К выплате, начислено и оплачено', sel: '#ff-sum' },
+        transit: { label: 'Товары в пути', hint: 'Что едет на склады и откуда', sel: '#nrdb-transit' },
+        prod: { label: 'Производство', hint: 'Сколько в заказе, срок', sel: '#nrdb-prod' },
+        stock: { label: 'В стоке', hint: 'ФБО, ФБС, общий остаток', sel: '#nrdb-stock' },
+        plan: { label: 'Выполнение плана', hint: 'План и факт по кабинетам и артикулам', sel: '#dash-plan-wrap' }
+    };
+    function pinsGet() { try { return JSON.parse(root.localStorage.getItem(PIN_KEY) || '{}') || {}; } catch (e) { return {}; } }
+    function pinsApply() { if (!doc) return; var p = pinsGet(); Object.keys(PINS).forEach(function (k) { doc.documentElement.classList.toggle('nr-pin-' + k, !!p[k]); }); }
+    function pinsUid() { try { return typeof currentUserId !== 'undefined' ? currentUserId : ''; } catch (e) { return ''; } }
+    function pinsSave(p) {
+        try { root.localStorage.setItem(PIN_KEY, JSON.stringify(p)); } catch (e) { /* без хранилища работает до перезагрузки */ }
+        var d = db(), u = pinsUid();
+        if (d && u) d.from('nr_user_prefs').upsert({ user_id: u, prefs: { pins: p }, updated_at: new Date().toISOString() }).then(function () {}, function () {});
+    }
+    function pinsSet(k, v) { var p = pinsGet(); if (v) p[k] = 1; else delete p[k]; pinsSave(p); pinsApply(); pinsUi(); }
+    var pinsLoaded = false;
+    function pinsPull() {
+        var d = db(), u = pinsUid();
+        if (pinsLoaded || !d || !u) return;
+        pinsLoaded = true;
+        d.from('nr_user_prefs').select('prefs').eq('user_id', u).maybeSingle().then(function (r) {
+            var p = r && r.data && r.data.prefs && r.data.prefs.pins;
+            if (p && typeof p === 'object') { try { root.localStorage.setItem(PIN_KEY, JSON.stringify(p)); } catch (e) { /* ок */ } pinsApply(); pinsUi(); }
+            else if (Object.keys(pinsGet()).length) pinsSave(pinsGet());
+        }, function () { pinsLoaded = false; });
+    }
+    function pinsModal() {
+        var ov = doc.getElementById('nr-wg-ov');
+        if (ov) { ov.remove(); return; }
+        ov = doc.createElement('div'); ov.id = 'nr-wg-ov'; ov.setAttribute('data-nr-blur', '');
+        var p = pinsGet();
+        ov.innerHTML = '<div class="nr-wg-m" role="dialog" aria-label="Виджеты"><div class="nr-wg-h"><b>Виджеты</b><button type="button" class="nr-wg-c" aria-label="Закрыть">✕</button></div>' +
+            Object.keys(PINS).map(function (k) { return '<div class="nr-wg-li"><div><b>' + esc(PINS[k].label) + '</b><small>' + esc(PINS[k].hint) + '</small></div><button type="button" class="nr-wg-b' + (p[k] ? ' on' : '') + '" data-pin="' + k + '">' + (p[k] ? '✓ Добавлен' : '＋ Добавить') + '</button></div>'; }).join('') + '</div>';
+        ov.addEventListener('click', function (e) {
+            var t = e.target;
+            if (t === ov || (t.closest && t.closest('.nr-wg-c'))) { ov.remove(); return; }
+            var b = t.closest && t.closest('[data-pin]');
+            if (b) { var k = b.getAttribute('data-pin'), on = !pinsGet()[k]; pinsSet(k, on); b.classList.toggle('on', on); b.textContent = on ? '✓ Добавлен' : '＋ Добавить'; }
+        });
+        doc.body.appendChild(ov);
+    }
+    // «+» внизу дашборда и крестики на добавленных виджетах (после перерисовки карточек возвращаются сами)
+    function pinsUi() {
+        var tab = doc.getElementById('tab-dashboard'); if (!tab) return;
+        if (!doc.getElementById('nr-wg-plus')) { var pl = doc.createElement('div'); pl.id = 'nr-wg-plus'; pl.innerHTML = '<button type="button" aria-label="Добавить виджет" title="Добавить виджет">+</button>'; tab.appendChild(pl); }
+        else if (tab.lastElementChild !== doc.getElementById('nr-wg-plus')) tab.appendChild(doc.getElementById('nr-wg-plus'));
+        var p = pinsGet();
+        Object.keys(PINS).forEach(function (k) {
+            var el = doc.querySelector(PINS[k].sel); if (!el) return;
+            var x = el.querySelector(':scope > .nr-wg-x');
+            if (!p[k]) { if (x) x.remove(); return; }
+            if (!x) { x = doc.createElement('button'); x.type = 'button'; x.className = 'nr-wg-x'; x.setAttribute('data-unpin', k); x.setAttribute('aria-label', 'Убрать виджет'); x.textContent = '×'; el.appendChild(x); }
+        });
+    }
+    pinsApply();
+    if (doc) {
+        doc.addEventListener('click', function (e) {
+            var t = e.target; if (!t || !t.closest) return;
+            if (t.closest('#nr-wg-plus button')) { pinsModal(); return; }
+            var u = t.closest('[data-unpin]'); if (u) pinsSet(u.getAttribute('data-unpin'), false);
+        });
+        doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var ov = doc.getElementById('nr-wg-ov'); if (ov) ov.remove(); } });
+        var pinsT = 0, pinsSoon = function () { clearTimeout(pinsT); pinsT = setTimeout(function () { pinsUi(); pinsPull(); }, 80); };
+        var pinsWatch = function () { var t = doc.getElementById('tab-dashboard'); if (t) new MutationObserver(pinsSoon).observe(t, { childList: true, subtree: true }); pinsSoon(); };
+        if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', pinsWatch); else pinsWatch();
+        doc.addEventListener('cabinet-changed', pinsSoon);
+    }
+    root.NrPins = { get: pinsGet, set: pinsSet };
 
     // Динамика ▲/▼ к прошлому периоду и полоса прибыли в верхних карточках (по макету Ж3).
     root.NrPnlDelta = function (m, base) {

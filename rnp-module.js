@@ -19,6 +19,8 @@ const RNP = (() => {
         monthTo: 12,
         showGiveaways: true,
         showCompetitor: true,
+        taxPct: 0,
+        taxOn: false,
         hiddenGroups: [],
         groupNames: {},
         wbGroups: false,
@@ -79,8 +81,8 @@ const RNP = (() => {
     const CABINET_ART = { nm_id: -1, name: 'Общий', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
     const VIEW_PRESETS = {
         all: null,
-        sales_finance: new Set(['sales', 'cash', 'buyout', 'expenses', 'result', 'profit']),
-        compact: new Set(['sales', 'result', 'profit']),
+        sales_finance: new Set(['sales', 'cash', 'buyout', 'expenses']),
+        compact: new Set(['sales', 'expenses']),
     };
 
     let _userEmail = '';
@@ -113,7 +115,7 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 48;
     const DAY_COL_W = 48;
-    const PHONE_METRIC_W = 62;
+    const PHONE_METRIC_W = 118;
     const PHONE_SPARK_W = 0;
     const PHONE_COL_W = 28;
 
@@ -156,18 +158,19 @@ const RNP = (() => {
             { key: 'plan_orders',        label: 'План заказ',                       type: 'int', src: 'manual', isPlan: true },
             { key: 'spp_pct',            label: 'СПП %',                            type: 'pct', src: 'auto' },
             { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true, hero: true },
+            { key: 'transit_count',      label: 'В доставке',                       type: 'int', src: 'auto', ozonOnly: true },
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
-            { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
+            { key: 'plan_fulfillment_pct', label: 'Выполнение плана %', type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
         ]},
         { id: 'price', label: 'ЦЕНА', color: '#6d4fe8', rows: [
             { key: 'price_disc',         label: 'Цена со скидкой',                  type: 'som', src: 'auto', carry: true, articleOnly: true },
         ]},
-        { id: 'cash', label: 'Сумма продаж в кассе', color: '#1a73e8', rows: [
+        { id: 'cash', label: 'Касса', color: '#1a73e8', rows: [
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
             { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
-        { id: 'funnel', label: 'Показатели воронки', color: '#f59e0b', rows: [
+        { id: 'funnel', label: 'Воронка', color: '#f59e0b', rows: [
             { key: 'organic_imp_pct',    label: 'Органика переходов %',             type: 'pct',  src: 'calc' },
             { key: 'plan_impressions',   label: 'План переходов',                   type: 'int',  src: 'manual', isPlan: true },
             { key: 'clicks',             label: 'Переходы в карточку',              type: 'int',  src: 'promo' },
@@ -176,52 +179,57 @@ const RNP = (() => {
             { key: 'orders_conv_pct',    label: 'Заказы%',                          type: 'pct2', src: 'calc' },
             { key: 'cro_pct',            label: 'CR0 %',                            type: 'pct2', src: 'calc' },
         ]},
-        { id: 'buyout', label: 'Выкупы и возвраты', color: '#06b6d4', rows: [
+        { id: 'buyout', label: 'Выкупы', color: '#06b6d4', rows: [
             { key: 'cancels_count',      label: 'Отказы',                           type: 'int',  src: 'auto' },
             { key: 'returns_count',      label: 'Возвраты',                         type: 'int',  src: 'auto' },
             { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
             { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'realization',        label: 'Реализация (WB)',                  type: 'som',  src: 'auto' },
         ]},
         { id: 'ads', label: 'Реклама (РК)', color: '#8b5cf6', rows: [
-            { key: 'ad_impressions',     label: 'Показы с рк',                      type: 'int',  src: 'promo' },
-            { key: 'ad_imp_pct',         label: 'Доля переходов с рекламы %',       type: 'pct',  src: 'calc' },
-            { key: 'ad_clicks',          label: 'Клики РК',                         type: 'int',  src: 'promo' },
-            { key: 'plan_clicks',        label: 'План Кликов из РК',                type: 'int',  src: 'manual', isPlan: true },
-            { key: 'ad_ctr',             label: 'CTR % РК',                         type: 'pct2', src: 'promo' },
-            { key: 'ad_cpc',             label: 'Стоимость Клика',                  type: 'dec2', src: 'promo' },
-            { key: 'ad_basket',          label: 'Корзин с РК',                      type: 'int',  src: 'promo' },
-            { key: 'ad_orders',          label: 'Заказов с РК',                     type: 'int',  src: 'promo' },
-            { key: 'ad_spend',           label: 'Расход РК',           type: 'som',  src: 'promo' },
-            { key: 'plan_ad_spend',      label: 'Расход План',                      type: 'som',  src: 'manual', isPlan: true },
-            { key: 'ad_cpo',             label: 'CPO',                              type: 'som',  src: 'calc' },
+            { key: 'ad_spend',           label: 'Расход',                           type: 'som',  src: 'promo', bold: true },
+            { key: 'plan_ad_spend',      label: 'Расход (план)',                    type: 'som',  src: 'manual', isPlan: true },
+            { key: 'ad_impressions',     label: 'Показы',                           type: 'int',  src: 'promo' },
+            { key: 'ad_clicks',          label: 'Клики',                            type: 'int',  src: 'promo' },
+            { key: 'plan_clicks',        label: 'План кликов',                      type: 'int',  src: 'manual', isPlan: true },
+            { key: 'ad_basket',          label: 'Корзины',                          type: 'int',  src: 'promo' },
+            { key: 'ad_orders',          label: 'Заказы',                           type: 'int',  src: 'promo' },
+            { key: 'ad_revenue',         label: 'Выручка',                          type: 'som',  src: 'promo' },
+            { key: 'ad_ctr',             label: 'CTR',                              type: 'pct2', src: 'promo' },
+            { key: 'ad_cpc',             label: 'CPC',                              type: 'dec2', src: 'promo' },
             { key: 'ad_cpm',             label: 'CPM',                              type: 'som',  src: 'calc' },
-            { key: 'ad_roas',            label: 'ROAS',                             type: 'dec2', src: 'calc' },
+            { key: 'ad_cro',             label: 'CR',                               type: 'pct2', src: 'promo' },
+            { key: 'ad_cpo',             label: 'CPO',                              type: 'som',  src: 'calc' },
             { key: 'drr_pct',            label: 'ДРР %',                            type: 'pct',  src: 'calc',  hm: 'low' },
             { key: 'drr_sales_pct',      label: 'ДРРп %',                           type: 'pct',  src: 'calc',  hm: 'low' },
-            { key: 'plan_drr',           label: 'ДРР % План',                       type: 'pct',  src: 'manual', isPlan: true },
+            { key: 'plan_drr',           label: 'ДРР (план)',                       type: 'pct',  src: 'manual', isPlan: true },
+            { key: 'ad_roas',            label: 'ROAS',                             type: 'dec2', src: 'calc' },
         ]},
         { id: 'expenses', label: 'Все расходы', color: '#0ea5e9', rows: [
-            { key: 'wb_commission', label: 'Комиссия WB и вычеты с продаж', type: 'som', src: 'auto',  hm: 'cost', cabinetOnly: true },
-            { key: 'delivery_sum',       label: 'Доставка (WB)',                    type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
-            { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'storage_sum',        label: 'Хранение (сверено)',               type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'acceptance_sum',     label: 'Обработка товара (WB)',            type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
+            { key: 'realization',        label: 'Реализация',                       type: 'som',  src: 'auto',  bold: true },
+            { key: 'wb_commission',      label: 'Комиссия',                         type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'comm_pct_real',      label: 'Комиссия %',                       type: 'pct',  src: 'calc' },
+            { key: 'acquiring_sum',      label: 'Эквайринг',                        type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto',  bold: true, articleOnly: true },
+            { key: 'to_transfer_unit',   label: 'От WB на единицу',                 type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'delivery_sum',       label: 'Логистика',                        type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'storage_sum',        label: 'Хранение',                         type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'acceptance_sum',     label: 'Приёмка и обработка',              type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'other_net_sum', label: 'Прочие удержания и доплаты', type: 'som', src: 'auto', cabinetOnly: true },
-        ]},
-        { id: 'result', label: 'К выводу', color: '#84cc16', rows: [
-            { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
-            { key: 'to_withdraw',        label: 'К выводу',                         type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
-        ]},
-        { id: 'profit', label: 'Прибыль', color: '#22c55e', rows: [
+            { key: 'other_net_sum',      label: 'Прочие удержания и доплаты',       type: 'som',  src: 'auto',  cabinetOnly: true },
+            { key: 'ad_charged',         label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
+            { key: 'ff_sum',             label: 'Фулфилмент',                       type: 'som',  src: 'calc',  hm: 'cost' },
+            { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
+            { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
+            { key: 'net_payout_unit',    label: 'К выводу на единицу',              type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'log_per_unit',       label: 'Логистика на единицу',             type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'storage_per_unit',   label: 'Хранение на единицу',              type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'ad_per_unit',        label: 'Реклама на единицу',               type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'ff_per_unit',        label: 'Фулфилмент на единицу',            type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
+            { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  bold: true, articleOnly: true },
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
-            { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
         ]},
         { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
@@ -809,6 +817,7 @@ const RNP = (() => {
         // Сначала упакованная выгрузка с кэшем устройства (nr-snap.js): одна компактная загрузка вместо десятков страниц.
         // null = не получилось / не подходит, идём прежним постраничным путём.
         if (window.NrSnap && !_noSnap) {
+            _pwRecord(table, filters);
             const packed = await window.NrSnap.fetchRows(_db, table, filters, columns);
             if (packed) return packed;
         }
@@ -1172,6 +1181,8 @@ const RNP = (() => {
             monthTo: Math.min(12, Math.max(1, parseInt(o.monthTo, 10) || 12)),
             showGiveaways: o.showGiveaways !== false,
             showCompetitor: o.showCompetitor !== false,
+            taxPct: Math.min(60, Math.max(0, Number(o.taxPct) || 0)),
+            taxOn: o.taxOn === true,
             hiddenGroups: Array.isArray(o.hiddenGroups)
                 ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
                 : [],
@@ -1183,6 +1194,32 @@ const RNP = (() => {
         };
     }
 
+    // Налог, % от реализации (одна ставка на кабинет, хранится в настройках РНП в аккаунте; в финотчётах WB и Ozon налога нет).
+    function _taxPct() { return _settings.taxOn === true ? Math.min(60, Math.max(0, Number(_settings.taxPct) || 0)) : 0; }
+    async function setTaxOn(on) {
+        _settings.taxOn = !!on;
+        _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null;
+        try { await _saveSettings({ options: { taxOn: !!on } }); } catch (e) { console.warn('[RNP] налог:', e.message || e); }
+        try { _renderActiveTable(); } catch (e) { /* таблица обновится при следующем открытии */ }
+    }
+    async function setTaxPct(v) {
+        const n = Math.min(60, Math.max(0, parseFloat(String(v).replace(',', '.')) || 0));
+        _settings.taxPct = n;
+        _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null;
+        try { await _saveSettings({ options: { taxPct: n } }); } catch (e) { console.warn('[RNP] налог:', e.message || e); }
+        try { _renderActiveTable(); } catch (e) { /* таблица обновится при следующем открытии */ }
+    }
+    function _settingsTaxHtml() {
+        return `<div class="widget-card p-5 rnp-settings-tax">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div><h3 class="font-semibold" style="color:var(--text-primary)">Налог</h3>
+              <p class="text-xs leading-snug" style="color:var(--text-muted);max-width:520px">Процент от реализации. В финотчётах WB и Ozon налога нет, его платите вы сами, поэтому ставка вводится здесь. 0 — налог не считается. Общая для WB и Ozon.</p></div>
+            <label class="flex items-center gap-2 text-sm" style="color:var(--text-primary)"><input id="rnp-tax-on" type="checkbox" ${_settings.taxOn === true ? 'checked' : ''} onchange="RNP.setTaxOn(this.checked)"> Показывать в РНП</label>
+            <label class="flex items-center gap-2 text-sm" style="color:var(--text-primary)">Налог, %
+              <input id="rnp-tax-pct" type="number" min="0" max="60" step="0.1" value="${_taxPct() || ''}" placeholder="0" class="ui-input" style="width:90px" onchange="RNP.setTaxPct(this.value)"></label>
+          </div></div>`;
+    }
+
     function _settingsOptions() {
         return {
             usdRate: _settings.usdRate,
@@ -1191,6 +1228,8 @@ const RNP = (() => {
             monthTo: _settings.monthTo,
             showGiveaways: _settings.showGiveaways,
             showCompetitor: _settings.showCompetitor,
+            taxPct: Math.min(60, Math.max(0, Number(_settings.taxPct) || 0)),
+            taxOn: _settings.taxOn === true,
             responsibles: Array.isArray(_settings.responsibles) ? _settings.responsibles : [],
             hiddenGroups: _hiddenGroupList(),
             groupNames: _normGroupNames(_settings.groupNames),
@@ -1304,10 +1343,19 @@ const RNP = (() => {
         }
     }
 
+    // Для Ozon нет СПП, раздач, обработки товара, логистики до ПВЗ и баланса WB по строкам
+    const _OZ_HIDE = new Set(['acquiring_sum', 'ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
+    let _ffShow = false;      // ползунок «Показывать в РНП» в разделе ФФ
+    let _ffExtra = {};        // доп. услуги ФФ по дням (₽)
     function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
+            if (_mp() === 'ozon' && _OZ_HIDE.has(m.key)) return false;
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
+            if (m.ozonOnly && _mp() === 'wb') return false;
+            if (m.key === 'ff_sum' && (!_ffShow || _mp() === 'ozon')) return false;
+            if (m.key === 'ff_per_unit' && (!_ffShow || _mp() === 'ozon')) return false;
+            if (m.key === 'tax_sum' && _settings.taxOn !== true) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
             if (m.competitor && !_settings.showCompetitor) return false;
             return true;
@@ -1682,6 +1730,7 @@ const RNP = (() => {
     async function _syncFromContentCards(opts = {}) {
         const { silent = false, activateNew = false, activateCatalog = false, force = false } = opts;
         if (!_callProxy || !_cab) return { ok: false, added: 0 };
+        if (_mp() !== 'wb') return { ok: false, added: 0 }; // в режиме Ozon в памяти артикулы Ozon: синк WB принял бы все карточки за новые
         const cab = _cab;
         try {
             const resp = await _callProxyTimed('content_cards', {
@@ -1714,9 +1763,17 @@ const RNP = (() => {
                     manual_data: md,
                 });
             }
-            for (let i = 0; i < toUpsert.length; i += 200) {
+            // Известные артикулы обновляем как раньше. Неизвестные (по состоянию в памяти) только добавляем и НЕ перезаписываем уже
+            // существующие строки: иначе при устаревших данных в памяти синк обнулял бы себестоимость, «в пути», «в плане» и фото.
+            const knownRows = toUpsert.filter((r) => known.has(Number(r.nm_id)));
+            const newRows = toUpsert.filter((r) => !known.has(Number(r.nm_id)));
+            for (let i = 0; i < knownRows.length; i += 200) {
                 if (_cab !== cab) return { ok: false, added: 0 };
-                await _db.from('rnp_articles').upsert(toUpsert.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id' });
+                await _db.from('rnp_articles').upsert(knownRows.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id' });
+            }
+            for (let i = 0; i < newRows.length; i += 200) {
+                if (_cab !== cab) return { ok: false, added: 0 };
+                await _db.from('rnp_articles').upsert(newRows.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
             }
             if (_cab !== cab) return { ok: false, added };
             await _loadArticles(cab);
@@ -1730,6 +1787,7 @@ const RNP = (() => {
     }
 
     async function _setAllActive(on) {
+        if (_mp() !== 'wb') return true; // массовое включение трогает все артикулы кабинета (WB), в режиме Ozon его быть не должно
         if (!_db || !_cab) return true;
         if (!_articles.some(a => a.is_active !== on)) return true;
         const prev = _articles;
@@ -2992,6 +3050,7 @@ const RNP = (() => {
         disc_pct: ['Скидка продавца', 'Скидка продавца в % из заказов WB. Зелёным отмечены дни, когда она менялась.'],
         price_disc: ['Цена со скидкой', 'Цена после скидки продавца, до СПП, из заказов WB.'],
         price_spp: ['Цена с СПП', 'Цена, по которой купили на сайте WB (с СПП), из заказов. Совпадает с ценой под скидкой в кабинете WB.'],
+        transit_count: ['В доставке', 'Ozon: отправления, которые уже едут к покупателю или ждут его в пункте выдачи. Часть из них купят, часть отменят: по вашим заказам покупают около 27%. В «Продажи» они не входят, пока покупатель не заберёт.'],
         cancels_count: ['Отказы', 'Невыкуп: покупатель не забрал заказ, товар поехал обратно. Из финотчёта WB — строки логистики «От клиента при отмене».'],
         buyout_fin_pct: ['Процент выкупа', 'Из финотчёта WB: продажи ÷ (продажи + отказы + возвраты) × 100.'],
         returns_count: ['Возвраты', 'Товар выкупили и потом вернули. Из финотчёта WB — строки «Возврат».'],
@@ -3038,8 +3097,6 @@ const RNP = (() => {
         storage_pct: ['Хранение %', 'Хранение ÷ сумма продаж × 100.'],
         wb_share_pct: ['Все допы ВБ + ДРР %', 'Комиссия + логистика + хранение + реклама, всё в % от продаж.'],
         realization: ['Реализация (WB)', 'Сумма по строкам продаж минус возвраты из финотчёта WB.'],
-        to_transfer: ['К перечислению', 'Что WB переводит вам за продажи минус возвраты (ppvz_for_pay) плюс компенсации. Логистика и хранение здесь ещё не вычтены.'],
-        to_transfer_unit: ['К перечислению на ед', 'К перечислению ÷ проданные штуки.'],
         delivery_sum: ['Доставка (WB)', 'Логистика WB за день из финотчёта: до покупателя, возвраты, невыкупы.'],
         penalty_sum: ['Штрафы', 'Штрафы WB из финотчёта.'],
         storage_sum: ['Хранение (сверено)', 'Платное хранение WB; детальный отчёт сверен с финотчётом. Нажми на название — снизу FBS и FBO (на складе продавца WB хранение не берёт, поэтому FBS = 0).'],
@@ -3051,9 +3108,15 @@ const RNP = (() => {
         compensation_sum: ['Компенсации WB (плюс)', 'Добровольные компенсации при возврате. Входят в «К перечислению».'],
         additional_sum: ['Доплаты WB (плюс)', 'Дополнительные выплаты WB из финотчёта; прибавляются при расчёте «К выводу».'],
         to_withdraw: ['К выводу', 'По всему кабинету, как «Итого к оплате» в отчёте реализации WB: к перечислению + доплаты − доставка − хранение − обработка − штрафы − прочие удержания. Считается по всему кабинету.'],
-        other_net_sum: ['Прочие удержания и доплаты', 'Доплаты и компенсации WB минус эквайринг и прочие удержания по финотчёту. Плюс значит, что WB доплатил, минус значит, что удержал.'],
+        other_net_sum: ['Прочие удержания и доплаты', 'Удержания маркетплейса по финотчёту (подписки, утилизация, услуги поставок и т. п.) минус доплаты и компенсации. Расход показывается положительным числом. У Ozon эквайринг входит в комиссию.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
+        to_transfer: ['К перечислению', 'Сколько WB переводит вам за проданные штуки этого артикула, до логистики, хранения, штрафов и рекламы: реализация минус комиссия и эквайринг (по финотчёту).'],
+        to_transfer_unit: ['От WB на единицу', 'К перечислению от WB ÷ проданные штуки: сколько WB отдаёт с одной вещи до всех расходов.'],
+        comm_pct_real: ['Комиссия %', 'Процент комиссии WB от цены продавца (цена после вашей скидки, до скидок WB): (цена продавца − эквайринг − к перечислению) ÷ цена продавца. В него входит и процент ваших опций из «Конструктора тарифов». Это не сумма «Комиссии» ÷ «Реализации»: реализация считается по цене покупателя, она ниже.'],
+        net_payout_unit: ['К выводу на единицу', 'К выводу ÷ проданные штуки: сколько остаётся с одной вещи после всех расходов WB, до себестоимости.'],
+        net_payout: ['К выводу', 'Реализация − комиссия − эквайринг − логистика − хранение − приёмка − штрафы − прочие удержания − реклама (− фулфилмент и налог, если включены). Себестоимость ещё не вычтена: она идёт следующей строкой, затем прибыль.'],
+        tax_sum: ['Налог', 'Ставка из «Настройки РНП → Налог» × реализация. В финотчётах налога нет: это ваш налог государству. Ставка 0 — не считается.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
         profit_per_unit: ['Прибыль на 1 ед', 'Прибыль ÷ проданные штуки.'],
         margin_pct: ['Маржинальность %', 'Прибыль ÷ «К перечислению» × 100.'],
@@ -4421,7 +4484,7 @@ const RNP = (() => {
               <div class="rnp-cat-tabs">${tabsHtml}</div>
             </div>`;
         }).join('');
-        if (_isPhone()) return groupsHtml;
+        if (_isPhone()) return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')"><span>Общий</span></div>` + groupsHtml;
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
             <span>Общий</span>
           </div>
@@ -5441,7 +5504,7 @@ const RNP = (() => {
             const lastDate = allDates[allDates.length - 1];
             const [splitRes, setRes, rateRes, termRes, fbsStocks, fbsOrders] = await Promise.all([
                 _mp() === 'ozon' ? Promise.resolve({ data: [] }) : _db.rpc('rnp_fbs_split', { p_cabinet: _cab, p_from: allDates[0], p_to: lastDate }),
-                Promise.resolve(_db.from('ff_settings').select('rnp_ship_costs,rnp_storage_costs').eq('cabinet_id', _cab).maybeSingle()).catch(() => null),
+                Promise.resolve(_db.from('ff_settings').select('rnp_show_ff').eq('cabinet_id', _cab).maybeSingle()).catch(() => null),
                 Promise.resolve(_db.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: false }).range(0, 120)).catch(() => null),
                 FT ? Promise.resolve(_db.from('ff_terms').select('ff_name,kind,value,daily_cap,fx_rate,date_from,date_to').eq('cabinet_id', _cab).range(0, 999)).catch(e => ({ error: e })) : null,
                 FT ? _fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: _cab }, { op: 'eq', column: 'stock_scheme', value: 'fbs' }]).catch(() => null) : null,
@@ -5455,8 +5518,11 @@ const RNP = (() => {
             if (error) throw error;
             if (cab0 !== _cab) return;
             // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт: тарифы КАЖДОГО ФФ вносят в «Товары → FBS» (ff_terms, по периодам)
-            let includeShip = true, includeStorage = true;
-            if (setRes && setRes.data) { includeShip = setRes.data.rnp_ship_costs !== false; includeStorage = setRes.data.rnp_storage_costs !== false; }
+            // Пока ползунок «Показывать в РНП» в разделе ФФ выключен, расходы ФФ в РНП не считаются совсем.
+            const showFf = !!(setRes && setRes.data && setRes.data.rnp_show_ff === true);
+            const prevShow = _ffShow; _ffShow = showFf;
+            if (prevShow !== showFf) { try { _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null; } catch (e) { /* кэш колонок сам обновится */ } }
+            let includeShip = showFf, includeStorage = showFf;
             let idx = {}, shares = {}, dailyQty = {}, rubRates = {};
             ((rateRes && rateRes.data) || []).forEach(x => { rubRates[x.date] = Number(x.rate); });
             if (FT && (includeShip || includeStorage)) {
@@ -5516,7 +5582,7 @@ const RNP = (() => {
             const apply = (row, nm, o, d) => {
                 const p = { ship: includeShip ? shipPrice(nm, d) : 0 };
                 const cost = o * p.ship;
-                row.delivery_sum = (row.delivery_sum || 0) - (row.fbs_ship_cost || 0) + cost;
+                row.ff_ship = cost; // отдельной строкой «Фулфилмент», в «Логистику» не вшиваем
                 row.fbs_ship_cost = cost;
                 row.fbs_ship_missing = includeShip && o > 0 && !p.ship ? o : 0;
             };
@@ -5537,13 +5603,43 @@ const RNP = (() => {
                     if (!row || d > today) return;
                     if (!seen.has(`${nm}:${d}`)) apply(row, nm, 0, d);
                     const c = includeStorage ? storageOf(nm, d) : 0;
-                    if (c > 0 || row.fbs_storage_cost) {
-                        row.storage_sum = (row.storage_sum || 0) - (row.fbs_storage_cost || 0) + c;
-                        row.fbs_storage_cost = c;
-                    }
+                    row.ff_storage = c;
+                    row.fbs_storage_cost = c;
                 });
             });
         } catch (e) { console.warn('[RNP] fbs split:', e.message); }
+    }
+
+    const PEN_KEYS = ['pen_dims', 'pen_accept', 'pen_sub', 'pen_cancel', 'pen_pvz', 'pen_supply', 'pen_other'];
+    // Логистика по причинам (финотчёт WB) по артикулам и дням: раскрытие строки «Логистика» у отдельного артикула.
+    async function _mergeLogSplit(nmIds, cal) {
+        if (_mp() === 'ozon' || !nmIds.length) return;
+        const allDates = _calAllDates(cal);
+        if (!allDates.length) return;
+        const cab0 = _cab, idSet = new Set(nmIds.map(Number));
+        try {
+            const { data, error } = await _db.rpc('rnp_log_split_by_nm', {
+                p_cabinet: cab0, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: nmIds.map(Number),
+            });
+            if (error) throw error;
+            if (cab0 !== _cab) return;
+            idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.log_sale = 0; row.log_cancel_to = 0; row.log_cancel_from = 0; row.log_return = 0; row.log_other = 0; } }));
+            try {
+                const { data: fz, error: fzErr } = await _db.rpc('rnp_fin_by_nm', { p_cabinet: cab0, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: nmIds.map(Number) });
+                if (fzErr) throw fzErr;
+                if (cab0 !== _cab) return;
+                idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.acquiring_sum = 0; row.compensation_sum = 0; row.comm_base = 0; row.comm_true = 0; row.acceptance_sum = 0; PEN_KEYS.forEach(k => { row[k] = 0; }); } }));
+                (fz || []).forEach(r => {
+                    const row = _dataCache[r.nm_id] && _dataCache[r.nm_id][String(r.d).split('T')[0]];
+                    if (row) { row.acquiring_sum = Number(r.acquiring) || 0; row.compensation_sum = Number(r.compensation) || 0; row.comm_base = Number(r.comm_base) || 0; row.comm_true = Number(r.comm_true) || 0; row.acceptance_sum = Number(r.acceptance) || 0; PEN_KEYS.forEach(k => { row[k] = Number(r[k]) || 0; }); }
+                });
+            } catch (e) { console.warn('[RNP] rnp_fin_by_nm:', e.message || e); }
+            (data || []).forEach(r => {
+                const row = _dataCache[r.nm_id] && _dataCache[r.nm_id][String(r.d).split('T')[0]];
+                if (!row) return;
+                ['log_sale', 'log_cancel_to', 'log_cancel_from', 'log_return', 'log_other'].forEach(k => { row[k] = Number(r[k]) || 0; });
+            });
+        } catch (e) { console.warn('[RNP] rnp_log_split_by_nm:', e.message || e); }
     }
 
     async function _mergeFinanceDailyFromDb(nmIds, cal) {
@@ -5810,6 +5906,8 @@ const RNP = (() => {
             await _mergeFinanceDailyFromDb(missing, _buildCalendar());
             if (_cab !== snapCab || renderId !== _mainRenderGen) return;
             await _mergeAdStatsFromDb(missing, _buildCalendar());
+            if (_cab !== snapCab || renderId !== _mainRenderGen) return;
+            await _mergeLogSplit(missing, _buildCalendar());
         }
         if (_cab !== snapCab || renderId !== _mainRenderGen) return;
         const focus = Number(_activeNm);
@@ -6019,6 +6117,7 @@ const RNP = (() => {
         if (_isStaleLoad2(snapReq, snapCab)) { await totalsP; return false; }
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
         await _mergeFbsSplit(nmIds, cal);
+        await _mergeLogSplit(nmIds, cal);
         await totalsP;
         _overlayPriceDaily(dailyRows, nmIds);
         _seedTodayLiveZeros(nmIds, cal);
@@ -6209,6 +6308,12 @@ const RNP = (() => {
         const nmIds = (Array.isArray(nmIdOrIds) ? nmIdOrIds : [nmIdOrIds])
             .map(Number).filter(n => n > 0);
         if (!nmIds.length) return;
+        // WB принимает в воронке не больше 20 артикулов за запрос (иначе 400 «too many nmIds»): отправляем пачками
+        if (nmIds.length > 20) {
+            const parts = []; for (let i = 0; i < nmIds.length; i += 20) parts.push(nmIds.slice(i, i + 20));
+            for (let k = 0; k < parts.length; k++) { await _syncFunnelHistory(parts[k]); if (onProgress) onProgress(k + 1, parts.length); }
+            return;
+        }
         const now = new Date();
         const dateTo = _wbTodayStr(now);
         const dateFrom = _wbAddDays(dateTo, -6);
@@ -6298,11 +6403,12 @@ const RNP = (() => {
                 ad_impressions: 0, ad_clicks: 0, ad_spend: 0, ad_orders: 0, ad_basket: 0, ad_revenue: 0,
             };
         }
-        const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','ad_impressions','ad_clicks',
-                     'ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing','to_transfer','profit','giveaways','in_production',
+        const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','transit_count','ad_impressions','ad_clicks',
+                     'ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing','to_transfer','profit','net_payout','tax_sum','giveaways','in_production',
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
-                     'log_to_client_sum','log_to_client_cnt'];
+                     'log_to_client_sum','log_to_client_cnt',
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_rest'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6328,7 +6434,7 @@ const RNP = (() => {
     const FIN_SPLITS = {
         penalty_sum: { cls: 'pen', hint: 'Штрафы WB по видам', subs: [
             { key: 'pen_dims',   label: 'Габариты' },
-            { key: 'pen_accept', label: 'Расхождения при приёмке' },
+            { key: 'pen_accept', label: 'Приёмка' },
             { key: 'pen_sub',    label: 'Подмены МП' },
             { key: 'pen_cancel', label: 'Отмены МП' },
             { key: 'pen_pvz',    label: 'Возвраты ПВЗ' },
@@ -6341,16 +6447,62 @@ const RNP = (() => {
             { key: 'ded_util',  label: 'Утилизация товара' },
             { key: 'ded_other', label: 'Другое' },
         ] },
+        // «Прочие удержания и доплаты» в лесенке расходов: за что удержано, по видам; доплаты и компенсации уменьшают сумму
+        other_net_sum: { cls: 'ded', hint: 'За что удержано: по видам', subs: [
+            { key: 'ded_jam',   label: 'Подписка «Джем»' },
+            { key: 'ded_util',  label: 'Утилизация товара' },
+            { key: 'ded_other', label: 'Другое' },
+            { key: 'ded_add',   label: 'Доплаты (минус)' },
+        ] },
+        // «Логистика»: по причинам из финотчёта WB; отмены показываем отдельно, это самые дорогие доставки
+        delivery_sum: { cls: 'log', hint: 'Логистика по причинам', subs: [
+            { key: 'log_sale',        label: 'Продажа → клиенту' },
+            { key: 'log_cancel_to',   label: 'Отмена → клиенту' },
+            { key: 'log_cancel_from', label: 'Отмена ← от клиента' },
+            { key: 'log_return',      label: 'Возврат ← от клиента' },
+            { key: 'log_other',       label: 'Прочая' },
+            { key: 'log_cancel_pct',  label: 'Доля отмен %', type: 'pct' },
+            { key: 'logistics_pct',   label: 'Логистика %', type: 'pct' },
+            { key: 'log_to_pvz_avg',  label: 'До ПВЗ ср., сом', type: 'avg' },
+        ] },
+        // «Фулфилмент»: отправки и хранение по артикулам, доп. услуги из журнала ФФ (только в «Общем»)
+        ff_sum: { cls: 'ff', hint: 'Фулфилмент: отправки, хранение, доп. услуги', subs: [
+            { key: 'ff_ship',    label: 'Отправки',     type: 'ff' },
+            { key: 'ff_storage', label: 'Хранение',     type: 'ff' },
+            { key: 'ff_extra',   label: 'Доп. услуги',  type: 'ff' },
+        ] },
     };
-    const FIN_SPLIT_KEYS = Object.values(FIN_SPLITS).flatMap(g => g.subs.map(x => x.key));
+    // «Прочие удержания и доплаты» у Ozon: свои виды (Premium Pro и отзывы — точно из начислений, остальное из отчёта Ozon по полумесяцам)
+    const FIN_SPLITS_OZ_DED = { cls: 'ded', hint: 'За что удержано: по видам Ozon', subs: [
+        { key: 'ded_prem',  label: 'Premium Pro и отзывы', type: 'ff' },
+        { key: 'ded_bonus', label: 'Бонусы продавца', type: 'ff' },
+        { key: 'ded_move',  label: 'Перемещение и вывоз', type: 'ff' },
+        { key: 'ded_rest',  label: 'Прочее и возмещения', type: 'ff' },
+    ] };
+    // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
+    // Комиссия WB в процентах считается от цены продавца (retail_price_withdisc_rub): именно от неё WB берёт свой процент.
+    // Если по строке цены продавца нет (старые данные), остаётся прежний расчёт от реализации.
+    function _commPct(m) {
+        const base = Number(m.comm_base) || 0;
+        if (base > 0) return Math.max(0, (Number(m.comm_true) || 0) / base * 100);
+        return (m.realization || 0) > 0 ? (m.wb_commission || 0) / m.realization * 100 : 0;
+    }
+    // Доля отмен и логистика на штуку считаются заново после суммирования
+    function _logDerived(m) {
+        const dl = Number(m.delivery_sum) || 0;
+        m.log_cancel_pct = dl > 0 ? ((Number(m.log_cancel_to) || 0) + (Number(m.log_cancel_from) || 0)) / dl * 100 : 0;
+        m.log_per_unit = (Number(m.sales_count) || 0) > 0 ? dl / m.sales_count : 0;
+    }
+    const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg' && x.type !== 'ff').map(x => x.key)))];
 
     const DERIVED_SUM_KEYS = [
-        'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count',
+        'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','transit_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
-        'to_transfer','profit','cost_price_val','giveaways','storage_sum',
+        'to_transfer','profit','net_payout','tax_sum','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_rest',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -6420,6 +6572,8 @@ const RNP = (() => {
         a.logistics_pct = wPct('logistics_pct');
         a.storage_pct = wPct('storage_pct');
         a.commission_pct = parts.reduce((s, d) => s + (d.commission_pct || 0), 0) / Math.max(parts.length, 1);
+        _logDerived(a);
+        a.comm_pct_real = _commPct(a);
         const salesSomAll = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0) * _rateFor(d.date, d), 0);
         const adFromSalesAll = salesSomAll > 0 ? a.ad_spend / salesSomAll * 100 : 0;
         a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + adFromSalesAll;
@@ -6443,8 +6597,10 @@ const RNP = (() => {
         const m = _mergeDerivedMetrics(parts);
         // Ozon: итогов кабинета из финотчёта WB нет, «К выводу» и комиссия считаются из строк Ozon (к перечислению и реализации).
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
-            m.to_withdraw = Number(m.to_transfer) || 0;
+            m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
+            m.other_net_sum = Number(m.deduction_sum) || 0;
+            m.ded_other = m.other_net_sum;
         }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
     }
@@ -6453,19 +6609,35 @@ const RNP = (() => {
     function _applyCabinetTotals(m, t, date) {
         if (!m || !t) return m;
         const n = (v) => Number(v) || 0;
+        // прочие расходы на единицу (из настроек артикулов) к финотчёту не относятся, их сохраняем как есть
+        const otherCosts = Math.max(0, (m.net_payout || 0) - (m.profit || 0) - (m.cost_price_val || 0));
         m.realization = n(t.realization);
         m.to_transfer = n(t.to_transfer);
         m.delivery_sum = n(t.delivery);
         m.penalty_sum = n(t.penalty);
         m.deduction_sum = n(t.deduction);
         FIN_SPLIT_KEYS.forEach(k => { m[k] = n(t[k]); });
+        _logDerived(m);
+        m.comm_base = n(t.comm_base); m.comm_true = n(t.comm_true);
+        if (_ffShow && _mp() !== 'ozon') {
+            const ex = n(_ffExtra[date]);
+            const er = _rateFor(date, { wb_rate: m.wb_rate });
+            m.ff_extra = ex;
+            m.ff_sum = (m.ff_ship || 0) + (m.ff_storage || 0) + ex;
+            m.net_payout = (m.net_payout || 0) - ex * er;
+            m.profit = (m.profit || 0) - ex * er;
+        }
         m.acceptance_sum = n(t.acceptance);
         m.to_withdraw = n(t.to_withdraw);
         m.acquiring_sum = n(t.acquiring);
         m.compensation_sum = n(t.compensation);
         m.additional_sum = n(t.additional);
         m.wb_commission = Math.max(0, m.realization - m.acquiring_sum - (m.to_transfer - m.compensation_sum));
-        m.other_net_sum = m.additional_sum + m.compensation_sum - m.acquiring_sum - m.deduction_sum;
+        // Реклама в «К выводу» = то, что WB реально удержал («WB Продвижение»), чтобы итог сходился с финотчётом; в «Прочие» она не входит
+        m.ad_charged = n(t.ded_adv);
+        m.other_net_sum = m.deduction_sum - m.ad_charged - m.additional_sum - m.compensation_sum; // расход со знаком «плюс», как остальные строки; эквайринг отдельной строкой
+        m.ded_add = -(m.additional_sum + m.compensation_sum);
+        m.comm_pct_real = _commPct(m);
         m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
         m.wb_for_withdraw = t.balance_for_withdraw == null ? null : n(t.balance_for_withdraw);
         m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
@@ -6477,7 +6649,11 @@ const RNP = (() => {
         m.ad_cpm = m.ad_impressions > 0 ? m.ad_spend / m.ad_impressions * 1000 : 0;
         m.ad_roas = m.ad_spend > 0 ? (m.ad_revenue || 0) / m.ad_spend : 0;
         // Прибыль: реклама WB, списанная с баланса (в «Прочих удержаниях»), не вычитается второй раз — РК учтена расходом.
-        m.profit = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - (m.cost_price_val || 0) - m.ad_spend;
+        m.ff_sum = (m.ff_ship || 0) + (m.ff_storage || 0) + (m.ff_extra || 0);
+        m.tax_sum = _taxPct() / 100 * (m.realization || 0);
+        // Как «Итого к оплате» WB: перечисление + доплаты − логистика − хранение − приёмка − штрафы − все удержания (в них и реклама), затем ФФ и налог
+        m.net_payout = m.to_transfer + m.additional_sum - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - m.deduction_sum - m.ff_sum - m.tax_sum;
+        m.profit = m.net_payout - (m.cost_price_val || 0) - otherCosts;
         m.profit_per_unit = m.sales_count > 0 ? m.profit / m.sales_count : 0;
         m.margin_pct = m.to_transfer > 0 ? m.profit / m.to_transfer * 100 : 0;
         m.roi_pct = m.cost_price_val > 0 ? m.profit / m.cost_price_val * 100 : 0;
@@ -6524,6 +6700,43 @@ const RNP = (() => {
             });
         } catch (e) {
             console.warn('[RNP] rnp_cabinet_fin_split:', e.message || e);
+        }
+        // Доп. услуги ФФ из журнала (ff_ledger): без артикула, только в «Общем». Запись с периодом «[с..по]» делится по дням поровну.
+        try {
+            const [st, lr] = await Promise.all([
+                _db.from('ff_settings').select('rnp_show_ff').eq('cabinet_id', _cab).maybeSingle(),
+                _db.from('ff_ledger').select('kind,title,amount,entry_date').eq('cabinet_id', _cab).neq('kind', 'payment').gte('entry_date', allDates[0]).lte('entry_date', allDates[allDates.length - 1]).range(0, 999),
+            ]);
+            const ex = {};
+            if (st && st.data && st.data.rnp_show_ff === true && lr && !lr.error) {
+                (lr.data || []).filter(r => r.kind !== 'payment').forEach(r => {
+                    const amt = Number(r.amount) || 0, mm = /^\[(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})\]/.exec(r.title || '');
+                    const days = mm ? allDates.filter(d => d >= mm[1] && d <= mm[2]) : [];
+                    if (days.length) days.forEach(d => { ex[d] = (ex[d] || 0) + amt / days.length; });
+                    else { const d = String(r.entry_date).slice(0, 10); ex[d] = (ex[d] || 0) + amt; }
+                });
+            }
+            _ffExtra = ex;
+        } catch (e) { _ffExtra = {}; }
+        // Цена продавца и комиссия по ней: для процента комиссии
+        try {
+            const { data: cm, error: cmErr } = await _db.rpc('rnp_cabinet_comm', { p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: _rnpVisibleArticles().map(a => Number(a.nm_id)) });
+            if (cmErr) throw cmErr;
+            (cm || []).forEach(r => { const k = String(r.d).split('T')[0]; if (fresh[k]) { fresh[k].comm_base = r.comm_base; fresh[k].comm_true = r.comm_true; } });
+        } catch (e) { console.warn('[RNP] rnp_cabinet_comm:', e.message || e); }
+        // Логистика по причинам (подстроки «Логистики»)
+        try {
+            const { data: lg, error: lgErr } = await _db.rpc('rnp_cabinet_log_split', {
+                p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
+                p_nm_ids: _rnpVisibleArticles().map(a => Number(a.nm_id)),
+            });
+            if (lgErr) throw lgErr;
+            (lg || []).forEach(r => {
+                const k = String(r.d).split('T')[0];
+                if (fresh[k]) Object.assign(fresh[k], r, { d: fresh[k].d });
+            });
+        } catch (e) {
+            console.warn('[RNP] rnp_cabinet_log_split:', e.message || e);
         }
         if (cab0 === _cab && (Object.keys(fresh).length || !Object.keys(_cabTotals).length)) _cabTotals = fresh;
     }
@@ -6674,7 +6887,7 @@ const RNP = (() => {
           <td class="rnp-metric-col">Общий РНП</td>
           <td class="rnp-spark-col"></td>
           <td class="rnp-meta-cell" colspan="${cols.length}">
-            <span class="rnp-meta-status">Сводка по кабинету · ${cols.length} колонок · все суммы в сомах</span>
+            <span class="rnp-meta-status">${_activeGroup ? 'Сводка по склейке «' + _ghEsc(_activeGroup) + '»' : 'Сводка по кабинету'} · ${cols.length} колонок · все суммы в сомах</span>
           </td>
         </tr>`;
     }
@@ -6737,13 +6950,27 @@ const RNP = (() => {
         // штрафы и прочие удержания — их вычитаем отдельно. Всё из отчёта уже в сомах.
         // Себестоимость — только за штуки, которые остались у покупателя (продажи минус возвраты).
         const revenue  = (d.to_transfer || 0) * er;
-        const wbCosts  = ((d.delivery_sum || 0) + (d.storage_sum || 0) + (d.penalty_sum || 0) + (d.deduction_sum || 0)) * er;
+        const wbCosts  = ((d.delivery_sum || 0) + (d.storage_sum || 0) + (d.penalty_sum || 0) + (d.deduction_sum || 0) + (d.acceptance_sum || 0)) * er;
         const netUnits = Math.max(0, units - (d.returns_count || 0));
         const totalCost = netUnits * cost;
         const otherCosts = netUnits * otherCostsUnitSom;
         const adSpend  = (d.ad_spend || 0); // расход РК WB для кабинетов КР уже в сомах
         d.cost_price_val  = totalCost; // Себестоимость = (продажи − возвраты), шт × себест. за ед.
-        d.profit          = revenue - wbCosts - totalCost - adSpend - otherCosts;
+        // Фулфилмент (отправки + хранение ФФ) и налог (процент от реализации) идут расходами до себестоимости; прибыль = К выводу.
+        _logDerived(d);
+        // Комиссия WB: реализация − эквайринг − (к перечислению − компенсации); у артикула считается так же, как по кабинету
+        d.acquiring_sum   = Number(d.acquiring_sum) || 0;
+        d.wb_commission   = Math.max(0, (d.realization || 0) - d.acquiring_sum - ((d.to_transfer || 0) - (Number(d.compensation_sum) || 0)));
+        d.comm_pct_real   = _commPct(d);
+        d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
+        d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
+        d.ad_charged      = d.ad_charged != null ? Number(d.ad_charged) || 0 : (d.ad_spend || 0); // WB-артикул: статистика кампаний; Ozon: списания Ozon, разложенные по дням
+        d.net_payout      = revenue - wbCosts - d.ad_charged - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
+        d.net_payout_unit = units > 0 ? d.net_payout / units : 0;
+        d.storage_per_unit = units > 0 ? (d.storage_sum || 0) / units : 0;
+        d.ad_per_unit = units > 0 ? (d.ad_spend || 0) / units : 0;
+        d.ff_per_unit = units > 0 ? d.ff_sum / units : 0;
+        d.profit          = d.net_payout - totalCost - otherCosts;                      // Прибыль: после себестоимости
         d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
         d.roi_pct         = totalCost > 0 ? d.profit / totalCost * 100 : 0;
@@ -7114,6 +7341,7 @@ const RNP = (() => {
             </div>
           </div>
 
+          ${_settingsTaxHtml()}
           ${_settingsGroupsHtml()}
         </div>`;
         if (scrollTop > 0) {
@@ -7272,9 +7500,18 @@ const RNP = (() => {
         const liveTbody = liveTable.tBodies[0];
         const nextTbody = nextTable.tBodies[0];
         if (!liveTbody || !nextTbody) return false;
-        if (liveTbody.rows.length !== nextTbody.rows.length) return false;
         // Строка заметок добавляется/убирается в шапке — это новая структура, а не правка ячеек.
         if (liveTable.tHead && nextTable.tHead && liveTable.tHead.rows.length !== nextTable.tHead.rows.length) return false;
+        // Раскрыли или свернули строку («Логистика ▸»): меняется только набор строк тела таблицы. Подменяем одно тело,
+        // а шапку, фото и всё остальное на экране не трогаем, чтобы лист не «обновлялся».
+        const sameHeadCols = !(liveTable.tHead && nextTable.tHead) || [...liveTable.tHead.rows].every((r, i) => r.cells.length === nextTable.tHead.rows[i].cells.length);
+        if (liveTbody.rows.length !== nextTbody.rows.length) {
+            if (!sameHeadCols || liveTbody.querySelector('tr.rnp-lazy-sec') || nextTbody.querySelector('tr.rnp-lazy-sec')) return false;
+            liveTbody.innerHTML = nextTbody.innerHTML;
+            const lh = liveTable.tHead, nh = nextTable.tHead;
+            if (lh && nh) for (let i = 0; i < lh.rows.length; i++) { if (!lh.rows[i].classList.contains('rnp-head-panel')) _patchSubtree(lh.rows[i], nh.rows[i]); }
+            return true;
+        }
         // Число колонок должно совпасть во ВСЕХ строках и в шапке: у первой строки бывает одна «широкая» ячейка (colspan),
         // и тогда смена периода (например, до 14-го вместо 11-го) правила только цифры, а новые колонки не появлялись.
         for (let i = 0; i < liveTbody.rows.length; i++) if (liveTbody.rows[i].cells.length !== nextTbody.rows[i].cells.length) return false;
@@ -7680,12 +7917,20 @@ const RNP = (() => {
     }
     async function _renderMain() {
         const L = window.NrLoader, silent = _rnpMainRendered();
-        if (L && !silent) L.begin('rnp', 'Загружаем РНП', RNP_LOAD_STEPS);
+        // Карточка «Загружаем РНП» нужна только в самый первый раз (нет сохранённых цифр). Если на устройстве есть снимок,
+        // экран рисуется из него сразу, а свежее подтягивается в фоне без карточки; даём снимку 450 мс, чтобы встать на место.
+        let loaderOn = false, finished = false;
+        const loaderTimer = (L && !silent) ? setTimeout(() => {
+            if (finished) return;
+            try { const ws = document.querySelector('#tab-rnp .rnp-workspace'); if (ws && _rnpHasRealData(ws)) return; } catch (e) {}
+            L.begin('rnp', 'Загружаем РНП', RNP_LOAD_STEPS); loaderOn = true;
+        }, 450) : 0;
         if (!silent) _showFirstSkeleton();
         _startFirstBusy();
         const busyEnd = window._rnpBusyEnd;
         try { return await _renderMainImpl(); } finally {
-            if (L && !silent) L.end('rnp');
+            finished = true; clearTimeout(loaderTimer);
+            if (L && loaderOn) L.end('rnp');
             document.querySelectorAll('#tab-rnp .rnp-first-skel').forEach((n) => n.remove());
             // если дозагрузка воронки взяла снятие размытия на себя, оно снимется там; иначе снимаем сейчас
             if (busyEnd && !window._rnpBusyLate) _endFirstBusy();
@@ -7766,10 +8011,10 @@ const RNP = (() => {
                 if (saved === BYART_TAB) _activeNm = BYART_TAB;
                 else if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
                 else if (active.find(a => a.nm_id == saved)) _activeNm = Number(saved);
-                // «Сводная» убрана: большие кабинеты открываем на первом артикуле, остальные — на «Общем».
-                else _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB;
+                // По умолчанию всегда «Общий» (раньше большие кабинеты открывались на первом артикуле).
+                else _activeNm = GENERAL_TAB;
                 if (_activeNm !== GENERAL_TAB && _activeNm !== BYART_TAB) _activeNm = Number(_activeNm);
-            } catch (e) { _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB; }
+            } catch (e) { _activeNm = GENERAL_TAB; }
         }
 
         _sectionView = 'all'; // выбор секций убран из интерфейса
@@ -7870,15 +8115,30 @@ const RNP = (() => {
         _saveRnpShell();
     }
 
+    // Телефон: пока палец ведёт прокрутку, лист не перерисовываем (фоновое обновление цифр дёргало бы кадры): перерисуем сразу после остановки.
+    let _scrollBusyAt = 0, _scrollDeferTimer = 0;
+    function _bindScrollBusy() {
+        if (_bindScrollBusy.done || typeof document === 'undefined') return;
+        _bindScrollBusy.done = true;
+        const mark = () => { _scrollBusyAt = Date.now(); };
+        document.addEventListener('scroll', (e) => { if (e.target && e.target.id === 'rnp-sheet-body') mark(); }, { passive: true, capture: true });
+        document.addEventListener('touchmove', (e) => { if (e.target && e.target.closest && e.target.closest('#rnp-sheet-body')) mark(); }, { passive: true, capture: true });
+    }
     async function _renderActiveTable() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
+        _bindScrollBusy();
+        if (_isPhone() && Date.now() - _scrollBusyAt < 180) {
+            clearTimeout(_scrollDeferTimer);
+            _scrollDeferTimer = setTimeout(() => { _renderActiveTable(); }, 220);
+            return;
+        }
         _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
         _hydratePhotoCacheFromDom();
         _ensureActiveVisible();
         // Телефон: только по артикулам. «Общий», «Общее по артикулам» и «Σ Общее» считают весь кабинет и слишком тяжёлые.
-        if (_isPhone() && (_activeNm === GENERAL_TAB || _activeNm === BYART_TAB || _activeNm === SUMMARY_TAB)) {
+        if (_isPhone() && (_activeNm === BYART_TAB || _activeNm === SUMMARY_TAB || (_activeNm === GENERAL_TAB && _activeGroup))) {
             const first = _rnpVisibleArticles()[0];
             if (first) { _activeNm = Number(first.nm_id); _activeGroup = null; _writeSavedActiveNm(); _updateTabHighlight(); }
         }
@@ -8670,10 +8930,11 @@ const RNP = (() => {
 
     // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
     function _finSubRows(m, cols, firstDayIdx) {
-        const def = FIN_SPLITS[m.key];
-        const rgb = def.cls === 'pen' ? '239,68,68' : '245,158,11';
+        const def = (m.key === 'other_net_sum' && _mp() === 'ozon') ? FIN_SPLITS_OZ_DED : FIN_SPLITS[m.key];
+        const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '128,128,128' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
         return def.subs.map(sub => {
+            const pctSub = sub.type === 'pct';
             const rowTotal = cols.reduce((x, c) => x + (c.type === 'day' && c.data && !c.isFuture ? Math.abs(Number(c.data[sub.key]) || 0) : 0), 0);
             const cells = cols.map((col, ci) => {
                 const d = col.data;
@@ -8691,10 +8952,10 @@ const RNP = (() => {
                 const sticky = _stickyDataAttrs(ci, cols);
                 let txt = '', style = sticky.style || '';
                 if (!col.isFuture && d) {
-                    const v = Math.round(Number(d[sub.key]) || 0);
+                    const v = pctSub ? (Number(d[sub.key]) || 0) : Math.round(Number(d[sub.key]) || 0);
                     const pending = isDay && col.isToday && !(Number(d[m.key]) > 0);
-                    txt = pending ? '—' : _fmt(v, 'som');
-                    if (v !== 0 && isDay) {
+                    txt = pending ? '—' : (pctSub ? _fmt(v, 'pct') : _fmt(v, 'som'));
+                    if (false) { // подстроки без цветной подсветки: цифры на тёмном/светлом фоне как есть
                         const a = Math.min(1, Math.abs(v) / mx);
                         style += `${style ? ';' : ''}background:rgba(${rgb},${(0.10 + 0.35 * a).toFixed(2)})`;
                     }
@@ -8778,6 +9039,12 @@ const RNP = (() => {
     const AD_MIN_SPEND = 50;
     const _isSeriesCol = c => !c.isFuture && c.data && (c.type === 'day' || c.type === 'week' || c.type === 'month');
 
+    // Оттенки «хорошо / плохо» только цветом шрифта, без заливки ячейки: чем дальше от середины, тем насыщеннее зелёный или красный.
+    function _heatText(k, a) {
+        const pct = Math.round(35 + Math.min(1, a / 0.6) * 65);
+        return `color:color-mix(in srgb, ${k > 0 ? 'var(--green, #16a34a)' : 'var(--red, #dc2626)'} ${pct}%, var(--text-primary))${a > 0.35 ? ';font-weight:700' : ''}`;
+    }
+
     /** Доля расхода РК в прибыли до рекламы: ≤35% — зелёный, ≥90% (или прибыль до рекламы ≤ 0) — красный. */
     function _adEffTone(d) {
         const spend = Number(d.ad_spend) || 0;
@@ -8787,7 +9054,7 @@ const RNP = (() => {
         const k = r <= 0.35 ? 1 : r >= 0.9 ? -1 : 1 - ((r - 0.35) / 0.55) * 2;
         const a = Math.min(1, Math.abs(k)) * 0.6;
         if (a < 0.04) return '';
-        return k > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+        return _heatText(k, a);
     }
 
     function _scaleFn(m, cols) {
@@ -8820,7 +9087,7 @@ const RNP = (() => {
                 if (dir === 'low') k = -k;
                 const a = Math.min(1, Math.abs(k)) * 0.62;
                 if (a < 0.02) return '';
-                return k > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+                return _heatText(k, a);
             };
         });
         if (!Object.keys(fns).length) return null;
@@ -9012,12 +9279,12 @@ const RNP = (() => {
                 const str = (isFuture || manualEmpty) ? '' : ((financePending || noBalance) ? '—' : _fmt(val, m.type));
                 const cc  = (m.hm && !scaleFn) ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
-                if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
-                else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'background:#b6d7a8;color:#38761d';
-                else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:#d9ead3;color:#38761d';
+                if (cc === 'rnp-green')  style += (style ? ';' : '') + 'color:var(--green, #16a34a);font-weight:700';
+                else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'font-weight:600';
+                else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'color:var(--red, #dc2626);font-weight:700';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
-                if (priceChanged) style += (style ? ';' : '') + 'background:#e6f6ec;color:#17653a;font-weight:800';
+                if (priceChanged) style += (style ? ';' : '') + 'color:var(--green, #16a34a);font-weight:800';
                 if (scaleFn && !isFuture) { const sc = scaleFn(col, val); if (sc) style += (style ? ';' : '') + sc; }
                 // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.
                 // No extra DOM/flex inside the td — that blew up the sheet layout.
@@ -9060,12 +9327,12 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            const finSplit = art.nm_id === -1 ? FIN_SPLITS[m.key] : null;
-            const splittable = m.key === 'orders_count' || m.key === 'sales_count' || m.key === 'storage_sum' || !!finSplit;
+            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : (art.nm_id > 0 && (m.key === 'delivery_sum' || m.key === 'penalty_sum') && _mp() !== 'ozon' ? FIN_SPLITS[m.key] : null);
+            const splittable = m.key === 'orders_count' || m.key === 'sales_count' || !!finSplit;
             const splitOpen = splittable && _splitOpen.has(m.key);
             const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';
             const labelHtml = splittable
-                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="${splitHint}">${splitOpen ? '▾' : '▸'} ${m.label}</span>`
+                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="${splitHint}">${m.label} <i class="rnp-split-arrow">${splitOpen ? '▾' : '▸'}</i></span>`
                 : m.label;
             let out = `<tr class="${rowCls}">
               <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>
@@ -10091,83 +10358,150 @@ const RNP = (() => {
     document.addEventListener('nr-articles-changed', _refreshArticlesFresh);
 
     // В режиме Ozon все подписи про WB (комиссия, склад, баланс, подсказки, окна) называем Ozon: данные на странице Ozon, а слово «WB» вводит в заблуждение.
+    const _pfOrig = new WeakMap();
+    // при возврате на WB подписи Дашборда и РНП снова «WB»
+    function _pfRestore(rootEl) {
+        if (!rootEl) return;
+        const w = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null); let n;
+        while ((n = w.nextNode())) { if (_pfOrig.has(n)) { n.nodeValue = _pfOrig.get(n); _pfOrig.delete(n); } }
+    }
     function _pfDom(rootEl) {
         if (_mp() !== 'ozon' || !rootEl) return;
-        const re = /\bWB\b/g;
+        const re = /\bWB\b|(?<![А-Яа-яЁё])ВБ(?![А-Яа-яЁё])/g;
         const w = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
         let n;
         while ((n = w.nextNode())) {
             const p = n.parentNode && n.parentNode.nodeName;
             if (p === 'SCRIPT' || p === 'STYLE') continue;
-            if (re.test(n.nodeValue)) { re.lastIndex = 0; n.nodeValue = n.nodeValue.replace(re, 'Ozon'); }
+            if (re.test(n.nodeValue)) { re.lastIndex = 0; if (!_pfOrig.has(n)) _pfOrig.set(n, n.nodeValue); n.nodeValue = n.nodeValue.replace(re, 'Ozon'); }
             re.lastIndex = 0;
         }
         rootEl.querySelectorAll('[title],[aria-label],[placeholder]').forEach((el) => {
-            for (const a of ['title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v && /\bWB\b/.test(v)) el.setAttribute(a, v.replace(/\bWB\b/g, 'Ozon')); }
+            for (const a of ['title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v && re.test(v)) { re.lastIndex = 0; el.setAttribute(a, v.replace(re, 'Ozon')); } re.lastIndex = 0; }
         });
     }
     let _pfT = 0;
     function _pfSoon() {
         if (_pfT || _mp() !== 'ozon') return;
-        _pfT = setTimeout(() => { _pfT = 0; _pfDom(document.getElementById('tab-rnp')); _pfDom(document.getElementById('rnp-modal')); _pfDom(document.querySelector('.rnp-tip, .rnp-tooltip, #rnp-tip')); }, 120);
+        _pfT = setTimeout(() => { _pfT = 0; _pfDom(document.getElementById('tab-rnp')); _pfDom(document.getElementById('tab-dashboard')); _pfDom(document.getElementById('rnp-modal')); _pfDom(document.querySelector('.rnp-tip, .rnp-tooltip, #rnp-tip')); }, 120);
     }
     new MutationObserver(_pfSoon).observe(document.documentElement, { childList: true, subtree: true });
-    document.addEventListener('nr-mp-change', () => setTimeout(_pfSoon, 50));
+    document.addEventListener('nr-mp-change', () => { if (_mp() !== 'ozon') { _pfRestore(document.getElementById('tab-dashboard')); _pfRestore(document.getElementById('tab-rnp')); } setTimeout(_pfSoon, 50); });
 
-    // ── Дашборд: блок Ozon (режимы «Ozon» и «Вместе»). Показываем сразу из кэша устройства, свежее подставляем без перерисовки каркаса.
-    function _mpDashEsc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-    function _mpDashNum(v) { return Math.round(Number(v) || 0).toLocaleString('ru-RU').replace(/ /g, ' '); }
-    function _mpDashCompute(orders, fin, arts) {
-        const name = {}; (arts || []).forEach((a) => { name[a.nm_id] = a.name; });
-        const by = {}; let o = 0, os = 0, sc = 0, ss = 0, cc = 0, tr = 0;
-        (orders || []).forEach((r) => { o += +r.orders_count || 0; os += +r.orders_sum || 0; sc += +r.sales_count || 0; ss += +r.sales_sum || 0; cc += +r.cancels_count || 0;
-            const b = by[r.nm_id] || (by[r.nm_id] = { n: name[r.nm_id] || String(r.nm_id), o: 0, s: 0, sum: 0 }); b.o += +r.orders_count || 0; b.s += +r.sales_count || 0; b.sum += +r.sales_sum || 0; });
-        (fin || []).forEach((r) => { tr += +r.to_transfer || 0; });
-        return { o, os, sc, ss, cc, tr, top: Object.values(by).sort((a, b) => b.sum - a.sum).slice(0, 5) };
+    // ── Дашборд: тот же каркас, что у WB. В режимах «Ozon» и «Вместе» подменяем только источники цифр:
+    // dashboard_summary / dashboard_finance_rows / dashboard_finance_coverage берутся из ozon_dashboard_* (та же форма ответа).
+    // «Вместе» складывает ответы WB и Ozon. Старый отдельный блок Ozon убирается.
+    function _dashMerge(name, wb, oz) {
+        if (!wb || wb.error || !wb.data) return oz && !oz.error ? oz : wb;
+        if (!oz || oz.error || !oz.data) return wb;
+        const a = wb.data, b = oz.data;
+        if (name === 'dashboard_finance_rows') return { data: (a || []).concat(b || []), error: null };
+        if (name === 'dashboard_finance_coverage') {
+            const lo = (x, y) => (x && y ? (x < y ? x : y) : x || y), hi = (x, y) => (x && y ? (x > y ? x : y) : x || y);
+            return { data: Object.assign({}, a, { from: lo(a.from, b.from), to: hi(a.to, b.to) }), error: null };
+        }
+        const o = Object.assign({}, a);
+        ['stock_total', 'stock_fbo', 'stock_fbs'].forEach((k) => { o[k] = (Number(a[k]) || 0) + (Number(b[k]) || 0); });
+        o.stock_by_warehouse = (a.stock_by_warehouse || []).concat(b.stock_by_warehouse || []).sort((x, y) => (y.qty || 0) - (x.qty || 0));
+        ['cur', 'prev'].forEach((k) => { o[k] = { orders_count: (Number(a[k] && a[k].orders_count) || 0) + (Number(b[k] && b[k].orders_count) || 0), orders_sum: (Number(a[k] && a[k].orders_sum) || 0) + (Number(b[k] && b[k].orders_sum) || 0), returns_count: (Number(a[k] && a[k].returns_count) || 0) + (Number(b[k] && b[k].returns_count) || 0) }; });
+        const by = {};
+        (a.cur_daily || []).concat(b.cur_daily || []).forEach((d) => { const k = String(d.date).slice(0, 10); const t = by[k] || (by[k] = { date: k, sum: 0, count: 0, returns: 0 }); t.sum += Number(d.sum) || 0; t.count += Number(d.count) || 0; t.returns += Number(d.returns) || 0; });
+        o.cur_daily = Object.keys(by).sort().map((k) => by[k]);
+        return { data: o, error: null };
     }
-    function _mpDashHtml(m, loading) {
-        const kp = (l, v, sub) => `<div class="nr-mp-k"><span>${l}</span><b>${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
-        const buy = m.o ? Math.round(m.sc * 100 / m.o) : 0;
-        return `<div class="nr-mp-h"><b>OZON</b><span>${m.empty ? 'У этого кабинета нет данных Ozon: ключ не подключён или первая загрузка ещё идёт' : 'за 30 дней · оценка по заказам Ozon'}</span></div>
-          <div class="nr-mp-kp${loading ? ' nr-mp-blur' : ''}">${kp('Заказы', _mpDashNum(m.o), _mpDashNum(m.os) + ' сом')}${kp('Продажи', _mpDashNum(m.sc), _mpDashNum(m.ss) + ' сом')}${kp('Выкуп', buy + '%', 'отмен ' + _mpDashNum(m.cc))}${kp('К перечислению ≈', _mpDashNum(m.tr), 'комиссия и логистика учтены оценкой')}</div>
-          <div class="nr-mp-top${loading ? ' nr-mp-blur' : ''}"><div class="nr-mp-t">Топ товаров по продажам</div>${m.top.length ? m.top.map((t, i) => `<div class="nr-mp-r"><em>${i + 1}</em><span>${_mpDashEsc(t.n)}</span><b>${_mpDashNum(t.sum)}</b><small>${_mpDashNum(t.s)} шт</small></div>`).join('') : '<div class="nr-mp-r"><span>Продаж за период нет</span></div>'}</div>`;
+    // «Вместе»: Ozon в сомах, WB в рублях; приводим Ozon к рублям по курсу сайта, чтобы суммы складывались верно (дашборд сам переводит в сомы)
+    function _dashRate() { try { const v = Number(localStorage.getItem('nr_rub_kgs_v1')); return v > 0 ? v : 0; } catch (_) { return 0; } }
+    function _dashScale(name, res) {
+        const k = _dashRate(); if (!k || !res || res.error || !res.data) return res;
+        const sc = (o, keys) => { const c = Object.assign({}, o); keys.forEach((x) => { if (c[x] != null) c[x] = Number(c[x]) / k; }); return c; };
+        if (name === 'dashboard_finance_rows') return { data: res.data.map((r) => sc(r, ['retail_price', 'retail_price_withdisc_rub', 'retail_amount', 'ppvz_for_pay', 'delivery_rub', 'storage_fee', 'penalty', 'deduction', 'acquiring_fee'])), error: null };
+        if (name === 'dashboard_summary') { const d = Object.assign({}, res.data); d.cur = sc(d.cur, ['orders_sum']); d.prev = sc(d.prev, ['orders_sum']); d.cur_daily = (d.cur_daily || []).map((x) => sc(x, ['sum'])); return { data: d, error: null }; }
+        return res;
     }
-    let _mpDashBusy = false;
-    async function _mpDashRender() {
-        const tab = document.getElementById('tab-dashboard');
-        if (!tab) return;
-        let box = document.getElementById('nr-mp-dash');
-        if (_mp() === 'wb') { if (box) box.remove(); return; }
-        if (!tab.classList.contains('active')) return;
-        if (!box) { box = document.createElement('section'); box.id = 'nr-mp-dash'; box.className = 'nr-mp-dash'; tab.insertBefore(box, tab.firstChild); }
-        const cab = _cab || (typeof currentCabinetId !== 'undefined' ? currentCabinetId : null);
-        const to = _wbTodayStr(), from = new Date(Date.parse(to) - 29 * 864e5).toISOString().slice(0, 10);
-        const args = { p_from: from, p_to: to };
-        // Каркас показываем сразу, не дожидаясь запуска РНП: цифры из кэша устройства, а если их нет, размытые заглушки.
-        if (!box.dataset.painted && cab) {
-            const mem = (fn, a) => { try { return JSON.parse(localStorage.getItem(_ozCacheKey(fn, a, cab)) || 'null'); } catch (_) { return null; } };
-            const c = [mem('ozon_orders_daily', args), mem('ozon_finance_daily', args), mem('ozon_rnp_articles', {})];
-            box.innerHTML = _mpDashHtml(_mpDashCompute(c[0] || [], c[1] || [], c[2] || []), !c[0]); box.dataset.painted = '1';
-        } else if (!box.dataset.painted) box.innerHTML = _mpDashHtml(_mpDashCompute([], [], []), true);
-        if (!_db || !cab || cab !== _cab) { const n = Number(box.dataset.tries || 0); if (n < 50) { box.dataset.tries = String(n + 1); setTimeout(_mpDashRender, 300); } return; }
-        if (_mpDashBusy) return; _mpDashBusy = true;
+    const _DASH_MAP = { dashboard_summary: 'ozon_dashboard_summary', dashboard_finance_rows: 'ozon_dashboard_finance_rows', dashboard_finance_coverage: 'ozon_dashboard_coverage' };
+    function _dashOzArgs(args) { const o = Object.assign({}, args || {}); if ('p_cabinet_id' in o) { o.p_cabinet = o.p_cabinet_id; delete o.p_cabinet_id; } return o; }
+    async function _dashOzonAds(cab, from, to) {
         try {
-            const [o, f, a] = await Promise.all([_ozCall('ozon_orders_daily', args), _ozCall('ozon_finance_daily', args), _ozCall('ozon_rnp_articles', {})]);
-            if (cab !== _cab || _mp() === 'wb') return;
-            const m = _mpDashCompute(o, f, a); m.empty = !o.length && !a.length; box.innerHTML = _mpDashHtml(m); box.dataset.done = '1';
-        } catch (e) {
-            if (!box.dataset.done) box.innerHTML = '<div class="nr-mp-h"><b>OZON</b><span>Не удалось загрузить данные Ozon.</span><button type="button" class="rnp-action-btn" onclick="window.NrMpDash.render()">Повторить</button></div>';
-        } finally { _mpDashBusy = false; }
+            const rows = await _ozCall('ozon_finance_daily', { p_from: from, p_to: to });
+            const byDay = {}; let spend = 0;
+            (rows || []).forEach((r) => { const v = Number(r.ad_spend) || 0; spend += v; const d = String(r.date).slice(0, 10); byDay[d] = (byDay[d] || 0) + v; });
+            return { spend, byDay };
+        } catch (_) { return { spend: 0, byDay: {} }; }
     }
+    window.NrDashMp = {
+        mode: () => _mp(),
+        suffix: () => (_mp() === 'wb' ? '' : '~' + _mp()),
+        wrap: function (sb) {
+            if (!sb || sb.__nrMpWrapped) return; sb.__nrMpWrapped = true;
+            const orig = sb.rpc.bind(sb);
+            sb.rpc = function (name, args) {
+                const mp = _mp();
+                if (mp === 'wb' || !_DASH_MAP[name]) return orig(name, args);
+                const oz = orig(_DASH_MAP[name], _dashOzArgs(args));
+                if (mp === 'ozon') return oz;
+                return Promise.all([orig(name, args), oz]).then((r) => _dashMerge(name, r[0], _dashScale(name, r[1])));
+            };
+        },
+        ads: async function (cab, from, to, wbAds) {
+            const mp = _mp(); if (mp === 'wb') return wbAds;
+            const oz = await _dashOzonAds(cab, from, to);
+            if (mp === 'ozon') return oz;
+            const byDay = Object.assign({}, (wbAds && wbAds.byDay) || {});
+            const k = _dashRate() || 1;
+            Object.keys(oz.byDay).forEach((d) => { byDay[d] = (byDay[d] || 0) + oz.byDay[d] / k; });
+            return { spend: ((wbAds && wbAds.spend) || 0) + oz.spend / k, byDay };
+        },
+        cost: async function (map) {
+            if (_mp() === 'wb') return map;
+            try { const arts = await _ozCall('ozon_rnp_articles', {}); const out = _mp() === 'ozon' ? {} : Object.assign({}, map); const k = _mp() === 'ozon' ? 1 : (_dashRate() || 1); (arts || []).forEach((a) => { if (Number(a.cost_price) > 0) out[String(a.nm_id)] = Number(a.cost_price) / k; }); return out; } catch (_) { return map; }
+        },
+    };
+    function _mpDashRender() { const b = document.getElementById('nr-mp-dash'); if (b) b.remove(); }
     window.NrMpDash = { render: _mpDashRender };
-    document.addEventListener('nr-mp-change', () => { const b = document.getElementById('nr-mp-dash'); if (b) delete b.dataset.done; _mpDashRender(); });
-    document.addEventListener('cabinet-changed', () => { const b = document.getElementById('nr-mp-dash'); if (b) b.remove(); setTimeout(_mpDashRender, 300); });
-    (function watchDash() {
-        const t = document.getElementById('tab-dashboard');
-        if (!t) { document.addEventListener('DOMContentLoaded', watchDash, { once: true }); return; }
-        new MutationObserver(() => { if (t.classList.contains('active')) _mpDashRender(); }).observe(t, { attributes: true, attributeFilter: ['class'] });
-        if (t.classList.contains('active')) setTimeout(_mpDashRender, 600);
-    })();
+
+    // ── Предзагрузка в фоне: после входа, пока человек ещё на дашборде, тихо прогреваем кэш устройства (nr-snap.js) по тем же
+    // выгрузкам, что нужны РНП (артикулы, остатки, дневные данные за последний открытый период). К открытию РНП всё уже на месте.
+    // Это только чтение базы: никакого экрана, карточки загрузки и запросов к WB. Включено без отдельной кнопки.
+    const _PW_KEY = 'nr_rnp_pw_v1';
+    function _pwRecord(table, filters) {
+        if (table !== 'rnp_daily_data' || !_cab) return;
+        try {
+            let f = null, t = null;
+            for (const x of (filters || [])) { if (x.column === 'date' && x.op === 'gte') f = x.value; if (x.column === 'date' && x.op === 'lte') t = x.value; }
+            if (!f || !t) return;
+            const today = _wbTodayStr(), d = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 864e5);
+            localStorage.setItem(_PW_KEY + '_' + _cab, JSON.stringify({ from: d(f, today), to: d(t, today) }));
+        } catch (e) { /* без хранилища просто прогреем период по умолчанию */ }
+    }
+    const _pwAt = {};
+    let _pwTimer = 0;
+    async function _prewarm() {
+        const cab = window.currentCabinetId, db = window.supabase || _db;
+        if (!cab || !db || !window.NrSnap) return;
+        const tab = document.getElementById('tab-rnp');
+        if ((tab && tab.classList.contains('active')) || document.hidden) return;
+        try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) { /* ок */ }
+        const k = cab + '|' + _mp();
+        if (Date.now() - (_pwAt[k] || 0) < 10 * 60e3) return;
+        _pwAt[k] = Date.now();
+        const today = _wbTodayStr(), add = (s0, n) => new Date(Date.parse(s0) + n * 864e5).toISOString().slice(0, 10);
+        let rec = null; try { rec = JSON.parse(localStorage.getItem(_PW_KEY + '_' + cab) || 'null'); } catch (e) { rec = null; }
+        const from = add(today, rec && isFinite(rec.from) ? rec.from : -40), to = add(today, rec && isFinite(rec.to) ? rec.to : 0);
+        const base = [{ op: 'eq', column: 'cabinet_id', value: cab }];
+        const jobs = [['rnp_articles', base], ['wb_stocks', base], ['rnp_daily_data', base.concat([{ op: 'gte', column: 'date', value: from }, { op: 'lte', column: 'date', value: to }])]];
+        for (const [t, fl] of jobs) {
+            if ((tab && tab.classList.contains('active')) || document.hidden) return;
+            try { await window.NrSnap.fetchRows(db, t, fl, '*'); } catch (e) { /* прогрев не должен ничего ломать */ }
+            await new Promise((r) => setTimeout(r, 300));
+        }
+    }
+    function _pwSoon(ms) {
+        clearTimeout(_pwTimer);
+        _pwTimer = setTimeout(() => { const run = () => { _prewarm().catch(() => {}); }; if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 5000 }); else run(); }, ms);
+    }
+    window.addEventListener('load', () => _pwSoon(5000));
+    document.addEventListener('cabinet-changed', () => _pwSoon(3000));
+    window.RNP_prewarm = _prewarm;
 
     function _bindCabinetListener() {
         if (_cabinetListenerBound) return;
@@ -10317,7 +10651,7 @@ const RNP = (() => {
         return fn.apply(this, a);
     };
     const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
-    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
 })();

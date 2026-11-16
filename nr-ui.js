@@ -252,5 +252,31 @@
         new root.MutationObserver(function (list) { list.forEach(function (m) { m.addedNodes.forEach(check); }); }).observe(d.body, { childList: true });
     })();
 
+    // Ошибки консоли (красные и ошибки API) уходят в базу пачкой раз в минуту, без адресов с параметрами (по просьбе владельца): чиним до скрина.
+    (function () {
+        var buf = {}, timer = 0, sent = 0;
+        function add(msg, src) {
+            msg = String(msg || '').replace(/\s+/g, ' ').slice(0, 300);
+            if (!msg || /ResizeObserver|Script error|Non-Error promise/i.test(msg)) return;
+            var b = buf[msg] || (buf[msg] = { msg: msg, src: String(src || '').replace(/[?#].*$/, '').slice(-120), n: 0 }); b.n++;
+            if (!timer) timer = setTimeout(flush, 60000);
+        }
+        function flush() {
+            timer = 0;
+            var rows = Object.keys(buf).slice(0, 20).map(function (k) { return buf[k]; }); buf = {};
+            var sb = root.supabase; if (!rows.length || !sb || !sb.rpc || sent > 30) return; sent++;
+            try { sb.rpc('log_client_errors', { p_rows: rows, p_cabinet: root.currentCabinetId || null, p_mp: root.NrMp ? root.NrMp.get() : null, p_page: (root.getCurrentActiveTab ? root.getCurrentActiveTab() : '') || null }).then(function () {}, function () {}); } catch (e) { /* не мешаем сайту */ }
+        }
+        root.addEventListener('error', function (e) { add(e.message, e.filename); });
+        root.addEventListener('unhandledrejection', function (e) { add('rejection: ' + ((e.reason && e.reason.message) || e.reason), ''); });
+        ['error', 'warn'].forEach(function (lv) {
+            var orig = root.console && root.console[lv]; if (!orig) return;
+            root.console[lv] = function () {
+                try { var t = [].slice.call(arguments).map(function (a) { return a && a.message ? a.message : typeof a === 'object' ? '' : String(a); }).join(' '); if (lv === 'error' || /error|API [45]\d\d|failed|не удалось/i.test(t)) add('[' + lv + '] ' + t, 'console'); } catch (e) { /* ок */ }
+                return orig.apply(root.console, arguments);
+            };
+        });
+    })();
+
     root.NrUi = { toast: toast, confirm: confirmDlg, dialog: dialog, alert: alertFn, ask: ask, notice: notice };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,4 +1,4 @@
-/* РНП → Цены: все артикулы кабинета на одной странице «Полки».
+/* РНП → Товары (бывшие «Цены»): все артикулы кабинета на одной странице «Полки».
  * Склейки WB (imt_id) стоят на полках внутри групп. У каждого артикула две строки: цена со скидкой и остаток.
  * Над локомотивом строки (больше всего заказов за 30 дней, сами заказы не показываем) корона. Нажали на артикул, и открывается РНП на нём.
  * Страница живёт внутри вкладки РНП: показ и скрытие переключает полоска #rnp-views (меню слева нажимает её кнопки). */
@@ -95,6 +95,7 @@
     function writeCache() { try { root.localStorage.setItem(cacheKey(S.cab), JSON.stringify({ arts: S.arts, prices: S.prices, stock: S.stock, fbo: S.fbo, fbs: S.fbs, pd: S.pd, ratio: S.ratio, ord: S.ord, sal: S.sal, at: Date.now() })); } catch (_) {} }
 
     function open() {
+        if (mpMode() !== 'wb') loadOz();
         var cab = cabId(); if (!cab || !sb()) { paint(); return; }
         var my = ++S.token, same = cab === S.cab && S.arts.length;
         if (!same) {
@@ -153,15 +154,24 @@
     var CROWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
     function schedule() { if (S.raf) return; S.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { S.raf = 0; paint(); }) : (paint(), 0); }
     // Плитка 44×56: берём превью 246×328 (около 22 КБ) вместо «big» (около 170 КБ), иначе страница тормозит при прокрутке
+    // Фото артикула: из карточки, а если там пусто (после сбоя синка) то по номеру WB, как в РНП и «Остатках»
+    function pic(a) {
+        if (a.photo_url) return thumb(a.photo_url);
+        try { return (root.RNP && root.RNP.wbPhotoUrl && a.nm_id) ? (root.RNP.wbPhotoUrl(a.nm_id, 'c246x328') || '') : ''; } catch (_) { return ''; }
+    }
     function thumb(u) { return String(u || '').replace('/images/big/', '/images/c246x328/'); }
     function tile(a, loco) {
         var low = a._k < 60 && !S.load.stock ? ' rp-low' : '', sel = S.sel[a.nm_id] ? ' sel' : '';
         return '<div class="rp-it' + (loco ? ' l' : '') + low + sel + '" role="button" tabindex="0" data-nm="' + a.nm_id + '" aria-label="' + esc((a.name || '') + ' · WB ' + a.nm_id) + '">' +
             (loco ? '<span class="rp-cw">' + CROWN + '</span>' : '') +
-            '<span class="rp-ph">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
+            '<span class="rp-ph">' + (pic(a) ? '<img src="' + esc(pic(a)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span>' +
             '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '" aria-label="Выбрать" data-ck="' + a.nm_id + '">' + (sel ? '✓' : '') + '</span>' +
             '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' +
             '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s></div>';
+    }
+    function costBox(key, g) {
+        var c = gcost(g);
+        return '<label class="rp-cost"><span>Себестоимость, сом</span><input class="rp-cost-in" data-gc="' + key + '" inputmode="decimal" autocomplete="off" placeholder="' + (c < 0 ? 'у артикулов разная' : '0') + '" value="' + (c > 0 ? c : '') + '"></label>';
     }
     function rings(g) {
         var ld = function (k) { return S.load[k] ? ' rp-ld' : ''; };
@@ -173,9 +183,143 @@
         var row = function () { var t = ''; for (var i = 0; i < 12; i++) t += '<span class="rp-it rp-sk"><span class="rp-ph"></span><i class="rp-ld">0000</i><s class="rp-ld">000</s></span>'; return t; };
         return '<div class="rp-cat rp-ld">Загружаем артикулы</div>' + '<div class="rp-row"><div class="rp-nm rp-ld"><b>Склейка</b><span>ост 0000</span></div><div class="rp-shelf">' + row() + '</div></div><div class="rp-row"><div class="rp-nm rp-ld"><b>Склейка</b><span>ост 0000</span></div><div class="rp-shelf">' + row() + '</div></div>';
     }
+    /* ───── Ozon: товары по склейкам (линейка товара), цены по склейке ─────
+       Склейка Ozon = линейка товара (укороченные, оверсайз, свитера и т.д.), плитка = артикул без размера (цвет), цена меняется у всех
+       размеров сразу. Каталог и остатки Ozon берутся из ozon_products и ozon_stocks; цены уходят в Ozon функцией ozon-prices. */
+    function mpMode() { return (root.NrMp && root.NrMp.get()) || 'wb'; }
+    var OZ = { cab: '', rows: [], stock: {}, load: false, sel: {}, map: {}, token: 0 };
+    function ozBase(o) {
+        var t = String(o || '').toLowerCase().replace(/[_ ]*(\d{2}(-\d{2})?|xxl|xl|xs|l|m|s)$/i, '').replace(/[_ ]*\d{2}$/, '');
+        return t.replace(/^[_ ]+|[_ ]+$/g, '');
+    }
+    function ozLine(b) { return /^свитер/.test(b) ? 'Свитера' : /^костюм_укороч/.test(b) ? 'Костюмы укороченные' : /^костюм_оверсайз/.test(b) ? 'Костюмы оверсайз' : /^пиджак/.test(b) ? 'Пиджаки' : /^спорт/.test(b) ? 'Спортивные костюмы' : 'Другое'; }
+    function ozKey() { return 'nr_rp_oz_' + OZ.cab; }
+    function loadOz() {
+        var cab = cabId(); if (!cab || !sb()) return;
+        var my = ++OZ.token;
+        if (OZ.cab !== cab) { OZ.cab = cab; OZ.rows = []; OZ.stock = {}; OZ.sel = {}; try { var c = JSON.parse(root.localStorage.getItem(ozKey()) || 'null'); if (c) { OZ.rows = c.rows || []; OZ.stock = c.stock || {}; } } catch (_) {} }
+        OZ.load = true; paint();
+        Promise.all([
+            pageAll(function () { return sb().from('ozon_products').select('offer_id,name,price,old_price,min_price,image_url,archived').eq('cabinet_id', cab).eq('archived', false); }),
+            pageAll(function () { return sb().from('ozon_stocks').select('offer_id,present').eq('cabinet_id', cab); })
+        ]).then(function (a) {
+            if (my !== OZ.token) return;
+            var st = {}; a[1].forEach(function (x) { st[x.offer_id] = (st[x.offer_id] || 0) + (Number(x.present) || 0); });
+            OZ.rows = a[0]; OZ.stock = st; OZ.load = false; paint();
+            try { root.localStorage.setItem(ozKey(), JSON.stringify({ rows: OZ.rows, stock: OZ.stock })); } catch (_) {}
+        }, function () { if (my === OZ.token) { OZ.load = false; paint(); } });
+    }
+    function ozGroups() {
+        var bases = {};
+        OZ.rows.forEach(function (r) {
+            var b = ozBase(r.offer_id), x = bases[b] = bases[b] || { base: b, offers: [], stock: 0, img: '' };
+            x.offers.push(r); x.stock += OZ.stock[r.offer_id] || 0; if (!x.img && r.image_url) x.img = r.image_url;
+        });
+        var lines = {};
+        Object.keys(bases).forEach(function (b) { var l = ozLine(b); (lines[l] = lines[l] || []).push(bases[b]); });
+        return Object.keys(lines).sort().map(function (l) {
+            var arr = lines[l].sort(function (x, y) { return y.stock - x.stock; }), n = 0, sum = 0, stock = 0, offers = 0;
+            arr.forEach(function (x) { x.avg = x.offers.reduce(function (s, r) { return s + (Number(r.price) || 0); }, 0) / (x.offers.length || 1); sum += x.avg; n++; stock += x.stock; offers += x.offers.length; });
+            return { line: l, bases: arr, avg: n ? sum / n : 0, stock: stock, offers: offers };
+        });
+    }
+    function ozHtml() {
+        var gs = ozGroups(); OZ.map = {};
+        if (!gs.length) return '<div class="rp-stage">' + (OZ.load ? skeleton() : '<div class="rp-empty"><b>У этого кабинета нет товаров Ozon</b><p>Подключите ключ Ozon в Настройки → API, товары подтянутся сами.</p></div>') + '</div>';
+        var html = gs.map(function (g, i) {
+            var key = 'o' + i; OZ.map[key] = g;
+            return '<div class="rp-row"><div class="rp-nm"><b>' + esc(g.line) + '</b><span>' + g.bases.length + ' арт. · ' + g.offers + ' размеров</span></div>' +
+                '<div class="rp-shelf">' + g.bases.map(function (x) {
+                    var sel = OZ.sel[x.base] ? ' sel' : '';
+                    return '<div class="rp-it' + sel + (x.stock < 5 ? ' rp-low' : '') + '" role="button" tabindex="0" data-ock="' + esc(x.base) + '" aria-label="' + esc(x.base) + '"><span class="rp-ph">' + (x.img ? '<img src="' + esc(x.img) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
+                        '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '">' + (sel ? '✓' : '') + '</span><i>' + (x.avg ? fmt(x.avg) : '—') + '</i><s>' + fmt(x.stock) + '</s></div>';
+                }).join('') + '</div>' +
+                '<div class="rp-side"><div class="rp-rings"><div class="rp-ring b"><b>' + fmt(g.stock) + '</b><span>остаток</span></div><div class="rp-ring"><b>' + (g.avg ? fmt(g.avg) : '—') + '</b><span>ср. цена</span></div></div>' +
+                '<div class="rp-acts"><button type="button" class="rp-btn" data-oact="price" data-og="' + key + '">Цена</button></div></div></div>';
+        }).join('');
+        var ns = Object.keys(OZ.sel).length, bar = '';
+        if (ns) bar = '<div class="rp-bar"><b>Выбрано ' + ns + '</b><span class="rp-barn">' + esc(Object.keys(OZ.sel).slice(0, 3).join(', ') + (ns > 3 ? ' и ещё ' + (ns - 3) : '')) + '</span><span class="rp-sp"></span><button type="button" class="rp-btn w" data-oact="price" data-og="sel">Изменить цену</button><button type="button" class="rp-btn q" data-oact="clear">Снять выбор</button></div>';
+        return '<div class="rp-stage">' + html + '</div><div class="rp-foot">' + OZ.rows.length + ' товаров Ozon' + (OZ.load ? ' · обновляем' : '') + '</div>' + bar;
+    }
+    function ozOffersOf(og) {
+        if (og === 'sel') { var out = []; ozGroups().forEach(function (g) { g.bases.forEach(function (x) { if (OZ.sel[x.base]) out = out.concat(x.offers); }); }); return out; }
+        var g = OZ.map[og]; return g ? g.bases.reduce(function (a, x) { return a.concat(x.offers); }, []) : [];
+    }
+    function ozNew(price, mode, v) {
+        var p = Number(price) || 0, n = mode === 'one' ? v : mode === 'down' ? p * (1 - v / 100) : mode === 'up' ? p * (1 + v / 100) : p + v;
+        return Math.round(n);
+    }
+    function ozBad(cur, next) { return !(next >= 100) || (cur > 0 && (next < cur * 0.5 || next > cur * 2)); }
+    function openOzPrice(og) {
+        var offers = ozOffersOf(og); if (!offers.length || !root.NrUi || !root.NrUi.dialog) return;
+        var M = { mode: 'down', val: '' };
+        var d = root.NrUi.dialog({ title: 'Цена на Ozon: ' + offers.length + ' размеров', size: 'm', body: '<div id="rp-oz"></div>', actions: [{ label: 'Отмена' }, { label: 'Применить', primary: true, keepOpen: true, onClick: function () { return apply(); } }] });
+        var box = d.el.querySelector('#rp-oz');
+        function calc() { var v = Number(String(M.val).replace(',', '.')) || 0; return offers.map(function (r) { var cur = Number(r.price) || 0, nx = M.val === '' ? cur : ozNew(cur, M.mode, v); return { r: r, cur: cur, nx: nx, bad: M.val !== '' && ozBad(cur, nx) }; }); }
+        function paintM() {
+            var rows = calc(), bad = rows.filter(function (x) { return x.bad; }).length, seg = [['down', '−%'], ['up', '+%'], ['one', 'Одна цена'], ['abs', '−/+ сом']].map(function (x) { return '<button type="button" class="rp-sg' + (M.mode === x[0] ? ' on' : '') + '" data-pm="' + x[0] + '">' + x[1] + '</button>'; }).join('');
+            var lab = { one: 'Новая цена, сом (для всех размеров)', down: 'Снизить на, %', up: 'Поднять на, %', abs: 'Изменить на, сом (минус снижает)' }[M.mode];
+            var byBase = {}; rows.forEach(function (x) { var b = ozBase(x.r.offer_id); (byBase[b] = byBase[b] || []).push(x); });
+            var tbl = Object.keys(byBase).slice(0, 12).map(function (b) { var a = byBase[b], c = a.reduce(function (s, x) { return s + x.cur; }, 0) / a.length, n = a.reduce(function (s, x) { return s + x.nx; }, 0) / a.length; return '<tr><td>' + esc(b) + '</td><td class="n">' + fmt(c) + '</td><td class="n' + (M.val !== '' ? (n < c ? ' dn' : n > c ? ' up' : '') : '') + '">' + (M.val === '' ? '—' : fmt(n)) + '</td></tr>'; }).join('');
+            box.innerHTML = '<div class="rp-seg">' + seg + '</div><label class="rp-lab" for="rp-ozv">' + lab + '</label><input id="rp-ozv" class="rp-inp" inputmode="decimal" autocomplete="off" value="' + esc(M.val) + '">' +
+                '<div class="rp-tw"><table class="rp-tbl"><tr><th>Артикул</th><th class="n">Ср. цена сейчас</th><th class="n">Станет</th></tr>' + tbl + '</table></div>' + (Object.keys(byBase).length > 12 ? '<p class="rp-hint">Показаны первые 12 артикулов из ' + Object.keys(byBase).length + '.</p>' : '') +
+                '<p class="rp-hint">Цена меняется у каждого размера от его текущей цены. Зачёркнутая цена и ограничение для акций подстраиваются сами. Ozon примет изменение за несколько минут.</p>' +
+                (bad ? '<p class="rp-warn">У ' + bad + ' размеров новая цена меньше 100 или отличается от текущей больше чем вдвое: так менять нельзя.</p>' : '');
+            var inp = box.querySelector('#rp-ozv'); if (inp) { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {} }
+            return rows;
+        }
+        box.addEventListener('click', function (e) { var b = e.target.closest('[data-pm]'); if (b) { M.mode = b.getAttribute('data-pm'); paintM(); } });
+        box.addEventListener('input', function (e) { if (e.target.id === 'rp-ozv') { M.val = e.target.value; paintM(); } });
+        paintM();
+        function apply() {
+            var rows = calc(); if (M.val === '' || !(Number(String(M.val).replace(',', '.')) > 0)) { toast('error', 'Укажите значение', ''); return false; }
+            if (rows.some(function (x) { return x.bad; })) { toast('error', 'Так менять нельзя', 'У части размеров цена выходит за допустимое'); return false; }
+            ozSend(rows.filter(function (x) { return x.nx !== x.cur; })); OZ.sel = {};
+        }
+    }
+    function ozSend(list) {
+        var cab = OZ.cab; if (!list.length) { toast('info', 'Цены не изменились', 'Новые цены равны текущим'); return; }
+        var prev = {}; list.forEach(function (x) { prev[x.r.offer_id] = { price: x.r.price, old: x.r.old_price, min: x.r.min_price }; x.r.price = x.nx; });
+        paint();
+        var h = root.NrUi && root.NrUi.toast ? root.NrUi.toast('info', 'Цены уходят в Ozon…', list.length + ' размеров', { loading: true, key: 'rp-oz' }) : null;
+        var items = list.map(function (x) { return { offer_id: x.r.offer_id, price: x.nx }; }), chunks = [];
+        for (var i = 0; i < items.length; i += 200) chunks.push(items.slice(i, i + 200));
+        var failed = [];
+        chunks.reduce(function (p, ch) {
+            return p.then(function () { return sb().functions.invoke('ozon-prices', { body: { cabinet_id: cab, items: ch } }); }).then(function (r) {
+                var d = r && r.data;
+                if (r && r.error || !d || d.error) throw new Error((d && d.error) || (r.error && r.error.message) || 'нет ответа');
+                (d.results || []).forEach(function (x) { if (!x.ok) failed.push(x); });
+            });
+        }, Promise.resolve()).then(function () {
+            failed.forEach(function (f) { var r = OZ.rows.filter(function (y) { return y.offer_id === f.offer_id; })[0]; if (r && prev[f.offer_id]) r.price = prev[f.offer_id].price; });
+            paint(); try { root.localStorage.setItem(ozKey(), JSON.stringify({ rows: OZ.rows, stock: OZ.stock })); } catch (_) {}
+            if (failed.length) toast('error', 'Не всё применилось: ' + failed.length + ' из ' + list.length, String(failed[0].error || '').slice(0, 120));
+            else if (h && h.update) h.update('success', 'Цены отправлены в Ozon', list.length + ' размеров, применятся за несколько минут'); else toast('success', 'Цены отправлены в Ozon', list.length + ' размеров');
+        }).catch(function (e) {
+            list.forEach(function (x) { if (prev[x.r.offer_id]) x.r.price = prev[x.r.offer_id].price; }); paint();
+            toast('error', 'Цены не изменились', String(e && e.message || e).slice(0, 140));
+        });
+        if (h && h.close && false) h.close();
+    }
+    function ozAct(b) {
+        var a = b.getAttribute('data-oact');
+        if (a === 'clear') { OZ.sel = {}; paint(); return; }
+        if (a === 'price') openOzPrice(b.getAttribute('data-og'));
+    }
+
     function paint() {
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
-        var legend = '';
+        var m = mpMode();
+        if (m === 'wb') { paintWb(); return; }
+        if (m === 'all') paintWb(); else pane.innerHTML = '';
+        var sc = pane.scrollTop;
+        pane.insertAdjacentHTML('beforeend', (m === 'all' ? '<div class="rp-cat">Ozon</div>' : '') + ozHtml());
+        pane.scrollTop = sc;
+    }
+    function paintWb() {
+        var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
+        var legend = '<div class="rp-tools"><button type="button" class="rp-btn" data-act="costimport">Загрузить себестоимость таблицей</button></div>';
         if (!S.arts.length) {
             pane.innerHTML = legend + '<div class="rp-stage">' + (S.load.arts ? skeleton() : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b><p>Добавьте артикулы в РНП, и они появятся здесь по склейкам.</p></div>') + '</div>';
             return;
@@ -187,7 +331,7 @@
                 var key = 'g' + (gi++); S.gmap[key] = { title: g.title, nms: g.items.map(function (a) { return a.nm_id; }), imt: g.items[0].imt_id || 0, avg: g.avg };
                 return '<div class="rp-row"><div class="rp-nm" data-nm="' + (g.loco || g.items[0].nm_id) + '"><b>' + esc(g.title) + '</b><span>' + g.items.length + ' арт.' + (g.min ? ' · ' + fmt(g.min) + (g.max > g.min ? '–' + fmt(g.max) : '') : '') + '</span></div>' +
                     '<div class="rp-shelf">' + g.items.map(function (a) { return tile(a, a.nm_id === g.loco); }).join('') + '</div>' +
-                    '<div class="rp-side">' + rings(g) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button><button type="button" class="rp-btn" data-act="move" data-g="' + key + '">Перенести</button></div></div></div>';
+                    '<div class="rp-side">' + rings(g) + costBox(key, g) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button><button type="button" class="rp-btn" data-act="move" data-g="' + key + '">Перенести</button></div></div></div>';
             }).join('');
         }).join('');
         var nsel = Object.keys(S.sel).length, bar = '';
@@ -199,6 +343,76 @@
         var sc = pane.scrollTop;
         pane.innerHTML = legend + '<div class="rp-stage">' + html + '</div><div class="rp-foot">' + total + ' артикулов</div>' + bar;
         pane.scrollTop = sc;
+    }
+    /* ───── Загрузка себестоимости таблицей (артикул WB и цена за штуку) ─────
+       Вставляем строки «название  артикул  себестоимость» (из Excel). Находим артикулы кабинета и пишем себестоимость; ничего не удаляем,
+       строки без совпадения в этом кабинете пропускаем и считаем. Нужна, чтобы быстро вернуть себестоимость по всем артикулам сразу. */
+    var COST_TABLE_1114 = '334548155:850,334548150:850,334548154:850,334548152:850,334548151:850,334548153:850,247337216:850,247336833:850,971990843:850,971990844:850,414332159:850,247347214:950,429715568:950,287679331:950,287679857:950,409845462:950,247347924:950,287679332:950,409845463:950,280128269:1050,391102732:1050,499378334:1050,391102729:1050,391102728:1050,499380531:1050,247348946:1050,391102730:1050,247348479:1050,280129304:1050,262714507:1150,262760469:1150,435735287:1150,296564448:1150,262697143:1150,247350377:1150,892565628:1150,247350276:1150,296564447:1150,249656298:1450,262659615:1450,624699327:1450,605813197:1450,249650166:1450,249656107:1450,262656530:1450,738066896:1450,262651910:1450,271001364:1650,271001367:1650,271001368:1650,271001369:1650,287679856:950,296556350:1300,435743074:1300,296556346:1300,391116477:1300,391116472:1300,399607068:1300,295201148:1300,296556347:1300,296556348:1300,307425698:800,435746744:800,307425701:800,307425707:800,307425705:800,307425704:800,307425703:800,307425706:800,307425697:800,307425700:800,307425699:800,348098830:830,348096452:830,894289054:830,348098833:830,894289055:830,348098831:830,414333601:830,348098832:830,348098834:830,495053632:1300,495053634:1300,495053630:1300,495053631:1300,495053633:1300,495053638:1300,495053627:1300,495053629:1300,495055924:1150,495055922:1150,629846440:1150,495055921:1150,495055925:1150,495055918:1150,495055919:1150,495055920:1150,495055923:1150,539916078:1550,539916085:1550,611441510:1550,539401904:1550,539916080:1550,539916083:1550,539916086:1550,539908473:1650,539908481:1650,603633471:1650,539401905:1650,539908479:1650,539908477:1650,539908484:1650,547613172:950,547613173:950,547613174:950,547613175:950,949531903:950,604201353:950,604201351:950,664192264:950,949531904:950,604201350:1350,604201358:1350,604201356:1350,597838497:1350,604201352:1350,604201359:1350,604201361:1350,629645156:1400,629645151:1400,629645150:1400,629645152:1400,629645154:1400,629645155:1400,629645153:1400,633661207:1250,633661203:1250,633661208:1250,766251143:1250,633661202:1250,633661205:1250,633639148:1250,705387384:1350,705387380:1350,705381484:1350,705387387:1350,705387388:1350,705387386:1350,705387381:1350,705387382:1350,705387385:1350,705387383:1350,705387379:1350,766251142:1250,849430238:800,849430239:800,1013975274:800,849397339:800,1013975275:800,849397338:800,1013975276:800,889759782:800,849444018:1080,889864456:940,889864459:940,889864458:940,889864457:940,889864460:940,889864461:940,889864462:940,1218799336:678,1218782505:678,1218796940:678,1218802103:678';   // таблица себестоимости владельца от 14 ноября 2026: артикул WB:сом
+    function parseCostText(text) {
+        var out = {};
+        String(text || '').split(/\r?\n/).forEach(function (line) {
+            var m = line.match(/(\d{6,})\D+(\d{2,6}(?:[.,]\d+)?)\s*$/); if (!m) return;
+            out[m[1]] = Number(m[2].replace(',', '.'));
+        });
+        return out;
+    }
+    function applyCostMap(map) {
+        var cab = S.cab; if (!cab) return;
+        var byCost = {}, total = 0;
+        Object.keys(map).forEach(function (nm) { var c = map[nm]; if (!(c >= 0)) return; (byCost[c] = byCost[c] || []).push(Number(nm)); total++; });
+        var costs = Object.keys(byCost), matched = 0, failed = false;
+        toast('info', 'Загружаем себестоимость', total + ' артикулов из таблицы, это займёт несколько секунд');
+        // сразу на экране
+        costs.forEach(function (c) { byCost[c].forEach(function (nm) { var a = artOf(nm); if (a) a.cost_price = Number(c); }); });
+        paint(); writeCache();
+        costs.reduce(function (p, c) {
+            return p.then(function () {
+                var ids = byCost[c], chunks = []; for (var i = 0; i < ids.length; i += 150) chunks.push(ids.slice(i, i + 150));
+                return chunks.reduce(function (pp, ch) {
+                    return pp.then(function () { return Promise.resolve(sb().from('rnp_articles').update({ cost_price: Number(c) }).eq('cabinet_id', cab).in('nm_id', ch).select('nm_id')); })
+                        .then(function (r) { if (r && r.error) { failed = r.error.message; } else matched += ((r && r.data) || []).length; });
+                }, Promise.resolve());
+            });
+        }, Promise.resolve()).then(function () {
+            if (failed) { toast('error', 'Себестоимость загрузилась не вся', String(failed).slice(0, 140)); return; }
+            toast('success', 'Себестоимость загружена', 'Обновлено артикулов в этом кабинете: ' + matched + ' из ' + total + (matched < total ? ' (остальных в этом кабинете нет)' : ''));
+            try { doc.dispatchEvent(new root.Event('nr-articles-changed')); } catch (_) {}
+            open();
+        }).catch(function (e) { toast('error', 'Себестоимость не загрузилась', String(e && e.message || e).slice(0, 140)); open(); });
+    }
+    function openCostImport() {
+        if (!root.NrUi || !root.NrUi.dialog) return;
+        var d = root.NrUi.dialog({ title: 'Загрузить себестоимость таблицей', size: 'm',
+            body: '<p style="margin:0 0 8px;font-size:13px;color:var(--text-muted)">Вставьте строки из таблицы: название, артикул WB и себестоимость за штуку (через табуляцию или пробелы). Артикулы этого кабинета получат эту себестоимость, остальное не меняется.</p>' +
+                '<textarea id="rp-ci" style="width:100%;height:200px;border:1px solid var(--text-primary);border-radius:14px;background:transparent;color:inherit;padding:10px;font:12px monospace;box-sizing:border-box" placeholder="кимоно бежевый длинный&#9;334548155&#9;850"></textarea>' +
+                '<button type="button" id="rp-ci-fill" class="rp-btn" style="margin-top:8px">Подставить таблицу от 14 ноября</button>',
+            actions: [{ label: 'Отмена' }, { label: 'Применить', primary: true, onClick: function () {
+                var map = parseCostText((d.el.querySelector('#rp-ci') || {}).value);
+                if (!Object.keys(map).length) { toast('error', 'Не нашли строк', 'Нужны строки с артикулом WB и себестоимостью'); return false; }
+                applyCostMap(map);
+            } }] });
+        var fill = d.el.querySelector('#rp-ci-fill');
+        if (fill) fill.addEventListener('click', function () { var t = d.el.querySelector('#rp-ci'); if (t) t.value = COST_TABLE_1114.split(',').map(function (p) { var q = p.split(':'); return q[0] + '\t' + q[1]; }).join('\n'); });
+    }
+
+    /* Себестоимость одна на склейку: у всех артикулов склейки одно значение (вводится здесь, раньше было в «Остатках»). */
+    function gcost(g) {
+        var v = g.items.map(function (a) { return Number(a.cost_price) || 0; }), first = v[0];
+        return v.every(function (x) { return x === first; }) ? first : -1;
+    }
+    function saveGroupCost(key, raw) {
+        var g = S.gmap[key], cab = S.cab; if (!g || !cab) return;
+        var val = Math.max(0, Math.round((Number(String(raw).replace(',', '.').replace(/\s/g, '')) || 0) * 100) / 100);
+        var prev = {}; g.nms.forEach(function (nm) { var a = artOf(nm); if (a) { prev[nm] = a.cost_price; a.cost_price = val; } });
+        writeCache(); paint();
+        Promise.resolve(sb().from('rnp_articles').update({ cost_price: val }).eq('cabinet_id', cab).in('nm_id', g.nms)).then(function (r) {
+            if (r && r.error) throw new Error(r.error.message);
+            toast('success', 'Себестоимость сохранена', g.title + ': ' + (val ? fmt(val) + ' сом на все артикулы склейки' : 'сброшена'));
+            try { doc.dispatchEvent(new root.Event('nr-articles-changed')); } catch (_) {}
+        }).catch(function (e) {
+            g.nms.forEach(function (nm) { var a = artOf(nm); if (a) a.cost_price = prev[nm]; }); writeCache(); paint();
+            toast('error', 'Себестоимость не сохранилась', String(e && e.message || e).slice(0, 120));
+        });
     }
     function artOf(nm) { for (var i = 0; i < S.arts.length; i++) if (String(S.arts[i].nm_id) === String(nm)) return S.arts[i]; return null; }
     function toast(type, title, text) { try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast(type, title, text || ''); } catch (_) {} }
@@ -322,7 +536,6 @@
         return { n: n, r: r, price: price, comm: comm, retPct: r / n * 100, log: log, stoPen: sto + pen, cost: cst, tax: tax,
             resid: Math.max(0, price - tt - commU), commU: commU, profit: profit, margin: price > 0 ? profit / price * 100 : 0, total: profit * n, sales: ss };
     }
-    function mpMode() { return (root.NrMp && root.NrMp.get()) || 'wb'; }
     function uCacheKey(cab) { var m = mpMode(); return 'nr_ru_' + cab + (m !== 'wb' ? '_' + m : ''); }
     function uSchedule() { if (U.raf) return; U.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { U.raf = 0; paintUnit(); }) : (paintUnit(), 0); }
     function openUnit() {
@@ -364,7 +577,7 @@
         if (!u) return '';
         var parts = [[u.commU, '#b9b9b9'], [u.resid, '#8a8a8a'], [u.log, '#5a5a5a'], [u.stoPen, '#3a3a3a'], [u.cost, '#d0d0d0'], [u.tax, '#7a7a7a']].map(function (p) { return '<i style="width:' + Math.max(0, p[0] / u.price * 100).toFixed(1) + '%;background:' + p[1] + '"></i>'; }).join('') +
             '<i style="width:' + Math.max(0, u.profit / u.price * 100).toFixed(1) + '%;background:var(--text-primary)"></i>';
-        return '<tr data-nm="' + a.nm_id + '"><td class="ru-nm"><span class="ru-im">' + (a.photo_url ? '<img src="' + esc(thumb(a.photo_url)) + '" alt="" loading="lazy" decoding="async">' : '') + '</span><div><b>' + esc(a.name || a.nm_id) + '</b><small>' + (a.oz ? 'Ozon' : 'WB ' + a.nm_id) + '</small></div></td>' +
+        return '<tr data-nm="' + a.nm_id + '"><td class="ru-nm"><span class="ru-im">' + (pic(a) ? '<img src="' + esc(pic(a)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span><div><b>' + esc(a.name || a.nm_id) + '</b><small>' + (a.oz ? 'Ozon' : 'WB ' + a.nm_id) + '</small></div></td>' +
             cell(fmt(u.n)) + cell('<b>' + fmt(u.price) + '</b>') + cell(u.comm.toFixed(1).replace('.', ',') + '%') + cell(u.retPct.toFixed(0) + '%') + cell(fmt(u.log)) + cell(u.stoPen ? fmt(u.stoPen) : '—') + cell(fmt(u.cost)) +
             cell('<b class="' + (u.profit <= 0 ? 'dn' : (u.margin >= 15 ? 'up' : '')) + '">' + fmt(u.profit) + '</b>') + cell('<span class="' + (u.margin < 10 ? 'dn' : '') + '">' + u.margin.toFixed(0) + '%</span>') + '<td class="ru-bar"><div class="ru-bw">' + parts + '</div></td></tr>';
     }
@@ -405,6 +618,9 @@
         var tab = doc.getElementById('tab-rnp'); if (!tab) return;
         tab.classList.toggle('rp-on', v === 'prices'); tab.classList.toggle('ru-on', v === 'unit');
         Array.prototype.forEach.call(doc.querySelectorAll('#rnp-views [data-rv]'), function (b) { b.classList.toggle('is-on', b.getAttribute('data-rv') === v); b.setAttribute('aria-selected', b.getAttribute('data-rv') === v ? 'true' : 'false'); });
+        // Заголовок страницы и запомненный подраздел меняем и при программном переходе (строка юнитки → РНП артикула), иначе сверху остаётся «Юнит-экономика»
+        try { root.localStorage.setItem('nr_sub_rnp', v); } catch (_) {}
+        if (root.NrNav && root.NrNav.refresh) setTimeout(function () { try { root.NrNav.refresh(); } catch (_) {} }, 0);
         if (v === 'prices') open();
         else if (v === 'unit') openUnit();
         else if (root.RNP && typeof root.RNP.refreshLayout === 'function') { try { root.RNP.refreshLayout(); } catch (_) {} }
@@ -423,7 +639,7 @@
         }
         if (doc.getElementById('rnp-views')) return;
         var bar = doc.createElement('div'); bar.id = 'rnp-views'; bar.setAttribute('role', 'tablist');
-        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" role="tab" aria-selected="true" data-rv="rnp">РНП</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="prices">Цены</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="unit">Юнит-экономика</button>';
+        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" role="tab" aria-selected="true" data-rv="rnp">РНП</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="prices">Товары</button><button type="button" class="gg-view-btn" role="tab" aria-selected="false" data-rv="unit">Юнит-экономика</button>';
         var pane = doc.createElement('div'); pane.id = 'rnp-prices-pane'; pane.className = 'rp-pane';
         var upane = doc.createElement('div'); upane.id = 'rnp-unit-pane'; upane.className = 'rp-pane';
         tab.insertBefore(bar, tab.firstChild); tab.appendChild(pane); tab.appendChild(upane);
@@ -436,21 +652,26 @@
         bar.addEventListener('click', function (e) { var b = e.target.closest('[data-rv]'); if (b) setView(b.getAttribute('data-rv')); });
         pane.addEventListener('click', function (e) {
             var b;
+            if ((b = e.target.closest('[data-oact]'))) { ozAct(b); return; }
+            if ((b = e.target.closest('[data-ock]'))) { var bk = b.getAttribute('data-ock'); if (OZ.sel[bk]) delete OZ.sel[bk]; else OZ.sel[bk] = true; paint(); return; }
             if ((b = e.target.closest('[data-ck]'))) { var nm = b.getAttribute('data-ck'); if (S.sel[nm]) delete S.sel[nm]; else S.sel[nm] = true; paint(); return; }
             if ((b = e.target.closest('[data-act]'))) {
                 var act = b.getAttribute('data-act');
                 if (act === 'clear') { S.sel = {}; paint(); return; }
+                if (act === 'costimport') { openCostImport(); return; }
                 openModal(act, b.getAttribute('data-g')); return;
             }
             if ((b = e.target.closest('[data-nm]'))) goRnp(b.getAttribute('data-nm'));
         });
-        pane.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('rp-it')) { e.preventDefault(); goRnp(e.target.getAttribute('data-nm')); } });
+        pane.addEventListener('change', function (e) { var i = e.target.closest && e.target.closest('.rp-cost-in'); if (i) saveGroupCost(i.getAttribute('data-gc'), i.value); });
+        pane.addEventListener('keydown', function (e) { if (e.target.hasAttribute && e.target.hasAttribute('data-ock') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.target.click(); return; } if (e.target.classList && e.target.classList.contains('rp-cost-in')) { if (e.key === 'Enter') e.target.blur(); return; } if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('rp-it')) { e.preventDefault(); goRnp(e.target.getAttribute('data-nm')); } });
         // с кнопки РНП на левой панели всегда открывается сам РНП
         doc.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.rail-btn[data-tab="rnp"]') && S.view !== 'rnp') setView('rnp'); }, true);
     }
     // Сайт сообщает о смене кабинета событием document «cabinet-changed» (кабинет к этому моменту уже выбран): сбрасываем чужие данные и грузим новые
-    function onCabinetChanged() { S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; U.cab = ''; U.arts = []; U.agg = {}; U.token++; closeModal(); if (S.view === 'prices') open(); else if (S.view === 'unit') openUnit(); }
+    function onCabinetChanged() { OZ.cab = ''; OZ.rows = []; OZ.stock = {}; OZ.sel = {}; OZ.token++; S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; U.cab = ''; U.arts = []; U.agg = {}; U.token++; closeModal(); if (S.view === 'prices') open(); else if (S.view === 'unit') openUnit(); }
     doc.addEventListener('cabinet-changed', onCabinetChanged);
+    doc.addEventListener('nr-mp-change', function () { if (S.view === 'prices') { if (mpMode() !== 'wb') loadOz(); else paint(); } });
     doc.addEventListener('nr-mp-change', function () { if (S.view === 'unit' && doc.getElementById('tab-rnp') && doc.getElementById('tab-rnp').classList.contains('active')) openUnit(); });
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
 

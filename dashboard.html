@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <script id="nr-splash-js">
 (function(){try{if(document.getElementById('nr-splash'))return;var d=0,r=0;try{d=localStorage.getItem('nr_theme')==='neon'}catch(e){}try{r=matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
-var st=document.createElement('style');st.textContent='#nr-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;background:'+(d?'#1C1C1E':'#f5f4f0')+';color:'+(d?'#f1f0f8':'#121212')+';transition:opacity .2s ease}#nr-splash.o{opacity:0;pointer-events:none}#nr-splash .h{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6}#nr-splash .u{width:46px;height:3px;border-radius:3px;background:#f97316;margin:22px 0}#nr-splash .b{display:flex;align-items:center;gap:12px}#nr-splash svg{width:64px;height:64px;border-radius:18px}#nr-splash>svg{width:84px;height:84px;border-radius:24px;opacity:0;transform:scale(.86);animation:nrSpIn .3s cubic-bezier(.22,1,.36,1) .02s forwards}@keyframes nrSpIn{to{opacity:1;transform:none}}#nr-splash .s{border:2px solid #f97316;color:#f97316;border-radius:99px;padding:4px 18px;font-size:27px;font-weight:800;line-height:1.1}#nr-splash .d{display:flex;gap:9px;margin-top:26px}#nr-splash .d i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.4;animation:nrSp 1.2s infinite}#nr-splash .d i:nth-child(2){animation-delay:.2s;opacity:.7}#nr-splash .d i:nth-child(3){animation-delay:.4s;opacity:1}@keyframes nrSp{50%{transform:translateY(-4px)}}@media(max-width:480px){#nr-splash svg{width:50px;height:50px;border-radius:14px}#nr-splash .s{font-size:20px;padding:3px 13px}}'+(r?'#nr-splash .d i,#nr-splash>svg{animation:none;opacity:1;transform:none}':'');
+var st=document.createElement('style');st.textContent='#nr-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;background:'+(d?'#262624':'#f5f4f0')+';color:'+(d?'#f1f0f8':'#121212')+';transition:opacity .2s ease}#nr-splash.o{opacity:0;pointer-events:none}#nr-splash .h{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6}#nr-splash .u{width:46px;height:3px;border-radius:3px;background:#f97316;margin:22px 0}#nr-splash .b{display:flex;align-items:center;gap:12px}#nr-splash svg{width:64px;height:64px;border-radius:18px}#nr-splash>svg{width:84px;height:84px;border-radius:24px;opacity:0;transform:scale(.86);animation:nrSpIn .3s cubic-bezier(.22,1,.36,1) .02s forwards}@keyframes nrSpIn{to{opacity:1;transform:none}}#nr-splash .s{border:2px solid #f97316;color:#f97316;border-radius:99px;padding:4px 18px;font-size:27px;font-weight:800;line-height:1.1}#nr-splash .d{display:flex;gap:9px;margin-top:26px}#nr-splash .d i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.4;animation:nrSp 1.2s infinite}#nr-splash .d i:nth-child(2){animation-delay:.2s;opacity:.7}#nr-splash .d i:nth-child(3){animation-delay:.4s;opacity:1}@keyframes nrSp{50%{transform:translateY(-4px)}}@media(max-width:480px){#nr-splash svg{width:50px;height:50px;border-radius:14px}#nr-splash .s{font-size:20px;padding:3px 13px}}'+(r?'#nr-splash .d i,#nr-splash>svg{animation:none;opacity:1;transform:none}':'');
 var el=document.createElement('div');el.id='nr-splash';el.setAttribute('aria-hidden','true');var seen=0;try{seen=sessionStorage.getItem('nr_splash_seen')==='1';sessionStorage.setItem('nr_splash_seen','1')}catch(e){}
 el.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="120" fill="#fff"/><path d="M45.1 355.1V144.9h58.2l79.9 95.5v-95.5h69v210.2h-58.2l-79.9-95.5v95.5zM277.5 355.1V144.9h98.2q48.3 0 73.5 21.3t25.2 58q0 22.8-10.4 39.6t-29.2 26.4l44.1 64.9h-75.6l-35.7-52.8h-19.2v52.8zM348.3 248.8h25.8q14.7 0 21.8-6.6t7-18q0-11.4-7-18t-21.8-6.6h-25.8z"/></svg>';
 (document.head||document.documentElement).appendChild(st);document.documentElement.appendChild(el);
@@ -15,7 +15,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     <link rel="icon" type="image/png" href="/icons/favicon.png?v=2" sizes="32x32">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1C1C1E">
+    <meta name="theme-color" content="#262624">
     <script>
         /* Тема до первого кадра */
         try {
@@ -4178,6 +4178,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .abtest-variant.winner { border-color: var(--green); box-shadow: none; }
         .abtest-variant.current-active { border-color: var(--accent); box-shadow: none; }
         .abtest-variant img { width: 100%; height: 100px; object-fit: cover; display: block; }
+        /* Каркас фото сразу после создания теста: превью и кольцо «загружается», пока фото уходят на сервер */
+        .abtest-variant.is-pending img { opacity: .45; filter: grayscale(.4); }
+        .abtest-variant.is-pending .abtest-ph { height: 100px; background: linear-gradient(100deg, var(--surface) 30%, rgba(128,128,128,.14) 50%, var(--surface) 70%); background-size: 200% 100%; animation: abtestShimmer 1.2s linear infinite; }
+        .abtest-pend-ring { position: absolute; left: 50%; top: 50px; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; border: 2px solid rgba(128,128,128,.35); border-top-color: var(--text-primary, #000); animation: abtestSpin .8s linear infinite; }
+        @keyframes abtestSpin { to { transform: rotate(360deg); } }
+        @keyframes abtestShimmer { to { background-position: -200% 0; } }
+        @media (prefers-reduced-motion: reduce) { .abtest-pend-ring, .abtest-variant.is-pending .abtest-ph { animation: none; } }
         .abtest-variant-meta { padding: 7px 6px; text-align: center; }
         .abtest-ctr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
         .abtest-orders { font-size: 11px; color: var(--text-secondary); }
@@ -6130,13 +6137,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } catch (e) {}
     </script>
 <link rel="stylesheet" href="/dist/content-factory.e90044b6a6.css">
-<link rel="stylesheet" href="/dist/nr-motion.297cd30ada.css">
-<link rel="stylesheet" href="/dist/rnp-extra.04ae434621.css">
+<link rel="stylesheet" href="/dist/nr-motion.11837b104a.css">
+<link rel="stylesheet" href="/dist/rnp-extra.a60fef2840.css">
 <link rel="stylesheet" href="/dist/ads-pulse.f9e582b861.css">
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
-<link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
+<link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.62e7551faf.css">
+<link rel="stylesheet" href="/dist/nr-mono.f9a212d2d8.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7365,7 +7372,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
 
             <div id="abtests-list" class="space-y-3"><div class="ab-skel"></div><div class="ab-skel"></div></div></div>
-        </div>
 
         <div id="tab-rnp-settings" class="tab-content">
             <div class="p-10 text-center" style="color:var(--text-muted)">
@@ -7579,7 +7585,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="settings-section-tab" id="settings-tab-btn-security" onclick="showSettingsSection('security', this)">Безопасность</div>
                 <div class="settings-section-tab" id="settings-tab-btn-integrations" onclick="showSettingsSection('integrations', this)">Интеграции</div>
                 <div class="settings-section-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API Wildberries</div>
-                <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showTab('tariffs')">Тарифы</div>
+                <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showSettingsSection('tariffs', this)">Тарифы</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim space-y-4">
@@ -7640,6 +7646,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                 </div>
             </div>
+            <div id="settings-tariffs" class="settings-tab-anim hidden"><div id="nr-tr"></div></div>
             <div id="settings-devsessions" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card security-sessions-card p-0">
                     <div class="p-6 pb-4">
@@ -7924,7 +7931,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
         </div>
 
-        <div id="tab-tariffs" class="tab-content"><div id="nr-tr"></div></div>
         </div>
     </main>
     </div>
@@ -8018,25 +8024,25 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </script>
 
     <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
-        <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="Продвижение">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
-            <span class="bn-lbl">Продвиж.</span>
+        <button type="button" class="bottom-nav-btn" id="bn-dash" data-tab="dashboard" onclick="showTab('dashboard')" title="Дашборд">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+            <span class="bn-lbl">Дашборд</span>
         </button>
         <button type="button" class="bottom-nav-btn" id="bn-rnp" data-tab="rnp" onclick="showTab('rnp')" title="РНП">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
             <span class="bn-lbl">РНП</span>
         </button>
-        <button type="button" class="bottom-nav-btn bottom-nav-btn--home" id="bn-dash" data-tab="dashboard" onclick="showTab('dashboard')" title="Дашборд">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-            <span class="bn-lbl">Дашборд</span>
+        <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="Продвижение">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
+            <span class="bn-lbl">Продвижение</span>
         </button>
-        <button type="button" class="bottom-nav-btn" id="bn-goods" data-tab="goods-groups" onclick="showTab('goods-groups')" title="Остатки">
+        <button type="button" class="bottom-nav-btn" id="bn-goods" data-tab="goods-groups" onclick="showTab('goods-groups')" title="Логистика">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
-            <span class="bn-lbl">Остатки</span>
+            <span class="bn-lbl">Логистика</span>
         </button>
         <button type="button" class="bottom-nav-btn" id="bn-beta" onclick="toggleBetaSheet()" title="Меню" aria-label="Меню">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></span>
-            <span class="bn-lbl">Меню</span>
+            <span class="bn-lbl">Ещё</span>
         </button>
     </nav>
     <div class="bottom-beta-overlay" id="nr-beta-overlay" onclick="closeBetaSheet()"></div>
@@ -8102,7 +8108,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.1b78b1bacf.min.js"></script>
+<script src="/dist/rnp-module.b1ac9d4992.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -8214,7 +8220,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 })();
 </script>
 
-<script src="/dist/rnp-selection.95a763588f.min.js"></script>
+<script src="/dist/rnp-selection.c3f6d82ed4.min.js"></script>
 <script src="/dist/rnp-plan-fact.3b175bdb40.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
@@ -8224,7 +8230,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/adv-stats.d641132d6b.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
-<script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
+<script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.389aa73deb.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
 <script src="/dist/viewer-mode.1d9ff5a747.min.js"></script>
 <script src="/dist/space-admin-ext.68d561b81b.min.js"></script>
 <script src="/dist/rnp-planning.69cadd5068.min.js"></script>
@@ -8232,31 +8238,32 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
-<script src="/dist/nr-admin.3b02277165.min.js"></script>
+<script src="/dist/nr-admin.faa87d6cc1.min.js"></script>
 <script src="/dist/ad-autopilot-ui.072c47d435.min.js"></script>
 <script src="/dist/ads-campaign-detail.9919c0f009.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
 <script src="/dist/nr-skeleton.1a0ae1d5ae.min.js"></script>
-<script src="/dist/nr-themes.2fd4d06812.min.js"></script>
+<script src="/dist/nr-themes.37a60ae79f.min.js"></script>
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.196452a689.min.js"></script>
 <script src="/dist/nr-next.3d25bd5956.min.js"></script>
 <script src="/dist/fbs-rates.80f8387fcf.min.js"></script>
 <script src="/dist/ff-terms.7f06f7d664.min.js"></script>
-<script src="/dist/nr-ff.e4c1f284f3.min.js"></script>
+<script src="/dist/nr-ff.315730bc68.min.js"></script>
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.c64e6af0d5.min.js"></script>
-<script src="/dist/nr-ui.6a1ea1d3f4.min.js"></script>
-<script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
+<script src="/dist/nr-ui.60ee969ea1.min.js"></script>
+<script src="/dist/nr-goods-ui.23d7dd4eb4.min.js"></script>
 <script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
-<script src="/dist/rnp-prices.fef99f4766.min.js"></script>
+<script src="/dist/rnp-prices.2b43a65d97.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
-<script src="/dist/nr-nav.99ba2c0fa7.min.js"></script>
+<script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
+<script src="/dist/nr-nav.f1b320e0af.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
-<script src="/dist/nr-dash-blocks.1650b70cb4.min.js"></script>
+<script src="/dist/nr-dash-blocks.ef12b0ecce.min.js"></script>
 <script src="/dist/nr-foot.3aa9e16910.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
@@ -8277,6 +8284,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     var supabase = (__nrSupabaseLib && window.NrAuth)
         ? window.NrAuth.createClient(__nrSupabaseLib, SUPABASE_URL, SUPABASE_KEY)
         : null;
+    if (supabase && window.NrDashMp) window.NrDashMp.wrap(supabase);
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
@@ -9386,7 +9394,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             el.textContent = themeLabel(next);
         });
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', next === 'neon' ? '#1C1C1E' : next === 'tabler' ? '#066fd1' : '#F5F5F7');
+        if (meta) meta.setAttribute('content', next === 'neon' ? '#262624' : next === 'tabler' ? '#066fd1' : '#F5F5F7');
     }
     function toggleTheme() {
         const cur = document.documentElement.getAttribute('data-theme');
@@ -9830,6 +9838,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function showTab(name, el) {
         if (window.NrBusy) window.NrBusy.off();
         name = TAB_ALIASES[name] || name;
+        // Тарифы живут внутри «Настроек» (вкладка «Тарифы»): из любого места ведём туда, страница не меняется.
+        if (name === 'tariffs') {
+            showTab('settings');
+            showSettingsSection('tariffs');
+            return;
+        }
         if (window.NrViewer?.on && !window.NrViewer.allows(name)) {
             const t = window.NrViewer.firstTab();
             if (t !== name) { showTab(t, el); return; }
@@ -11744,7 +11758,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function setGoodsView(view, opts) {
-        ggView = ['daily', 'cost', 'give', 'fbs'].includes(view) ? view : 'now';
+        ggView = ['daily', 'give', 'fbs'].includes(view) ? view : 'now';
         const nowEl = document.getElementById('gg-view-now');
         const dailyEl = document.getElementById('gg-view-daily');
         const costEl = document.getElementById('gg-view-cost');
@@ -13620,6 +13634,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     async function loadAdsSpendForDash(cabinetId, from, to) {
+        const w = await loadAdsSpendForDashWb(cabinetId, from, to);
+        return window.NrDashMp ? window.NrDashMp.ads(cabinetId, from, to, w) : w;
+    }
+    async function loadAdsSpendForDashWb(cabinetId, from, to) {
         if (!cabinetId || !from || !to || typeof fetchAllRows !== 'function') return { spend: 0 };
         try {
             const rows = await fetchAllRows('advertising_daily_stats', [
@@ -13680,15 +13698,24 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         };
     })();
     let _dashPass = null;
-    const dashCacheKey = (cab, range) => cab + '|' + range.from + '|' + range.to;
+    const dashMpSuf = () => (window.NrDashMp ? window.NrDashMp.suffix() : '');
+    const dashCacheKey = (cab, range) => cab + dashMpSuf() + '|' + range.from + '|' + range.to;
 
+    // WB | Ozon | Вместе: меняются только цифры; без кэша площадки они размыты до прихода свежих
+    document.addEventListener('nr-mp-change', async () => {
+        if (!currentCabinetId) return;
+        const tab = document.getElementById('tab-dashboard');
+        const have = (await DASH_CACHE.get(dashCacheKey(currentCabinetId, getActiveDateRange()))) || (await DASH_CACHE.get(currentCabinetId + dashMpSuf() + '|last'));
+        if (!have && tab) tab.classList.add('nr-dash-wait');
+        try { await loadFromDB(); } finally { if (tab) tab.classList.remove('nr-dash-wait'); }
+    });
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
         const cab = currentCabinetId;
         const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
         const key = dashCacheKey(cab, range);
         // Точного кэша нет (новый день, другой период): показываем последний срез кабинета (цифры размыты до прихода свежих).
-        const hit = (await DASH_CACHE.get(key)) || (await DASH_CACHE.get(cab + '|last'));
+        const hit = (await DASH_CACHE.get(key)) || (await DASH_CACHE.get(cab + dashMpSuf() + '|last'));
         if (hit && hit.summary && cab === currentCabinetId) {
             const p = { mode: 'cache', hit, key };
             _dashPass = p;
@@ -14133,6 +14160,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     const _costMapCache = {};
     async function loadCostOfGoodsMap(cabinetId) {
+        const w = await loadCostOfGoodsMapWb(cabinetId);
+        return window.NrDashMp ? window.NrDashMp.cost(w) : w;
+    }
+    async function loadCostOfGoodsMapWb(cabinetId) {
         if (_costMapCache[cabinetId] && Date.now() - _costMapCache[cabinetId].at < 5 * 60 * 1000) return _costMapCache[cabinetId].map;
         const map = {};
         try {
@@ -14296,7 +14327,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const a = Number(total) || 0, b = Number(_pnlMiniPrev[key]);
             const dyn = b > 0 ? Math.round((a - b) / b * 100) : null;
             const good = dyn == null ? '' : ((dyn >= 0) !== !!costLike ? 'up' : 'down');
-            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 ? n(total * _rubKgs) : n(total)}</div>
+            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 && !(window.NrMp && NrMp.get() === 'ozon') ? n(total * _rubKgs) : n(total)}</div>
               <div class="pnl-mini-dyn ${good}">${dyn == null ? '' : (dyn >= 0 ? '▲ ' : '▼ ') + Math.abs(dyn) + '%'}</div>${spark(vals, color)}</div>`;
         };
         const m = totalMetrics;
@@ -15490,10 +15521,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     // Фоновое создание: тест, фото, варианты, первое фото на WB. Если не вышло, короткая ошибка и «Повторить».
+    const abPending = {}; // тест → превью фото, пока они загружаются (каркас не пропадает)
     async function runABCreate(snap) {
         let testId = null;
+        const previews = snap.abFiles.map((f) => { try { return f && f.url ? f.url : (typeof Blob !== 'undefined' && f instanceof Blob ? URL.createObjectURL(f) : ''); } catch (_) { return ''; } });
         // Сразу показываем карточку в списке, пока тест сохраняется.
         const tmp = { id: 'tmp-' + Date.now(), cabinet_id: snap.cabinetId, nm_id: snap.nmId, product_name: snap.name, status: 'active', rotation_interval_min: snap.interval, started_at: new Date().toISOString(), settings: snap.settings, variants: [] };
+        abPending[tmp.id] = { previews };
         allABTests.unshift(tmp); renderABTests();
         try {
             const { data: test, error } = await supabase.from('ab_tests').insert({
@@ -15509,6 +15543,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }).select().single();
             if (error || !test) throw new Error(error?.message || 'Тест не сохранился.');
             testId = test.id;
+            abPending[test.id] = { previews };
             saveABSettings(test.id, snap.settings);
             loadABTests();
 
@@ -15522,7 +15557,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (snap.abFiles[0] && snap.abFiles[0].current) await supabase.from('ab_test_rotation_log').insert({ test_id: test.id, variant_label: variantRows[0].variant_label, action: 'start' });
             else if (!await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label)) throw new Error('WB не принял первое фото.');
             abOk('Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
-            loadABTests();
+            await loadABTests();
         } catch (e) {
             if (testId) { try { await supabase.from('ab_tests').delete().eq('id', testId); } catch (_) {} }
             allABTests = allABTests.filter(t => t !== tmp); renderABTests();
@@ -15530,6 +15565,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const msg = String(e && e.message || e || 'Попробуйте ещё раз.');
             if (window.NrUi) window.NrUi.toast('error', 'Тест не создался', msg, { action: { label: 'Повторить', onClick: () => runABCreate(snap) } });
             else showPremiumModal('error', 'Тест не создался', msg);
+        } finally {
+            delete abPending[tmp.id]; if (testId) delete abPending[testId];
+            previews.forEach((u) => { if (u && u.startsWith('blob:')) { try { URL.revokeObjectURL(u); } catch (_) {} } });
         }
     }
 
@@ -15698,7 +15736,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             ? `${Math.floor(nextRotateMs / 60000)}м ${Math.floor((nextRotateMs % 60000) / 1000)}с`
             : 'сейчас';
 
-        const variantsHtml = withRate.map(v => {
+        const pend = !withRate.length ? abPending[test.id] : null;
+        const variantsHtml = pend ? pend.previews.map((u, i) => `
+            <div class="abtest-variant is-pending" title="Фото загружается">
+                ${u ? `<img src="${escapeHtml(u)}" alt="">` : '<div class="abtest-ph"></div>'}
+                <span class="abtest-pend-ring" aria-hidden="true"></span>
+                <div class="abtest-variant-meta"><div class="abtest-ctr">&nbsp;</div></div>
+            </div>`).join('') : withRate.map(v => {
             const isWinner = winner && v.id === winner.id && maxScore > 0;
             const isActive = v.is_currently_on_wb;
             const scoreStr = metric === 'ctr' ? v.ctr.toFixed(2) + '%' : metric === 'cr' ? v.cr.toFixed(2) + '%' : v.ordersPerHour.toFixed(2);
@@ -16432,7 +16476,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     function addVariantInput() { addVariantSlot(); }
 
-    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'devsessions'];
+    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'tariffs', 'devsessions'];
     function showSettingsSection(section, el) {
         if (!SETTINGS_PANES.includes(section)) section = 'profile';
         el = el || document.getElementById('settings-tab-btn-' + section);
@@ -17224,7 +17268,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     async function loadOzonTokenPage() {
         const el = document.getElementById('ozon-token-list');
         if (!el) return;
-        const { data, error } = await supabase.from('cabinets').select('id, name, ozon_client_id, ozon_api_key_set').order('name');
+        const { data, error } = await supabase.from('cabinets').select('id, name, ozon_client_id, ozon_api_key_set, ozon_perf_client_id, ozon_perf_set').order('name');
         if (error) {
             el.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">${escapeHtml(error.message)}</div>`;
             return;
@@ -17251,6 +17295,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         <button class="ui-btn ui-btn-primary" onclick="saveOzonForCabinet('${c.id}')">Сохранить</button>
                         <button class="ui-btn ui-btn-secondary" onclick="toggleEditOzon('${c.id}')">Отмена</button>
                     </div>
+                </div>
+                <div class="ui-list-row"><div><div class="ui-list-row-main">Реклама Ozon</div><div class="ui-list-row-sub">${c.ozon_perf_set ? 'ключ рекламного кабинета задан · ' + escapeHtml(String(c.ozon_perf_client_id || '')) : 'ключ рекламного кабинета не задан'}</div></div>
+                    <button class="ui-btn ui-btn-secondary" onclick="document.getElementById('edit-perf-${c.id}').classList.toggle('hidden')">${c.ozon_perf_set ? 'Изменить' : 'Добавить'}</button></div>
+                <div id="edit-perf-${c.id}" class="hidden" style="padding:0 4px 14px">
+                    <input type="text" id="perf-client-${c.id}" placeholder="Client ID (…@advertising.performance.ozon.ru)" value="${escapeHtml(c.ozon_perf_client_id || '')}" class="ui-input mb-2" style="font-family:monospace">
+                    <input type="password" id="perf-secret-${c.id}" placeholder="Client Secret" autocomplete="off" class="ui-input" style="font-family:monospace">
+                    <div class="flex gap-2 mt-2"><button class="ui-btn ui-btn-primary" onclick="saveOzonPerf('${c.id}')">Сохранить</button></div>
                 </div>
             </div>`;
         }).join('') + `</div>`;
@@ -17285,6 +17336,21 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             : 'Ключ записан, но Ozon сейчас не ответил: проверим при первой загрузке.';
         const pass = document.getElementById('ozon-key-' + cabinetId); if (pass) pass.value = '';
         showPremiumModal('success', 'Токен Ozon сохранён', note);
+        loadOzonTokenPage();
+    }
+
+    async function saveOzonPerf(cabinetId) {
+        const clientId = document.getElementById('perf-client-' + cabinetId)?.value.trim();
+        const secret = document.getElementById('perf-secret-' + cabinetId)?.value.trim();
+        if (!clientId || !secret) { showPremiumModal('warning', 'Заполните оба поля', 'Нужны Client ID и Client Secret рекламного кабинета Ozon.'); return; }
+        const btn = document.querySelector('#edit-perf-' + cabinetId + ' .ui-btn-primary');
+        if (btn) { btn.disabled = true; btn.textContent = 'Проверяем ключ…'; }
+        let data = null, err = null;
+        try { const r = await supabase.functions.invoke('cabinet-token', { body: { action: 'ozon_perf_set', cabinet_id: cabinetId, client_id: clientId, client_secret: secret } }); data = r.data; err = r.error; } catch (e) { err = e; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; }
+        if (err || !data) { showPremiumModal('error', 'Не получилось сохранить', 'Связь прервалась. Ключ не записан, повторите через минуту.'); return; }
+        if (!data.ok) { showPremiumModal('error', 'Ключ не сохранён', data.message || 'Проверьте Client ID и Client Secret.'); return; }
+        showPremiumModal('success', 'Ключ рекламы Ozon сохранён', data.checked ? 'Ozon принял ключ.' : 'Ключ записан, но Ozon сейчас не ответил: проверим при первой загрузке.');
         loadOzonTokenPage();
     }
 

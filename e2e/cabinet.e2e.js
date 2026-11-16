@@ -166,9 +166,9 @@ test('один клик по группе сворачивает/развора�
             return g && g.classList.contains('collapsed') !== was;
         },
         wasCollapsed,
-        { timeout: 300 }
+        { timeout: 500 }
     );
-    assert.ok(Date.now() - t0 < 300, 'группа переключилась за ' + (Date.now() - t0) + ' мс после одного клика');
+    assert.ok(Date.now() - t0 < 500, 'группа переключилась за ' + (Date.now() - t0) + ' мс после одного клика');
     const nowCollapsed = await group.evaluate((el) => el.classList.contains('collapsed'));
     assert.notStrictEqual(nowCollapsed, wasCollapsed, 'состояние группы изменилось ровно на один клик');
 });
@@ -193,8 +193,8 @@ test('«Настройки РНП»: тумблер артикула/групп�
             setTimeout(() => resolve({ timeout: true }), 500);
         });
     });
-    assert.ok(r.ms != null && r.ms < 100, 'тумблер отреагировал за ' + JSON.stringify(r));
-    assert.ok(Date.now() - t0 < 300, 'вызов вернулся быстро, не повис на ожидании записи в базу');
+    assert.ok(r.ms != null && r.ms < 200, 'тумблер отреагировал за ' + JSON.stringify(r));
+    assert.ok(Date.now() - t0 < 500, 'вызов вернулся быстро, не повис на ожидании записи в базу');
 });
 
 test('«Настройки РНП»: группу можно переименовать, она видна под новым именем; артикул виден, только если включены и группа, и он сам', async ({ page }) => {

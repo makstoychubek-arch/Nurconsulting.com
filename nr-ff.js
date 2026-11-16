@@ -504,7 +504,7 @@
                 var note = $('ffl-note').value.trim(), inSom = $('ffl-cur').value === 'som';
                 if (inSom && !(S.rate > 0)) { say('Нет курса рубля к сому на сегодня: выберите валюту ₽ или повторите позже.'); return; }
                 var rubAmt = inSom ? Math.round(amtL / S.rate * 100) / 100 : amtL;
-                var row = { id: 'tmp' + Date.now(), ff_name: $('ffl-ff').value || null, kind: isPay ? 'payment' : 'charge', title: (isPay ? '[' + pf + '..' + pt + '] ' : '') + (inSom ? '{сом:' + amtL + '} ' : '') + (note || (isPay ? 'Оплата' : 'Доп. услуга')), amount: rubAmt, entry_date: $('ffl-date').value || today() };
+                var row = { id: 'tmp' + Date.now(), ff_name: $('ffl-ff').value || (S.sel !== 'all' && S.sel !== 'none' ? S.sel : '') || ((S.providers || [])[0] || {}).id || 'АМАН ФФ', kind: isPay ? 'payment' : 'charge', title: (isPay ? '[' + pf + '..' + pt + '] ' : '') + (inSom ? '{сом:' + amtL + '} ' : '') + (note || (isPay ? 'Оплата' : 'Доп. услуга')), amount: rubAmt, entry_date: $('ffl-date').value || today() };
                 S.ledger = [row].concat(S.ledger || []); renderSummary(); paintFfModal();
                 var ins = await S.db.from('ff_ledger').insert({ cabinet_id: S.cab, ff_name: row.ff_name, kind: row.kind, title: row.title, boxes: null, amount: row.amount, entry_date: row.entry_date });
                 if (ins.error) { S.ledger = S.ledger.filter(function (x) { return x.id !== row.id; }); renderSummary(); paintFfModal(); say('Не удалось записать: ' + ins.error.message); return; }

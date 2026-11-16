@@ -8,6 +8,7 @@
 //   OPENAI_API_KEY, OPENAI_MODEL.
 // deno-lint-ignore-file no-explicit-any
 import './wb-user-agent.ts';
+import { geminiChat, geminiConfigured } from './gemini-fallback.ts';
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasAllCabinetsAccess } from './cabinet-access.ts';
@@ -131,6 +132,14 @@ export async function wbFetch(url: string, token: string, method = 'GET', body?:
 // ── OpenAI ───────────────────────────────────────────────────
 
 export async function openaiChat(messages: Array<{ role: string; content: string }>) {
+    const r = await openaiChatOnly(messages);
+    if (r.ok || !geminiConfigured()) return r;
+    // OpenAI недоступен (кончились деньги, лимит, сбой): отвечаем запасной моделью
+    const g = await geminiChat(messages, { temperature: 0.6, maxTokens: 400, timeoutMs: 30000 });
+    return g.ok ? g : r;
+}
+
+async function openaiChatOnly(messages: Array<{ role: string; content: string }>) {
     const key = env('OPENAI_API_KEY');
     if (!key) return { ok: false, text: '', promptTokens: 0, completionTokens: 0, error: 'no_key' };
     try {
