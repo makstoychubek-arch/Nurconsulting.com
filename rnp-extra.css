@@ -1573,5 +1573,6 @@ html.nr-period-busy .rnp-sheet-table thead :is(.rnp-th-month, .rnp-th-month-col,
 #date-picker .dp-d.dp-last:nth-child(7n+1), #date-picker .dp-d.dp-first:nth-child(7n) { background: none !important; }
 
 /* Стрелка раскрытия строки (Комиссия, Хранение, Штрафы, Прочие удержания…): синяя */
-.rnp-split-arrow{font-style:normal;font-weight:700;color:#2563eb;margin-left:3px;font-size:.85em}
-.rnp-split-toggle:hover .rnp-split-arrow{color:#1d4ed8}
+/* стрелка раскрытия: чёрная, еле заметная (в тёмной теме белая) */
+.rnp-split-arrow{font-style:normal;font-weight:600;color:var(--text-primary,#0b0b0b);opacity:.4;margin-left:3px;font-size:.8em;transition:opacity .15s}
+.rnp-split-toggle:hover .rnp-split-arrow{opacity:.75}
