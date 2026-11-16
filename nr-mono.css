@@ -2422,3 +2422,12 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
 }
 @media (min-width: 769px) { .nr-mp-dim { display: none; } }
 .nr-subdate { display: none; }
+
+/* Телефон, РНП: пока идёт прокрутка, бегущая лента фото в шапке артикула стоит (бесконечная анимация лишний раз перерисовывала кадры) */
+@media (max-width: 768px) {
+  html.rnp-scrolling .rnp-marquee-track { animation-play-state: paused !important; }
+  /* круглые кнопки справа сверху лежат на ровном фоне шапки: размытие под ними ничего не даёт, а на iPhone считается на каждом кадре */
+  html body header.glass.app-header #header-date-chip-wrap::before, html body header.glass.app-header .app-header-main > .nr-mp:not(.open) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  /* затемнение под списком площадки: пока список закрыт, слой не рисуется совсем (прозрачный полноэкранный blur считался бы на каждом кадре) */
+  .nr-mp-dim:not(.on) { visibility: hidden; }
+}
