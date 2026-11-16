@@ -12,7 +12,7 @@ const tables = {
     cabinets: [{ id: CAB, name: 'Z', wb_token_set: true, ozon_api_key_set: true, user_id: ADMIN_ID }],
 };
 const art = { id: 'ozon-a', name: 'костюм_оверсайз_бежевый', nm_id: NM, category: 'К', is_active: true, cost_price: 100, sort_order: 0, manual_data: {}, other_costs_unit: 0, logistics_unit: 0, cabinet_id: CAB };
-const fin = Array.from({ length: 5 }, (_, d) => ({ cabinet_id: CAB, nm_id: NM, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, commission_pct: 20, to_transfer: 7800, delivery_sum: 1500, storage_sum: 10, penalty_sum: 0, deduction_sum: 300, ad_spend: 200, ad_charged: 250, ded_prem: 100, ded_bonus: 400, ded_move: 50, ded_rest: -250 }));
+const fin = Array.from({ length: 5 }, (_, d) => ({ cabinet_id: CAB, nm_id: NM, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, commission_pct: 20, to_transfer: 7800, delivery_sum: 1500, storage_sum: 10, penalty_sum: 0, deduction_sum: 300, ad_spend: 200, ad_charged: 250, transit_count: 7, ded_prem: 100, ded_bonus: 400, ded_move: 50, ded_rest: -250 }));
 const RPCS = { is_super_admin: true, ozon_rnp_articles: [art], ozon_finance_daily: fin, ozon_stock_rows: [], ozon_orders_daily: [] };
 
 (async () => {
@@ -33,6 +33,8 @@ const RPCS = { is_super_admin: true, ozon_rnp_articles: [art], ozon_finance_dail
         const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
         for (const need of ['Premium Pro и отзывы', 'Бонусы продавца', 'Перемещение и вывоз', 'Прочее и возмещения']) assert.ok(labels.includes(need), 'у Ozon есть вид «' + need + '»: ' + labels.slice(0, 40).join(' | '));
         assert.ok(!labels.includes('Подписка «Джем»') && !labels.includes('Утилизация товара'), 'WB-шных видов у Ozon нет');
+        const tr = await readRow('В доставке');
+        assert.strictEqual(tr, 35, 'у Ozon есть строка «В доставке» (7 × 5 дней): ' + tr);
         console.log('ok   РНП Ozon: свои виды удержаний, реклама по списаниям, К выводу сходится');
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
     } catch (e) { console.error('FAIL', e.message); process.exitCode = 1; } finally { await browser.close(); srv.close(); }

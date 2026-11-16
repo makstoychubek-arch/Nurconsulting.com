@@ -158,6 +158,7 @@ const RNP = (() => {
             { key: 'plan_orders',        label: 'План заказ',                       type: 'int', src: 'manual', isPlan: true },
             { key: 'spp_pct',            label: 'СПП %',                            type: 'pct', src: 'auto' },
             { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true, hero: true },
+            { key: 'transit_count',      label: 'В доставке',                       type: 'int', src: 'auto', ozonOnly: true },
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
             { key: 'plan_fulfillment_pct', label: 'Выполнение плана %', type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
@@ -1351,6 +1352,7 @@ const RNP = (() => {
             if (_mp() === 'ozon' && _OZ_HIDE.has(m.key)) return false;
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
+            if (m.ozonOnly && _mp() === 'wb') return false;
             if (m.key === 'ff_sum' && (!_ffShow || _mp() === 'ozon')) return false;
             if (m.key === 'ff_per_unit' && (!_ffShow || _mp() === 'ozon')) return false;
             if (m.key === 'tax_sum' && _settings.taxOn !== true) return false;
@@ -3048,6 +3050,7 @@ const RNP = (() => {
         disc_pct: ['Скидка продавца', 'Скидка продавца в % из заказов WB. Зелёным отмечены дни, когда она менялась.'],
         price_disc: ['Цена со скидкой', 'Цена после скидки продавца, до СПП, из заказов WB.'],
         price_spp: ['Цена с СПП', 'Цена, по которой купили на сайте WB (с СПП), из заказов. Совпадает с ценой под скидкой в кабинете WB.'],
+        transit_count: ['В доставке', 'Ozon: отправления, которые уже едут к покупателю или ждут его в пункте выдачи. Часть из них купят, часть отменят: по вашим заказам покупают около 27%. В «Продажи» они не входят, пока покупатель не заберёт.'],
         cancels_count: ['Отказы', 'Невыкуп: покупатель не забрал заказ, товар поехал обратно. Из финотчёта WB — строки логистики «От клиента при отмене».'],
         buyout_fin_pct: ['Процент выкупа', 'Из финотчёта WB: продажи ÷ (продажи + отказы + возвраты) × 100.'],
         returns_count: ['Возвраты', 'Товар выкупили и потом вернули. Из финотчёта WB — строки «Возврат».'],
@@ -6400,7 +6403,7 @@ const RNP = (() => {
                 ad_impressions: 0, ad_clicks: 0, ad_spend: 0, ad_orders: 0, ad_basket: 0, ad_revenue: 0,
             };
         }
-        const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','ad_impressions','ad_clicks',
+        const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','transit_count','ad_impressions','ad_clicks',
                      'ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing','to_transfer','profit','net_payout','tax_sum','giveaways','in_production',
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
@@ -6493,7 +6496,7 @@ const RNP = (() => {
     const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg' && x.type !== 'ff').map(x => x.key)))];
 
     const DERIVED_SUM_KEYS = [
-        'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count',
+        'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','transit_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
         'to_transfer','profit','net_payout','tax_sum','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
