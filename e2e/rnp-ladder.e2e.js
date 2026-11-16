@@ -55,8 +55,8 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         assert.ok(arrows.every((a) => a.c !== 'rgb(37, 99, 235)' && a.o > 0 && a.o < 0.6), 'стрелки не синие, а чёрные и еле заметные: ' + JSON.stringify(arrows));
         await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
         const open = [...new Set(await labels())];
-        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты', 'К клиенту при продаже', 'К клиенту при отмене', 'От клиента при возврате', 'Доля отмен в логистике, %', 'Логистика на 1 проданную шт, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
-        const lg = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).filter((c) => /^(К клиенту при отмене|Доля отмен в логистике, %)/.test(c[0])));
+        for (const need of ['Комиссия %', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты (минус)', 'Габариты', 'Продажа → клиенту', 'Отмена → клиенту', 'Возврат ← от клиента', 'Доля отмен %', 'На 1 шт, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        const lg = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).filter((c) => /^(Отмена → клиенту|Доля отмен %)/.test(c[0])));
         assert.ok(lg.length === 2 && lg.every((r) => r.slice(1).some((x) => /[1-9]/.test(x))), 'логистика по причинам показывает цифры: ' + JSON.stringify(lg));
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
@@ -72,7 +72,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         assert.ok(one.includes('Прибыль на единицу') && one.includes('Налог'), 'у одного артикула есть «Прибыль на единицу» и «Налог»: ' + one.slice(0, 40).join(', '));
         const oneIdx = (await labels()).indexOf('К выводу на единицу'), pay = await read('К выводу'), payU = await read('К выводу на единицу');
         assert.ok(oneIdx > (await labels()).indexOf('К выводу') && payU !== null, '«К выводу на единицу» стоит после «К выводу»');
-        const findLg = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).find((c) => /^К клиенту при отмене/.test(c[0])));
+        const findLg = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).find((c) => /^Отмена → клиенту/.test(c[0])));
         let lg1 = await findLg(); if (!lg1) { await page.evaluate(() => RNP.toggleSplit('delivery_sum')); await page.waitForTimeout(600); lg1 = await findLg(); }
         assert.ok(lg1 && lg1.slice(1).some((x) => /[1-9]/.test(x)), 'у артикула «Логистика» раскрывается по причинам: ' + JSON.stringify(lg1));
         console.log('ok   «Общее по артикулам» и один артикул: лесенка на месте, «Прибыль на единицу» только у артикула');
