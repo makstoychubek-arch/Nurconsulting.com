@@ -22,7 +22,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         const { page } = env;
         await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); NrMp.set('wb'); showTab('rnp'); });
         await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Реализация/.test((r.children[0] || {}).innerText || '')), null, { timeout: 15000 });
-        const labels = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim().replace(/^▸\s*/, '')));
+        const labels = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim().replace(/^[▸▾]\s*|\s*[▸▾]$/g, '')));
         const got = (await labels()).filter((t) => LADDER.includes(t));
         const first = []; got.forEach((t) => { if (!first.includes(t)) first.push(t); });
         // «Общий» видит все строки, в порядке лесенки
@@ -43,9 +43,9 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         const arrows = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp .rnp-split-toggle')].map((e) => ({ t: e.innerText.replace(/\s+/g, ' ').trim(), c: getComputedStyle(e.querySelector('.rnp-split-arrow')).color })));
         for (const need of ['Комиссия', 'Штрафы', 'Прочие удержания и доплаты']) assert.ok(arrows.some((a) => a.t.replace(/ [▸▾]$/, '') === need), 'у строки «' + need + '» есть стрелка раскрытия: ' + JSON.stringify(arrows.map((a) => a.t)));
         assert.ok(arrows.every((a) => a.c === 'rgb(37, 99, 235)'), 'стрелки синие: ' + JSON.stringify(arrows.map((a) => a.c)));
-        await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
+        await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
         const open = [...new Set(await labels())];
-        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты', 'Доставка до покупателя', 'Возвраты и прочая логистика']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];

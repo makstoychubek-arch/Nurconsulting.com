@@ -80,7 +80,7 @@ const RNP = (() => {
     const CABINET_ART = { nm_id: -1, name: 'Общий', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
     const VIEW_PRESETS = {
         all: null,
-        sales_finance: new Set(['sales', 'cash', 'buyout', 'expenses', 'recon']),
+        sales_finance: new Set(['sales', 'cash', 'buyout', 'expenses']),
         compact: new Set(['sales', 'expenses']),
     };
 
@@ -220,11 +220,6 @@ const RNP = (() => {
             { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
             { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
             { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
-            { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
-        ]},
-        { id: 'recon', label: 'Сверка с отчётом', color: '#84cc16', rows: [
-            { key: 'to_transfer',        label: 'К перечислению (по отчёту)',       type: 'som',  src: 'auto' },
-            { key: 'to_withdraw',        label: 'К выводу (выплата по отчёту)',     type: 'som',  src: 'auto',  cabinetOnly: true },
         ]},
         { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
@@ -6395,6 +6390,11 @@ const RNP = (() => {
             { key: 'ded_other', label: 'Другое' },
             { key: 'ded_add',   label: 'Доплаты и компенсации (уменьшают)' },
         ] },
+        // «Логистика»: доставка до покупателя и всё остальное (возвраты, обратная логистика)
+        delivery_sum: { cls: 'log', hint: 'Логистика по видам', subs: [
+            { key: 'log_client', label: 'Доставка до покупателя' },
+            { key: 'log_back',   label: 'Возвраты и прочая логистика' },
+        ] },
         // «Комиссия»: по нажатию показывает процент от реализации
         wb_commission: { cls: 'com', hint: 'Показать комиссию в процентах от реализации', subs: [
             { key: 'comm_pct_real', label: 'Комиссия, % от реализации', type: 'pct' },
@@ -6520,7 +6520,8 @@ const RNP = (() => {
         m.delivery_sum = n(t.delivery);
         m.penalty_sum = n(t.penalty);
         m.deduction_sum = n(t.deduction);
-        FIN_SPLIT_KEYS.forEach(k => { m[k] = n(t[k]); });
+        FIN_SPLIT_KEYS.forEach(k => { if (k !== 'log_client' && k !== 'log_back') m[k] = n(t[k]); });
+        m.log_back = Math.max(0, m.delivery_sum - (Number(m.log_client) || 0));
         m.acceptance_sum = n(t.acceptance);
         m.to_withdraw = n(t.to_withdraw);
         m.acquiring_sum = n(t.acquiring);
@@ -6797,6 +6798,8 @@ const RNP = (() => {
         }
         d.wb_share_pct = (d.logistics_pct || 0) + (d.storage_pct || 0) + (d.commission_pct || 0) + adFromSalesPct;
         // Средняя стоимость одной доставки до ПВЗ покупателя (выкуп и невыкуп), всё в сомах.
+        d.log_client = Math.min(Number(d.log_to_client_sum) || 0, Number(d.delivery_sum) || 0);
+        d.log_back = Math.max(0, (Number(d.delivery_sum) || 0) - d.log_client);
         d.log_to_pvz_avg = (d.log_to_client_cnt || 0) > 0 ? (d.log_to_client_sum || 0) / d.log_to_client_cnt * er : 0;
 
         // Прибыль по финотчёту WB. «К перечислению» (ppvz_for_pay) ещё не учитывает логистику, хранение,
@@ -8749,7 +8752,7 @@ const RNP = (() => {
     // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
     function _finSubRows(m, cols, firstDayIdx) {
         const def = FIN_SPLITS[m.key];
-        const rgb = def.cls === 'pen' ? '239,68,68' : '245,158,11';
+        const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '14,165,233' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
         return def.subs.map(sub => {
             const pctSub = sub.type === 'pct';
@@ -9139,7 +9142,7 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            const finSplit = art.nm_id === -1 ? FIN_SPLITS[m.key] : null;
+            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : null;
             const splittable = m.key === 'orders_count' || m.key === 'sales_count' || m.key === 'storage_sum' || !!finSplit;
             const splitOpen = splittable && _splitOpen.has(m.key);
             const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';
