@@ -42,8 +42,14 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
         }
         await page.evaluate(() => showTab('rnp')); await page.waitForTimeout(800);
         const mp = await page.evaluate(() => { const b = document.getElementById('nr-mp'), h = document.querySelector('header.app-header'), r = b.getBoundingClientRect(), a = document.getElementById('cabinet-picker-btn').getBoundingClientRect(); return { inHeader: h.contains(b), disp: getComputedStyle(b).display, h: r.height, w: r.width, sameRow: Math.abs((r.top + r.height / 2) - (a.top + a.height / 2)) < 14, vw: innerWidth, right: r.right }; });
-        assert.ok(mp.inHeader && mp.disp !== 'none' && mp.disp !== 'contents' && mp.h <= 30 && mp.w < 120 && mp.sameRow && mp.right <= mp.vw, 'WB | Ozon маленьким тумблером в верхнем ряду шапки: ' + JSON.stringify(mp));
-        await page.evaluate(() => NrMp.set('ozon')); await page.waitForTimeout(300);
+        assert.ok(mp.inHeader && mp.disp !== 'none' && mp.disp !== 'contents' && mp.h === 34 && mp.w === 34 && mp.sameRow && mp.right <= mp.vw, 'площадка круглой кнопкой 34px в верхнем ряду: ' + JSON.stringify(mp));
+        const cal = await page.evaluate(() => { const c = document.getElementById('header-date-chip-wrap').getBoundingClientRect(), m = document.getElementById('nr-mp').getBoundingClientRect(); return { w: c.width, h: c.height, sameSize: Math.abs(c.width - m.width) < 1 && Math.abs(c.height - m.height) < 1, sub: (document.getElementById('nr-subdate') || {}).textContent }; });
+        assert.ok(cal.sameSize && cal.w === 34 && cal.sub && cal.sub.length > 3, 'календарь той же круглой формы без текста даты, дата под названием: ' + JSON.stringify(cal));
+        await page.click('#nr-mp'); await page.waitForTimeout(300);
+        const pop = await page.evaluate(() => { const d = document.querySelector('.nr-mp-dim'), b = [...document.querySelectorAll('#nr-mp button')].map((x) => x.getBoundingClientRect().height > 20); return { dim: d.classList.contains('on'), blur: getComputedStyle(d).backdropFilter, shown: b }; });
+        assert.ok(pop.dim && /blur/.test(pop.blur) && pop.shown.length === 3 && pop.shown.every(Boolean), 'по нажатию на площадку страница темнеет и размыта, выходит список из трёх: ' + JSON.stringify(pop));
+        await page.click('#nr-mp button[data-mp="ozon"]'); await page.waitForTimeout(300);
+        assert.strictEqual(await page.evaluate(() => NrMp.get() + document.querySelector('.nr-mp-dim').classList.contains('on')), 'ozonfalse', 'выбрали Ozon, список закрылся');
         const ttl = await page.evaluate(() => { const e = document.getElementById('page-title'); return { clipped: e.scrollWidth > e.clientWidth + 1, text: e.textContent.trim(), w: e.clientWidth }; });
         assert.ok(!ttl.clipped, 'название страницы в шапке не обрезается (даже при активном Ozon): ' + JSON.stringify(ttl));
         await page.evaluate(() => NrMp.set('wb'));

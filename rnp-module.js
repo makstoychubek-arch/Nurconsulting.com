@@ -8120,7 +8120,12 @@ const RNP = (() => {
     function _bindScrollBusy() {
         if (_bindScrollBusy.done || typeof document === 'undefined') return;
         _bindScrollBusy.done = true;
-        const mark = () => { _scrollBusyAt = Date.now(); };
+        let calm = 0;
+        const mark = () => {
+            _scrollBusyAt = Date.now();
+            const de = document.documentElement; if (!de.classList.contains('rnp-scrolling')) de.classList.add('rnp-scrolling');
+            clearTimeout(calm); calm = setTimeout(() => de.classList.remove('rnp-scrolling'), 200);
+        };
         document.addEventListener('scroll', (e) => { if (e.target && e.target.id === 'rnp-sheet-body') mark(); }, { passive: true, capture: true });
         document.addEventListener('touchmove', (e) => { if (e.target && e.target.closest && e.target.closest('#rnp-sheet-body')) mark(); }, { passive: true, capture: true });
     }
