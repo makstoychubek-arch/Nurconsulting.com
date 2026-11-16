@@ -6415,7 +6415,7 @@ const RNP = (() => {
     const FIN_SPLITS = {
         penalty_sum: { cls: 'pen', hint: 'Штрафы WB по видам', subs: [
             { key: 'pen_dims',   label: 'Габариты' },
-            { key: 'pen_accept', label: 'Расхождения при приёмке' },
+            { key: 'pen_accept', label: 'Приёмка' },
             { key: 'pen_sub',    label: 'Подмены МП' },
             { key: 'pen_cancel', label: 'Отмены МП' },
             { key: 'pen_pvz',    label: 'Возвраты ПВЗ' },
@@ -6434,19 +6434,19 @@ const RNP = (() => {
             { key: 'ded_jam',   label: 'Подписка «Джем»' },
             { key: 'ded_util',  label: 'Утилизация товара' },
             { key: 'ded_other', label: 'Другое' },
-            { key: 'ded_add',   label: 'Доплаты и компенсации (уменьшают)' },
+            { key: 'ded_add',   label: 'Доплаты (минус)' },
         ] },
         // «Логистика»: по причинам из финотчёта WB; отмены показываем отдельно, это самые дорогие доставки
         delivery_sum: { cls: 'log', hint: 'Логистика по причинам', subs: [
-            { key: 'log_sale',        label: 'К клиенту при продаже' },
-            { key: 'log_cancel_to',   label: 'К клиенту при отмене' },
-            { key: 'log_cancel_from', label: 'От клиента при отмене' },
-            { key: 'log_return',      label: 'От клиента при возврате' },
-            { key: 'log_other',       label: 'Прочая (возврат брака, коррекции)' },
-            { key: 'log_cancel_pct',  label: 'Доля отмен в логистике, %', type: 'pct' },
-            { key: 'logistics_pct',   label: 'Логистика, % от продаж', type: 'pct' },
-            { key: 'log_per_unit',    label: 'Логистика на 1 проданную шт, сом', type: 'avg' },
-            { key: 'log_to_pvz_avg',  label: 'Средняя доставка до ПВЗ, сом', type: 'avg' },
+            { key: 'log_sale',        label: 'Продажа → клиенту' },
+            { key: 'log_cancel_to',   label: 'Отмена → клиенту' },
+            { key: 'log_cancel_from', label: 'Отмена ← от клиента' },
+            { key: 'log_return',      label: 'Возврат ← от клиента' },
+            { key: 'log_other',       label: 'Прочая' },
+            { key: 'log_cancel_pct',  label: 'Доля отмен %', type: 'pct' },
+            { key: 'logistics_pct',   label: 'Логистика %', type: 'pct' },
+            { key: 'log_per_unit',    label: 'На 1 шт, сом', type: 'avg' },
+            { key: 'log_to_pvz_avg',  label: 'До ПВЗ ср., сом', type: 'avg' },
         ] },
         // «Фулфилмент»: отправки и хранение по артикулам, доп. услуги из журнала ФФ (только в «Общем»)
         ff_sum: { cls: 'ff', hint: 'Фулфилмент: отправки, хранение, доп. услуги', subs: [
@@ -6456,7 +6456,7 @@ const RNP = (() => {
         ] },
         // «Комиссия»: по нажатию показывает процент от реализации
         wb_commission: { cls: 'com', hint: 'Показать комиссию в процентах от реализации', subs: [
-            { key: 'comm_pct_real', label: 'Комиссия, % от реализации', type: 'pct' },
+            { key: 'comm_pct_real', label: 'Комиссия %', type: 'pct' },
         ] },
     };
     // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
@@ -8861,7 +8861,7 @@ const RNP = (() => {
     // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
     function _finSubRows(m, cols, firstDayIdx) {
         const def = FIN_SPLITS[m.key];
-        const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '14,165,233' : '245,158,11';
+        const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '128,128,128' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
         return def.subs.map(sub => {
             const pctSub = sub.type === 'pct';
