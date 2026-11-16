@@ -2431,3 +2431,10 @@ html[data-mp="ozon"] body #tab-advertising > :not(#adv-view-ozon) { display: non
   /* затемнение под списком площадки: пока список закрыт, слой не рисуется совсем (прозрачный полноэкранный blur считался бы на каждом кадре) */
   .nr-mp-dim:not(.on) { visibility: hidden; }
 }
+
+/* Телефон, РНП: таблица прокручивается внутри себя, поэтому нижний запас под меню кладём в её прокрутку, а не под всю страницу:
+   рамка таблицы идёт до самого низа экрана, последние строки доезжают выше пилюли меню. */
+@media (max-width: 768px) {
+  html body:has(#tab-rnp.active) .main-rail .main-content:not(#nr-x) { padding-bottom: 0 !important; }
+  html body #tab-rnp .rnp-sheet-body { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important; box-sizing: border-box; }
+}
