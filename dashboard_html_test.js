@@ -1029,16 +1029,16 @@ assert.ok(
     const desk = make(false);
     assert.strictEqual(phone._isPhone(), true);
     assert.strictEqual(phone._isNarrow(), true);
-    assert.strictEqual(phone._metricW(), 62);
+    assert.strictEqual(phone._metricW(), 118);
     assert.strictEqual(phone._sparkW(), 0);
     assert.strictEqual(phone._dayColW(), 28);
-    assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 62);
+    assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 118);
     assert.strictEqual(desk._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 412);
     assert.strictEqual(phone._frozenLeft(0, [{ type: 'week' }]), null);
     assert.strictEqual(desk._frozenLeft(0, [{ type: 'week' }]), 172);
     const cal = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30) };
     assert.strictEqual(phone._sheetDataColCount(cal), 36);
-    assert.strictEqual(phone._sheetMinWidthPx(cal), 62 + 0 + 36 * 28);
+    assert.strictEqual(phone._sheetMinWidthPx(cal), 118 + 0 + 36 * 28);
     assert.ok(phone._colgroupHTML(cal).includes('<colgroup>'));
     assert.strictEqual((phone._colgroupHTML(cal).match(/<col /g) || []).length, 38);
 }
