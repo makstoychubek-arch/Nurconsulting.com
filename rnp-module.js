@@ -6405,7 +6405,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_rest'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6469,6 +6469,13 @@ const RNP = (() => {
             { key: 'ff_extra',   label: 'Доп. услуги',  type: 'ff' },
         ] },
     };
+    // «Прочие удержания и доплаты» у Ozon: свои виды (Premium Pro и отзывы — точно из начислений, остальное из отчёта Ozon по полумесяцам)
+    const FIN_SPLITS_OZ_DED = { cls: 'ded', hint: 'За что удержано: по видам Ozon', subs: [
+        { key: 'ded_prem',  label: 'Premium Pro и отзывы', type: 'ff' },
+        { key: 'ded_bonus', label: 'Бонусы продавца', type: 'ff' },
+        { key: 'ded_move',  label: 'Перемещение и вывоз', type: 'ff' },
+        { key: 'ded_rest',  label: 'Прочее и возмещения', type: 'ff' },
+    ] };
     // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
     // Комиссия WB в процентах считается от цены продавца (retail_price_withdisc_rub): именно от неё WB берёт свой процент.
     // Если по строке цены продавца нет (старые данные), остаётся прежний расчёт от реализации.
@@ -6492,7 +6499,7 @@ const RNP = (() => {
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
-        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged',
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_rest',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -6952,10 +6959,10 @@ const RNP = (() => {
         d.acquiring_sum   = Number(d.acquiring_sum) || 0;
         d.wb_commission   = Math.max(0, (d.realization || 0) - d.acquiring_sum - ((d.to_transfer || 0) - (Number(d.compensation_sum) || 0)));
         d.comm_pct_real   = _commPct(d);
-        d.ad_charged      = d.ad_spend || 0; // у артикула реклама по статистике кампаний
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
-        d.net_payout      = revenue - wbCosts - adSpend - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
+        d.ad_charged      = d.ad_charged != null ? Number(d.ad_charged) || 0 : (d.ad_spend || 0); // WB-артикул: статистика кампаний; Ozon: списания Ozon, разложенные по дням
+        d.net_payout      = revenue - wbCosts - d.ad_charged - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
         d.net_payout_unit = units > 0 ? d.net_payout / units : 0;
         d.storage_per_unit = units > 0 ? (d.storage_sum || 0) / units : 0;
         d.ad_per_unit = units > 0 ? (d.ad_spend || 0) / units : 0;
@@ -8905,7 +8912,7 @@ const RNP = (() => {
 
     // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
     function _finSubRows(m, cols, firstDayIdx) {
-        const def = FIN_SPLITS[m.key];
+        const def = (m.key === 'other_net_sum' && _mp() === 'ozon') ? FIN_SPLITS_OZ_DED : FIN_SPLITS[m.key];
         const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '128,128,128' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
         return def.subs.map(sub => {
