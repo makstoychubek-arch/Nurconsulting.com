@@ -10,10 +10,10 @@
     var OPEN_KEY = 'nr_admin_open', CACHE_KEY = 'nr_admin_cache_v1';
     var PLAN_DB = 8 * 1024 * 1024 * 1024; // 8 ГБ на тарифе Pro
     var el = null;
-    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {}, supers: null };
+    var S = { sec: 'home', q: '', open: {}, ov: null, bots: null, botsErr: '', jobs: null, busy: {}, toast: '', al: null, audit: null, site: null, feat: {}, users: null, uopen: {}, supers: null, ctab: 'clients', uf: 'all' };
 
     var NAV = [
-        ['home', 'Главная'], ['acc', 'Консалтинг'], ['users', 'Пользователи сайта'], ['staff', 'Сотрудники консалтинга'],
+        ['home', 'Главная'], ['acc', 'Консалтинг'], ['users', 'Пользователи сайта'],
         ['tg', 'Telegram и боты'], ['sys', 'Система и задачи'], ['alr', 'Оповещения'], ['log', 'Журнал'], ['own', 'Спейс владельца'],
     ];
     var FEATURE_LABEL = { reviews: 'Ответы на отзывы', sync: 'Автосинхронизация', ads: 'РК и автоставки', ab_rotation: 'Ротация А/Б', rnp_morning: 'Утренний РНП', order_alerts: 'Уведомления о заказах' };
@@ -240,19 +240,30 @@
         return esc(name);
     }
 var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт одобрения'], blocked: ['bd', 'заблокирован'] };
+    // «Консалтинг»: две вкладки, клиенты (кабинеты) и сотрудники команды
+    function consTabsH() {
+        var nc = S.ov && S.ov.cabinets ? S.ov.cabinets.length : '', ns = S.ov && S.ov.staff ? S.ov.staff.length : '';
+        return '<div class="nra-tabs"><button type="button" data-ctab="clients" class="' + (S.ctab !== 'staff' ? 'on' : '') + '">Клиенты' + (nc !== '' ? ' · ' + nc : '') + '</button><button type="button" data-ctab="staff" class="' + (S.ctab === 'staff' ? 'on' : '') + '">Сотрудники' + (ns !== '' ? ' · ' + ns : '') + '</button></div>';
+    }
+    function isFull(u) { return (u.tariff_plan === 'premium' || u.tariff_plan === 'vip') && (!u.plan_until || new Date(u.plan_until).getTime() > Date.now()); }
     function usersH() {
         var h = '<div class="nra-h">Пользователи сайта</div>';
         if (!S.users || !S.ov) return h + '<div class="nra-card"><div class="nra-skel"></div></div>';
         var q = S.q.toLowerCase(), staff = {};
         S.ov.staff.forEach(function (p) { staff[String(p.email).toLowerCase()] = 1; });
-        var rows = S.users.filter(function (u) { return !q || String(u.email || '').toLowerCase().indexOf(q) > -1 || String(u.full_name || '').toLowerCase().indexOf(q) > -1; });
-        h += '<p class="nra-sub">' + rows.length + ' из ' + S.users.length + ' человек. Нажми на человека, чтобы увидеть его кабинеты и нагрузку.</p><table class="nra-t"><tr><th>Пользователь</th><th>Статус</th><th>Тариф</th><th>Кабинеты</th><th>Последний вход</th><th>Регистрация</th></tr>';
+        var all = S.users.filter(function (u) { return !q || String(u.email || '').toLowerCase().indexOf(q) > -1 || String(u.full_name || '').toLowerCase().indexOf(q) > -1; });
+        var cnt = { all: all.length, active: 0, pending: 0, blocked: 0, full: 0 };
+        all.forEach(function (u) { if (cnt[u.status] != null) cnt[u.status]++; if (isFull(u)) cnt.full++; });
+        var rows = all.filter(function (u) { return S.uf === 'all' || (S.uf === 'full' ? isFull(u) : u.status === S.uf); });
+        var kp = [['all', 'Всего'], ['active', 'Активны'], ['pending', 'Ждут одобрения'], ['blocked', 'Заблокированы'], ['full', 'Фулл']];
+        h += '<div class="nra-kp">' + kp.map(function (k) { return '<button type="button" data-uf="' + k[0] + '" class="nra-k' + (S.uf === k[0] ? ' on' : '') + '"><small>' + k[1] + '</small><b>' + cnt[k[0]] + '</b></button>'; }).join('') + '</div>';
+        h += '<table class="nra-t nra-ut"><tr><th>Пользователь</th><th>Статус</th><th>Тариф</th><th>Кабинеты и данные</th><th>Последний вход</th><th>Регистрация</th></tr>';
         rows.forEach(function (u) {
             var cabs = userCabs(u), st = STATUS[u.status] || ['off', u.status], name = u.full_name && String(u.full_name).trim() ? u.full_name : String(u.email || '').replace(/@.*/, '');
-            h += '<tr class="r" data-user="' + esc(u.user_id) + '"><td><span class="who"><i class="av" style="background:' + colorOf(u.email) + '">' + initials(name) + '</i><span><b>' + esc(name) + '</b>' + (staff[String(u.email).toLowerCase()] ? ' <span class="nra-chip ok"><i></i>команда</span>' : '') + '<br><small class="m">' + esc(u.email) + '</small></span></span></td>' +
-                '<td><span class="nra-chip ' + st[0] + '"><i></i>' + st[1] + '</span></td><td>' + planLabel(u) + '</td>' +
-                '<td>' + (cabs.length ? cabs.slice(0, 3).map(function (x) { return '<span class="nra-chip off">' + esc(x.c.name) + '</span>'; }).join(' ') + (cabs.length > 3 ? ' +' + (cabs.length - 3) : '') : '<span class="m">нет</span>') + '</td>' +
-                '<td>' + ago(u.last_sign_in_at) + '</td><td>' + (u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '—') + '</td></tr>';
+            h += '<tr class="r" data-user="' + esc(u.user_id) + '"><td><span class="who"><i class="av">' + initials(name) + '</i><span><b>' + esc(name) + '</b>' + (staff[String(u.email).toLowerCase()] ? ' <span class="nra-tag">команда</span>' : '') + '<small class="m">' + esc(u.email) + '</small></span></span></td>' +
+                '<td><span class="nra-st ' + st[0] + '">' + st[1] + '</span></td><td><span class="nra-pl' + (isFull(u) ? ' f' : '') + '">' + planLabel(u) + '</span></td>' +
+                '<td>' + (cabs.length ? cabs.slice(0, 3).map(function (x) { return '<div class="nra-cl"><b>' + esc(x.c.name) + '</b><small>' + mb(x.c.daily_bytes) + ' · ' + x.c.articles + ' арт. · ' + ago(x.c.last_sync) + '</small></div>'; }).join('') + (cabs.length > 3 ? '<small class="m">ещё ' + (cabs.length - 3) + '</small>' : '') : '<span class="m">нет</span>') + '</td>' +
+                '<td class="m">' + ago(u.last_sign_in_at) + '</td><td class="m">' + (u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '—') + '</td></tr>';
             if (S.uopen[u.user_id]) {
                 h += '<tr class="d"><td colspan="6">' + (cabs.length ? '<div class="nra-ucabs">' + cabs.map(function (x) {
                     var c = x.c;
@@ -402,9 +413,8 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
         var att = attention();
         var body = '';
         if (S.sec === 'home') body = homeH(att);
-        else if (S.sec === 'acc') body = accH();
+        else if (S.sec === 'acc') body = consTabsH() + (S.ctab === 'staff' ? staffH() : accH());
         else if (S.sec === 'users') body = usersH();
-        else if (S.sec === 'staff') body = staffH();
         else if (S.sec === 'tg') body = tgH();
         else if (S.sec === 'sys') body = sysH();
         else if (S.sec === 'alr') body = alrH();
@@ -466,7 +476,9 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
         if (el) return;
         el = doc.createElement('div'); el.id = 'nr-admin'; el.className = 'nra';
         el.addEventListener('click', function (e) {
-            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper],[data-tocons],[data-retc]'); if (!t) return;
+            var t = e.target.closest('[data-user],[data-sec],[data-go],[data-cab],[data-close],[data-hook],[data-openc],[data-reload],[data-alr],[data-ft],[data-featreload],[data-own],[data-unown],[data-acc],[data-super],[data-unsuper],[data-tocons],[data-retc],[data-ctab],[data-uf]'); if (!t) return;
+            if (t.dataset.ctab) { S.ctab = t.dataset.ctab; S.sec = 'acc'; render(); return; }
+            if (t.dataset.uf) { S.uf = t.dataset.uf; render(); return; }
             if (t.dataset.user) { S.uopen[t.dataset.user] = !S.uopen[t.dataset.user]; render(); return; }
             if (t.dataset.retc) { returnCab(t.dataset.retc); return; }
             if (t.dataset.tocons) { moveToCons(t.dataset.tocons); return; }
@@ -479,7 +491,7 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
             if (t.dataset.featreload) { e.preventDefault(); S.feat[t.dataset.featreload] = null; loadFeat(t.dataset.featreload); render(); return; }
             if (t.dataset.close) return close();
             if (t.dataset.alr) { if (S.al) saveAlert(t.dataset.alr, { enabled: !(S.al[t.dataset.alr] && S.al[t.dataset.alr].enabled) }); return; }
-            if (t.dataset.sec) { S.sec = t.dataset.sec; }
+            if (t.dataset.sec) { S.sec = t.dataset.sec === 'staff' ? 'acc' : t.dataset.sec; S.ctab = t.dataset.sec === 'staff' ? 'staff' : 'clients'; }
             else if (t.dataset.go) { S.sec = t.dataset.go; if (t.dataset.open) { S.open[t.dataset.open] = true; if (!S.feat[t.dataset.open]) loadFeat(t.dataset.open); } }
             else if (t.dataset.cab) { S.open[t.dataset.cab] = !S.open[t.dataset.cab]; if (S.open[t.dataset.cab] && !S.feat[t.dataset.cab]) loadFeat(t.dataset.cab); }
             else if (t.dataset.hook) { reconnect(t.dataset.hook); return; }
@@ -495,7 +507,7 @@ var STATUS = { active: ['ok', 'активен'], pending: ['wn', 'ждёт од�
         });
         el.addEventListener('input', function (e) {
             if (e.target.id !== 'nra-q') return;
-            S.q = e.target.value; if (S.sec !== 'acc' && S.sec !== 'users') S.sec = 'acc';
+            S.q = e.target.value; if (S.sec !== 'acc' && S.sec !== 'users') { S.sec = 'acc'; S.ctab = 'clients'; }
             var pos = e.target.selectionStart; render();
             var i = el.querySelector('#nra-q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); }
         });
