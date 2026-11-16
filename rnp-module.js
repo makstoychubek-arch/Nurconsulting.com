@@ -3105,7 +3105,7 @@ const RNP = (() => {
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
         to_transfer: ['К перечислению', 'Сколько WB переводит вам за проданные штуки этого артикула, до логистики, хранения, штрафов и рекламы: реализация минус комиссия и эквайринг (по финотчёту).'],
         to_transfer_unit: ['От WB на единицу', 'К перечислению от WB ÷ проданные штуки: сколько WB отдаёт с одной вещи до всех расходов.'],
-        comm_pct_real: ['Комиссия %', 'Комиссия WB ÷ реализация × 100: какой процент от цены продажи WB берёт себе (по финотчёту: реализация − эквайринг − к перечислению).'],
+        comm_pct_real: ['Комиссия %', 'Процент комиссии WB от цены продавца (цена после вашей скидки, до скидок WB): (цена продавца − эквайринг − к перечислению) ÷ цена продавца. В него входит и процент ваших опций из «Конструктора тарифов». Это не сумма «Комиссии» ÷ «Реализации»: реализация считается по цене покупателя, она ниже.'],
         net_payout_unit: ['К выводу на единицу', 'К выводу ÷ проданные штуки: сколько остаётся с одной вещи после всех расходов WB, до себестоимости.'],
         net_payout: ['К выводу', 'Реализация − комиссия − эквайринг − логистика − хранение − приёмка − штрафы − прочие удержания − реклама (− фулфилмент и налог, если включены). Себестоимость ещё не вычтена: она идёт следующей строкой, затем прибыль.'],
         tax_sum: ['Налог', 'Ставка из «Настройки РНП → Налог» × реализация. В финотчётах налога нет: это ваш налог государству. Ставка 0 — не считается.'],
@@ -5619,10 +5619,10 @@ const RNP = (() => {
                 const { data: fz, error: fzErr } = await _db.rpc('rnp_fin_by_nm', { p_cabinet: cab0, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: nmIds.map(Number) });
                 if (fzErr) throw fzErr;
                 if (cab0 !== _cab) return;
-                idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.acquiring_sum = 0; row.compensation_sum = 0; } }));
+                idSet.forEach(nm => allDates.forEach(d => { const row = _dataCache[nm] && _dataCache[nm][d]; if (row) { row.acquiring_sum = 0; row.compensation_sum = 0; row.comm_base = 0; row.comm_true = 0; } }));
                 (fz || []).forEach(r => {
                     const row = _dataCache[r.nm_id] && _dataCache[r.nm_id][String(r.d).split('T')[0]];
-                    if (row) { row.acquiring_sum = Number(r.acquiring) || 0; row.compensation_sum = Number(r.compensation) || 0; }
+                    if (row) { row.acquiring_sum = Number(r.acquiring) || 0; row.compensation_sum = Number(r.compensation) || 0; row.comm_base = Number(r.comm_base) || 0; row.comm_true = Number(r.comm_true) || 0; }
                 });
             } catch (e) { console.warn('[RNP] rnp_fin_by_nm:', e.message || e); }
             (data || []).forEach(r => {
@@ -6399,7 +6399,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6466,6 +6466,13 @@ const RNP = (() => {
         ] },
     };
     // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
+    // Комиссия WB в процентах считается от цены продавца (retail_price_withdisc_rub): именно от неё WB берёт свой процент.
+    // Если по строке цены продавца нет (старые данные), остаётся прежний расчёт от реализации.
+    function _commPct(m) {
+        const base = Number(m.comm_base) || 0;
+        if (base > 0) return Math.max(0, (Number(m.comm_true) || 0) / base * 100);
+        return (m.realization || 0) > 0 ? (m.wb_commission || 0) / m.realization * 100 : 0;
+    }
     // Доля отмен и логистика на штуку считаются заново после суммирования
     function _logDerived(m) {
         const dl = Number(m.delivery_sum) || 0;
@@ -6481,7 +6488,7 @@ const RNP = (() => {
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
-        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum',
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -6552,7 +6559,7 @@ const RNP = (() => {
         a.storage_pct = wPct('storage_pct');
         a.commission_pct = parts.reduce((s, d) => s + (d.commission_pct || 0), 0) / Math.max(parts.length, 1);
         _logDerived(a);
-        a.comm_pct_real = a.realization > 0 ? (a.wb_commission || 0) / a.realization * 100 : 0;
+        a.comm_pct_real = _commPct(a);
         const salesSomAll = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0) * _rateFor(d.date, d), 0);
         const adFromSalesAll = salesSomAll > 0 ? a.ad_spend / salesSomAll * 100 : 0;
         a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + adFromSalesAll;
@@ -6595,6 +6602,7 @@ const RNP = (() => {
         m.deduction_sum = n(t.deduction);
         FIN_SPLIT_KEYS.forEach(k => { m[k] = n(t[k]); });
         _logDerived(m);
+        m.comm_base = n(t.comm_base); m.comm_true = n(t.comm_true);
         if (_ffShow && _mp() !== 'ozon') {
             const ex = n(_ffExtra[date]);
             const er = _rateFor(date, { wb_rate: m.wb_rate });
@@ -6611,7 +6619,7 @@ const RNP = (() => {
         m.wb_commission = Math.max(0, m.realization - m.acquiring_sum - (m.to_transfer - m.compensation_sum));
         m.other_net_sum = m.deduction_sum - m.additional_sum - m.compensation_sum; // расход со знаком «плюс», как остальные строки; эквайринг отдельной строкой
         m.ded_add = -(m.additional_sum + m.compensation_sum);
-        m.comm_pct_real = m.realization > 0 ? m.wb_commission / m.realization * 100 : 0;
+        m.comm_pct_real = _commPct(m);
         m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
         m.wb_for_withdraw = t.balance_for_withdraw == null ? null : n(t.balance_for_withdraw);
         m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
@@ -6691,6 +6699,12 @@ const RNP = (() => {
             }
             _ffExtra = ex;
         } catch (e) { _ffExtra = {}; }
+        // Цена продавца и комиссия по ней: для процента комиссии
+        try {
+            const { data: cm, error: cmErr } = await _db.rpc('rnp_cabinet_comm', { p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1], p_nm_ids: _rnpVisibleArticles().map(a => Number(a.nm_id)) });
+            if (cmErr) throw cmErr;
+            (cm || []).forEach(r => { const k = String(r.d).split('T')[0]; if (fresh[k]) { fresh[k].comm_base = r.comm_base; fresh[k].comm_true = r.comm_true; } });
+        } catch (e) { console.warn('[RNP] rnp_cabinet_comm:', e.message || e); }
         // Логистика по причинам (подстроки «Логистики»)
         try {
             const { data: lg, error: lgErr } = await _db.rpc('rnp_cabinet_log_split', {
@@ -6928,7 +6942,7 @@ const RNP = (() => {
         // Комиссия WB: реализация − эквайринг − (к перечислению − компенсации); у артикула считается так же, как по кабинету
         d.acquiring_sum   = Number(d.acquiring_sum) || 0;
         d.wb_commission   = Math.max(0, (d.realization || 0) - d.acquiring_sum - ((d.to_transfer || 0) - (Number(d.compensation_sum) || 0)));
-        d.comm_pct_real   = (d.realization || 0) > 0 ? d.wb_commission / d.realization * 100 : 0;
+        d.comm_pct_real   = _commPct(d);
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
         d.net_payout      = revenue - wbCosts - adSpend - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости

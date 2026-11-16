@@ -18,7 +18,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
     const srv = await serve();
     const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     try {
-        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, rnp_cabinet_totals: Array.from({ length: 5 }, (_, d) => ({ d: day(d), realization: 10000, to_transfer: 7000, delivery: 1000, storage: 100, penalty: 50, deduction: 0, acceptance: 0, to_withdraw: 5000, ad_spend: 200, acquiring: 0, compensation: 0, additional: 0 })), rnp_fin_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, acquiring: 100, compensation: 0 })), rnp_log_split_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })), rnp_cabinet_log_split: Array.from({ length: 5 }, (_, d) => ({ d: day(d), log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })) }, functions: { 'wb-proxy': async () => ({}) } });
+        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, rnp_cabinet_totals: Array.from({ length: 5 }, (_, d) => ({ d: day(d), realization: 10000, to_transfer: 7000, delivery: 1000, storage: 100, penalty: 50, deduction: 0, acceptance: 0, to_withdraw: 5000, ad_spend: 200, acquiring: 0, compensation: 0, additional: 0 })), rnp_fin_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, acquiring: 100, compensation: 0, comm_base: 1000, comm_true: 280 })), rnp_cabinet_comm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), comm_base: 10000, comm_true: 3000 })), rnp_log_split_by_nm: Array.from({ length: 5 }, (_, d) => ({ d: day(d), nm_id: 1001, log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })), rnp_cabinet_log_split: Array.from({ length: 5 }, (_, d) => ({ d: day(d), log_sale: 300, log_cancel_to: 400, log_cancel_from: 200, log_return: 50, log_other: 50 })) }, functions: { 'wb-proxy': async () => ({}) } });
         const { page } = env;
         await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); NrMp.set('wb'); showTab('rnp'); });
         await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Реализация/.test((r.children[0] || {}).innerText || '')), null, { timeout: 15000 });
@@ -59,6 +59,10 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         const lg = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).filter((c) => /^(Отмена → клиенту|Доля отмен %)/.test(c[0])));
         assert.ok(lg.length === 2 && lg.every((r) => r.slice(1).some((x) => /[1-9]/.test(x))), 'логистика по причинам показывает цифры: ' + JSON.stringify(lg));
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
+        await page.evaluate(() => RNP.pick('general')); await page.waitForTimeout(1200);
+        const cpGen = await (async () => { const r = await page.evaluate(() => { const t = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => /^Комиссия %/.test(((x.children[0] || {}).innerText || '').trim())); return t ? t.querySelector('td:last-child').innerText : null; }); return Number(String(r).replace(/[^0-9,.-]/g, '').replace(',', '.')); })();
+        assert.ok(Math.abs(cpGen - 30) < 0.3, '«Комиссия %» в «Общем» считается от цены продавца (30%): ' + cpGen);
+        await page.evaluate(() => RNP.pick(1001)); await page.waitForTimeout(1200);
         // раскрытие строки не пересобирает весь лист: таблица и шапка остаются теми же узлами, прокрутка на месте
         await page.evaluate(() => RNP.pick(1001)); await page.waitForTimeout(1500);
         const keep = await page.evaluate(async () => {
@@ -85,7 +89,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Комиссия %'
         const tt = await read('К перечислению'), tu = await read('От WB на единицу'); assert.ok(tt > 0 && tu > 0 && Math.abs(tt / tu - Math.round(tt / tu)) < 0.1, 'на единицу = К перечислению ÷ штуки: ' + tt + ' / ' + tu);
         assert.ok(one.includes('Прибыль на единицу') && one.includes('Налог'), 'у одного артикула есть «Прибыль на единицу» и «Налог»: ' + one.slice(0, 40).join(', '));
         const cm = await read('Комиссия'), cp = await read('Комиссия %'), rz = await read('Реализация'), aq = await read('Эквайринг'), tt2 = await read('К перечислению');
-        assert.ok(cm > 0 && Math.abs(cm + aq + tt2 - rz) <= 3 && Math.abs(cp - cm / rz * 100) < 0.2, 'комиссия + эквайринг + к перечислению = реализация, процент считается: ' + [rz, cm, cp, aq, tt2].join(' / '));
+        assert.ok(cm > 0 && Math.abs(cm + aq + tt2 - rz) <= 3 && Math.abs(cp - 28) < 0.2, 'комиссия + эквайринг + к перечислению = реализация, процент от цены продавца (28%): ' + [rz, cm, cp, aq, tt2].join(' / '));
         const oneIdx = (await labels()).indexOf('К выводу на единицу'), pay = await read('К выводу'), payU = await read('К выводу на единицу');
         assert.ok(oneIdx > (await labels()).indexOf('К выводу') && payU !== null, '«К выводу на единицу» стоит после «К выводу»');
         const findLg = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => [...r.children].map((c) => c.innerText.replace(/\s+/g, ' ').trim())).find((c) => /^Отмена → клиенту/.test(c[0])));
