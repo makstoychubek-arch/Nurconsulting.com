@@ -200,6 +200,24 @@ test('«Загрузка…» не стирает готовый блок тог
     assert.match(r.empty, /Загружаем/, 'пустой блок получает заглушку');
 });
 
+test('Настройки: сверху нет пустого блока, «Тарифы» открываются внутри настроек', async ({ page }) => {
+    const r = await page.evaluate(() => {
+        showTab('settings');
+        const tabs = document.getElementById('settings-section-tabs').getBoundingClientRect();
+        const mc = document.querySelector('.main-content').getBoundingClientRect();
+        const parentOk = document.getElementById('tab-settings').parentElement.classList.contains('main-content');
+        document.getElementById('settings-tab-btn-tariffs').click();
+        const active = [...document.querySelectorAll('.tab-content')].filter((t) => getComputedStyle(t).display !== 'none').map((t) => t.id);
+        return { gap: Math.round(tabs.top - mc.top), parentOk, active, tr: document.getElementById('nr-tr').offsetHeight, pane: !document.getElementById('settings-tariffs').classList.contains('hidden') };
+    });
+    assert.ok(r.parentOk, 'вкладка настроек лежит внутри .main-content');
+    assert.ok(r.gap < 80, 'над вкладками нет пустого блока, отступ ' + r.gap);
+    assert.deepStrictEqual(r.active, ['tab-settings'], 'на экране только настройки');
+    assert.ok(r.pane && r.tr > 100, 'тарифы показаны внутри настроек');
+    const viaMenu = await page.evaluate(() => { showTab('dashboard'); showTab('tariffs'); return [...document.querySelectorAll('.tab-content')].filter((t) => getComputedStyle(t).display !== 'none').map((t) => t.id); });
+    assert.deepStrictEqual(viaMenu, ['tab-settings'], 'showTab(tariffs) открывает настройки');
+});
+
 (async () => {
     const srv = await serve();
     const base = 'http://127.0.0.1:' + srv.address().port;

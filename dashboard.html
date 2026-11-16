@@ -7365,7 +7365,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
 
             <div id="abtests-list" class="space-y-3"><div class="ab-skel"></div><div class="ab-skel"></div></div></div>
-        </div>
 
         <div id="tab-rnp-settings" class="tab-content">
             <div class="p-10 text-center" style="color:var(--text-muted)">
@@ -7579,7 +7578,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="settings-section-tab" id="settings-tab-btn-security" onclick="showSettingsSection('security', this)">Безопасность</div>
                 <div class="settings-section-tab" id="settings-tab-btn-integrations" onclick="showSettingsSection('integrations', this)">Интеграции</div>
                 <div class="settings-section-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API Wildberries</div>
-                <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showTab('tariffs')">Тарифы</div>
+                <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showSettingsSection('tariffs', this)">Тарифы</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim space-y-4">
@@ -7640,6 +7639,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                 </div>
             </div>
+            <div id="settings-tariffs" class="settings-tab-anim hidden"><div id="nr-tr"></div></div>
             <div id="settings-devsessions" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card security-sessions-card p-0">
                     <div class="p-6 pb-4">
@@ -7924,7 +7924,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
         </div>
 
-        <div id="tab-tariffs" class="tab-content"><div id="nr-tr"></div></div>
         </div>
     </main>
     </div>
@@ -9831,6 +9830,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function showTab(name, el) {
         if (window.NrBusy) window.NrBusy.off();
         name = TAB_ALIASES[name] || name;
+        // Тарифы живут внутри «Настроек» (вкладка «Тарифы»): из любого места ведём туда, страница не меняется.
+        if (name === 'tariffs') {
+            showTab('settings');
+            showSettingsSection('tariffs');
+            return;
+        }
         if (window.NrViewer?.on && !window.NrViewer.allows(name)) {
             const t = window.NrViewer.firstTab();
             if (t !== name) { showTab(t, el); return; }
@@ -16450,7 +16455,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     function addVariantInput() { addVariantSlot(); }
 
-    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'devsessions'];
+    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'tariffs', 'devsessions'];
     function showSettingsSection(section, el) {
         if (!SETTINGS_PANES.includes(section)) section = 'profile';
         el = el || document.getElementById('settings-tab-btn-' + section);

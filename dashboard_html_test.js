@@ -2622,7 +2622,7 @@ assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' &
 {
     // Тарифы рисует nr-tariffs.js (Старт / Рост / Лидер), на странице остаётся только место под них.
     const tr = require('fs').readFileSync(__dirname + '/nr-tariffs.js', 'utf8');
-    assert.ok(html.includes('id="tab-tariffs"') && html.includes('<div id="nr-tr"></div>') && /<script src="\/(?:dist\/nr-tariffs\.[0-9a-f]+\.min|nr-tariffs)\.js"><\/script>/.test(html), 'tariffs page mounts nr-tariffs.js');
+    assert.ok(html.includes('id="settings-tariffs"') && html.includes('<div id="nr-tr"></div>') && /<script src="\/(?:dist\/nr-tariffs\.[0-9a-f]+\.min|nr-tariffs)\.js"><\/script>/.test(html), 'tariffs page mounts nr-tariffs.js');
     assert.ok(tr.includes('Акылай бесплатно до 1 ноября') && tr.includes("showTab(\\'dashboard\\')") && tr.includes('Подключить магазин'), 'Akylai stays free until 1 November');
     assert.ok(tr.includes("name: 'Старт', base: 2599, old: 5999") && tr.includes("name: 'Рост', base: 5599, old: 7999") && tr.includes("name: 'Лидер', base: 8999"), 'prices: 2 599 (was 5 999), 5 599 (was 7 999), 8 999');
     assert.ok(tr.includes('off: 0.1') && tr.includes('off: 0.15') && tr.includes('off: 0.2'), 'period discounts 3/6/12 months');
