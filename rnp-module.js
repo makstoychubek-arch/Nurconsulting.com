@@ -19,6 +19,7 @@ const RNP = (() => {
         monthTo: 12,
         showGiveaways: true,
         showCompetitor: true,
+        taxPct: 0,
         hiddenGroups: [],
         groupNames: {},
         wbGroups: false,
@@ -79,8 +80,8 @@ const RNP = (() => {
     const CABINET_ART = { nm_id: -1, name: 'Общий', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
     const VIEW_PRESETS = {
         all: null,
-        sales_finance: new Set(['sales', 'cash', 'buyout', 'expenses', 'result', 'profit']),
-        compact: new Set(['sales', 'result', 'profit']),
+        sales_finance: new Set(['sales', 'cash', 'buyout', 'expenses', 'recon']),
+        compact: new Set(['sales', 'expenses']),
     };
 
     let _userEmail = '';
@@ -181,7 +182,6 @@ const RNP = (() => {
             { key: 'returns_count',      label: 'Возвраты',                         type: 'int',  src: 'auto' },
             { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
             { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'realization',        label: 'Реализация (WB)',                  type: 'som',  src: 'auto' },
         ]},
         { id: 'ads', label: 'Реклама (РК)', color: '#8b5cf6', rows: [
             { key: 'ad_impressions',     label: 'Показы с рк',                      type: 'int',  src: 'promo' },
@@ -192,7 +192,6 @@ const RNP = (() => {
             { key: 'ad_cpc',             label: 'Стоимость Клика',                  type: 'dec2', src: 'promo' },
             { key: 'ad_basket',          label: 'Корзин с РК',                      type: 'int',  src: 'promo' },
             { key: 'ad_orders',          label: 'Заказов с РК',                     type: 'int',  src: 'promo' },
-            { key: 'ad_spend',           label: 'Расход РК',           type: 'som',  src: 'promo' },
             { key: 'plan_ad_spend',      label: 'Расход План',                      type: 'som',  src: 'manual', isPlan: true },
             { key: 'ad_cpo',             label: 'CPO',                              type: 'som',  src: 'calc' },
             { key: 'ad_cpm',             label: 'CPM',                              type: 'som',  src: 'calc' },
@@ -202,26 +201,30 @@ const RNP = (() => {
             { key: 'plan_drr',           label: 'ДРР % План',                       type: 'pct',  src: 'manual', isPlan: true },
         ]},
         { id: 'expenses', label: 'Все расходы', color: '#0ea5e9', rows: [
-            { key: 'wb_commission', label: 'Комиссия WB и вычеты с продаж', type: 'som', src: 'auto',  hm: 'cost', cabinetOnly: true },
-            { key: 'delivery_sum',       label: 'Доставка (WB)',                    type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
-            { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'storage_sum',        label: 'Хранение (сверено)',               type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'acceptance_sum',     label: 'Обработка товара (WB)',            type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
+            { key: 'realization',        label: 'Реализация',                       type: 'som',  src: 'auto',  bold: true },
+            { key: 'wb_commission',      label: 'Комиссия',                         type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
+            { key: 'acquiring_sum',      label: 'Эквайринг',                        type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
+            { key: 'delivery_sum',       label: 'Логистика',                        type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'storage_sum',        label: 'Хранение',                         type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'acceptance_sum',     label: 'Приёмка и обработка',              type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
-            { key: 'other_net_sum', label: 'Прочие удержания и доплаты', type: 'som', src: 'auto', cabinetOnly: true },
-        ]},
-        { id: 'result', label: 'К выводу', color: '#84cc16', rows: [
-            { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
-            { key: 'to_withdraw',        label: 'К выводу',                         type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
-        ]},
-        { id: 'profit', label: 'Прибыль', color: '#22c55e', rows: [
+            { key: 'other_net_sum',      label: 'Прочие удержания и доплаты',       type: 'som',  src: 'auto',  cabinetOnly: true },
+            { key: 'ad_spend',           label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
+            { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
+            { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
+            { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
+            { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
+            { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
+            { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
             { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
+        ]},
+        { id: 'recon', label: 'Сверка с отчётом', color: '#84cc16', rows: [
+            { key: 'to_transfer',        label: 'К перечислению (по отчёту)',       type: 'som',  src: 'auto' },
+            { key: 'to_withdraw',        label: 'К выводу (выплата по отчёту)',     type: 'som',  src: 'auto',  cabinetOnly: true },
         ]},
         { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
@@ -1173,6 +1176,7 @@ const RNP = (() => {
             monthTo: Math.min(12, Math.max(1, parseInt(o.monthTo, 10) || 12)),
             showGiveaways: o.showGiveaways !== false,
             showCompetitor: o.showCompetitor !== false,
+            taxPct: Math.min(60, Math.max(0, Number(o.taxPct) || 0)),
             hiddenGroups: Array.isArray(o.hiddenGroups)
                 ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
                 : [],
@@ -1184,6 +1188,25 @@ const RNP = (() => {
         };
     }
 
+    // Налог, % от реализации (одна ставка на кабинет, хранится в настройках РНП в аккаунте; в финотчётах WB и Ozon налога нет).
+    function _taxPct() { return Math.min(60, Math.max(0, Number(_settings.taxPct) || 0)); }
+    async function setTaxPct(v) {
+        const n = Math.min(60, Math.max(0, parseFloat(String(v).replace(',', '.')) || 0));
+        _settings.taxPct = n;
+        _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null;
+        try { await _saveSettings({ options: { taxPct: n } }); } catch (e) { console.warn('[RNP] налог:', e.message || e); }
+        try { _renderActiveTable(); } catch (e) { /* таблица обновится при следующем открытии */ }
+    }
+    function _settingsTaxHtml() {
+        return `<div class="widget-card p-5 rnp-settings-tax">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div><h3 class="font-semibold" style="color:var(--text-primary)">Налог</h3>
+              <p class="text-xs leading-snug" style="color:var(--text-muted);max-width:520px">Процент от реализации. В финотчётах WB и Ozon налога нет, его платите вы сами, поэтому ставка вводится здесь. 0 — налог не считается. Общая для WB и Ozon.</p></div>
+            <label class="flex items-center gap-2 text-sm" style="color:var(--text-primary)">Налог, %
+              <input id="rnp-tax-pct" type="number" min="0" max="60" step="0.1" value="${_taxPct() || ''}" placeholder="0" class="ui-input" style="width:90px" onchange="RNP.setTaxPct(this.value)"></label>
+          </div></div>`;
+    }
+
     function _settingsOptions() {
         return {
             usdRate: _settings.usdRate,
@@ -1192,6 +1215,7 @@ const RNP = (() => {
             monthTo: _settings.monthTo,
             showGiveaways: _settings.showGiveaways,
             showCompetitor: _settings.showCompetitor,
+            taxPct: Math.min(60, Math.max(0, Number(_settings.taxPct) || 0)),
             responsibles: Array.isArray(_settings.responsibles) ? _settings.responsibles : [],
             hiddenGroups: _hiddenGroupList(),
             groupNames: _normGroupNames(_settings.groupNames),
@@ -1306,7 +1330,7 @@ const RNP = (() => {
     }
 
     // Для Ozon нет СПП, раздач, обработки товара, логистики до ПВЗ и баланса WB по строкам
-    const _OZ_HIDE = new Set(['ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
+    const _OZ_HIDE = new Set(['acquiring_sum', 'ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
     function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
             if (_mp() === 'ozon' && _OZ_HIDE.has(m.key)) return false;
@@ -3065,9 +3089,11 @@ const RNP = (() => {
         compensation_sum: ['Компенсации WB (плюс)', 'Добровольные компенсации при возврате. Входят в «К перечислению».'],
         additional_sum: ['Доплаты WB (плюс)', 'Дополнительные выплаты WB из финотчёта; прибавляются при расчёте «К выводу».'],
         to_withdraw: ['К выводу', 'По всему кабинету, как «Итого к оплате» в отчёте реализации WB: к перечислению + доплаты − доставка − хранение − обработка − штрафы − прочие удержания. Считается по всему кабинету.'],
-        other_net_sum: ['Прочие удержания и доплаты', 'Доплаты и компенсации WB минус эквайринг и прочие удержания по финотчёту. Плюс значит, что WB доплатил, минус значит, что удержал.'],
+        other_net_sum: ['Прочие удержания и доплаты', 'Удержания маркетплейса по финотчёту (подписки, утилизация, услуги поставок и т. п.) минус доплаты и компенсации. Расход показывается положительным числом. У Ozon эквайринг входит в комиссию.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
+        net_payout: ['К выводу', 'Реализация − комиссия − эквайринг − логистика − хранение − приёмка − штрафы − прочие удержания − реклама − себестоимость. Налог ещё не вычтен.'],
+        tax_sum: ['Налог', 'Ставка из «Настройки РНП → Налог» × реализация. В финотчётах налога нет: это ваш налог государству. Ставка 0 — не считается.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
         profit_per_unit: ['Прибыль на 1 ед', 'Прибыль ÷ проданные штуки.'],
         margin_pct: ['Маржинальность %', 'Прибыль ÷ «К перечислению» × 100.'],
@@ -6319,7 +6345,7 @@ const RNP = (() => {
             };
         }
         const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','ad_impressions','ad_clicks',
-                     'ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing','to_transfer','profit','giveaways','in_production',
+                     'ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing','to_transfer','profit','net_payout','tax_sum','giveaways','in_production',
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt'];
@@ -6367,7 +6393,7 @@ const RNP = (() => {
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
-        'to_transfer','profit','cost_price_val','giveaways','storage_sum',
+        'to_transfer','profit','net_payout','tax_sum','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
@@ -6465,7 +6491,7 @@ const RNP = (() => {
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
-            m.other_net_sum = -(Number(m.deduction_sum) || 0);
+            m.other_net_sum = Number(m.deduction_sum) || 0;
         }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
     }
@@ -6486,7 +6512,7 @@ const RNP = (() => {
         m.compensation_sum = n(t.compensation);
         m.additional_sum = n(t.additional);
         m.wb_commission = Math.max(0, m.realization - m.acquiring_sum - (m.to_transfer - m.compensation_sum));
-        m.other_net_sum = m.additional_sum + m.compensation_sum - m.acquiring_sum - m.deduction_sum;
+        m.other_net_sum = m.deduction_sum - m.additional_sum - m.compensation_sum; // расход со знаком «плюс», как остальные строки; эквайринг отдельной строкой
         m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
         m.wb_for_withdraw = t.balance_for_withdraw == null ? null : n(t.balance_for_withdraw);
         m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
@@ -6498,7 +6524,9 @@ const RNP = (() => {
         m.ad_cpm = m.ad_impressions > 0 ? m.ad_spend / m.ad_impressions * 1000 : 0;
         m.ad_roas = m.ad_spend > 0 ? (m.ad_revenue || 0) / m.ad_spend : 0;
         // Прибыль: реклама WB, списанная с баланса (в «Прочих удержаниях»), не вычитается второй раз — РК учтена расходом.
-        m.profit = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - (m.cost_price_val || 0) - m.ad_spend;
+        m.net_payout = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - (m.cost_price_val || 0) - m.ad_spend;
+        m.tax_sum = _taxPct() / 100 * (m.realization || 0);
+        m.profit = m.net_payout - m.tax_sum;
         m.profit_per_unit = m.sales_count > 0 ? m.profit / m.sales_count : 0;
         m.margin_pct = m.to_transfer > 0 ? m.profit / m.to_transfer * 100 : 0;
         m.roi_pct = m.cost_price_val > 0 ? m.profit / m.cost_price_val * 100 : 0;
@@ -6764,7 +6792,10 @@ const RNP = (() => {
         const otherCosts = netUnits * otherCostsUnitSom;
         const adSpend  = (d.ad_spend || 0); // расход РК WB для кабинетов КР уже в сомах
         d.cost_price_val  = totalCost; // Себестоимость = (продажи − возвраты), шт × себест. за ед.
-        d.profit          = revenue - wbCosts - totalCost - adSpend - otherCosts;
+        // «К выводу» после себестоимости (до налога); налог — процент от реализации; прибыль = К выводу − налог.
+        d.net_payout      = revenue - wbCosts - totalCost - adSpend - otherCosts;
+        d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
+        d.profit          = d.net_payout - d.tax_sum;
         d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
         d.roi_pct         = totalCost > 0 ? d.profit / totalCost * 100 : 0;
@@ -7135,6 +7166,7 @@ const RNP = (() => {
             </div>
           </div>
 
+          ${_settingsTaxHtml()}
           ${_settingsGroupsHtml()}
         </div>`;
         if (scrollTop > 0) {
@@ -10413,7 +10445,7 @@ const RNP = (() => {
         return fn.apply(this, a);
     };
     const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
-    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, setTaxPct, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
 })();
