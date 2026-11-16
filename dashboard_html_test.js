@@ -846,7 +846,7 @@ assert.ok(rnpSrc.includes('function _mergeAdStatsFromDb'), 'RNP must merge adver
 assert.ok(rnpSrc.includes("from('advertising_daily_stats')") || rnpSrc.includes("'advertising_daily_stats'"),
     'RNP must read advertising_daily_stats, not only rnp_daily_data');
 assert.ok(rnpSrc.includes('_hydrateFunnelAfterPaint'), 'organic impressions must hydrate after first paint');
-assert.ok(rnpSrc.includes("label: 'Показатели воронки'"), 'funnel section title stays short for sellers');
+assert.ok(rnpSrc.includes("label: 'Воронка'"), 'funnel section title stays short for sellers');
 assert.ok(!rnpSrc.includes('WB 7 дней, старше из кэша'), 'technical funnel footnote must stay off the sheet');
 assert.ok(!rnpSrc.includes('•live'), 'live badge text must not sit on the grid');
 assert.ok(!rnpSrc.includes('enrichment ограничен'), 'English enrichment warning must stay hidden');
