@@ -2573,8 +2573,8 @@ assert.ok(
     );
 }
 
-assert.ok(html.includes('data-theme="tabler"') && html.includes("NR_THEMES = ['ios', 'tabler', 'neon']"),
-    'Tabler is a third theme and can be rolled back by cycling Тема');
+assert.ok(html.includes("NR_THEMES = ['neon']") && !html.includes("NR_THEMES = ['ios'"),
+    'тема одна: тёмное живое стекло, переключатель убран (решение владельца 16.11.2026)');
 assert.ok(html.includes('id="evidence-report-root"') && html.includes('EvidenceReport.paint'),
     'Сводный отчёт paints Evidence P&L from dashboard metrics');
 assert.ok(
