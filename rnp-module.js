@@ -160,7 +160,7 @@ const RNP = (() => {
             { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true, hero: true },
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
-            { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
+            { key: 'plan_fulfillment_pct', label: 'Выполнение плана %', type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
         ]},
         { id: 'price', label: 'ЦЕНА', color: '#6d4fe8', rows: [
             { key: 'price_disc',         label: 'Цена со скидкой',                  type: 'som', src: 'auto', carry: true, articleOnly: true },
@@ -213,10 +213,10 @@ const RNP = (() => {
             { key: 'ad_spend',           label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
             { key: 'ff_sum',             label: 'Фулфилмент',                       type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
-            { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
+            { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
-            { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  articleOnly: true },
+            { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  bold: true, articleOnly: true },
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
         ]},
@@ -3099,7 +3099,7 @@ const RNP = (() => {
         other_net_sum: ['Прочие удержания и доплаты', 'Удержания маркетплейса по финотчёту (подписки, утилизация, услуги поставок и т. п.) минус доплаты и компенсации. Расход показывается положительным числом. У Ozon эквайринг входит в комиссию.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
-        net_payout: ['К выводу', 'Реализация − комиссия − эквайринг − логистика − хранение − приёмка − штрафы − прочие удержания − реклама − себестоимость. Налог ещё не вычтен.'],
+        net_payout: ['К выводу', 'Реализация − комиссия − эквайринг − логистика − хранение − приёмка − штрафы − прочие удержания − реклама (− фулфилмент и налог, если включены). Себестоимость ещё не вычтена: она идёт следующей строкой, затем прибыль.'],
         tax_sum: ['Налог', 'Ставка из «Настройки РНП → Налог» × реализация. В финотчётах налога нет: это ваш налог государству. Ставка 0 — не считается.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
         profit_per_unit: ['Прибыль на 1 ед', 'Прибыль ÷ проданные штуки.'],
@@ -6562,7 +6562,7 @@ const RNP = (() => {
             m.ff_extra = ex;
             m.ff_sum = (m.ff_ship || 0) + (m.ff_storage || 0) + ex;
             m.net_payout = (m.net_payout || 0) - ex * er;
-            m.profit = m.net_payout;
+            m.profit = (m.profit || 0) - ex * er;
         }
         m.acceptance_sum = n(t.acceptance);
         m.to_withdraw = n(t.to_withdraw);
@@ -6586,8 +6586,8 @@ const RNP = (() => {
         // Прибыль: реклама WB, списанная с баланса (в «Прочих удержаниях»), не вычитается второй раз — РК учтена расходом.
         m.ff_sum = (m.ff_ship || 0) + (m.ff_storage || 0) + (m.ff_extra || 0);
         m.tax_sum = _taxPct() / 100 * (m.realization || 0);
-        m.net_payout = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - (m.cost_price_val || 0) - m.ad_spend - m.ff_sum - m.tax_sum;
-        m.profit = m.net_payout;
+        m.net_payout = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - m.ad_spend - m.ff_sum - m.tax_sum;
+        m.profit = m.net_payout - (m.cost_price_val || 0);
         m.profit_per_unit = m.sales_count > 0 ? m.profit / m.sales_count : 0;
         m.margin_pct = m.to_transfer > 0 ? m.profit / m.to_transfer * 100 : 0;
         m.roi_pct = m.cost_price_val > 0 ? m.profit / m.cost_price_val * 100 : 0;
@@ -6887,8 +6887,8 @@ const RNP = (() => {
         // Фулфилмент (отправки + хранение ФФ) и налог (процент от реализации) идут расходами до себестоимости; прибыль = К выводу.
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
-        d.net_payout      = revenue - wbCosts - totalCost - adSpend - otherCosts - d.ff_sum * er - d.tax_sum;
-        d.profit          = d.net_payout;
+        d.net_payout      = revenue - wbCosts - adSpend - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
+        d.profit          = d.net_payout - totalCost - otherCosts;                      // Прибыль: после себестоимости
         d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
         d.roi_pct         = totalCost > 0 ? d.profit / totalCost * 100 : 0;
