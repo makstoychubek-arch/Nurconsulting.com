@@ -4481,7 +4481,7 @@ const RNP = (() => {
               <div class="rnp-cat-tabs">${tabsHtml}</div>
             </div>`;
         }).join('');
-        if (_isPhone()) return groupsHtml;
+        if (_isPhone()) return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')"><span>Общий</span></div>` + groupsHtml;
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
             <span>Общий</span>
           </div>
@@ -8008,10 +8008,10 @@ const RNP = (() => {
                 if (saved === BYART_TAB) _activeNm = BYART_TAB;
                 else if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
                 else if (active.find(a => a.nm_id == saved)) _activeNm = Number(saved);
-                // «Сводная» убрана: большие кабинеты открываем на первом артикуле, остальные — на «Общем».
-                else _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB;
+                // По умолчанию всегда «Общий» (раньше большие кабинеты открывались на первом артикуле).
+                else _activeNm = GENERAL_TAB;
                 if (_activeNm !== GENERAL_TAB && _activeNm !== BYART_TAB) _activeNm = Number(_activeNm);
-            } catch (e) { _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB; }
+            } catch (e) { _activeNm = GENERAL_TAB; }
         }
 
         _sectionView = 'all'; // выбор секций убран из интерфейса
@@ -8135,7 +8135,7 @@ const RNP = (() => {
         _hydratePhotoCacheFromDom();
         _ensureActiveVisible();
         // Телефон: только по артикулам. «Общий», «Общее по артикулам» и «Σ Общее» считают весь кабинет и слишком тяжёлые.
-        if (_isPhone() && (_activeNm === GENERAL_TAB || _activeNm === BYART_TAB || _activeNm === SUMMARY_TAB)) {
+        if (_isPhone() && (_activeNm === BYART_TAB || _activeNm === SUMMARY_TAB || (_activeNm === GENERAL_TAB && _activeGroup))) {
             const first = _rnpVisibleArticles()[0];
             if (first) { _activeNm = Number(first.nm_id); _activeGroup = null; _writeSavedActiveNm(); _updateTabHighlight(); }
         }
