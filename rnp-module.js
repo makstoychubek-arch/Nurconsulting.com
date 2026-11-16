@@ -6391,6 +6391,8 @@ const RNP = (() => {
         delivery_sum: { cls: 'log', hint: 'Логистика по видам', subs: [
             { key: 'log_client', label: 'Доставка до покупателя' },
             { key: 'log_back',   label: 'Возвраты и прочая логистика' },
+            { key: 'logistics_pct', label: 'Логистика, % от продаж', type: 'pct' },
+            { key: 'log_to_pvz_avg', label: 'Средняя доставка до ПВЗ, сом', type: 'avg' },
         ] },
         // «Комиссия»: по нажатию показывает процент от реализации
         wb_commission: { cls: 'com', hint: 'Показать комиссию в процентах от реализации', subs: [
@@ -6398,7 +6400,7 @@ const RNP = (() => {
         ] },
     };
     // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
-    const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct').map(x => x.key)))];
+    const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg').map(x => x.key)))];
 
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count',
@@ -8773,7 +8775,7 @@ const RNP = (() => {
                     const v = pctSub ? (Number(d[sub.key]) || 0) : Math.round(Number(d[sub.key]) || 0);
                     const pending = isDay && col.isToday && !(Number(d[m.key]) > 0);
                     txt = pending ? '—' : (pctSub ? _fmt(v, 'pct') : _fmt(v, 'som'));
-                    if (v !== 0 && isDay && !pctSub) {
+                    if (v !== 0 && isDay && !pctSub && sub.type !== 'avg') {
                         const a = Math.min(1, Math.abs(v) / mx);
                         style += `${style ? ';' : ''}background:rgba(${rgb},${(0.10 + 0.35 * a).toFixed(2)})`;
                     }

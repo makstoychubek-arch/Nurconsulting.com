@@ -45,7 +45,7 @@ const LADDER = ['Реализация', 'Комиссия', 'Эквайринг'
         assert.ok(arrows.every((a) => a.c === 'rgb(37, 99, 235)'), 'стрелки синие: ' + JSON.stringify(arrows.map((a) => a.c)));
         await page.evaluate(() => { for (const k of ['wb_commission', 'other_net_sum', 'penalty_sum', 'delivery_sum']) RNP.toggleSplit(k); }); await page.waitForTimeout(600);
         const open = [...new Set(await labels())];
-        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты', 'Доставка до покупателя', 'Возвраты и прочая логистика']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
+        for (const need of ['Комиссия, % от реализации', 'WB Продвижение', 'Подписка «Джем»', 'Доплаты и компенсации (уменьшают)', 'Габариты', 'Доставка до покупателя', 'Возвраты и прочая логистика', 'Логистика, % от продаж', 'Средняя доставка до ПВЗ, сом']) assert.ok(open.includes(need), 'после раскрытия есть «' + need + '»');
         console.log('ok   раскрытие строк: комиссия в процентах, прочие удержания и штрафы по видам, стрелки синие');
         // «Общее по артикулам» и один артикул: лесенка та же, «Прибыль на единицу» только у одного артикула
         const labelsOf = async () => [...new Set(await labels())];
