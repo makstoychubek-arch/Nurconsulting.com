@@ -2671,3 +2671,14 @@ html body .ru-gi span { color: var(--text-muted); font-weight: 800; }
 html body .ru-gi:hover, html body .ru-gi.on { background: var(--sel, rgba(128,128,128,.12)); }
 html body .ru-gi.on b { text-decoration: underline; }
 @media (max-width: 768px) { html body .ru-bar { flex-direction: column; align-items: stretch; } }
+
+/* ───── Производительность прокрутки (17 ноября 2026) ─────
+   Размытие под карточками «стекла» в липкой шапке РНП (левый край) пересчитывалось на каждом кадре горизонтальной прокрутки:
+   на 45 артикулах кадров дольше 20 мс было 185 из 240, без размытия 25–45 (замер при замедлении процессора в 4 раза).
+   Внутри таблицы и шапки РНП размытия нет совсем; вид стекла остаётся (заливка, кромка, блик). То же на телефоне: нижняя пилюля меню
+   лежит над прокручиваемой таблицей, размытие под ней на iPhone считалось на каждом кадре, поэтому у неё плотная заливка без размытия. */
+html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .rnp-general-topbar, .rnp-general-topbar *) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+@media (max-width: 768px) {
+  html[data-theme="neon"] body .bottom-nav { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgba(46,46,44,.9) !important; }
+  html[data-theme="ios"] body .bottom-nav { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgba(255,255,255,.92) !important; }
+}
