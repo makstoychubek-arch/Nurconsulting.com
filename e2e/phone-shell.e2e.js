@@ -50,6 +50,18 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
         assert.ok(pop.dim && /blur/.test(pop.blur) && pop.shown.length === 3 && pop.shown.every(Boolean), 'по нажатию на площадку страница темнеет и размыта, выходит список из трёх: ' + JSON.stringify(pop));
         await page.click('#nr-mp button[data-mp="ozon"]'); await page.waitForTimeout(300);
         assert.strictEqual(await page.evaluate(() => NrMp.get() + document.querySelector('.nr-mp-dim').classList.contains('on')), 'ozonfalse', 'выбрали Ozon, список закрылся');
+        // список площадки открывается в границах экрана на любой странице, в том числе на «Продвижении» (там у кнопки свои правила)
+        for (const tab of ['advertising', 'dashboard', 'goods-groups', 'rnp']) {
+            await page.evaluate((t) => showTab(t), tab); await page.waitForTimeout(500);
+            const has = await page.evaluate(() => { const b = document.getElementById('nr-mp'); return !!b && getComputedStyle(b).display !== 'none'; });
+            if (!has) continue;
+            await page.click('#nr-mp'); await page.waitForTimeout(250);
+            const r = await page.evaluate(() => { const b = document.getElementById('nr-mp').getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, h: b.height, vw: innerWidth, pos: getComputedStyle(document.getElementById('nr-mp')).position }; });
+            assert.ok(r.r <= r.vw + 1 && r.l >= 0 && r.pos === 'absolute' && r.h > 100, 'список площадки на «' + tab + '» в границах экрана: ' + JSON.stringify(r));
+            await page.click('.nr-mp-dim', { position: { x: 20, y: 600 } }); await page.waitForTimeout(150);
+        }
+        await page.evaluate(() => showTab('rnp')); await page.waitForTimeout(400);
+        console.log('ok   список площадки открывается в границах экрана на всех страницах');
         const ttl = await page.evaluate(() => { const e = document.getElementById('page-title'); return { clipped: e.scrollWidth > e.clientWidth + 1, text: e.textContent.trim(), w: e.clientWidth }; });
         assert.ok(!ttl.clipped, 'название страницы в шапке не обрезается (даже при активном Ozon): ' + JSON.stringify(ttl));
         await page.evaluate(() => NrMp.set('wb'));
