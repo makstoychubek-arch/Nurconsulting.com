@@ -798,6 +798,7 @@
 
     /* ───── страница внутри вкладки РНП ───── */
     function setView(v) {
+        try { if (v === 'prices' || v === 'unit') doc.documentElement.setAttribute('data-nr-rv', v); else doc.documentElement.removeAttribute('data-nr-rv'); } catch (_) {}
         S.view = v; S.opened = (v === 'prices' || v === 'unit') && !!doc.getElementById('tab-rnp') && doc.getElementById('tab-rnp').classList.contains('active'); try { root.localStorage.setItem('nr_rnp_view', v); } catch (_) {}
         var tab = doc.getElementById('tab-rnp'); if (!tab) return;
         tab.classList.toggle('rp-on', v === 'prices'); tab.classList.toggle('ru-on', v === 'unit');
