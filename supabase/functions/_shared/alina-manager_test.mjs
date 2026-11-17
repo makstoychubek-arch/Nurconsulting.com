@@ -56,7 +56,7 @@ function setup() {
 }
 
 const question = {
-  chat: { type: 'private', id: owner }, from: { id: owner },
+  chat: { type: 'private', id: owner }, from: { id: owner, username: 'nurcon' },
   business_connection_id: 'test', text: 'Можно поговорить с менеджером?',
 };
 const reply = (extra = {}) => ({
@@ -74,7 +74,10 @@ const lastToGroup = (messages) => messages.filter((m) => m.chat_id === group).at
   assert.equal(messages_len(messages), 0);
   assert.equal(await run('', { business_message: question }), true);
   assert.equal(messages[0].chat_id, group);
-  assert.ok(messages[0].text.startsWith('ТЕСТ · @nurcon: Можно поговорить с менеджером?'), messages[0].text);
+  const [line1, line2] = messages[0].text.split('\n');
+  assert.equal(line1, '@nurcon', 'логин на первой строке');
+  assert.equal(line2, 'ТЕСТ · Можно поговорить с менеджером?', 'вопрос на второй');
+  assert.deepEqual(messages[0].reply_markup, { inline_keyboard: [[{ text: 'Скопировать @nurcon', copy_text: { text: '@nurcon' } }]] }, 'кнопка копирует только логин с @');
   assert.equal(messages[1].text, 'Минутку, уточню.');
   assert.equal(await run('', { message: reply({ from: { id: 999, is_bot: true } }) }), false, 'ответ от бота игнорируется');
   assert.equal(await run('', { message: reply() }), true, 'ответ менеджера со своего аккаунта принят');
@@ -83,6 +86,18 @@ const lastToGroup = (messages) => messages.filter((m) => m.chat_id === group).at
   await run('', { message: reply() });
   assert.equal(messages.length, 4, 'повторный реплай ничего не отправляет');
   console.log('ok   обычный путь, чужие отправители и дубль');
+}
+
+// 1б. Логин берётся у автора каждого обращения; без логина кнопки нет
+{
+  for (const [username, expected] of [['alina_test77', '@alina_test77'], [undefined, null], ['bad name!', null], ['abc', null]]) {
+    const { run, messages } = setup();
+    await run('', { business_message: { ...question, from: { id: owner, username } } });
+    assert.equal(messages[0].text.split('\n')[0], expected ?? 'Без логина · чат ' + owner);
+    if (expected) assert.deepEqual(messages[0].reply_markup.inline_keyboard[0][0], { text: 'Скопировать ' + expected, copy_text: { text: expected } });
+    else assert.equal(messages[0].reply_markup, undefined, 'у клиента без логина кнопки нет: ' + username);
+  }
+  console.log('ok   логин автора подставляется, без логина кнопки нет');
 }
 
 // 2. Отказ Telegram: заявка снова pending, менеджер видит «не доставлен», повторный ответ уходит

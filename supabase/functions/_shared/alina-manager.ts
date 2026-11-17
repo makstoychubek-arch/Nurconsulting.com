@@ -2,7 +2,7 @@ import { getAdminClient } from './alina-db.ts';
 
 type ManagerMessage = {
   chat?: { id?: number; type?: string };
-  from?: { id?: number; is_bot?: boolean };
+  from?: { id?: number; is_bot?: boolean; username?: string };
   reply_to_message?: { message_id?: number };
   message_id?: number;
   text?: string;
@@ -65,13 +65,14 @@ export async function askAlinaManager(
   group: number,
   client: { chatId: number; connectionId: string; username?: string },
   question: string,
-  label?: string,
 ): Promise<boolean> {
-  const username = client.username && /^[a-z0-9_]{1,32}$/i.test(client.username)
-    ? `@${client.username}` : `Без логина · чат ${client.chatId}`;
+  // Логин Telegram: 5–32 символа, латиница, цифры и «_». Иначе логина нет: пишем номер чата и кнопку не показываем.
+  const login = client.username && /^[a-z][a-z0-9_]{4,31}$/i.test(client.username) ? `@${client.username}` : null;
   const sent = await postTelegram(token, {
     chat_id: group,
-    text: `${label ?? `${username}\n${question}`}\n\nОтветьте на это сообщение. Текст ответа будет отправлен клиенту.`,
+    text: `${login ?? `Без логина · чат ${client.chatId}`}\n${question}\n\nОтветьте на это сообщение. Текст ответа будет отправлен клиенту.`,
+    // В буфер копируется только логин с «@» (copy_text). У клиента без логина кнопки нет.
+    reply_markup: login ? { inline_keyboard: [[{ text: `Скопировать ${login}`, copy_text: { text: login } }]] } : undefined,
   });
   if (sent.kind !== 'ok' || !sent.result?.message_id) return false;
   const { error } = await getAdminClient().from('alina_manager_questions').insert({
@@ -175,8 +176,8 @@ export async function processAlinaManagerTest(envToken: string, update: {
     }
     const connectionId = incoming.business_connection_id!;
     const posted = await askAlinaManager(token, alinaManagerTestGroup, {
-      chatId: alinaManagerTestChat, connectionId, username: 'nurcon',
-    }, 'Можно поговорить с менеджером?', 'ТЕСТ · @nurcon: Можно поговорить с менеджером?');
+      chatId: alinaManagerTestChat, connectionId, username: incoming.from?.username,
+    }, 'ТЕСТ · Можно поговорить с менеджером?');
     await postTelegram(token, {
       chat_id: alinaManagerTestChat, business_connection_id: connectionId,
       text: posted ? 'Минутку, уточню.' : 'Тест: вопрос не удалось доставить в группу.',

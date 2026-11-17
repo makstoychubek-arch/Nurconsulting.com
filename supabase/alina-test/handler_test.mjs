@@ -50,7 +50,7 @@ function setup(env = {}) {
   return { post, get, sent, rows, lib, deps };
 }
 
-const question = { update_id: 1, business_message: { chat: { type: 'private', id: owner }, from: { id: owner }, business_connection_id: 'bc1', text: 'Можно поговорить с менеджером?' } };
+const question = { update_id: 1, business_message: { chat: { type: 'private', id: owner }, from: { id: owner, username: 'nurcon' }, business_connection_id: 'bc1', text: 'Можно поговорить с менеджером?' } };
 const groupReply = (id, mid = 700) => ({ update_id: id, message: { chat: { id: group, type: 'group' }, from: { id: 555000111 }, message_id: mid, reply_to_message: { message_id: 401 }, text: 'Да, я на связи. Чем помочь?' } });
 const texts = (s) => s.filter((m) => m.method === 'sendMessage').map((m) => m.body);
 
@@ -86,7 +86,7 @@ const texts = (s) => s.filter((m) => m.method === 'sendMessage').map((m) => m.bo
   assert.equal((await (await t.post(question)).json()).handled, true);
   const m = texts(t.sent);
   assert.equal(m[0].chat_id, group);
-  assert.ok(m[0].text.startsWith('ТЕСТ · @nurcon: Можно поговорить с менеджером?'));
+  assert.equal(m[0].text.split('\n').slice(0, 2).join('|'), '@nurcon|ТЕСТ · Можно поговорить с менеджером?');
   assert.deepEqual(m[1], { chat_id: owner, business_connection_id: 'bc1', text: 'Минутку, уточню.' });
   assert.equal((await (await t.post(question)).json()).duplicate, true, 'повтор доставки Telegram не создаёт второй вопрос');
   assert.equal(texts(t.sent).length, 2);
