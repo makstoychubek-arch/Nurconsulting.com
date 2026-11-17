@@ -10,6 +10,7 @@
  */
 
 import { googleAccessToken } from './alina-google-auth.ts';
+import { secretOrEnv } from './integration-secrets.ts';
 import { scoreProductMatch } from './alina-product-match.ts';
 import { parseRazdachiSheet, type RazSheet } from './alina-razdachi.ts';
 
@@ -824,7 +825,7 @@ export async function fetchSheetPlan(
     };
   }
 
-  const credentials = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
+  const credentials = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
   const token = credentials ? await googleAccessToken(credentials).catch(() => '') : '';
   if (!token) {
     return {

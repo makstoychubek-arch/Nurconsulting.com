@@ -2744,3 +2744,44 @@ html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .r
 .as-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 9px 18px; font-weight: 700; z-index: 30; }
 .as-toast[hidden] { display: none; }
 .as-toast button { margin-left: 10px; border: 0; background: none; color: inherit; text-decoration: underline; font: inherit; font-weight: 800; cursor: pointer; }
+
+/* ───────── Настройки → «Боты и ключи» (nr-keys-ui.js): «Минимализм» на токенах сайта ───────── */
+.nk-wrap { position: relative; padding-bottom: 24px; }
+.nk-lead { margin: 0 0 14px; color: var(--text-muted); max-width: 78ch; }
+.nk-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); max-width: 860px; }
+.nk-card { background: var(--surface-solid); border: 1px solid var(--border); border-radius: 26px; padding: 16px 20px; min-width: 0; }
+.nk-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; }
+.nk-head h3 { margin: 0; font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.nk-sub { color: var(--text-muted); font-size: 12.5px; }
+.nk-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); min-width: 0; flex-wrap: wrap; }
+.nk-card .nk-head + .nk-row { border-top: 0; }
+.nk-t { flex: 1; min-width: 160px; }
+.nk-t b { display: block; font-weight: 700; color: var(--text-primary); }
+.nk-t span { color: var(--text-muted); font-size: 12.5px; word-break: break-word; }
+.nk-ava { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 1px solid var(--border-strong, var(--border)); display: grid; place-items: center; font-weight: 800; color: var(--text-primary); }
+.nk-pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; padding: 3px 11px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-primary); white-space: nowrap; }
+.nk-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+.nk-ok i { background: var(--green); } .nk-bad i { background: var(--red); }
+.nk-empty, .nk-hint { margin: 8px 0 0; color: var(--text-muted); font-size: 12.5px; }
+.nk-okt { color: var(--green); font-weight: 700; } .nk-badt { color: var(--red); font-weight: 700; }
+.nk-code { background: var(--surface); border-radius: 8px; padding: 1px 7px; font-size: 12px; color: var(--text-primary); user-select: all; word-break: break-all; }
+.nk-link { border: 0; background: none; color: var(--text-primary); text-decoration: underline; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 0; }
+.nk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.nk-btn { border: 1px solid var(--border-strong, var(--border)); background: none; color: var(--text-primary); border-radius: 999px; font: inherit; font-weight: 700; font-size: 12.5px; padding: 7px 14px; cursor: pointer; }
+.nk-btn:disabled { opacity: .55; cursor: default; }
+.nk-ink { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
+.nk-danger { color: var(--red); }
+.nk-form { display: grid; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.nk-form label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.nk-form input[type=text], .nk-form input[type=password], .nk-form textarea, .nk-form select { background: transparent; color: var(--text-primary); border: 1px solid var(--border-strong, var(--border)); border-radius: 14px; padding: 8px 12px; font: inherit; font-weight: 400; min-width: 0; width: 100%; }
+.nk-form textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.nk-sw { position: relative; width: 44px; height: 26px; flex: none; }
+.nk-sw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.nk-sw u { position: absolute; inset: 0; border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; transition: .15s; }
+.nk-sw u::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-muted); transition: .15s; }
+.nk-sw input:checked + u { background: var(--accent); border-color: var(--accent); }
+.nk-sw input:checked + u::after { left: 21px; background: var(--on-accent, #fff); }
+.nk-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 9px 18px; font-weight: 700; z-index: 30; max-width: calc(100vw - 32px); }
+.nk-toast-bad { background: var(--red); color: #fff; }
+.nk-toast[hidden] { display: none; }
+@media (max-width: 768px) { .nk-card { padding: 14px 16px; } .nk-toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); } }

@@ -1,5 +1,6 @@
 // Разбор скринов клиентов Алины (Telegram photo → OpenAI Vision).
 // Если ключа нет / ошибка API — возвращаем ok:null → вызывающий код идёт как раньше.
+import { secretOrEnv } from './integration-secrets.ts';
 
 export type ScreenStage =
   | 'ad'
@@ -90,7 +91,7 @@ export async function analyzeAlinaScreenshot(opts: {
     via: 'none',
   };
 
-  const apiKey = (Deno.env.get('OPENAI_API_KEY') ?? '').trim();
+  const apiKey = await secretOrEnv('OPENAI_API_KEY');
   if (!apiKey) return empty;
 
   const model = (Deno.env.get('OPENAI_VISION_MODEL') ||
