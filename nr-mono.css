@@ -2679,6 +2679,6 @@ html body .ru-gi.on b { text-decoration: underline; }
    лежит над прокручиваемой таблицей, размытие под ней на iPhone считалось на каждом кадре, поэтому у неё плотная заливка без размытия. */
 html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .rnp-general-topbar, .rnp-general-topbar *) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 @media (max-width: 768px) {
-  html[data-theme="neon"] body .bottom-nav { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgba(46,46,44,.9) !important; }
-  html[data-theme="ios"] body .bottom-nav { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgba(255,255,255,.92) !important; }
+  html[data-theme="neon"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(46,46,44) !important; }
+  html[data-theme="ios"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(255,255,255) !important; }
 }
