@@ -38,10 +38,10 @@ type TelegramPost =
   | { kind: 'refused' }   // Telegram ответил отказом: сообщение точно не отправлено
   | { kind: 'unknown' };  // таймаут, обрыв или 5xx: неизвестно, принял ли Telegram сообщение
 
-async function postTelegram(token: string, body: object): Promise<TelegramPost> {
+async function postTelegram(token: string, body: object, method = 'sendMessage'): Promise<TelegramPost> {
   let response: Response;
   try {
-    response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -65,6 +65,17 @@ async function postTelegram(token: string, body: object): Promise<TelegramPost> 
   // Причина отказа без токена и без текста сообщения: код, описание Telegram и чат.
   console.error('[alina-manager] Telegram refused', response.status, String((data as { description?: string } | null)?.description || ''), String((body as { chat_id?: unknown }).chat_id));
   return { kind: 'refused' };
+}
+
+// «Печатает…»: пока Алина «набирает» ответ, у клиента в чате виден индикатор. Пауза зависит от длины текста.
+// Сбой индикатора ничего не ломает, сообщение всё равно уйдёт.
+export function alinaTypingMs(text: string): number {
+  return Math.min(3000, Math.max(800, 500 + text.length * 30));
+}
+
+async function showTyping(token: string, chatId: number, connectionId: string, text: string): Promise<void> {
+  await postTelegram(token, { chat_id: chatId, business_connection_id: connectionId, action: 'typing' }, 'sendChatAction');
+  await new Promise((resolve) => setTimeout(resolve, alinaTypingMs(text)));
 }
 
 export async function askAlinaManager(
@@ -122,6 +133,7 @@ async function deliverAlinaManagerReply(token: string, group: number, message: M
   if (error) throw error;
   if (!pending) return;
 
+  await showTyping(token, pending.client_chat_id, pending.business_connection_id, message.text!.trim());
   const sent = await postTelegram(token, {
     chat_id: pending.client_chat_id,
     business_connection_id: pending.business_connection_id,
@@ -185,6 +197,8 @@ export async function processAlinaManagerTest(envToken: string, update: {
     const posted = await askAlinaManager(token, alinaManagerTestGroup, {
       chatId: alinaManagerTestChat, connectionId, username: incoming.from?.username,
     }, 'ТЕСТ · Можно поговорить с менеджером?');
+    const hold = posted ? 'Минутку, уточню.' : 'Тест: вопрос не удалось доставить в группу.';
+    await showTyping(token, alinaManagerTestChat, connectionId, hold);
     await postTelegram(token, {
       chat_id: alinaManagerTestChat, business_connection_id: connectionId,
       text: posted ? 'Минутку, уточню.' : 'Тест: вопрос не удалось доставить в группу.',

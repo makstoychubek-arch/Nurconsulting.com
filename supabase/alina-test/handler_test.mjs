@@ -32,6 +32,7 @@ function setup(env = {}) {
     const method = String(url).split('/').pop();
     const body = JSON.parse(init.body || '{}');
     sent.push({ method, body });
+    if (method === 'sendChatAction') return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) };
     if (method === 'getMe') return { ok: true, status: 200, json: async () => ({ ok: true, result: { username: 'nr_test_bot' } }) };
     if (method === 'getWebhookInfo') return { ok: true, status: 200, json: async () => ({ ok: true, result: { url: 'https://x.supabase.co/functions/v1/alina-manager-test', pending_update_count: 0 } }) };
     if (method === 'setWebhook') return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) };
@@ -39,8 +40,8 @@ function setup(env = {}) {
   };
   const manager = load('../functions/_shared/alina-manager.ts');
   const handler = load('./functions/alina-manager-test/handler.ts');
-  const make = new Function('getAdminClient', 'fetch', 'Deno', manager + '\n' + handler + '\nreturn { processAlinaManagerTest, handleTestWebhook }');
-  const lib = make(() => db, fetchMock, { env: { get: () => undefined } });
+  const make = new Function('getAdminClient', 'fetch', 'Deno', 'setTimeout', manager + '\n' + handler + '\nreturn { processAlinaManagerTest, handleTestWebhook }');
+  const lib = make(() => db, fetchMock, { env: { get: () => undefined } }, (f) => f());
   const full = { SUPABASE_URL: 'https://testproj.supabase.co', ALINA_TEST_WEBHOOK_SECRET: SECRET, ALINA_BOT_TOKEN: 'TESTTOKEN', ...env };
   const deps = { env: (n) => full[n], db, process: lib.processAlinaManagerTest, fetch: fetchMock };
   const post = (update, headers = { 'x-telegram-bot-api-secret-token': SECRET }) =>

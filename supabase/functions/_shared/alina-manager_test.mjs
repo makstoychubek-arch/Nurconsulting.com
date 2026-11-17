@@ -40,8 +40,9 @@ function setup() {
   } };
   // clientMode управляет только отправкой клиенту: ok | refused | timeout | http500
   const net = { clientMode: 'ok' };
-  const fakeTelegram = async (_, request) => {
+  const fakeTelegram = async (url, request) => {
     const body = JSON.parse(request.body);
+    if (String(url).endsWith('/sendChatAction')) { (messages.actions ||= []).push({ ...body, before: messages.length }); return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) }; }
     messages.push(body);
     if (body.chat_id === owner && body.business_connection_id && body.text !== 'Минутку, уточню.') {
       if (net.clientMode === 'timeout') throw new DOMException('The operation timed out', 'TimeoutError');
@@ -51,7 +52,7 @@ function setup() {
     const id = 400 + messages.length;
     return { ok: true, status: 200, json: async () => ({ ok: true, result: { message_id: id } }) };
   };
-  const run = new Function('getAdminClient', 'fetch', stripTypeScriptTypes(code) + '\nreturn processAlinaManagerTest')(() => database, fakeTelegram);
+  const run = new Function('getAdminClient', 'fetch', 'setTimeout', stripTypeScriptTypes(code) + '\nreturn processAlinaManagerTest')(() => database, fakeTelegram, (f) => f());
   return { run, messages, rows, net };
 }
 
@@ -85,6 +86,9 @@ const lastToGroup = (messages) => messages.filter((m) => m.chat_id === group).at
   assert.equal(rows[0].delivery_state, 'sent');
   await run('', { message: reply() });
   assert.equal(messages.length, 4, 'повторный реплай ничего не отправляет');
+  // «печатает»: перед «Минутку» и перед ответом менеджера, в личку клиента через business-соединение
+  assert.equal(messages.actions.length, 2, 'два индикатора: перед «Минутку» и перед ответом');
+  assert.deepEqual(messages.actions.map((a) => [a.chat_id, a.business_connection_id, a.action, a.before]), [[owner, 'test', 'typing', 1], [owner, 'test', 'typing', 2]], 'индикатор идёт прямо перед сообщением клиенту');
   console.log('ok   обычный путь, чужие отправители и дубль');
 }
 
