@@ -6053,6 +6053,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     __nrCss += '#tab-rnp{display:flex !important;flex-direction:column;overflow:hidden;flex:1;min-height:0;background:var(--bg)}';
                     __nrCss += '.rnp-workspace,#rnp-sheet-body,.rnp-article-panel--wide{background:var(--surface-solid)}';
                     __nrCss += '.main-content{padding:4px 6px}';
+                    /* «Товары» и «Юнит-экономика» внутри РНП: с первого кадра прячем сам РНП, иначе при обновлении страницы он мигал до появления нужной страницы */
+                    try {
+                        var __nrRv = localStorage.getItem('nr_rnp_view');
+                        if (__nrRv === 'prices' || __nrRv === 'unit') {
+                            document.documentElement.setAttribute('data-nr-rv', __nrRv);
+                            __nrCss += '#tab-rnp>*:not(#rnp-views):not(#rnp-prices-pane):not(#rnp-unit-pane){display:none !important}';
+                        }
+                    } catch (e) { /* без памяти покажем РНП */ }
                 }
                 if (__nrPane !== 'rnp' && __nrPane !== 'rnp-settings' && __nrPane !== 'rnp-planfact' && __nrPane !== 'rnp-planning') {
                     // Те же поля, что у страницы после загрузки (см. «Единые поля страниц»), иначе контент «перепрыгивает».
@@ -6094,7 +6102,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.8807323a89.css">
+<link rel="stylesheet" href="/dist/nr-mono.d8ecfdb9e2.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7920,6 +7928,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             };
                             var t = document.getElementById('page-title');
                             if (t && titles[tab]) t.textContent = titles[tab];
+                            var __rv0 = document.documentElement.getAttribute('data-nr-rv');
+                            if (t && tab === 'rnp' && __rv0) t.textContent = __rv0 === 'unit' ? 'Юнит-экономика' : 'Товары';
                             var main = document.querySelector('.main-content');
                             if (main && (tab === 'rnp' || tab === 'rnp-settings' || tab === 'rnp-planfact' || tab === 'rnp-planning')) main.classList.add('rnp-compact');
                         })();
@@ -8208,7 +8218,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-goods-ui.142265b01c.min.js"></script>
 <script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
-<script src="/dist/rnp-prices.49c9d05408.min.js"></script>
+<script src="/dist/rnp-prices.9f9977e1c0.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
@@ -9574,7 +9584,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (pageTitle) {
             pageTitle.classList.remove('header-hidden');
             if (isAdsHq) pageTitle.textContent = 'Продвижение';
-            else pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
+            else {
+                var __rvT = tabName === 'rnp' ? document.documentElement.getAttribute('data-nr-rv') : '';
+                pageTitle.textContent = __rvT ? (__rvT === 'unit' ? 'Юнит-экономика' : 'Товары') : (tabTitles[tabName] || tabTitles.dashboard || 'Дашборд');
+            }
         }
         if (dateWrap) {
             const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty;
