@@ -43,11 +43,17 @@ const tables = {
         // группы сверху, под ними фото артикулов группы; артикул без продаж не показан
         await page.waitForFunction(() => window.RNP && window.RNP.groupsView && window.RNP.groupsView().length > 0, null, { timeout: 10000 });
         await page.waitForTimeout(1200);
-        const grp = await page.evaluate(() => [...document.querySelectorAll('.ru-tab')].map((t) => t.textContent));
-        assert.ok(grp.length >= 1, 'сверху группы как в РНП: ' + grp);
-        assert.ok(await page.evaluate(() => document.querySelectorAll('.ru-pt').length >= 2), 'под ними фото артикулов группы');
+        // как в РНП: одна кнопка с группой, по нажатию раскрывается список групп; рядом фото артикулов группы
+        assert.ok(await page.evaluate(() => /Без категории/.test(document.querySelector('.ru-gbtn').textContent)), 'сверху кнопка текущей группы');
+        assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.ru-tab').length), 0, 'отдельных вкладок на каждую группу нет');
+        await page.click('.ru-gbtn');
+        const grp = await page.evaluate(() => [...document.querySelectorAll('.ru-gmenu .ru-gi')].map((t) => t.textContent));
+        assert.ok(grp.length >= 1, 'список групп раскрывается: ' + grp);
+        await page.click('.ru-gmenu .ru-gi');
+        assert.ok(await page.evaluate(() => !document.querySelector('.ru-gmenu')), 'после выбора группы список закрывается');
+        assert.ok(await page.evaluate(() => document.querySelectorAll('.ru-pt').length >= 2), 'рядом фото артикулов группы');
         assert.ok(await page.evaluate(() => document.querySelector('.ru-pt[data-un="3"]').classList.contains('off')), 'артикул без продаж приглушён');
-        console.log('ok   сверху группы из РНП: ' + grp.join(', ') + ', под ними фото артикулов');
+        console.log('ok   группа раскрывается списком, рядом фото артикулов: ' + grp.join(', '));
         // выбираем фото артикула 1 (цена 5000, комиссия 32%): ниже таблица с его значениями
         const clickGroup = async (nm) => { await page.evaluate((n) => { const b = document.querySelector('.ru-pt[data-un="' + n + '"]'); if (b) b.click(); }, nm); };
         await clickGroup(1);

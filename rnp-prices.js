@@ -635,7 +635,7 @@
 
 
     /* ───── Юнит-экономика (по формулам РНП): расходы и прибыль с одной штуки по каждому артикулу, без рекламы ───── */
-    var U = { cab: '', arts: [], agg: {}, tax: 0, load: false, token: 0, raf: 0, gi: 0, nm: '', ed: {} };
+    var U = { cab: '', arts: [], agg: {}, tax: 0, load: false, token: 0, raf: 0, gi: 0, nm: '', ed: {}, open: false };
     var UDAYS = 30;
     function num(v) { return Number(v) || 0; }
     // Те же расчёты, что в РНП (wb-formulas.js): к перечислению уже без комиссии, эквайринга и возвратов; себестоимость только на выкупленные (продажи минус возвраты)
@@ -742,7 +742,9 @@
         var snaps = uSnaps(), key = String(U.nm), snap = snaps[key];
         if (base && !snap) { snap = snaps[key] = { at: Date.now(), v: base }; uSaveSnaps(snaps); }
         U.ed = U.ed || {}; var cur = base ? Object.assign({}, snap.v, U.ed[key] || {}) : null;
-        var tabs = '<div class="ru-grp">' + groups.map(function (x, i) { return '<button type="button" class="ru-tab' + (i === U.gi ? ' on' : '') + '" data-ug="' + i + '">' + esc(x.name) + ' · ' + x.items.length + '</button>'; }).join('') + '</div>';
+        // Как в РНП: сверху одна кнопка с текущей группой, по нажатию раскрывается список групп, рядом сразу фото артикулов выбранной группы
+        var menu = U.open ? '<div class="ru-gmenu" role="listbox">' + groups.map(function (x, i) { return '<button type="button" class="ru-gi' + (i === U.gi ? ' on' : '') + '" role="option" data-ug="' + i + '"><b>' + esc(x.name) + '</b><span>' + x.items.length + '</span></button>'; }).join('') + '</div>' : '';
+        var tabs = '<div class="ru-gwrap"><button type="button" class="ru-gbtn" data-ugo="1" aria-expanded="' + (U.open ? 'true' : 'false') + '"><i>▾</i>' + esc(g.name) + '<small>' + items.length + '</small></button>' + menu + '</div>';
         var photos = '<div class="ru-ph">' + items.map(function (a) {
             var v = uVals(a), on = String(a.nm_id) === String(U.nm);
             return '<button type="button" class="ru-pt' + (on ? ' on' : '') + (v ? '' : ' off') + '" data-un="' + a.nm_id + '" aria-label="' + esc(a.name || a.nm_id) + '"><span class="ru-pi">' + (pic(a) ? '<img src="' + esc(pic(a)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span><b>' + (v ? fmt(v.price) : '—') + '</b><em>' + esc(String(a.name || a.nm_id).slice(0, 14)) + '</em></button>';
@@ -771,14 +773,16 @@
         }
         var actKey = doc.activeElement && doc.activeElement.dataset && doc.activeElement.dataset.k ? doc.activeElement.dataset.k : '';
         var sc = pane.scrollTop;
-        pane.innerHTML = '<div class="rp-tools">' + subTabs('unit') + '</div>' + tabs + photos + body;
+        pane.innerHTML = '<div class="rp-tools">' + subTabs('unit') + '</div><div class="ru-bar">' + tabs + photos + '</div>' + body;
         pane.scrollTop = sc;
         if (actKey) { var n = pane.querySelector('input[data-k="' + actKey + '"]'); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (_) {} } }
     }
     function unitClick(e) {
         var b;
         if ((b = e.target.closest('[data-vw]'))) { setView(b.getAttribute('data-vw')); return; }
-        if ((b = e.target.closest('[data-ug]'))) { U.gi = Number(b.getAttribute('data-ug')); U.nm = ''; paintUnit(); return; }
+        if ((b = e.target.closest('[data-ugo]'))) { U.open = !U.open; paintUnit(); return; }
+        if ((b = e.target.closest('[data-ug]'))) { U.gi = Number(b.getAttribute('data-ug')); U.nm = ''; U.open = false; paintUnit(); return; }
+        if (U.open && !e.target.closest('.ru-gwrap')) { U.open = false; paintUnit(); }
         if ((b = e.target.closest('[data-un]'))) { U.nm = b.getAttribute('data-un'); paintUnit(); return; }
         if ((b = e.target.closest('[data-ua]'))) {
             var a = b.getAttribute('data-ua'); U.ed = U.ed || {};

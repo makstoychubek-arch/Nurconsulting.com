@@ -2657,3 +2657,17 @@ html body .rp-tools { justify-content: space-between; align-items: center; }
 html body .rp-subtabs { display: flex; gap: 6px; }
 html body .rp-subtabs button { border: 0; border-radius: 999px; padding: 6px 14px; font: 800 12px inherit; font-family: inherit; background: var(--sel, rgba(128,128,128,.12)); color: var(--text-muted); cursor: pointer; }
 html body .rp-subtabs button.on { background: var(--text-primary); color: var(--bg-primary, var(--bg)); }
+
+/* Юнит-экономика: группы как в РНП: одна кнопка с текущей группой (раскрывается списком), рядом фото артикулов */
+html body .ru-bar { display: flex; align-items: flex-end; gap: 16px; margin: 4px 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+html body .ru-bar .ru-ph { margin: 0; padding: 0; border: 0; flex: 1; min-width: 0; }
+html body .ru-gwrap { position: relative; flex: none; align-self: flex-start; }
+html body .ru-gbtn { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 8px 14px; font: 800 12px inherit; font-family: inherit; background: var(--text-primary); color: var(--bg-primary, var(--bg)); cursor: pointer; max-width: 260px; }
+html body .ru-gbtn i { font-style: normal; font-size: 10px; }
+html body .ru-gbtn small { font-weight: 800; opacity: .6; font-size: 11px; }
+html body .ru-gmenu { position: absolute; left: 0; top: calc(100% + 6px); z-index: 30; width: 320px; max-height: min(60vh, 420px); overflow: auto; padding: 6px; border-radius: 20px; background: var(--g-solid, var(--surface-solid)); border: 1px solid var(--g-line, var(--border)); box-shadow: 0 16px 40px var(--g-sh, rgba(0,0,0,.25)); }
+html body .ru-gi { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; border: 0; background: transparent; color: var(--text-primary); text-align: left; padding: 8px 12px; border-radius: 12px; font: 700 12.5px inherit; font-family: inherit; cursor: pointer; }
+html body .ru-gi span { color: var(--text-muted); font-weight: 800; }
+html body .ru-gi:hover, html body .ru-gi.on { background: var(--sel, rgba(128,128,128,.12)); }
+html body .ru-gi.on b { text-decoration: underline; }
+@media (max-width: 768px) { html body .ru-bar { flex-direction: column; align-items: stretch; } }
