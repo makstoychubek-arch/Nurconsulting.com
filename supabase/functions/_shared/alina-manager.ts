@@ -65,12 +65,13 @@ export async function askAlinaManager(
   group: number,
   client: { chatId: number; connectionId: string; username?: string },
   question: string,
+  label?: string,
 ): Promise<boolean> {
   const username = client.username && /^[a-z0-9_]{1,32}$/i.test(client.username)
     ? `@${client.username}` : `Без логина · чат ${client.chatId}`;
   const sent = await postTelegram(token, {
     chat_id: group,
-    text: `${username}\n${question}\n\nОтветьте на это сообщение. Текст ответа будет отправлен клиенту.`,
+    text: `${label ?? `${username}\n${question}`}\n\nОтветьте на это сообщение. Текст ответа будет отправлен клиенту.`,
   });
   if (sent.kind !== 'ok' || !sent.result?.message_id) return false;
   const { error } = await getAdminClient().from('alina_manager_questions').insert({
@@ -163,7 +164,7 @@ export async function processAlinaManagerTest(envToken: string, update: {
     const connectionId = incoming.business_connection_id!;
     const posted = await askAlinaManager(token, alinaManagerTestGroup, {
       chatId: alinaManagerTestChat, connectionId, username: 'nurcon',
-    }, 'ТЕСТ · Доставка задерживается, что делать?');
+    }, 'Доставка задерживается, что делать?', 'ТЕСТ · @nurcon: Доставка задерживается, что делать?');
     await postTelegram(token, {
       chat_id: alinaManagerTestChat, business_connection_id: connectionId,
       text: posted ? 'Минутку, уточню.' : 'Тест: вопрос не удалось доставить в группу.',

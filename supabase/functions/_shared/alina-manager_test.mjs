@@ -70,7 +70,7 @@ const lastToGroup = (messages) => messages.filter((m) => m.chat_id === group).at
   assert.equal(await run('', { business_message: { ...question, from: { id: 123 } } }), false);
   assert.equal(await run('', { business_message: question }), true);
   assert.equal(messages[0].chat_id, group);
-  assert.match(messages[0].text, /@nurcon.*Доставка задерживается, что делать\?/s);
+  assert.ok(messages[0].text.startsWith('ТЕСТ · @nurcon: Доставка задерживается, что делать?'), messages[0].text);
   assert.equal(messages[1].text, 'Минутку, уточню.');
   assert.equal(await run('', { message: reply({ from: { id: 999 } }) }), false);
   assert.equal(await run('', { message: reply() }), true);
