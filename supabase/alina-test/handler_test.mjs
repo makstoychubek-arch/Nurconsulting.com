@@ -32,7 +32,7 @@ function setup(env = {}) {
     const method = String(url).split('/').pop();
     const body = JSON.parse(init.body || '{}');
     sent.push({ method, body });
-    if (method === 'sendChatAction') return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) };
+    if (['sendChatAction', 'readBusinessMessage', 'editMessageText', 'setMessageReaction'].includes(method)) return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) };
     if (method === 'getMe') return { ok: true, status: 200, json: async () => ({ ok: true, result: { username: 'nr_test_bot' } }) };
     if (method === 'getWebhookInfo') return { ok: true, status: 200, json: async () => ({ ok: true, result: { url: 'https://x.supabase.co/functions/v1/alina-manager-test', pending_update_count: 0 } }) };
     if (method === 'setWebhook') return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) };
@@ -88,7 +88,7 @@ const texts = (s) => s.filter((m) => m.method === 'sendMessage').map((m) => m.bo
   const m = texts(t.sent);
   assert.equal(m[0].chat_id, group);
   assert.equal(m[0].text.split('\n').slice(0, 2).join('|'), '@nurcon|ТЕСТ · Можно поговорить с менеджером?');
-  assert.deepEqual(m[1], { chat_id: owner, business_connection_id: 'bc1', text: 'Минутку, уточню.' });
+  assert.deepEqual(m[1], { chat_id: owner, business_connection_id: 'bc1', text: 'Секунду, сейчас уточню.' }, 'update_id 1: вторая из трёх фраз');
   assert.equal((await (await t.post(question)).json()).duplicate, true, 'повтор доставки Telegram не создаёт второй вопрос');
   assert.equal(texts(t.sent).length, 2);
   assert.equal((await (await t.post(groupReply(2))).json()).handled, true);

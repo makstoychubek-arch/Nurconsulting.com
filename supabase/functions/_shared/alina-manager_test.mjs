@@ -9,90 +9,131 @@ const code = readFileSync(new URL('./alina-manager.ts', import.meta.url), 'utf8'
 const owner = 7159099638;
 const group = -1004465341061;
 const manager = 555000111; // менеджер со своего аккаунта, не @nurcon
+const mgrFrom = { id: manager, first_name: 'Марлен', last_name: 'Тойчубеков' };
 
 function setup() {
-  const messages = [];
+  const messages = [];   // sendMessage
+  const calls = [];      // все вызовы Telegram по порядку: { method, body }
   const rows = [];
-  const database = { from(table) {
-    if (table === 'telegram_bot_secrets') {
-      const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { token: 'mock' } }) };
-      return q;
-    }
-    assert.equal(table, 'alina_manager_questions');
-    return {
-      insert: async (row) => { rows.push({ delivery_state: 'pending', ...row }); return {}; },
-      update(patch) {
-        const filters = {};
-        const apply = () => {
-          const row = rows.find((r) => Object.entries(filters).every(([k, v]) => r[k] === v));
-          return row ? Object.assign(row, patch) : null;
-        };
-        const q = {
-          match: (f) => { Object.assign(filters, f); return q; },
-          eq: (k, v) => { filters[k] = v; return q; },
-          select: () => q,
-          maybeSingle: async () => ({ data: apply() }),
-          then: (resolve) => resolve({ data: apply() }),
-        };
-        return q;
+  const seen = new Set();
+  const clock = { now: Date.parse('2026-11-17T12:00:00Z') };
+  const net = { clientMode: 'ok', reactions: true };
+  const query = (table, state) => {
+    const f = []; let patch = null; let op = 'select';
+    const match = (r) => f.every(([k, kind, v]) => kind === 'eq' ? r[k] === v : kind === 'is' ? (v === null ? r[k] == null : r[k] === v) : kind === 'lt' ? r[k] < v : true);
+    const q = {
+      select: () => q,
+      eq: (k, v) => { f.push([k, 'eq', v]); return q; },
+      is: (k, v) => { f.push([k, 'is', v]); return q; },
+      lt: (k, v) => { f.push([k, 'lt', v]); return q; },
+      match: (m) => { for (const [k, v] of Object.entries(m)) f.push([k, 'eq', v]); return q; },
+      limit: () => q,
+      update: (p) => { op = 'update'; patch = p; return q; },
+      maybeSingle: async () => {
+        const row = state.rows.find(match);
+        if (op === 'update' && row) Object.assign(row, patch);
+        return { data: row ? { ...row } : null };
+      },
+      then: (resolve) => {
+        const hit = state.rows.filter(match);
+        if (op === 'update') hit.forEach((r) => Object.assign(r, patch));
+        resolve({ data: hit.map((r) => ({ ...r })), error: null });
       },
     };
+    return q;
+  };
+  const database = { from(table) {
+    if (table === 'telegram_bot_secrets') { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { token: 'mock' } }) }; return q; }
+    if (table === 'alina_selfbuy_events') return { insert: async (r) => seen.has(r.payload.update_id) ? { error: { code: '23505' } } : (seen.add(r.payload.update_id), { error: null }) };
+    assert.equal(table, 'alina_manager_questions');
+    return {
+      insert: async (row) => { rows.push({ delivery_state: 'pending', reminded_at: null, created_at: new Date(clock.now).toISOString(), ...row }); return {}; },
+      select: () => query(table, { rows }).select(),
+      update: (p) => query(table, { rows }).update(p),
+    };
   } };
-  // clientMode управляет только отправкой клиенту: ok | refused | timeout | http500
-  const net = { clientMode: 'ok' };
   const fakeTelegram = async (url, request) => {
+    const method = String(url).split('/').pop();
     const body = JSON.parse(request.body);
-    if (String(url).endsWith('/sendChatAction')) { (messages.actions ||= []).push({ ...body, before: messages.length }); return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) }; }
+    calls.push({ method, body });
+    const ok = (result = true) => ({ ok: true, status: 200, json: async () => ({ ok: true, result }) });
+    if (method === 'sendChatAction' || method === 'readBusinessMessage' || method === 'editMessageText') return ok();
+    if (method === 'setMessageReaction') return net.reactions ? ok() : { ok: false, status: 400, json: async () => ({ ok: false, description: 'REACTION_INVALID' }) };
     messages.push(body);
-    if (body.chat_id === owner && body.business_connection_id && body.text !== 'Минутку, уточню.') {
+    if (body.chat_id === owner && body.business_connection_id && !['Минутку', 'Секунду', 'Сейчас', 'Ещё'].some((w) => String(body.text).includes(w))) {
       if (net.clientMode === 'timeout') throw new DOMException('The operation timed out', 'TimeoutError');
       if (net.clientMode === 'http500') return { ok: false, status: 502, json: async () => ({ ok: false }) };
       if (net.clientMode === 'refused') return { ok: false, status: 403, json: async () => ({ ok: false, description: 'Forbidden' }) };
     }
-    const id = 400 + messages.length;
-    return { ok: true, status: 200, json: async () => ({ ok: true, result: { message_id: id } }) };
+    return ok({ message_id: 400 + messages.length });
   };
-  const run = new Function('getAdminClient', 'fetch', 'setTimeout', stripTypeScriptTypes(code) + '\nreturn processAlinaManagerTest')(() => database, fakeTelegram, (f) => f());
-  return { run, messages, rows, net };
+  const lib = new Function('getAdminClient', 'fetch', 'setTimeout',
+    stripTypeScriptTypes(code) + '\nreturn { processAlinaManagerTest, remindAlinaManager, alinaHoldPhrase }')(() => database, fakeTelegram, (f) => f());
+  const run = lib.processAlinaManagerTest;
+  return { run, messages, calls, rows, net, clock, lib };
 }
 
 const question = {
-  chat: { type: 'private', id: owner }, from: { id: owner, username: 'nurcon' },
-  business_connection_id: 'test', text: 'Можно поговорить с менеджером?',
+  chat: { type: 'private', id: owner }, from: { id: owner, username: 'nurcon', first_name: 'Мара' },
+  business_connection_id: 'test', message_id: 90, text: 'Можно поговорить с менеджером?',
 };
 const reply = (extra = {}) => ({
-  chat: { id: group, type: 'group' }, from: { id: manager }, message_id: 700,
+  chat: { id: group, type: 'group' }, from: mgrFrom, message_id: 700,
   reply_to_message: { message_id: 401 }, text: 'Да, я на связи. Чем помочь?', ...extra,
 });
-const messages_len = (m) => m.length;
-const lastToGroup = (messages) => messages.filter((m) => m.chat_id === group).at(-1).text;
+const toClient = (m, text) => m.filter((x) => x.chat_id === owner && x.text === text);
+const reactionsOf = (calls) => calls.filter((c) => c.method === 'setMessageReaction').map((c) => c.body.reaction[0].emoji);
+const groupTexts = (m) => m.filter((x) => x.chat_id === group).map((x) => x.text);
 
-// 1. Обычный путь: вопрос в группу, «Минутку», ответ клиенту ровно один раз
+// 1. Обычный путь: вопрос в группу, «живая» фраза, ответ клиенту ровно один раз, итог реакцией
 {
-  const { run, messages, rows } = setup();
+  const { run, messages, calls, rows } = setup();
   assert.equal(await run('', { business_message: { ...question, from: { id: 123 } } }), false);
   assert.equal(await run('', { business_message: { ...question, text: 'Привет, где мой заказ?' } }), false, 'другая фраза от @nurcon идёт обычным путём');
-  assert.equal(messages_len(messages), 0);
-  assert.equal(await run('', { business_message: question }), true);
-  assert.equal(messages[0].chat_id, group);
+  assert.equal(messages.length, 0);
+  assert.equal(await run('', { update_id: 2, business_message: question }), true);
   const [line1, line2] = messages[0].text.split('\n');
   assert.equal(line1, '@nurcon', 'логин на первой строке');
   assert.equal(line2, 'ТЕСТ · Можно поговорить с менеджером?', 'вопрос на второй');
-  assert.deepEqual(messages[0].reply_markup, { inline_keyboard: [[{ text: 'Скопировать @nurcon', copy_text: { text: '@nurcon' } }]] }, 'кнопка копирует только логин с @');
-  assert.equal(messages[1].text, 'Минутку, уточню.');
+  assert.deepEqual(messages[0].reply_markup, { inline_keyboard: [[{ text: 'Скопировать @nurcon', copy_text: { text: '@nurcon' } }]] });
+  assert.equal(messages[0].chat_id, group);
+  assert.equal(messages[1].text, 'Мара, сейчас спрошу и вернусь к вам.', 'имя клиента и вариант фразы по номеру обновления');
+  assert.deepEqual(calls.slice(0, 2).map((c) => c.method), ['readBusinessMessage', 'sendMessage'], 'сначала «прочитано», потом вопрос в группу');
+  assert.deepEqual(calls.find((c) => c.method === 'readBusinessMessage').body, { business_connection_id: 'test', chat_id: owner, message_id: 90 });
   assert.equal(await run('', { message: reply({ from: { id: 999, is_bot: true } }) }), false, 'ответ от бота игнорируется');
   assert.equal(await run('', { message: reply() }), true, 'ответ менеджера со своего аккаунта принят');
   assert.deepEqual(messages[2], { chat_id: owner, business_connection_id: 'test', text: reply().text });
   assert.equal(rows[0].delivery_state, 'sent');
+  assert.equal(rows[0].answered_by, manager);
+  assert.equal(rows[0].answered_by_name, 'Марлен Тойчубеков');
+  assert.deepEqual(reactionsOf(calls), ['❤'], 'доставлено: сердечко на ответ менеджера');
+  assert.equal(groupTexts(messages).length, 1, 'в группе нет лишних сообщений, только обращение');
+  const edit = calls.find((c) => c.method === 'editMessageText').body;
+  assert.match(edit.text, /✅ Ответил: Марлен Тойчубеков$/);
+  assert.doesNotMatch(edit.text, /Ответьте на это сообщение/);
+  assert.equal(edit.message_id, 401);
+  assert.deepEqual(edit.reply_markup.inline_keyboard[0][0].copy_text, { text: '@nurcon' }, 'кнопка копирования остаётся');
+  const before = calls.length;
   await run('', { message: reply() });
-  assert.equal(messages.length, 4, 'повторный реплай ничего не отправляет');
-  // «печатает»: перед «Минутку» и перед ответом менеджера, в личку клиента через business-соединение
-  assert.equal(messages.actions.length, 2, 'два индикатора: перед «Минутку» и перед ответом');
-  assert.deepEqual(messages.actions.map((a) => [a.chat_id, a.business_connection_id, a.action, a.before]), [[owner, 'test', 'typing', 1], [owner, 'test', 'typing', 2]], 'индикатор идёт прямо перед сообщением клиенту');
-  console.log('ok   обычный путь, чужие отправители и дубль');
+  await run('', { message: reply({ message_id: 701, from: { id: 777, first_name: 'Другой' } }) });
+  assert.equal(calls.length, before, 'повторный и второй реплай ничего не отправляют: берёт один менеджер');
+  assert.equal(toClient(messages, reply().text).length, 1);
+  console.log('ok   обычный путь: прочитано, фраза, ответ один раз, ❤ без лишних сообщений, «Ответил: …», второй менеджер блокирован');
 }
 
-// 1б. Логин берётся у автора каждого обращения; без логина кнопки нет
+// 1б. Живые фразы и имя
+{
+  const { lib } = setup();
+  const set = new Set([0, 1, 2].map((i) => lib.alinaHoldPhrase(undefined, i)));
+  assert.equal(set.size, 3, 'три разные фразы');
+  assert.equal(lib.alinaHoldPhrase(undefined, 0), 'Минутку, уточню.');
+  assert.equal(lib.alinaHoldPhrase('Мара', 0), 'Мара, минутку, уточню.');
+  assert.equal(lib.alinaHoldPhrase('<b>Мара</b>\n', 0), 'bМараb, минутку, уточню.', 'служебные символы из имени убираются');
+  assert.equal(lib.alinaHoldPhrase('', 5), 'Сейчас спрошу и вернусь к вам.');
+  console.log('ok   живые фразы и имя клиента');
+}
+
+// 1в. Логин автора; без логина кнопки нет
 {
   for (const [username, expected] of [['alina_test77', '@alina_test77'], [undefined, null], ['bad name!', null], ['abc', null]]) {
     const { run, messages } = setup();
@@ -104,38 +145,68 @@ const lastToGroup = (messages) => messages.filter((m) => m.chat_id === group).at
   console.log('ok   логин автора подставляется, без логина кнопки нет');
 }
 
-// 2. Отказ Telegram: заявка снова pending, менеджер видит «не доставлен», повторный ответ уходит
+// 2. Отказ Telegram: pending, 👎 без лишних сообщений, повтор доставляет; без реакций пишем текстом
 {
-  const { run, messages, rows, net } = setup();
+  const { run, messages, calls, rows, net } = setup();
   await run('', { business_message: question });
   net.clientMode = 'refused';
   await run('', { message: reply() });
-  assert.equal(rows[0].delivery_state, 'pending', 'после отказа заявка возвращается в pending');
-  assert.match(lastToGroup(messages), /не доставлен/i);
-  assert.doesNotMatch(lastToGroup(messages), /отправлен клиенту/);
+  assert.equal(rows[0].delivery_state, 'pending');
+  assert.deepEqual(reactionsOf(calls), ['👎'], 'не доставлено: дизлайк');
+  assert.equal(groupTexts(messages).length, 1, 'лишнего текста в группе нет');
   net.clientMode = 'ok';
   await run('', { message: reply({ message_id: 701 }) });
   assert.equal(rows[0].delivery_state, 'sent', 'повтор после отказа доставляет ответ');
-  assert.equal(messages.filter((m) => m.chat_id === owner && m.text === reply().text).length, 2, 'две попытки: отказ и успех');
-  console.log('ok   отказ Telegram: pending, менеджер уведомлён, повтор доставляет');
+  assert.deepEqual(reactionsOf(calls), ['👎', '❤']);
+  assert.equal(toClient(messages, reply().text).length, 2, 'две попытки: отказ и успех');
+  const noReact = setup();
+  await noReact.run('', { business_message: question });
+  noReact.net.reactions = false;
+  await noReact.run('', { message: reply() });
+  assert.ok(groupTexts(noReact.messages).includes('Ответ отправлен клиенту.'), 'реакции недоступны: короткий текст вместо них');
+  console.log('ok   отказ: 👎 без текста, повтор доставляет, запасной текст без реакций');
 }
 
-// 3. Таймаут и ошибка 5xx: неизвестно, принял ли Telegram. Не pending, автоповтора нет, менеджер предупреждён
+// 3. Таймаут и 5xx: неизвестно, принял ли Telegram. Не pending, автоповтора нет, менеджер предупреждён текстом
 for (const mode of ['timeout', 'http500']) {
-  const { run, messages, rows, net } = setup();
+  const { run, messages, calls, rows, net } = setup();
   await run('', { business_message: question });
   net.clientMode = mode;
   await run('', { message: reply() });
   assert.equal(rows[0].delivery_state, 'unconfirmed', mode + ': состояние «неизвестно»');
-  assert.match(lastToGroup(messages), /Неизвестно, дошёл ли ответ/);
-  assert.doesNotMatch(lastToGroup(messages), /не доставлен:|отправлен клиенту/);
-  const toClient = () => messages.filter((m) => m.chat_id === owner && m.text === reply().text).length;
-  assert.equal(toClient(), 1);
+  assert.match(groupTexts(messages).at(-1), /Неизвестно, дошёл ли ответ/);
+  assert.deepEqual(reactionsOf(calls), ['🤔']);
+  assert.equal(toClient(messages, reply().text).length, 1);
   net.clientMode = 'ok';
   await run('', { message: reply({ message_id: 701 }) });
-  assert.equal(toClient(), 1, mode + ': повторный реплай не отправляет ответ клиенту второй раз');
+  assert.equal(toClient(messages, reply().text).length, 1, mode + ': повторный реплай не отправляет ответ клиенту второй раз');
   assert.equal(rows[0].delivery_state, 'unconfirmed');
-  console.log('ok   ' + mode + ': unconfirmed, автоповтора нет, менеджер предупреждён');
+  console.log('ok   ' + mode + ': unconfirmed, 🤔 и предупреждение, автоповтора нет');
 }
 
-console.log('PASS: alina-manager: обычный путь, отказ Telegram, таймаут');
+// 4. Напоминание: через 10 минут без ответа, один раз, отвеченные не трогаем
+{
+  const { run, messages, calls, rows, clock, lib } = setup();
+  await run('', { business_message: question });
+  const created = clock.now;
+  assert.equal(await lib.remindAlinaManager('', created + 9 * 60e3), 0, 'до 10 минут тихо');
+  const n = messages.length;
+  assert.equal(await lib.remindAlinaManager('', created + 11 * 60e3), 1);
+  const added = messages.slice(n);
+  assert.equal(added[0].chat_id, group);
+  assert.equal(added[0].reply_parameters.message_id, 401, 'напоминание ответом на само обращение');
+  assert.match(added[0].text, /ждёт ответа/);
+  assert.deepEqual(added[1], { chat_id: owner, business_connection_id: 'test', text: 'Ещё уточняю, скоро вернусь к вам.' });
+  assert.ok(calls.some((c) => c.method === 'sendChatAction' && c.body.chat_id === owner), 'перед фразой клиенту «печатает»');
+  assert.equal(await lib.remindAlinaManager('', created + 30 * 60e3), 0, 'второго напоминания нет');
+  assert.equal(messages.length, n + 2);
+  // отвеченное обращение не напоминаем
+  const t = setup();
+  await t.run('', { business_message: question });
+  await t.run('', { message: reply() });
+  const m = t.messages.length;
+  assert.equal(await t.lib.remindAlinaManager('', t.clock.now + 60 * 60e3), 0);
+  assert.equal(t.messages.length, m);
+  console.log('ok   напоминание через 10 минут один раз, отвеченные не трогаются');
+}
+console.log('PASS: alina-manager: обычный путь, реакции, фразы, напоминание, отказ и таймаут');

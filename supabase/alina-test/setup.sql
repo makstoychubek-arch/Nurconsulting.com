@@ -1,5 +1,5 @@
 -- Схема ТОЛЬКО для отдельного тестового проекта Supabase. В рабочий проект не применять.
--- Таблица заявок: то же, что дают миграции 20261117152500 и 20261117160000.
+-- Таблица заявок: то же, что дают миграции 20261117152500, 20261117160000 и 20261117180000.
 create table if not exists public.alina_manager_questions (
   group_id bigint not null,
   group_message_id bigint not null,
@@ -8,6 +8,12 @@ create table if not exists public.alina_manager_questions (
   delivery_state text not null default 'pending'
     constraint alina_manager_questions_delivery_state_check
     check (delivery_state in ('pending', 'sending', 'sent', 'unconfirmed')),
+  created_at timestamptz not null default now(),
+  client_login text,
+  group_text text,
+  reminded_at timestamptz,
+  answered_by bigint,
+  answered_by_name text,
   primary key (group_id, group_message_id)
 );
 -- Пустая заглушка: тестовый вход читает токен из секрета функции, если здесь строки нет.
