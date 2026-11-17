@@ -872,7 +872,8 @@ html#nr-root.nr-f-gear header.glass.app-header :is(.header-page-title, button, .
 
 /* ПК: общий контур, таблица как у WB (режим и название закреплены, колонки метрик со свайпом вправо) */
 @media (min-width: 761px) {
-  html body #adv-view-ads { display: flex !important; flex-direction: column; gap: 12px; border: 1px solid var(--border-strong, var(--border)); border-radius: 20px; padding: 14px 16px; min-width: 0; max-width: 100%; }
+  /* когда открыта «Раздачи» или «Контент», кампании скрыты инлайн (display:none): правило их не возвращает */
+  html body #adv-view-ads:not([style*="display: none"]) { display: flex !important; flex-direction: column; gap: 12px; border: 1px solid var(--border-strong, var(--border)); border-radius: 20px; padding: 14px 16px; min-width: 0; max-width: 100%; }
   html body #tab-advertising { min-width: 0; max-width: 100%; }
   html body #adv-view-ads > * { margin-top: 0 !important; }
   html body #adv-view-ads > #ads-hq-kpis { order: 1; }
