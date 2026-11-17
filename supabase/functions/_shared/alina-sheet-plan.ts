@@ -11,6 +11,18 @@
 
 import { googleAccessToken } from './alina-google-auth.ts';
 import { scoreProductMatch } from './alina-product-match.ts';
+import { parseRazdachiSheet, type RazSheet } from './alina-razdachi.ts';
+
+/** Режим «Раздачи — строки»: каждая размеченная строка с ТГ, моделью и датой это место блогера. Выключен по умолчанию. */
+export function razdachiRowsMode(): boolean {
+  return (Deno.env.get('ALINA_RAZDACHI_ROWS') || '').trim() === '1';
+}
+
+let lastRazdachi: { sheet: RazSheet; at: number; sheetId: string } | null = null;
+/** Последний разбор листа «Раздачи» (обновляется вместе с планом, лишних чтений нет). */
+export function getLastRazdachi(): { sheet: RazSheet; at: number; sheetId: string } | null {
+  return lastRazdachi;
+}
 
 export type SheetPlanOffer = {
   date: string | null;
@@ -860,6 +872,10 @@ export async function fetchSheetPlan(
     ...uniqTabs.map((t) => readSheetTab(sheetId, t.gid, token)),
   ]);
   const leads = raz ? parseRazdachi(raz) : [];
+  if (raz && razdachiRowsMode()) {
+    const parsed = parseRazdachiSheet(raz);
+    if (parsed) lastRazdachi = { sheet: parsed, at: Date.now(), sheetId };
+  }
 
   const blocks: GraphBlock[] = [];
   for (let i = 0; i < uniqTabs.length; i++) {
@@ -923,7 +939,8 @@ export async function syncCampaignFromSheet(
       activeSheet = await resolveActiveSheet(db);
     } catch { /* */ }
   }
-  const snap = await fetchSheetPlan(true, activeSheet);
+  // В режиме строк план читается не на каждое сообщение, а по кэшу (45 с): иначе ~9 чтений Google на сообщение.
+  const snap = await fetchSheetPlan(!razdachiRowsMode(), activeSheet);
   if (!snap.ok) return { ...snap, synced: false };
 
   const a = snap.active;

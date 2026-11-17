@@ -32,6 +32,7 @@ import {
   resolveActiveSheet,
   getOpenProductChoices,
   matchOfferFromText,
+  razdachiRowsMode,
   resolveProductChoice,
   syncCampaignFromSheet,
   type SheetPlanOffer,
@@ -45,6 +46,7 @@ import {
   type VisionResult,
 } from './alina-vision.ts';
 import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
+import { clientRowsToday, syncLeadToRazdachiRow } from './alina-razdachi-sync.ts';
 import {
   fetchWbMainPhoto,
   fetchWbSearchFilters,
@@ -213,6 +215,16 @@ export async function handleAlinaClientMessage(opts: {
   const hasPhoto = Boolean(opts.hasPhoto);
   // «База в голове» = актуальный план из Google таблицы
   const camp = await ensureCampaignFresh();
+
+  // Режим «Раздачи — строки»: клиента нет в размеченных строках на сегодня (другой логин, нет логина, не наняли).
+  // Не ведём процесс и в таблицу не пишем: отвечаем коротко, остальное решает менеджер.
+  if (razdachiRowsMode()) {
+    const found = clientRowsToday(opts.username);
+    if (found.state === 'unavailable' || !found.rows.length) {
+      await logAlinaRawEvent(opts.chatId, 'razdachi_unmatched', { username: opts.username || null, sheet: found.state });
+      return { replies: ['Секунду, уточню у менеджера и вернусь к вам.'] };
+    }
+  }
 
   let lead = await getOrCreateLead(db, opts, source);
 
@@ -1459,6 +1471,13 @@ export async function logAlinaRawEvent(
 // ── Google Sheets ───────────────────────────────────────────────────────────
 
 async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
+  if (razdachiRowsMode()) {
+    // Строки размечены заранее: заполняем свою строку в фоне, ответ клиенту не ждёт таблицу. Новые строки не добавляем.
+    const task = syncLeadToRazdachiRow(db, leadId).catch(() => console.error('[alina-selfbuy] razdachi sync'));
+    const edge = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (edge?.waitUntil) edge.waitUntil(task); else await task;
+    return;
+  }
   const targetSheet = await resolveActiveSheet(db);
   const sheetId = targetSheet?.sheet_id || '';
   const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
