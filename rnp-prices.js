@@ -19,6 +19,19 @@
     function period() { var to = new Date(Date.now() + 6 * 3600e3), from = new Date(to.getTime() - (DAYS - 1) * 86400e3); return { from: ymd(from), to: ymd(to) }; }
     function norm(t) { return String(t || '').toLowerCase(); }
 
+    /* ───── настройки страницы «Товары»: свои названия блоков и порядок (храним в браузере по кабинету) ───── */
+    function prefKey() { return 'nr_rp_prefs_' + (S.cab || cabId()); }
+    function prefs() {
+        try { var p = JSON.parse(root.localStorage.getItem(prefKey()) || 'null') || {}; return { names: p.names || {}, order: p.order || [], corder: p.corder || [] }; } catch (_) { return { names: {}, order: [], corder: [] }; }
+    }
+    function savePrefs(p) { try { root.localStorage.setItem(prefKey(), JSON.stringify(p)); } catch (_) {} }
+    function nameOf(key, def) { var n = prefs().names[key]; return n ? String(n) : def; }
+    function sortBy(arr, order, keyOf) {
+        if (!order || !order.length) return arr;
+        var idx = function (x) { var i = order.indexOf(keyOf(x)); return i < 0 ? 1e6 : i; };
+        return arr.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return (idx(a.x) - idx(b.x)) || (a.i - b.i); }).map(function (o) { return o.x; });
+    }
+
     /* ───── чистые функции (проверяются тестом) ───── */
     function catOf(a) {
         var subj = norm(a.subject_name), t = norm(a.card_title) + ' ' + subj;
@@ -152,6 +165,7 @@
 
     /* ───── отрисовка ───── */
     var CROWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+    var GEAR_BTN = '<button type="button" class="rp-gear" data-act="settings" title="Настройки" aria-label="Настройки товаров"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
     function schedule() { if (S.raf) return; S.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { S.raf = 0; paint(); }) : (paint(), 0); }
     // Плитка 44×56: берём превью 246×328 (около 22 КБ) вместо «big» (около 170 КБ), иначе страница тормозит при прокрутке
     // Фото артикула: из карточки, а если там пусто (после сбоя синка) то по номеру WB, как в РНП и «Остатках»
@@ -161,23 +175,21 @@
     }
     function thumb(u) { return String(u || '').replace('/images/big/', '/images/c246x328/'); }
     function tile(a, loco) {
-        var low = a._k < 60 && !S.load.stock ? ' rp-low' : '', sel = S.sel[a.nm_id] ? ' sel' : '';
+        var low = '', sel = S.sel[a.nm_id] ? ' sel' : '';
         return '<div class="rp-it' + (loco ? ' l' : '') + low + sel + '" role="button" tabindex="0" data-nm="' + a.nm_id + '" aria-label="' + esc((a.name || '') + ' · WB ' + a.nm_id) + '">' +
             (loco ? '<span class="rp-cw">' + CROWN + '</span>' : '') +
             '<span class="rp-ph">' + (pic(a) ? '<img src="' + esc(pic(a)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span>' +
             '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '" aria-label="Выбрать" data-ck="' + a.nm_id + '">' + (sel ? '✓' : '') + '</span>' +
-            '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i>' +
-            '<s' + (S.load.stock && !S.stock[a.nm_id] ? ' class="rp-ld"' : '') + '>' + fmt(a._k) + '</s></div>';
+            '<i' + (S.load.prices && !a._p ? ' class="rp-ld"' : '') + '>' + (a._p ? fmt(a._p) : '—') + '</i></div>';
     }
-    function costBox(key, g) {
+    // Кружок себестоимости: нажал на цифру и правишь (одно значение на склейку)
+    function costRing(key, g) {
         var c = gcost(g);
-        return '<label class="rp-cost"><span>Себестоимость, сом</span><input class="rp-cost-in" data-gc="' + key + '" inputmode="decimal" autocomplete="off" placeholder="' + (c < 0 ? 'у артикулов разная' : '0') + '" value="' + (c > 0 ? c : '') + '"></label>';
+        return '<label class="rp-ring cs"><input class="rp-cost-in" data-gc="' + key + '" inputmode="decimal" autocomplete="off" aria-label="Себестоимость" placeholder="' + (c < 0 ? '…' : '0') + '" value="' + (c > 0 ? c : '') + '"><span>себест.</span></label>';
     }
-    function rings(g) {
+    function rings(g, key) {
         var ld = function (k) { return S.load[k] ? ' rp-ld' : ''; };
-        var fx = g.fboPct < 0 ? '<div class="rp-ring"><b>—</b><span>ФБО / ФБС</span></div>' : '<div class="rp-ring fx' + ld('stock') + '" style="--fbo:' + g.fboPct + '"><b>' + g.fboPct + ' / ' + (100 - g.fboPct) + '</b><span>ФБО / ФБС</span></div>';
-        return '<div class="rp-rings"><div class="rp-ring b' + ld('stock') + '"><b>' + fmt(g.stock) + '</b><span>остаток</span></div>' +
-            '<div class="rp-ring' + ld('prices') + '"><b>' + (g.avg ? fmt(g.avg) : '—') + '</b><span>ср. цена</span></div>' + fx + '</div>';
+        return '<div class="rp-rings"><div class="rp-ring' + ld('prices') + '"><b>' + (g.avg ? fmt(g.avg) : '—') + '</b><span>ср. цена</span></div>' + costRing(key, g) + '</div>';
     }
     function skeleton() {
         var row = function () { var t = ''; for (var i = 0; i < 12; i++) t += '<span class="rp-it rp-sk"><span class="rp-ph"></span><i class="rp-ld">0000</i><s class="rp-ld">000</s></span>'; return t; };
@@ -217,7 +229,7 @@
         });
         var lines = {};
         Object.keys(bases).forEach(function (b) { var l = ozLine(b); (lines[l] = lines[l] || []).push(bases[b]); });
-        return Object.keys(lines).sort().map(function (l) {
+        return sortBy(Object.keys(lines).sort(), prefs().corder.concat(prefs().order), function (l) { return 'oz:' + l; }).map(function (l) {
             var arr = lines[l].sort(function (x, y) { return y.stock - x.stock; }), n = 0, sum = 0, stock = 0, offers = 0;
             arr.forEach(function (x) { x.avg = x.offers.reduce(function (s, r) { return s + (Number(r.price) || 0); }, 0) / (x.offers.length || 1); sum += x.avg; n++; stock += x.stock; offers += x.offers.length; });
             return { line: l, bases: arr, avg: n ? sum / n : 0, stock: stock, offers: offers };
@@ -228,13 +240,14 @@
         if (!gs.length) return '<div class="rp-stage">' + (OZ.load ? skeleton() : '<div class="rp-empty"><b>У этого кабинета нет товаров Ozon</b><p>Подключите ключ Ozon в Настройки → API, товары подтянутся сами.</p></div>') + '</div>';
         var html = gs.map(function (g, i) {
             var key = 'o' + i; OZ.map[key] = g;
-            return '<div class="rp-row"><div class="rp-nm"><b>' + esc(g.line) + '</b><span>' + g.bases.length + ' арт. · ' + g.offers + ' размеров</span></div>' +
+            var ocat = (g.bases[0] && g.bases[0].offers[0] && g.bases[0].offers[0].name) || g.line;
+            return '<div class="rp-row"><div class="rp-nm"><em class="rp-catg">Категория · ' + esc(ocat) + '</em><b>' + esc(nameOf('oz:' + g.line, g.line)) + '</b><span>' + g.bases.length + ' арт. · ' + g.offers + ' размеров</span></div>' +
                 '<div class="rp-shelf">' + g.bases.map(function (x) {
                     var sel = OZ.sel[x.base] ? ' sel' : '';
-                    return '<div class="rp-it' + sel + (x.stock < 5 ? ' rp-low' : '') + '" role="button" tabindex="0" data-ock="' + esc(x.base) + '" aria-label="' + esc(x.base) + '"><span class="rp-ph">' + (x.img ? '<img src="' + esc(x.img) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
-                        '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '">' + (sel ? '✓' : '') + '</span><i>' + (x.avg ? fmt(x.avg) : '—') + '</i><s>' + fmt(x.stock) + '</s></div>';
+                    return '<div class="rp-it' + sel + '' + '" role="button" tabindex="0" data-ock="' + esc(x.base) + '" aria-label="' + esc(x.base) + '"><span class="rp-ph">' + (x.img ? '<img src="' + esc(x.img) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
+                        '<span class="rp-ck" role="checkbox" aria-checked="' + (sel ? 'true' : 'false') + '">' + (sel ? '✓' : '') + '</span><i>' + (x.avg ? fmt(x.avg) : '—') + '</i></div>';
                 }).join('') + '</div>' +
-                '<div class="rp-side"><div class="rp-rings"><div class="rp-ring b"><b>' + fmt(g.stock) + '</b><span>остаток</span></div><div class="rp-ring"><b>' + (g.avg ? fmt(g.avg) : '—') + '</b><span>ср. цена</span></div></div>' +
+                '<div class="rp-side"><div class="rp-rings"><div class="rp-ring"><b>' + (g.avg ? fmt(g.avg) : '—') + '</b><span>ср. цена</span></div></div>' +
                 '<div class="rp-acts"><button type="button" class="rp-btn" data-oact="price" data-og="' + key + '">Цена</button></div></div></div>';
         }).join('');
         var ns = Object.keys(OZ.sel).length, bar = '';
@@ -312,26 +325,28 @@
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
         var m = mpMode();
         if (m === 'wb') { paintWb(); return; }
-        if (m === 'all') paintWb(); else pane.innerHTML = '';
+        if (m === 'all') paintWb(); else pane.innerHTML = '<div class="rp-tools">' + GEAR_BTN + '</div>';
         var sc = pane.scrollTop;
         pane.insertAdjacentHTML('beforeend', (m === 'all' ? '<div class="rp-cat">Ozon</div>' : '') + ozHtml());
         pane.scrollTop = sc;
     }
     function paintWb() {
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
-        var legend = '<div class="rp-tools"><button type="button" class="rp-btn" data-act="costimport">Загрузить себестоимость таблицей</button></div>';
+        var legend = '<div class="rp-tools">' + GEAR_BTN + '</div>';
         if (!S.arts.length) {
             pane.innerHTML = legend + '<div class="rp-stage">' + (S.load.arts ? skeleton() : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b><p>Добавьте артикулы в РНП, и они появятся здесь по склейкам.</p></div>') + '</div>';
             return;
         }
-        var cats = build(S.arts, S.ord, S.stock, S.prices, S.sal, { fbo: S.fbo, fbs: S.fbs }), total = S.arts.length, gi = 0;
+        var pf = prefs(), cats = sortBy(build(S.arts, S.ord, S.stock, S.prices, S.sal, { fbo: S.fbo, fbs: S.fbs }), pf.corder, function (c) { return c.name; }), total = S.arts.length, gi = 0;
+        cats.forEach(function (c) { c.groups = sortBy(c.groups, pf.order, function (g) { return 'wb:' + g.key; }); });
         S.gmap = {};
         var html = cats.map(function (c) {
-            return '<div class="rp-cat">' + esc(c.name) + ' · ' + c.count + ' арт. · остаток ' + fmt(c.stock) + '</div>' + c.groups.map(function (g) {
-                var key = 'g' + (gi++); S.gmap[key] = { title: g.title, nms: g.items.map(function (a) { return a.nm_id; }), imt: g.items[0].imt_id || 0, avg: g.avg };
-                return '<div class="rp-row"><div class="rp-nm" data-nm="' + (g.loco || g.items[0].nm_id) + '"><b>' + esc(g.title) + '</b><span>' + g.items.length + ' арт.' + (g.min ? ' · ' + fmt(g.min) + (g.max > g.min ? '–' + fmt(g.max) : '') : '') + '</span></div>' +
+            return '<div class="rp-cat">' + esc(c.name) + ' · ' + c.count + ' арт.</div>' + c.groups.map(function (g) {
+                var key = 'g' + (gi++); S.gmap[key] = { k: String(g.key), title: g.title, cat: c.name, nms: g.items.map(function (a) { return a.nm_id; }), imt: g.items[0].imt_id || 0, avg: g.avg };
+                var mcat = g.items[0].subject_name || c.name;
+                return '<div class="rp-row"><div class="rp-nm" data-nm="' + (g.loco || g.items[0].nm_id) + '"><em class="rp-catg">Категория · ' + esc(mcat) + '</em><b>' + esc(nameOf('wb:' + g.key, g.title)) + '</b><span>' + g.items.length + ' арт.' + (g.min ? ' · ' + fmt(g.min) + (g.max > g.min ? '–' + fmt(g.max) : '') : '') + '</span></div>' +
                     '<div class="rp-shelf">' + g.items.map(function (a) { return tile(a, a.nm_id === g.loco); }).join('') + '</div>' +
-                    '<div class="rp-side">' + rings(g) + costBox(key, g) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button><button type="button" class="rp-btn" data-act="move" data-g="' + key + '">Перенести</button></div></div></div>';
+                    '<div class="rp-side">' + rings(g, key) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button></div></div></div>';
             }).join('');
         }).join('');
         var nsel = Object.keys(S.sel).length, bar = '';
@@ -416,6 +431,47 @@
     }
     function artOf(nm) { for (var i = 0; i < S.arts.length; i++) if (String(S.arts[i].nm_id) === String(nm)) return S.arts[i]; return null; }
     function toast(type, title, text) { try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast(type, title, text || ''); } catch (_) {} }
+
+
+    /* ───── окно «Настройки товаров» (шестерёнка): себестоимость из Excel, названия, перенос, порядок блоков ───── */
+    function openSettings() {
+        if (!root.NrUi || !root.NrUi.dialog) return;
+        var mode = mpMode(), P = prefs(), items = [], cats = [], seenCat = {};
+        if (mode !== 'ozon') Object.keys(S.gmap).forEach(function (k) { var g = S.gmap[k]; items.push({ k: 'wb:' + g.k, gk: k, label: g.title, def: g.title, cat: 'Категория · ' + (g.cat || ''), cname: g.cat }); if (!seenCat[g.cat]) { seenCat[g.cat] = 1; cats.push(g.cat); } });
+        if (mode !== 'wb') ozGroups().forEach(function (g) { items.push({ k: 'oz:' + g.line, label: g.line, def: g.line, cat: 'Ozon', cname: '' }); });
+        var ord = sortBy(items.map(function (x) { return x.k; }), P.order, function (k) { return k; });
+        var corder = sortBy(cats.slice(), P.corder, function (c) { return c; });
+        var lab = {}; items.forEach(function (x) { lab[x.k] = nameOf(x.k, x.def); });
+        function esel() { return items.map(function (x, i) { return '<option value="' + i + '">' + esc(x.def) + '</option>'; }).join(''); }
+        function nameRows() { return items.map(function (x) { return '<div class="rps-r"><small>' + esc(x.cat) + '</small><input class="rps-in" data-n="' + esc(x.k) + '" value="' + esc(lab[x.k]) + '" placeholder="' + esc(x.def) + '" autocomplete="off"></div>'; }).join(''); }
+        function ordRows() {
+            var c = corder.map(function (n, i) { return '<div class="rps-o"><i>' + (i + 1) + '</i><b>' + esc(n) + '</b><span><button type="button" data-oc="' + i + '" data-d="-1" aria-label="Выше">▲</button><button type="button" data-oc="' + i + '" data-d="1" aria-label="Ниже">▼</button></span></div>'; }).join('');
+            var g = ord.map(function (k, i) { var x = items.filter(function (y) { return y.k === k; })[0]; return '<div class="rps-o"><i>' + (i + 1) + '</i><b>' + esc(lab[k] || (x && x.def) || k) + '</b><span><button type="button" data-og="' + i + '" data-d="-1" aria-label="Выше">▲</button><button type="button" data-og="' + i + '" data-d="1" aria-label="Ниже">▼</button></span></div>'; }).join('');
+            return (c ? '<small class="rps-h">Группы</small>' + c : '') + '<small class="rps-h">Склейки (один блок на странице)</small>' + g;
+        }
+        var body = '<div class="rps">' +
+            '<div class="rps-s"><b>Себестоимость из Excel</b><p>Вставьте таблицу: артикул и себестоимость за штуку. Цены применятся ко всем артикулам из таблицы сразу.</p><button type="button" class="rp-btn" data-s="cost">Загрузить таблицу</button></div>' +
+            '<div class="rps-s"><b>Названия</b><div id="rps-names">' + nameRows() + '</div></div>' +
+            (mode !== 'ozon' && items.length ? '<div class="rps-s"><b>Перенести товар в другую склейку</b><div class="rps-mv"><select id="rps-src" class="rps-in">' + items.filter(function (x) { return x.gk; }).map(function (x) { return '<option value="' + x.gk + '">' + esc(x.def) + '</option>'; }).join('') + '</select><button type="button" class="rp-btn" data-s="move">Выбрать, куда</button></div></div>' : '') +
+            '<div class="rps-s"><b>Порядок блоков</b><div id="rps-ord">' + ordRows() + '</div></div></div>';
+        var d = root.NrUi.dialog({ title: 'Настройки товаров', size: 'm', body: body, actions: [{ label: 'Отмена' }, { label: 'Сохранить', primary: true, onClick: function () {
+            var names = {}; Array.prototype.forEach.call(d.el.querySelectorAll('.rps-in[data-n]'), function (i) { var v = String(i.value || '').trim(), x = items.filter(function (y) { return y.k === i.getAttribute('data-n'); })[0]; if (v && x && v !== x.def) names[x.k] = v; });
+            var np = prefs(); np.names = Object.assign({}, np.names); items.forEach(function (x) { delete np.names[x.k]; }); Object.keys(names).forEach(function (k) { np.names[k] = names[k]; });
+            np.order = ord.slice(); np.corder = corder.slice(); savePrefs(np); paint();
+            toast('success', 'Настройки сохранены', 'Названия и порядок блоков обновлены');
+        } }] });
+        function repaintOrd() { var e = d.el.querySelector('#rps-ord'); if (e) e.innerHTML = ordRows(); }
+        d.el.addEventListener('input', function (e) { var n = e.target && e.target.getAttribute && e.target.getAttribute('data-n'); if (n) lab[n] = e.target.value; });
+        d.el.addEventListener('click', function (e) {
+            var b = e.target.closest('button'); if (!b) return;
+            var sw = function (arr, i, dlt) { var j = i + dlt; if (j < 0 || j >= arr.length) return; var t = arr[i]; arr[i] = arr[j]; arr[j] = t; repaintOrd(); };
+            if (b.hasAttribute('data-oc')) { sw(corder, Number(b.getAttribute('data-oc')), Number(b.getAttribute('data-d'))); return; }
+            if (b.hasAttribute('data-og')) { sw(ord, Number(b.getAttribute('data-og')), Number(b.getAttribute('data-d'))); return; }
+            var a = b.getAttribute('data-s');
+            if (a === 'cost') { d.close(); openCostImport(); return; }
+            if (a === 'move') { var src = (d.el.querySelector('#rps-src') || {}).value; d.close(); if (src) openModal('move', src); }
+        });
+    }
 
     /* ───── окна: цена и перенос ───── */
     function nmsOf(g) { return g === 'sel' ? Object.keys(S.sel).map(Number) : ((S.gmap[g] && S.gmap[g].nms) || []).map(Number); }
@@ -658,6 +714,7 @@
             if ((b = e.target.closest('[data-act]'))) {
                 var act = b.getAttribute('data-act');
                 if (act === 'clear') { S.sel = {}; paint(); return; }
+                if (act === 'settings') { openSettings(); return; }
                 if (act === 'costimport') { openCostImport(); return; }
                 openModal(act, b.getAttribute('data-g')); return;
             }
