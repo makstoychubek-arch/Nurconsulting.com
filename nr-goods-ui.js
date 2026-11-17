@@ -80,6 +80,19 @@
         var d = root.nrGoodsList ? root.nrGoodsList() : { msg: { t: 'Загрузка…' } };
         if (d.msg) return d;
         d.groups.forEach(function (g) { g.items.forEach(function (a) { a.cab = a.cab || cab(); a.sz = S.sz[a.nm] || null; }); });
+        // Названия и порядок групп общие с РНП и «Товарами» (rnp_settings: groupNames, groupOrder)
+        try {
+            var rg = root.RNP && root.RNP.groupsView ? root.RNP.groupsView() : [];
+            if (rg.length) {
+                var idx = {}, nm = {};
+                rg.forEach(function (x, i) { idx[x.orig] = i; idx[x.name] = i; nm[x.orig] = x.name; });
+                d.groups.forEach(function (g) { if (nm[g.name]) g.name = nm[g.name]; });
+                d.groups = d.groups.map(function (g, i) { return { g: g, i: i }; }).sort(function (a, b) {
+                    var ia = idx[a.g.name] == null ? 1e6 : idx[a.g.name], ib = idx[b.g.name] == null ? 1e6 : idx[b.g.name];
+                    return (ia - ib) || (a.i - b.i);
+                }).map(function (o) { return o.g; });
+            }
+        } catch (e) { /* без общих названий остаётся как было */ }
         return d;
     }
 

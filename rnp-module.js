@@ -7238,6 +7238,17 @@ const RNP = (() => {
 
     function resetGroupName(current) { renameGroup(current, ''); }
 
+    // Для страницы «Товары»: группы РНП в том же виде (название, исходное название WB, артикулы по порядку); порядок и названия общие с РНП
+    function groupsView() {
+        try { return _groupByCategory(_articles).map(([name, list]) => ({ name, orig: _origGroupName(name), wb: _wbGroupsOn(), nms: list.map(a => Number(a.nm_id)) })); }
+        catch (e) { return []; }
+    }
+    function setGroupOrder(names) {
+        const n = _normGroupOrder(names);
+        _settings.groupOrder = n;
+        _saveOrder(n, _normArtOrder(_settings.artOrder));
+    }
+
     // Порядок в настройках: сразу двигаем строку на экране, запись в базу идёт в фоне.
     function _saveOrder(groupOrder, artOrder) {
         _saveSettings({ options: { ..._settingsOptions(), groupOrder, artOrder } }).catch(() => {});
@@ -10658,7 +10669,7 @@ const RNP = (() => {
     const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
     return { init, initCore, ensureReady, setDateRange, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
-             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen, groupsView, setGroupOrder };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего

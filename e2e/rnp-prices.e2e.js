@@ -41,11 +41,12 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         await page.waitForSelector('.rp-it[data-nm="2"]', { timeout: 10000 });
         assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.rp-it[data-nm]').length), 7, 'на странице все 7 артикулов');
         console.log('ok   страница «Цены» показывает все артикулы');
-        const cats = await page.evaluate(() => [...document.querySelectorAll('.rp-cat')].map((e) => e.textContent.split(' · ')[0]));
-        assert.deepStrictEqual(cats, ['Свитера', 'Костюмы классические', 'Пиджаки', 'Спортивные костюмы', 'Летние костюмы'], 'группы по общему остатку (больше выше): ' + cats);
-        console.log('ok   группы: ' + cats.join(', '));
+        // группы, названия и порядок общие с РНП: блок на группу, склейки из двух артикулов получают название карточки, одиночные уходят в «Без категории»
+        const names = await page.evaluate(() => [...document.querySelectorAll('.rp-row .rp-nm b')].map((e) => e.textContent));
+        assert.deepStrictEqual(names, ['Костюм брючный классический деловой', 'Свитер оверсайз вязаный', 'Без категории'], 'блоки как группы РНП: ' + names);
+        console.log('ok   блоки как в РНП: ' + names.join(', '));
         const rows = await page.evaluate(() => document.querySelectorAll('.rp-row').length);
-        assert.strictEqual(rows, 5, 'пять склеек: ' + rows);
+        assert.strictEqual(rows, 3, 'три блока: ' + rows);
         const crown = await page.evaluate(() => [...document.querySelectorAll('.rp-it.l')].map((e) => e.getAttribute('data-nm')));
         assert.ok(crown.includes('2') && crown.includes('3') && !crown.includes('6'), 'корона у локомотивов, у склейки без заказов её нет: ' + crown);
         console.log('ok   корона у локомотива склейки');
@@ -76,9 +77,11 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         const firstName = await page.evaluate(() => document.querySelector('.rp-row .rp-nm b').textContent);
         await page.evaluate(() => { const i = document.querySelector('.rps-in[data-n]'); i.value = 'Мои свитера'; i.dispatchEvent(new Event('input', { bubbles: true })); });
         await page.evaluate(() => [...document.querySelectorAll('.nru-win .nru-b')].find((b) => /Сохранить/.test(b.textContent)).click());
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(900);
         assert.strictEqual(await page.evaluate(() => document.querySelector('.rp-row .rp-nm b').textContent), 'Мои свитера', 'своё название показывается (было «' + firstName + '»)');
-        console.log('ok   настройки: своё название блока сохраняется');
+        assert.ok(env.calls.some((c) => c.table === 'rnp_settings' && c.kind !== 'read'), 'название записано в базу (rnp_settings), значит общее с РНП');
+        assert.strictEqual(await page.evaluate(() => window.RNP.groupsView().some((g) => g.name === 'Мои свитера')), true, 'в РНП группа называется так же');
+        console.log('ok   настройки: своё название блока сохраняется в базе и общее с РНП');
         // выбор артикулов и смена цены
         await page.evaluate(() => document.querySelector('.rp-ck[data-ck="3"]').click());
         await page.evaluate(() => document.querySelector('.rp-ck[data-ck="4"]').click());
