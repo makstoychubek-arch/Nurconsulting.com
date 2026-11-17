@@ -2564,3 +2564,8 @@ html[data-theme] body .rnp-help-tip span { color: var(--text-secondary) !importa
   html body .sidebar-app { left: calc((100vw - 1760px) / 2) !important; }
   html body header.glass.app-header:not(#nr-x), html body.flyout-expanded header.glass.app-header:not(#nr-x) { left: calc((100vw - 1760px) / 2 + var(--nr-left)) !important; right: calc((100vw - 1760px) / 2 + var(--nr-gap)) !important; }
 }
+
+/* Нижний ряд иконок в меню (настройки, колокольчик, тема, выход): один цвет, как у остальных; колокольчик был чёрным, остальные серыми */
+html body .sidebar-rail :is(.rail-icon-btn, #rail-theme-btn, .nr-notify-btn) { color: var(--text-secondary, #8b8b92) !important; }
+html body .sidebar-rail :is(.rail-icon-btn, #rail-theme-btn, .nr-notify-btn) svg { stroke: currentColor !important; }
+html body .sidebar-rail :is(.rail-icon-btn, #rail-theme-btn, .nr-notify-btn):hover { color: var(--text-primary) !important; }
