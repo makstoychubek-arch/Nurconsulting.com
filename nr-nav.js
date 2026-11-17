@@ -42,8 +42,8 @@
         rnp: {
             fly: 'fly-rnp', title: 'РНП',
             items: [
-                { id: 'unit', label: 'Юнит-экономика', ico: 'calc', sel: '#rnp-views [data-rv="unit"]', on: '#rnp-views [data-rv="unit"].is-on' },
-                { id: 'prices', label: 'Товары', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on' },
+                { id: 'unit', label: 'Юнит-экономика', ico: 'calc', hidden: true, crumb: 'Товары', go: 'prices', sel: '#rnp-views [data-rv="unit"]', on: '#rnp-views [data-rv="unit"].is-on' },
+                { id: 'prices', label: 'Товары', ico: 'price', sel: '#rnp-views [data-rv="prices"]', on: '#rnp-views [data-rv="prices"].is-on, #rnp-views [data-rv="unit"].is-on' },
                 { id: 'planning', label: 'Планирование', ico: 'calc', act: 'openPlanning', always: true },
                 { id: 'rnp', label: 'РНП', ico: 'tbl', sel: '#rnp-views [data-rv="rnp"]', on: '#rnp-views [data-rv="rnp"].is-on', dflt: true },
                 { id: 'planfact', label: 'План/факт', ico: 'tbl', act: 'openPlanFact', always: true }
@@ -222,7 +222,7 @@
         if (s && !(tab === 'advertising' && root._advView === 'detail')) {
             var cur = currentItem(tab) || (s.items.filter(function (x) { return x.dflt; })[0] || {}).id;
             var it = s.items.filter(function (x) { return x.id === cur; })[0];
-            if (it) { label = (tab === 'rnp' && it.id === 'rnp') ? '' : it.label; secTitle = it.crumb || s.title; go1 = (s.items.filter(function (x) { return x.dflt; })[0] || it).id; }
+            if (it) { label = (tab === 'rnp' && it.id === 'rnp') ? '' : it.label; secTitle = it.crumb || s.title; go1 = it.go || (s.items.filter(function (x) { return x.dflt; })[0] || it).id; }
         } else if (tab === 'ab-testing') { secTitle = 'Инструменты'; label = 'А/Б тесты'; }
         else if (tab === 'agents' || tab === 'akylai') { secTitle = 'Инструменты'; label = 'Агенты'; }
         else if (tab === 'tariffs') { secTitle = 'Настройки'; label = 'Тарифы'; go1 = '*settings'; }
