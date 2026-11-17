@@ -2504,3 +2504,27 @@ html[data-theme] body :is(.rnp-sheet-table, .rnp-sheet-table *, .ads-hq-table, .
 }
 html[data-theme="neon"] body .nmd-hero .nmd-chart i { background: rgba(255,255,255,.2); }
 html[data-theme="neon"] body .nmd-hero .nmd-chart i.hl { background: var(--text-primary); }
+
+/* ═══════════ Стекло: правки по скринам владельца (17 ноября 2026) ═══════════ */
+/* 1. Подразделы меню (всплывают справа от кнопки «Инструменты», «Аналитика» и др.) лежат внутри левого меню, а у того самого есть размытие:
+   вложенное размытие не работает, и страница под подсказкой просвечивала, текст налезал на текст. Заливка плотная, стекло остаётся в кромке и тени. */
+html[data-theme="ios"] { --g-solid: rgba(255,255,255,.97); }
+html[data-theme="neon"] { --g-solid: rgba(38,38,36,.97); }
+html[data-theme] body .sidebar-flyout:not(#nr-x), html[data-theme] body .sidebar-flyout.visible:not(#nr-x), html[data-theme] body .sidebar-flyout.pinned:not(#nr-x) {
+  background: var(--g-solid) !important; border: 1px solid var(--g-line) !important; border-radius: 18px;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  box-shadow: inset 0 1px 0 var(--g-hi), 0 18px 44px var(--g-sh) !important;
+}
+/* 2. Блоки шапки РНП «Общий» (кружки, списки, остатки) тоже карточки-стекло: раньше были без рамки и стояли вразнобой с левыми карточками */
+html[data-theme] body .rnp-gh-card {
+  background: var(--g-bg) !important; border: 1px solid var(--g-line) !important; border-radius: 22px !important;
+  box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 var(--g-lo), 0 10px 28px var(--g-sh) !important;
+}
+html[data-theme="ios"] body .rnp-gh-card { background: #fff !important; }
+html body .rnp-gh-grid { align-items: stretch; }
+html body .rnp-gh-col > .rnp-gh-card, html body .rnp-gh-rings > .rnp-gh-card { height: 100%; box-sizing: border-box; }
+html body .rnp-gh-rings { grid-auto-rows: 1fr; }
+/* 3. Верхняя полоса страницы («Дашборд», «Модуль РНП») на ПК: без отдельной серой плашки, цвет страницы */
+@media (min-width: 769px) {
+  html[data-theme] body :is(header.glass.app-header, .main-rail > header.app-header):not(#nr-x) { background: transparent !important; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none !important; border-color: transparent !important; }
+}
