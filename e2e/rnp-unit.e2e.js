@@ -70,10 +70,17 @@ const tables = {
         assert.strictEqual((await val()).profit, '1620', 'сброс возвращает значения снимка');
         console.log('ok   «Сбросить значения» возвращает снимок');
         if (process.env.RU_SHOT) { await page.setViewportSize({ width: 1440, height: 900 }); await page.waitForTimeout(500); await page.screenshot({ path: process.env.RU_SHOT + '.png' }); }
-        await page.evaluate(() => document.querySelector('#fly-rnp [data-nrn="rnp:unit"]').click());
+        // юнит-экономика внутри раздела «Товары»: вкладки наверху страницы, в меню отдельного пункта нет
+        assert.ok(await page.evaluate(() => !document.querySelector('#fly-rnp [data-nrn="rnp:unit"]') || document.querySelector('#fly-rnp [data-nrn="rnp:unit"]').offsetParent === null), 'отдельного пункта «Юнит-экономика» в меню РНП нет');
+        assert.ok(await page.evaluate(() => /Товары/.test(document.querySelector('.rp-subtabs button[data-vw="prices"]').textContent) && /Юнит/.test(document.querySelector('.rp-subtabs button[data-vw="unit"]').textContent)), 'наверху вкладки «Товары» и «Юнит-экономика»');
+        await page.click('.rp-subtabs button[data-vw="prices"]');
+        await page.waitForSelector('.rp-row', { timeout: 8000 });
+        assert.ok(await page.evaluate(() => document.querySelector('#fly-rnp [data-nrn="rnp:prices"]').classList.contains('active') || /Товары/.test(document.getElementById('page-title').textContent)), 'мы на странице «Товары»');
+        await page.click('.rp-subtabs button[data-vw="unit"]');
         await page.waitForSelector('.ru-t2', { timeout: 8000 });
         assert.ok(await page.evaluate(() => /Юнит/.test(document.getElementById('page-title').textContent)), 'заголовок страницы «Юнит-экономика»');
-        console.log('ok   пункт «Юнит-экономика» в меню РНП');
+        assert.ok(await page.evaluate(() => /Товары/.test(document.querySelector('.nr-crumbs').textContent)), 'в цепочке сверху «Товары › Юнит-экономика»');
+        console.log('ok   юнит-экономика внутри «Товаров»: вкладки наверху, переключение туда и обратно');
         assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
         console.log('e2e юнит-экономики: все проверки прошли');
     } finally { await browser.close(); srv.close(); }

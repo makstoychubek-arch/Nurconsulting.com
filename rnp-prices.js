@@ -166,6 +166,8 @@
 
     /* ───── отрисовка ───── */
     var CROWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+    // Подразделы страницы «Товары»: сами товары и юнит-экономика (одна страница, две вкладки наверху)
+    function subTabs(on) { return '<div class="rp-subtabs"><button type="button" class="' + (on === 'prices' ? 'on' : '') + '" data-vw="prices">Товары</button><button type="button" class="' + (on === 'unit' ? 'on' : '') + '" data-vw="unit">Юнит-экономика</button></div>'; }
     var GEAR_BTN = '<button type="button" class="rp-gear" data-act="settings" title="Настройки" aria-label="Настройки товаров"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
     function schedule() { if (S.raf) return; S.raf = root.requestAnimationFrame ? root.requestAnimationFrame(function () { S.raf = 0; paint(); }) : (paint(), 0); }
     // Плитка 44×56: берём превью 246×328 (около 22 КБ) вместо «big» (около 170 КБ), иначе страница тормозит при прокрутке
@@ -326,7 +328,7 @@
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
         var m = mpMode();
         if (m === 'wb') { paintWb(); return; }
-        if (m === 'all') paintWb(); else pane.innerHTML = '<div class="rp-tools">' + GEAR_BTN + '</div>';
+        if (m === 'all') paintWb(); else pane.innerHTML = '<div class="rp-tools">' + subTabs('prices') + GEAR_BTN + '</div>';
         var sc = pane.scrollTop;
         pane.insertAdjacentHTML('beforeend', (m === 'all' ? '<div class="rp-cat">Ozon</div>' : '') + ozHtml());
         pane.scrollTop = sc;
@@ -352,7 +354,7 @@
     }
     function paintWb() {
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
-        var legend = '<div class="rp-tools">' + GEAR_BTN + '</div>';
+        var legend = '<div class="rp-tools">' + subTabs('prices') + GEAR_BTN + '</div>';
         if (!S.arts.length) {
             pane.innerHTML = legend + '<div class="rp-stage">' + (S.load.arts ? skeleton() : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b><p>Добавьте артикулы в РНП, и они появятся здесь по склейкам.</p></div>') + '</div>';
             return;
@@ -730,9 +732,9 @@
     function uNum(n, pct) { return pct ? String(n).replace('.', ',') : fmt(n); }
     function paintUnit() {
         var pane = doc.getElementById('rnp-unit-pane'); if (!pane || S.view !== 'unit') return;
-        if (!U.arts.length) { pane.innerHTML = '<div class="rp-stage">' + (U.load ? skeleton() : '<div class="rp-empty"><b>Пока нет данных для юнит-экономики</b><p>Нужны артикулы РНП и продажи за последние ' + UDAYS + ' дней.</p></div>') + '</div>'; return; }
+        if (!U.arts.length) { pane.innerHTML = '<div class="rp-tools">' + subTabs('unit') + '</div><div class="rp-stage">' + (U.load ? skeleton() : '<div class="rp-empty"><b>Пока нет данных для юнит-экономики</b><p>Нужны артикулы РНП и продажи за последние ' + UDAYS + ' дней.</p></div>') + '</div>'; return; }
         var groups = uGroups();
-        if (!groups.length) { pane.innerHTML = '<div class="rp-stage"><div class="rp-empty"><b>Нет артикулов с продажами</b><p>За последние ' + UDAYS + ' дней продаж не было, расчёт строить не из чего.</p></div></div>'; return; }
+        if (!groups.length) { pane.innerHTML = '<div class="rp-tools">' + subTabs('unit') + '</div><div class="rp-stage"><div class="rp-empty"><b>Нет артикулов с продажами</b><p>За последние ' + UDAYS + ' дней продаж не было, расчёт строить не из чего.</p></div></div>'; return; }
         if (!groups[U.gi]) U.gi = 0;
         var g = groups[U.gi], items = g.items;
         if (!items.some(function (a) { return String(a.nm_id) === String(U.nm) && uVals(a); })) { var f = items.filter(function (a) { return uVals(a); })[0]; U.nm = f ? String(f.nm_id) : ''; }
@@ -769,12 +771,13 @@
         }
         var actKey = doc.activeElement && doc.activeElement.dataset && doc.activeElement.dataset.k ? doc.activeElement.dataset.k : '';
         var sc = pane.scrollTop;
-        pane.innerHTML = tabs + photos + body;
+        pane.innerHTML = '<div class="rp-tools">' + subTabs('unit') + '</div>' + tabs + photos + body;
         pane.scrollTop = sc;
         if (actKey) { var n = pane.querySelector('input[data-k="' + actKey + '"]'); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (_) {} } }
     }
     function unitClick(e) {
         var b;
+        if ((b = e.target.closest('[data-vw]'))) { setView(b.getAttribute('data-vw')); return; }
         if ((b = e.target.closest('[data-ug]'))) { U.gi = Number(b.getAttribute('data-ug')); U.nm = ''; paintUnit(); return; }
         if ((b = e.target.closest('[data-un]'))) { U.nm = b.getAttribute('data-un'); paintUnit(); return; }
         if ((b = e.target.closest('[data-ua]'))) {
@@ -829,6 +832,7 @@
         bar.addEventListener('click', function (e) { var b = e.target.closest('[data-rv]'); if (b) setView(b.getAttribute('data-rv')); });
         pane.addEventListener('click', function (e) {
             var b;
+            if ((b = e.target.closest('[data-vw]'))) { setView(b.getAttribute('data-vw')); return; }
             if ((b = e.target.closest('[data-oact]'))) { ozAct(b); return; }
             if ((b = e.target.closest('[data-ock]'))) { var bk = b.getAttribute('data-ock'); if (OZ.sel[bk]) delete OZ.sel[bk]; else OZ.sel[bk] = true; paint(); return; }
             if ((b = e.target.closest('[data-ck]'))) { var nm = b.getAttribute('data-ck'); if (S.sel[nm]) delete S.sel[nm]; else S.sel[nm] = true; paint(); return; }

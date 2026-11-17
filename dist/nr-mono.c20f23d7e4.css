@@ -2651,3 +2651,9 @@ html body input.ru-ed { width: 92px !important; height: auto !important; min-hei
 html body input.ru-ed:focus { border-bottom-style: solid !important; background: var(--sel, rgba(128,128,128,.12)) !important; }
 /* кружок себестоимости: общий стиль полей ввода сайта (отступы 10px 14px, шрифт 13px) обрезал цифры до одной, перебиваем */
 html body .rp-ring.cs input.rp-cost-in { width: 100% !important; height: 16px !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; text-align: center !important; font: 900 11px/16px inherit !important; font-family: inherit !important; letter-spacing: -.02em; }
+
+/* «Товары» и «Юнит-экономика»: одна страница, вкладки сверху слева, шестерёнка справа */
+html body .rp-tools { justify-content: space-between; align-items: center; }
+html body .rp-subtabs { display: flex; gap: 6px; }
+html body .rp-subtabs button { border: 0; border-radius: 999px; padding: 6px 14px; font: 800 12px inherit; font-family: inherit; background: var(--sel, rgba(128,128,128,.12)); color: var(--text-muted); cursor: pointer; }
+html body .rp-subtabs button.on { background: var(--text-primary); color: var(--bg-primary, var(--bg)); }
