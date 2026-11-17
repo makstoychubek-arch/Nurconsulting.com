@@ -205,19 +205,26 @@ async function syncAds(admin: Admin, cabinetId: string, perf: { id: string; secr
     const H = { Authorization: `Bearer ${token}` };
     const cr = await fetch('https://api-performance.ozon.ru/api/client/campaign', { headers: H, signal: AbortSignal.timeout(30000) });
     if (!cr.ok) throw new Error(`Ozon Performance campaigns ${cr.status}`);
-    const ids = (((await cr.json()).list || []) as { id?: string }[]).map((c) => String(c.id || '')).filter(Boolean);
+    // архивные кампании статистику уже не меняют, их пропускаем (меньше запросов, быстрее)
+    const ids = (((await cr.json()).list || []) as { id?: string; state?: string }[]).filter((c) => c.state !== 'CAMPAIGN_STATE_ARCHIVED').map((c) => String(c.id || '')).filter(Boolean);
     const to = new Date().toISOString().slice(0, 10);
     // Ozon отдаёт статистику рекламы не больше чем за 62 дня
     const from = new Date(Date.now() - Math.min(60, Math.max(days, 7)) * 86400_000).toISOString().slice(0, 10);
     let total = 0;
-    for (const part of adsChunk(ids, 10)) {
-        const q = part.map((i) => 'campaignIds=' + encodeURIComponent(i)).join('&');
-        const r = await fetch(`https://api-performance.ozon.ru/api/client/statistics/daily/json?${q}&dateFrom=${from}&dateTo=${to}`, { headers: H, signal: AbortSignal.timeout(60000) });
-        if (!r.ok) throw new Error(`Ozon Performance stats ${r.status}`);
-        const rows = ((await r.json()).rows || []) as Record<string, unknown>[];
-        total += await upsert(admin, 'ozon_ads_daily', buildAdsRows(cabinetId, rows, new Date().toISOString()) as unknown as Record<string, unknown>[], 'cabinet_id,d,campaign_id');
+    // По 3 кампании за запрос: пачка из 10 у Ozon зависала до таймаута («Signal timed out»), из-за чего реклама не обновлялась с 14 ноября.
+    // Сбой одной пачки не бросает остальные: пишем, что получилось, и сообщаем об ошибке в конце.
+    let failed = '';
+    for (const part of adsChunk(ids, 3)) {
+        try {
+            const q = part.map((i) => 'campaignIds=' + encodeURIComponent(i)).join('&');
+            const r = await fetch(`https://api-performance.ozon.ru/api/client/statistics/daily/json?${q}&dateFrom=${from}&dateTo=${to}`, { headers: H, signal: AbortSignal.timeout(25000) });
+            if (!r.ok) throw new Error(`Ozon Performance stats ${r.status}`);
+            const rows = ((await r.json()).rows || []) as Record<string, unknown>[];
+            total += await upsert(admin, 'ozon_ads_daily', buildAdsRows(cabinetId, rows, new Date().toISOString()) as unknown as Record<string, unknown>[], 'cabinet_id,d,campaign_id');
+        } catch (e) { failed = String((e as Error)?.message || e); }
         await sleep(300);
     }
+    if (failed && !total) throw new Error(failed);
     return total;
 }
 
