@@ -2682,3 +2682,8 @@ html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .r
   html[data-theme="neon"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(46,46,44) !important; }
   html[data-theme="ios"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(255,255,255) !important; }
 }
+
+/* Список площадки на телефоне: на странице «Продвижение» у кнопки были правила с более высокой специфичностью (html#nr-root.nr-f-adv), и открытый список оставался в потоке и вылезал за правый край экрана. Правило для открытого списка усилено для всех страниц. */
+@media (max-width: 768px) {
+  html#nr-root body header.glass.app-header .app-header-main > .nr-mp.open { position: absolute !important; right: 12px !important; left: auto !important; top: calc(100% - 4px) !important; width: 176px !important; height: auto !important; max-width: calc(100vw - 24px); flex-direction: column; align-items: stretch; padding: 6px !important; border-radius: 22px !important; order: 0; grid-column: auto; grid-row: auto; }
+}
