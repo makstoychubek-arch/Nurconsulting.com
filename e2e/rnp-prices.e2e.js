@@ -51,10 +51,10 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         console.log('ok   корона у локомотива склейки');
         await page.waitForFunction(() => !document.querySelector('.rp-it[data-nm="2"] .rp-ld'));
         const t = await page.evaluate(() => [...document.querySelector('.rp-it[data-nm="2"]').querySelectorAll('i,s')].map((e) => e.textContent.replace(/\s/g, '')));
-        assert.deepStrictEqual(t, ['3020', '300'], 'две строки: цена и остаток: ' + t);
-        assert.ok(await page.evaluate(() => document.querySelector('.rp-it[data-nm="4"]').classList.contains('rp-low')), 'остаток меньше 60 красным');
-        assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.rp-it .rp-by').length), 0, 'на плитке только цена и остаток');
-        console.log('ok   цена и остаток, серым цена для покупателя');
+        assert.deepStrictEqual(t, ['3020'], 'на плитке только цена, остатка нет: ' + t);
+        assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.rp-low').length), 0, 'красного остатка нет');
+        assert.ok(!/остаток/i.test(await page.evaluate(() => document.querySelector('#rnp-prices-pane').textContent)), 'слова «остаток» на странице нет (остатки смотрят в «Остатках»)');
+        console.log('ok   на плитке только цена, остатка нет');
         assert.ok(await page.evaluate(() => !document.querySelector('.rp-leg')), 'подписи-ключа нет');
         assert.ok(await page.evaluate(() => !document.querySelector('.rnp-workspace').offsetParent), 'сам РНП скрыт, пока открыты цены');
         await page.click('.rp-it[data-nm="3"]');
@@ -65,8 +65,20 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         await page.waitForSelector('.rp-it[data-nm="2"]');
         // кружки итогов
         const rg = await page.evaluate(() => [...document.querySelectorAll('.rp-row')[0].querySelectorAll('.rp-ring')].map((e) => e.textContent.replace(/\s/g, '')));
-        assert.strictEqual(rg.length, 3, 'у склейки три кружка: ' + rg);
-        console.log('ok   три кружка итогов: ' + rg.join(' | '));
+        assert.strictEqual(rg.length, 2, 'у склейки два кружка (ср. цена и себестоимость): ' + rg);
+        assert.ok(await page.evaluate(() => !!document.querySelector('.rp-row .rp-ring.cs input.rp-cost-in')), 'себестоимость кружком с полем ввода');
+        assert.ok(await page.evaluate(() => ![...document.querySelectorAll('.rp-row .rp-btn')].some((b) => /Перенести/.test(b.textContent))), 'кнопки «Перенести» в строке нет');
+        assert.ok(await page.evaluate(() => !!document.querySelector('.rp-row .rp-catg') && /Категория/.test(document.querySelector('.rp-row .rp-catg').textContent)), 'над названием серая строка «Категория»');
+        console.log('ok   два кружка (ср. цена, себест.), категория над названием, без «Перенести»: ' + rg.join(' | '));
+        // шестерёнка настроек: названия и порядок блоков
+        await page.click('.rp-gear'); await page.waitForSelector('.rps');
+        assert.ok(await page.evaluate(() => /Себестоимость из Excel/.test(document.querySelector('.rps').textContent) && /Названия/.test(document.querySelector('.rps').textContent) && /Порядок блоков/.test(document.querySelector('.rps').textContent)), 'в настройках: Excel, названия, порядок');
+        const firstName = await page.evaluate(() => document.querySelector('.rp-row .rp-nm b').textContent);
+        await page.evaluate(() => { const i = document.querySelector('.rps-in[data-n]'); i.value = 'Мои свитера'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+        await page.evaluate(() => [...document.querySelectorAll('.nru-win .nru-b')].find((b) => /Сохранить/.test(b.textContent)).click());
+        await page.waitForTimeout(300);
+        assert.strictEqual(await page.evaluate(() => document.querySelector('.rp-row .rp-nm b').textContent), 'Мои свитера', 'своё название показывается (было «' + firstName + '»)');
+        console.log('ok   настройки: своё название блока сохраняется');
         // выбор артикулов и смена цены
         await page.evaluate(() => document.querySelector('.rp-ck[data-ck="3"]').click());
         await page.evaluate(() => document.querySelector('.rp-ck[data-ck="4"]').click());
@@ -103,7 +115,7 @@ const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now()
         // пункт «Цены» в меню РНП
         await page.evaluate(() => document.querySelector('#fly-rnp [data-nrn="rnp:prices"]').click());
         await page.waitForSelector('.rp-it[data-nm="2"]', { timeout: 8000 });
-        assert.ok(await page.evaluate(() => /Цены/.test(document.getElementById('page-title').textContent)), 'заголовок страницы «Цены»');
+        assert.ok(await page.evaluate(() => /Товары/.test(document.getElementById('page-title').textContent)), 'заголовок страницы «Товары»');
         console.log('ok   пункт «Цены» в меню РНП');
         if (process.env.RP_SHOT) { await page.waitForTimeout(3500); await page.screenshot({ path: process.env.RP_SHOT + '.png' }); }
         assert.strictEqual(await page.evaluate(() => localStorage.getItem('nr_rnp_view')), 'prices', 'выбранная страница «Цены» запомнена');
