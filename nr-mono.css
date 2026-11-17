@@ -2491,7 +2491,7 @@ html[data-theme] body :is(#tab-dashboard #dash-pnl > .pnl-card:nth-child(1), .rn
 html[data-theme] body :is(.rnp-gh-balance, .rnp-gh-health) { color: var(--text-primary) !important; }
 
 /* 5. Меню, шапка, нижнее меню: стекло */
-html[data-theme] body :is(#sidebar-app, .rail, .main-rail > header.app-header, header.glass.app-header, .bottom-nav) {
+html[data-theme] body :is(.main-rail > header.app-header, header.glass.app-header, .bottom-nav) {
   background: var(--g-bg) !important;
   -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
   border-color: var(--g-line);
@@ -2539,3 +2539,28 @@ html[data-theme] body .rnp-help-tip { border: 1px solid var(--g-line); box-shado
 html[data-theme] body .rnp-help-tip span { color: var(--text-secondary) !important; }
 /* При открытии окна у области страницы пропадала полоса прокрутки, и содержимое прыгало на ширину полосы: резервируем место под неё всегда */
 @media (min-width: 769px) { html body .main-rail .main-content:not(#nr-x), html body .rnp-sheet-body { scrollbar-gutter: stable; } }
+
+/* ═══════════ Единый каркас (макет «Каркас NR Space», от владельца 17 ноября 2026: «намертво, ни при каких условиях не двигались») ═══════════
+   Два отдельных блока со скруглением 28px: меню слева и страница справа. От краёв окна 12px, между блоками 12px.
+   Размеры жёсткие: меню ширина 184px, страница начинается на 208px от левого края, высота обоих = высота окна минус 24px.
+   Ничего не сдвигает каркас: ни выезжающие подразделы (они лежат поверх страницы), ни закрепление панели меню, ни окна, ни масштаб.
+   Выбор пункта меню ничего не затемняет (раньше при выезде подраздела затемнялась вся страница и шапка).
+   Каркас рисуется в первом кадре сразу вместе с этим файлом стилей, до загрузки данных. Менять размеры только через переменные ниже. */
+:root { --nr-gap: 12px; --nr-rail-w: 184px; --nr-left: calc(var(--nr-gap) + var(--nr-rail-w) + var(--nr-gap)); }
+@media (min-width: 769px) {
+  html body #sidebar-app, html body .sidebar-app { left: 0; background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; border: 0 !important; transform: none !important; }
+  html body .sidebar-rail { margin: var(--nr-gap) 0 var(--nr-gap) var(--nr-gap) !important; width: var(--nr-rail-w) !important; min-width: var(--nr-rail-w) !important; max-width: var(--nr-rail-w) !important; height: calc(100vh - 2 * var(--nr-gap)) !important; border-radius: 28px !important; background: var(--g-bg) !important; border: 1px solid var(--g-line) !important; -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); box-shadow: inset 0 1px 0 var(--g-hi), 0 10px 28px var(--g-sh) !important; box-sizing: border-box; }
+  html[data-theme="ios"] body .sidebar-rail { background: rgba(255,255,255,.9) !important; }
+  html body .main-rail, html body.flyout-expanded .main-rail, html#nr-root.nr-f-dash body .main-rail { margin-left: var(--nr-left) !important; padding: var(--nr-gap) var(--nr-gap) var(--nr-gap) 0 !important; height: 100vh; box-sizing: border-box; transition: none !important; }
+  html body .main-rail .main-content:not(#nr-x) { margin: 0 !important; height: calc(100vh - 2 * var(--nr-gap)); box-sizing: border-box; border-radius: 28px !important; border: 1px solid var(--g-line) !important; box-shadow: inset 0 1px 0 var(--g-hi), 0 10px 28px var(--g-sh) !important; }
+  html[data-theme="ios"] body .main-rail .main-content:not(#nr-x) { background: rgba(255,255,255,.92) !important; }
+  /* шапка лежит внутри блока страницы, без отдельной плашки сверху (раньше белая полоса выступала над блоком) */
+  html body header.glass.app-header:not(#nr-x), html body.flyout-expanded header.glass.app-header:not(#nr-x) { position: fixed !important; top: var(--nr-gap) !important; left: var(--nr-left) !important; right: var(--nr-gap) !important; border-radius: 28px 28px 0 0 !important; clip-path: none !important; background: transparent !important; border: 0 !important; box-shadow: none !important; filter: none !important; transition: none !important; transform: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  /* подразделы меню лежат поверх страницы, ничего не двигают и ничего не затемняют */
+  html body .sidebar-app::before, html body.flyout-expanded .sidebar-app::before { display: none !important; }
+  html body .sidebar-flyout.visible, html body .sidebar-flyout.pinned { margin: var(--nr-gap) 0 !important; border-radius: 28px !important; }
+}
+@media (min-width: 1761px) {
+  html body .sidebar-app { left: calc((100vw - 1760px) / 2) !important; }
+  html body header.glass.app-header:not(#nr-x), html body.flyout-expanded header.glass.app-header:not(#nr-x) { left: calc((100vw - 1760px) / 2 + var(--nr-left)) !important; right: calc((100vw - 1760px) / 2 + var(--nr-gap)) !important; }
+}
