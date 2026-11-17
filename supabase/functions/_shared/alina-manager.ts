@@ -138,6 +138,7 @@ export const alinaManagerTestChat = 7159099638;
 export const alinaManagerTestGroup = -4465341061;
 
 export async function processAlinaManagerTest(envToken: string, update: {
+  update_id?: number;
   business_message?: ManagerMessage & { business_connection_id?: string };
   message?: ManagerMessage;
 }): Promise<boolean> {
@@ -147,9 +148,11 @@ export async function processAlinaManagerTest(envToken: string, update: {
     incoming.chat.id === alinaManagerTestChat && incoming.from?.id === alinaManagerTestChat &&
     !incoming.from.is_bot && typeof incoming.business_connection_id === 'string' &&
     incoming.business_connection_id.length > 0 &&
-    /^(?:тест:\s*)?(?:здравствуйте[,! ]+)?доставка задерживается, что делать[?.!]*$/i.test(incoming.text?.trim() || '');
+    /^(?:тест:\s*)?можно поговорить с менеджером[?.!]*$/i.test(incoming.text?.trim() || '');
+  // Ответить может любой менеджер группы со своего аккаунта (не только отправитель вопроса).
+  // Доставляется только ответ на сообщение бота с записью в таблице заявок, и только в личку тестового клиента.
   const isTestReply = groupReply?.chat?.id === alinaManagerTestGroup &&
-    groupReply.from?.id === alinaManagerTestChat && !groupReply.from.is_bot &&
+    typeof groupReply.from?.id === 'number' && !groupReply.from.is_bot &&
     groupReply.reply_to_message?.message_id && groupReply.text?.trim();
   if (!isTestQuestion && !isTestReply) return false;
 
@@ -161,10 +164,19 @@ export async function processAlinaManagerTest(envToken: string, update: {
   if (!token) throw new Error('Alina token unavailable');
 
   if (isTestQuestion) {
+    // Повторная доставка того же обновления не должна создать второй вопрос в группе.
+    if (typeof update.update_id === 'number') {
+      const { error: dupError } = await db.from('alina_selfbuy_events').insert({
+        event_type: 'telegram_delivery', chat_id: alinaManagerTestChat,
+        payload: { bot_id: 'alina', update_id: update.update_id },
+      });
+      if (dupError?.code === '23505') return true;
+      if (dupError) throw dupError;
+    }
     const connectionId = incoming.business_connection_id!;
     const posted = await askAlinaManager(token, alinaManagerTestGroup, {
       chatId: alinaManagerTestChat, connectionId, username: 'nurcon',
-    }, 'Доставка задерживается, что делать?', 'ТЕСТ · @nurcon: Доставка задерживается, что делать?');
+    }, 'Можно поговорить с менеджером?', 'ТЕСТ · @nurcon: Можно поговорить с менеджером?');
     await postTelegram(token, {
       chat_id: alinaManagerTestChat, business_connection_id: connectionId,
       text: posted ? 'Минутку, уточню.' : 'Тест: вопрос не удалось доставить в группу.',

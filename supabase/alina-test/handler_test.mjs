@@ -14,6 +14,7 @@ function setup(env = {}) {
   const rows = [];
   const seen = new Set();
   const db = { from(table) {
+    if (table === 'alina_selfbuy_events') return { insert: async () => ({ error: null }) };
     if (table === 'alina_test_updates') return { insert: async (r) => seen.has(r.update_id) ? { error: { code: '23505' } } : (seen.add(r.update_id), { error: null }) };
     if (table === 'telegram_bot_secrets') { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: null }) }; return q; }
     assert.equal(table, 'alina_manager_questions');
@@ -49,8 +50,8 @@ function setup(env = {}) {
   return { post, get, sent, rows, lib, deps };
 }
 
-const question = { update_id: 1, business_message: { chat: { type: 'private', id: owner }, from: { id: owner }, business_connection_id: 'bc1', text: 'Доставка задерживается, что делать?' } };
-const groupReply = (id, mid = 700) => ({ update_id: id, message: { chat: { id: group, type: 'group' }, from: { id: owner }, message_id: mid, reply_to_message: { message_id: 401 }, text: 'Проверьте обновлённую дату доставки в заказе' } });
+const question = { update_id: 1, business_message: { chat: { type: 'private', id: owner }, from: { id: owner }, business_connection_id: 'bc1', text: 'Можно поговорить с менеджером?' } };
+const groupReply = (id, mid = 700) => ({ update_id: id, message: { chat: { id: group, type: 'group' }, from: { id: 555000111 }, message_id: mid, reply_to_message: { message_id: 401 }, text: 'Да, я на связи. Чем помочь?' } });
 const texts = (s) => s.filter((m) => m.method === 'sendMessage').map((m) => m.body);
 
 // защита
@@ -85,12 +86,12 @@ const texts = (s) => s.filter((m) => m.method === 'sendMessage').map((m) => m.bo
   assert.equal((await (await t.post(question)).json()).handled, true);
   const m = texts(t.sent);
   assert.equal(m[0].chat_id, group);
-  assert.ok(m[0].text.startsWith('ТЕСТ · @nurcon: Доставка задерживается, что делать?'));
+  assert.ok(m[0].text.startsWith('ТЕСТ · @nurcon: Можно поговорить с менеджером?'));
   assert.deepEqual(m[1], { chat_id: owner, business_connection_id: 'bc1', text: 'Минутку, уточню.' });
   assert.equal((await (await t.post(question)).json()).duplicate, true, 'повтор доставки Telegram не создаёт второй вопрос');
   assert.equal(texts(t.sent).length, 2);
   assert.equal((await (await t.post(groupReply(2))).json()).handled, true);
-  const toClient = () => texts(t.sent).filter((x) => x.chat_id === owner && /дату доставки/.test(x.text));
+  const toClient = () => texts(t.sent).filter((x) => x.chat_id === owner && /на связи/.test(x.text));
   assert.equal(toClient().length, 1);
   assert.equal(toClient()[0].business_connection_id, 'bc1');
   await t.post(groupReply(3, 701)); // второй реплай на тот же вопрос

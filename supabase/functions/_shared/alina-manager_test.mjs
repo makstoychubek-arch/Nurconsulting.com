@@ -8,6 +8,7 @@ const code = readFileSync(new URL('./alina-manager.ts', import.meta.url), 'utf8'
   .replace(/^import .*\n/m, '').replace(/^export /gm, '');
 const owner = 7159099638;
 const group = -4465341061;
+const manager = 555000111; // менеджер со своего аккаунта, не @nurcon
 
 function setup() {
   const messages = [];
@@ -56,24 +57,27 @@ function setup() {
 
 const question = {
   chat: { type: 'private', id: owner }, from: { id: owner },
-  business_connection_id: 'test', text: 'Доставка задерживается, что делать?',
+  business_connection_id: 'test', text: 'Можно поговорить с менеджером?',
 };
 const reply = (extra = {}) => ({
-  chat: { id: group, type: 'group' }, from: { id: owner }, message_id: 700,
-  reply_to_message: { message_id: 401 }, text: 'Проверьте обновлённую дату доставки в заказе.', ...extra,
+  chat: { id: group, type: 'group' }, from: { id: manager }, message_id: 700,
+  reply_to_message: { message_id: 401 }, text: 'Да, я на связи. Чем помочь?', ...extra,
 });
+const messages_len = (m) => m.length;
 const lastToGroup = (messages) => messages.filter((m) => m.chat_id === group).at(-1).text;
 
 // 1. Обычный путь: вопрос в группу, «Минутку», ответ клиенту ровно один раз
 {
   const { run, messages, rows } = setup();
   assert.equal(await run('', { business_message: { ...question, from: { id: 123 } } }), false);
+  assert.equal(await run('', { business_message: { ...question, text: 'Привет, где мой заказ?' } }), false, 'другая фраза от @nurcon идёт обычным путём');
+  assert.equal(messages_len(messages), 0);
   assert.equal(await run('', { business_message: question }), true);
   assert.equal(messages[0].chat_id, group);
-  assert.ok(messages[0].text.startsWith('ТЕСТ · @nurcon: Доставка задерживается, что делать?'), messages[0].text);
+  assert.ok(messages[0].text.startsWith('ТЕСТ · @nurcon: Можно поговорить с менеджером?'), messages[0].text);
   assert.equal(messages[1].text, 'Минутку, уточню.');
-  assert.equal(await run('', { message: reply({ from: { id: 999 } }) }), false);
-  assert.equal(await run('', { message: reply() }), true);
+  assert.equal(await run('', { message: reply({ from: { id: 999, is_bot: true } }) }), false, 'ответ от бота игнорируется');
+  assert.equal(await run('', { message: reply() }), true, 'ответ менеджера со своего аккаунта принят');
   assert.deepEqual(messages[2], { chat_id: owner, business_connection_id: 'test', text: reply().text });
   assert.equal(rows[0].delivery_state, 'sent');
   await run('', { message: reply() });
