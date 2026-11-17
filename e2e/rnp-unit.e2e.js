@@ -7,7 +7,7 @@ const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
 
 const day = new Date(Date.now() + 6 * 3600e3 - 86400e3).toISOString().slice(0, 10);
 const tables = {
-    spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, full_name: 'M' }],
+    spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'admin@example.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, full_name: 'M' }],
     cabinets: [{ id: CAB, name: 'T', wb_token_set: true, user_id: ADMIN_ID }],
     rnp_articles: [
         { id: 'a1', cabinet_id: CAB, nm_id: 1, name: 'костюм_1', imt_id: 10, card_title: 'Костюм брючный классический', subject_name: 'Костюмы', photo_url: null, is_active: true, cost_price: 1000 },
@@ -27,7 +27,7 @@ const tables = {
     const srv = await serve();
     const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     try {
-        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { phone: !!process.env.RU_PHONE, userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 30, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async () => ({}) } });
+        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { phone: !!process.env.RU_PHONE, userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async () => ({}) } });
         const { page } = env;
         await page.evaluate(() => showTab('rnp'));
         await page.waitForSelector('#rnp-views', { state: 'attached', timeout: 10000 });
@@ -39,21 +39,39 @@ const tables = {
         assert.strictEqual(u.comm, 32);
         console.log('ok   формула как в РНП: прибыль 1620, себестоимость на выкупленные, комиссия 32%');
         await page.evaluate(() => document.querySelector('#rnp-views [data-rv="unit"]').click());
-        await page.waitForSelector('.ru-tbl tbody tr[data-nm="1"]', { timeout: 10000 });
-        const row = await page.evaluate(() => [...document.querySelector('tr[data-nm="1"]').querySelectorAll('td')].map((t) => t.textContent.replace(/\s/g, '')));
-        assert.ok(row.includes('1620') && row.includes('32,0%') && row.includes('5000') && row.includes('10%'), 'строка артикула: ' + row);
-        assert.ok(!document_has(row, 'реклама'), 'рекламы нет');
-        assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.ru-tbl tbody tr[data-nm]').length), 2, 'артикул без продаж не показан');
-        assert.ok(await page.evaluate(() => /ещё 1 без продаж/.test(document.querySelector('.rp-foot').textContent)), 'подпись про артикул без продаж');
-        console.log('ok   страница: строка с ценой 5000, комиссией 32%, прибылью 1620; без продаж не показан');
-        const kp = await page.evaluate(() => [...document.querySelectorAll('.ru-kp b')].map((b) => b.textContent.replace(/\s/g, '')));
-        assert.ok(kp[0].startsWith('48') || /^\d+тыс/.test(kp[0]), 'прибыль за период: ' + kp[0]);
-        console.log('ok   сводка: ' + kp.join(' | '));
-        await page.click('tr[data-nm="2"]');
-        await page.waitForFunction(() => !document.getElementById('tab-rnp').classList.contains('ru-on'), null, { timeout: 8000 });
-        console.log('ok   нажатие на строку открывает РНП');
+        await page.waitForSelector('.ru-t2', { timeout: 10000 });
+        // группы сверху, под ними фото артикулов группы; артикул без продаж не показан
+        await page.waitForFunction(() => window.RNP && window.RNP.groupsView && window.RNP.groupsView().length > 0, null, { timeout: 10000 });
+        await page.waitForTimeout(1200);
+        const grp = await page.evaluate(() => [...document.querySelectorAll('.ru-tab')].map((t) => t.textContent));
+        assert.ok(grp.length >= 1, 'сверху группы как в РНП: ' + grp);
+        assert.ok(await page.evaluate(() => document.querySelectorAll('.ru-pt').length >= 2), 'под ними фото артикулов группы');
+        assert.ok(await page.evaluate(() => document.querySelector('.ru-pt[data-un="3"]').classList.contains('off')), 'артикул без продаж приглушён');
+        console.log('ok   сверху группы из РНП: ' + grp.join(', ') + ', под ними фото артикулов');
+        // выбираем фото артикула 1 (цена 5000, комиссия 32%): ниже таблица с его значениями
+        const clickGroup = async (nm) => { await page.evaluate((n) => { const b = document.querySelector('.ru-pt[data-un="' + n + '"]'); if (b) b.click(); }, nm); };
+        await clickGroup(1);
+        const val = () => page.evaluate(() => { const m = {}; document.querySelectorAll('.ru-t2 tbody tr').forEach((r) => { const k = r.querySelector('input.ru-ed'); const nm = r.children[0].textContent; if (k) m[k.getAttribute('data-k')] = k.value; if (/Остаётся/.test(nm)) m.profit = r.children[2].textContent.replace(/\s/g, ''); if (/Прибыль в день/.test(nm)) m.pday = r.children[2].textContent.replace(/\s/g, ''); }); return m; });
+        let v = await val();
+        assert.strictEqual(v.price.replace(/\s/g, ''), '5000', 'цена продажи: ' + JSON.stringify(v));
+        assert.strictEqual(v.comm, '32', 'комиссия 32%: ' + JSON.stringify(v));
+        assert.strictEqual(v.profit, '1620', 'остаётся с единицы по формуле РНП: ' + JSON.stringify(v));
+        console.log('ok   выбрано фото артикула: цена 5000, комиссия 32%, остаётся 1620');
+        // правка значения пересчитывает итог, снимок остаётся прежним, разница показана
+        await page.fill('.ru-t2 input[data-k="price"]', '4900'); await page.waitForTimeout(100);
+        v = await val();
+        const snapProfit = await page.evaluate(() => [...document.querySelectorAll('.ru-t2 tbody tr')].find((r) => /Остаётся/.test(r.children[0].textContent)).children[1].textContent.replace(/\s/g, ''));
+        const diff = await page.evaluate(() => [...document.querySelectorAll('.ru-t2 tbody tr')].find((r) => /Остаётся/.test(r.children[0].textContent)).children[3].textContent.replace(/\s/g, ''));
+        assert.strictEqual(snapProfit, '1620', 'снимок не меняется: ' + snapProfit);
+        assert.strictEqual(v.profit, '1552', 'при цене 4900 остаётся 4900 − 32% − расходы: ' + v.profit);
+        assert.ok(/68/.test(diff), 'разница со снимком: ' + diff);
+        console.log('ok   цена 4900: остаётся 1552, снимок 1620, разница −68');
+        await page.click('[data-ua="reset"]'); await page.waitForTimeout(100);
+        assert.strictEqual((await val()).profit, '1620', 'сброс возвращает значения снимка');
+        console.log('ok   «Сбросить значения» возвращает снимок');
+        if (process.env.RU_SHOT) { await page.setViewportSize({ width: 1440, height: 900 }); await page.waitForTimeout(500); await page.screenshot({ path: process.env.RU_SHOT + '.png' }); }
         await page.evaluate(() => document.querySelector('#fly-rnp [data-nrn="rnp:unit"]').click());
-        await page.waitForSelector('.ru-tbl', { timeout: 8000 });
+        await page.waitForSelector('.ru-t2', { timeout: 8000 });
         assert.ok(await page.evaluate(() => /Юнит/.test(document.getElementById('page-title').textContent)), 'заголовок страницы «Юнит-экономика»');
         console.log('ok   пункт «Юнит-экономика» в меню РНП');
         assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');

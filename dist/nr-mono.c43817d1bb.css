@@ -2611,3 +2611,41 @@ html body .rps-o button { border: 1px solid var(--border-strong, var(--border));
 html body .rp-ring.cs { display: grid; place-content: center; gap: 0; }
 html body .rp-ring.cs .rp-cost-in { width: 34px; height: 16px; line-height: 16px; }
 html body .rp-ring.cs span { line-height: 1; margin-top: 1px; }
+
+/* ───── Юнит-экономика в стиле РНП (макет 17 ноября 2026): группы, фото артикулов, таблица «Снимок / Значения / Разница» ───── */
+html body .ru-grp { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+html body .ru-tab { border: 0; border-radius: 999px; padding: 6px 14px; font: 800 12px inherit; font-family: inherit; background: var(--sel, rgba(128,128,128,.12)); color: var(--text-muted); cursor: pointer; }
+html body .ru-tab.on { background: var(--text-primary); color: var(--bg-primary, var(--bg)); }
+html body .ru-ph { display: flex; gap: 10px; align-items: flex-end; margin: 4px 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+html body .ru-pt { flex: none; width: 62px; border: 0; background: transparent; color: var(--text-muted); text-align: center; cursor: pointer; padding: 0; font: inherit; }
+html body .ru-pt .ru-pi { display: block; width: 62px; height: 80px; border-radius: 10px; background: var(--mono-4, #e4e4e4); overflow: hidden; border: 2px solid transparent; box-sizing: border-box; margin-bottom: 3px; }
+html body .ru-pt .ru-pi img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html body .ru-pt.on .ru-pi { border-color: var(--text-primary); }
+html body .ru-pt b { display: block; font-size: 11px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+html body .ru-pt.on b { text-decoration: underline; }
+html body .ru-pt em { display: block; font-style: normal; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body .ru-pt.off { opacity: .45; }
+html body .ru-snap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; border: 1px solid var(--border); border-radius: 16px; padding: 8px 12px; margin-bottom: 10px; font-size: 11.5px; }
+html body .ru-tag { font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; color: var(--text-muted); }
+html body .ru-sp { flex: 1; }
+html body .ru-wrap { overflow-x: auto; }
+html body .ru-t2 { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+html body .ru-t2 th, html body .ru-t2 td { padding: 5px 10px; text-align: right; white-space: nowrap; min-width: 110px; }
+html body .ru-t2 th { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); vertical-align: bottom; }
+html body .ru-t2 th small { display: block; font-size: 9px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+html body .ru-t2 th:first-child, html body .ru-t2 td:first-child { text-align: left; position: sticky; left: 0; background: var(--bg-card, var(--surface-solid)); width: 290px; min-width: 290px; max-width: 290px; white-space: normal; z-index: 1; }
+html body .ru-t2 td:first-child { color: var(--text-muted); font-weight: 600; }
+html body .ru-t2 tr.ru-sec td { background: var(--sel, rgba(128,128,128,.1)); font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--text-primary); padding: 4px 10px; }
+html body .ru-t2 tr.ru-hero td { font-size: 15px; font-weight: 900; color: var(--text-primary); padding: 8px 10px; }
+html body .ru-t2 tr.ru-hero td:first-child { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+html body .ru-t2 tr.ru-row td { border-bottom: 1px solid var(--border); }
+html body .ru-t2 td.ru-s { color: var(--text-muted); font-size: 12px; }
+html body .ru-t2 td.ru-c, html body .ru-t2 th.c { background: var(--sel, rgba(128,128,128,.08)); }
+html body .ru-ed { width: 92px; border: 0; border-bottom: 1px dashed var(--text-primary); background: transparent; color: inherit; font: 800 13px inherit; font-family: inherit; text-align: right; padding: 1px 2px; outline: 0; font-variant-numeric: tabular-nums; }
+html body .ru-ed:focus { border-bottom-style: solid; }
+html body .ru-ed.chg { color: var(--green, #16a34a); }
+html body .ru-t2 .up { color: var(--green, #16a34a); }
+html body .ru-t2 .dn { color: var(--red, #dc2626); }
+html body #tab-rnp.ru-on #rnp-unit-pane { padding: 4px 0 24px; }
+html body input.ru-ed { width: 92px !important; height: auto !important; min-height: 0 !important; border: 0 !important; border-bottom: 1px dashed var(--text-primary) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; padding: 1px 2px !important; font: 800 13px inherit !important; font-family: inherit !important; text-align: right !important; }
+html body input.ru-ed:focus { border-bottom-style: solid !important; background: var(--sel, rgba(128,128,128,.12)) !important; }
