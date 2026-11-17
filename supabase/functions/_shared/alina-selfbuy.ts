@@ -2,6 +2,7 @@
 // Голос = менеджер аккаунта, не «бот Алина». ТЗ + ключ + скрины → таблица.
 
 import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { secretOrEnv } from './integration-secrets.ts';
 import { getAdminClient } from './alina-db.ts';
 import { googleAccessToken } from './alina-google-auth.ts';
 import {
@@ -1480,7 +1481,7 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
   }
   const targetSheet = await resolveActiveSheet(db);
   const sheetId = targetSheet?.sheet_id || '';
-  const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
+  const saJson = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
   if (!sheetId || !saJson) {
     console.log('[alina-selfbuy] sheets write skip: need GOOGLE_SERVICE_ACCOUNT_JSON / sheet_id');
     return;

@@ -3,6 +3,7 @@
  * Строки не добавляются, чужие значения не перезаписываются, результат пишется в журнал событий.
  */
 import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { secretOrEnv } from './integration-secrets.ts';
 import { googleAccessToken } from './alina-google-auth.ts';
 import { getLastRazdachi, resolveActiveSheet } from './alina-sheet-plan.ts';
 import {
@@ -105,7 +106,7 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
     return;
   }
   const active = await resolveActiveSheet(db);
-  const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
+  const saJson = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
   const cached = getLastRazdachi();
   if (!active?.sheet_id || !saJson || !cached || cached.sheetId !== active.sheet_id) {
     await event('razdachi_skip', { reason: 'sheet_unavailable' });

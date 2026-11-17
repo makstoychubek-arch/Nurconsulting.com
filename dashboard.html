@@ -6082,7 +6082,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 if (__nrPane === 'settings') {
                     try {
                         var __nrSec = localStorage.getItem('nr_settings_section');
-                        if (['security', 'integrations', 'api'].indexOf(__nrSec) !== -1) {
+                        if (['security', 'integrations', 'api', 'keys'].indexOf(__nrSec) !== -1) {
                             __nrCss += '#settings-profile{display:none !important}#settings-' + __nrSec + '{display:block !important}';
                             __nrCss += 'html body #tab-settings #settings-tab-btn-profile.settings-section-tab.active{color:var(--text-muted) !important;box-shadow:none !important}';
                             __nrCss += 'html body #tab-settings #settings-tab-btn-' + __nrSec + '.settings-section-tab{color:var(--text-primary) !important;box-shadow:inset 0 -2px 0 var(--text-primary) !important}';
@@ -6102,7 +6102,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.7e1cc80dec.css">
+<link rel="stylesheet" href="/dist/nr-mono.550f8111be.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7545,6 +7545,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="settings-section-tab" id="settings-tab-btn-integrations" onclick="showSettingsSection('integrations', this)">Интеграции</div>
                 <div class="settings-section-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API Wildberries</div>
                 <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showSettingsSection('tariffs', this)">Тарифы</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-keys" onclick="showSettingsSection('keys', this)">Боты и ключи</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim space-y-4">
@@ -7606,6 +7607,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 </div>
             </div>
             <div id="settings-tariffs" class="settings-tab-anim hidden"><div id="nr-tr"></div></div>
+            <div id="settings-keys" class="settings-tab-anim hidden space-y-4"></div>
             <div id="settings-devsessions" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card security-sessions-card p-0">
                     <div class="p-6 pb-4">
@@ -8197,6 +8199,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-planning.69cadd5068.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/alina-settings-ui.886953cb6e.min.js"></script>
+<script src="/dist/nr-keys-ui.d317805c81.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
@@ -16440,7 +16443,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     function addVariantInput() { addVariantSlot(); }
 
-    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'tariffs', 'devsessions'];
+    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'tariffs', 'keys', 'devsessions'];
     function showSettingsSection(section, el) {
         if (!SETTINGS_PANES.includes(section)) section = 'profile';
         el = el || document.getElementById('settings-tab-btn-' + section);
@@ -16463,6 +16466,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 loadSpacesAdmin();
             }
         }
+        if (section === 'keys') { try { window.NrKeys?.show({ host: document.getElementById('settings-keys'), supabase: supabase }); } catch (_) {} } else { try { window.NrKeys?.hide(); } catch (_) {} }
         if (section === 'devsessions') loadDevSessions();
     }
     window.showSettingsSection = showSettingsSection;
@@ -16499,10 +16503,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function applySettingsTabsForRole() {
         // Профиль, Безопасность, Интеграции, API Wildberries и Тарифы видят все; «Сессии» только команда.
         document.getElementById('settings-tab-btn-devsessions')?.classList.toggle('hidden-tab', !isSuperAdmin);
+        document.getElementById('settings-tab-btn-keys')?.classList.toggle('hidden-tab', !isSuperAdmin);
         document.getElementById('admin-access-card')?.classList.toggle('hidden', !isSuperAdmin);
         let saved = '';
         try { saved = localStorage.getItem('nr_settings_section') || ''; } catch (_) {}
-        if (saved === 'devsessions' && !isSuperAdmin) saved = '';
+        if ((saved === 'devsessions' || saved === 'keys') && !isSuperAdmin) saved = '';
         const sec = SETTINGS_PANES.includes(saved) ? saved : 'profile';
         showSettingsSection(sec, document.getElementById('settings-tab-btn-' + sec));
     }

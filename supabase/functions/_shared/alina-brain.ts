@@ -1,5 +1,6 @@
 // «Мозг» Алины: понимает свободный текст клиента и отвечает как живой менеджер.
 // CRM-статусы и слоты по-прежнему решает state-machine; мозг — смысл + формулировка.
+import { secretOrEnv } from './integration-secrets.ts';
 
 export type BrainAction =
   | 'reply_only' // просто ответить, статус не менять
@@ -40,7 +41,7 @@ export async function alinaBrain(opts: {
     via: 'none',
   };
 
-  const apiKey = (Deno.env.get('OPENAI_API_KEY') ?? '').trim();
+  const apiKey = await secretOrEnv('OPENAI_API_KEY');
   if (!apiKey) return empty;
   if (!opts.text.trim() && !opts.hasPhoto) return empty;
 
