@@ -5,10 +5,11 @@ import { stripTypeScriptTypes } from 'node:module';
 import assert from 'node:assert/strict';
 
 const code = readFileSync(new URL('./alina-manager.ts', import.meta.url), 'utf8')
-  .replace(/^import .*\n/m, '').replace(/^export /gm, '');
+  .replace(/^import .*\n/gm, '').replace(/^export /gm, '');
 const owner = 7159099638;
 const group = -1004465341061;
 const manager = 555000111; // менеджер со своего аккаунта, не @nurcon
+const DEFAULTS = { read: true, typing: true, pauseMaxSec: 3, useName: true, phrases: ['Минутку, уточню.', 'Секунду, сейчас уточню.', 'Сейчас спрошу и вернусь к вам.'], remindMin: 10, reactions: true, copyButton: true };
 const mgrFrom = { id: manager, first_name: 'Марлен', last_name: 'Тойчубеков' };
 
 function setup() {
@@ -18,6 +19,7 @@ function setup() {
   const seen = new Set();
   const clock = { now: Date.parse('2026-11-17T12:00:00Z') };
   const net = { clientMode: 'ok', reactions: true };
+  const settings = { ...DEFAULTS, phrases: [...DEFAULTS.phrases] };
   const query = (table, state) => {
     const f = []; let patch = null; let op = 'select';
     const match = (r) => f.every(([k, kind, v]) => kind === 'eq' ? r[k] === v : kind === 'is' ? (v === null ? r[k] == null : r[k] === v) : kind === 'lt' ? r[k] < v : true);
@@ -67,10 +69,10 @@ function setup() {
     }
     return ok({ message_id: 400 + messages.length });
   };
-  const lib = new Function('getAdminClient', 'fetch', 'setTimeout',
-    stripTypeScriptTypes(code) + '\nreturn { processAlinaManagerTest, remindAlinaManager, alinaHoldPhrase }')(() => database, fakeTelegram, (f) => f());
+  const lib = new Function('getAdminClient', 'fetch', 'setTimeout', 'loadAlinaSettings',
+    stripTypeScriptTypes(code) + '\nreturn { processAlinaManagerTest, remindAlinaManager, alinaHoldPhrase, alinaTypingMs }')(() => database, fakeTelegram, (f) => f(), async () => settings);
   const run = lib.processAlinaManagerTest;
-  return { run, messages, calls, rows, net, clock, lib };
+  return { run, messages, calls, rows, net, clock, lib, settings };
 }
 
 const question = {
@@ -209,4 +211,29 @@ for (const mode of ['timeout', 'http500']) {
   assert.equal(t.messages.length, m);
   console.log('ok   напоминание через 10 минут один раз, отвеченные не трогаются');
 }
+// 5. Настройки с сайта: каждая действительно меняет поведение
+{
+  const t = setup(); Object.assign(t.settings, { read: false, typing: false, useName: false, phrases: ['Сейчас вернусь.'], reactions: false, copyButton: false });
+  await t.run('', { update_id: 5, business_message: question });
+  assert.ok(!t.calls.some((c) => c.method === 'readBusinessMessage'), 'прочитано выключено');
+  assert.ok(!t.calls.some((c) => c.method === 'sendChatAction'), '«печатает» выключено');
+  assert.equal(t.messages[0].reply_markup, undefined, 'кнопки копирования нет');
+  assert.equal(t.messages[1].text, 'Сейчас вернусь.', 'своя фраза без имени');
+  await t.run('', { message: reply() });
+  assert.equal(t.calls.filter((c) => c.method === 'setMessageReaction').length, 0, 'реакции выключены');
+  assert.ok(groupTexts(t.messages).includes('Ответ отправлен клиенту.'), 'итог текстом');
+  assert.equal(toClient(t.messages, reply().text).length, 1);
+  const edit = t.calls.find((c) => c.method === 'editMessageText').body;
+  assert.equal(edit.reply_markup, undefined, 'после ответа кнопки тоже нет');
+  const r = setup(); r.settings.remindMin = 2;
+  await r.run('', { business_message: question });
+  assert.equal(await r.lib.remindAlinaManager('', r.clock.now + 3 * 60e3), 1, 'напоминание через 2 минуты по настройке');
+  assert.match(r.messages.find((m) => /ждёт ответа/.test(m.text || '')).text, /больше 2 мин/);
+  const typ = setup().lib.alinaTypingMs;
+  assert.equal(typ('x'.repeat(200), 1500), 1500, 'пауза ограничена максимумом из настроек');
+  assert.equal(typ('Минутку, уточню.', 6000), 980);
+  assert.equal(typ('', 1000), 800);
+  console.log('ok   настройки: прочитано, «печатает», имя, фразы, реакции, кнопка, срок напоминания');
+}
+
 console.log('PASS: alina-manager: обычный путь, реакции, фразы, напоминание, отказ и таймаут');

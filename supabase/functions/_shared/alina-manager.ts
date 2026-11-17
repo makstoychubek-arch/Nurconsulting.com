@@ -1,4 +1,5 @@
 import { getAdminClient } from './alina-db.ts';
+import { type AlinaSettings, loadAlinaSettings } from './alina-settings.ts';
 
 type ManagerMessage = {
   chat?: { id?: number; type?: string };
@@ -76,13 +77,14 @@ async function postTelegram(token: string, body: object, method = 'sendMessage')
 
 // «Печатает…»: пока Алина «набирает» ответ, у клиента в чате виден индикатор. Пауза зависит от длины текста.
 // Сбой индикатора ничего не ломает, сообщение всё равно уйдёт.
-export function alinaTypingMs(text: string): number {
-  return Math.min(3000, Math.max(800, 500 + text.length * 30));
+export function alinaTypingMs(text: string, maxMs = 3000): number {
+  return Math.min(maxMs, Math.max(Math.min(800, maxMs), 500 + text.length * 30));
 }
 
-async function showTyping(token: string, chatId: number, connectionId: string, text: string): Promise<void> {
+async function showTyping(token: string, chatId: number, connectionId: string, text: string, s: AlinaSettings): Promise<void> {
+  if (!s.typing) return;
   await postTelegram(token, { chat_id: chatId, business_connection_id: connectionId, action: 'typing' }, 'sendChatAction');
-  await new Promise((resolve) => setTimeout(resolve, alinaTypingMs(text)));
+  await new Promise((resolve) => setTimeout(resolve, alinaTypingMs(text, s.pauseMaxSec * 1000)));
 }
 
 // Реакция на сообщение в группе (как в ответах на отзывы): ❤ доставлено, 👎 не доставлено. Возвращает, поставилась ли.
@@ -96,10 +98,11 @@ async function react(token: string, chatId: number, messageId: number | undefine
 
 const HOLD_PHRASES = ['Минутку, уточню.', 'Секунду, сейчас уточню.', 'Сейчас спрошу и вернусь к вам.'];
 
-/** Живая фраза «уточняю»: вариант выбирается по номеру обновления, имя клиента (если есть) в начале. */
-export function alinaHoldPhrase(name: string | undefined, seed: number): string {
-  const phrase = HOLD_PHRASES[Math.abs(Math.trunc(seed) || 0) % HOLD_PHRASES.length];
-  const clean = (name || '').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 30);
+/** Живая фраза «уточняю»: вариант выбирается по номеру обновления, имя клиента (если есть и включено) в начале. */
+export function alinaHoldPhrase(name: string | undefined, seed: number, phrases: string[] = HOLD_PHRASES, useName = true): string {
+  const list = phrases.length ? phrases : HOLD_PHRASES;
+  const phrase = list[Math.abs(Math.trunc(seed) || 0) % list.length];
+  const clean = (useName ? name || '' : '').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 30);
   return clean ? `${clean}, ${phrase[0].toLowerCase()}${phrase.slice(1)}` : phrase;
 }
 
@@ -108,9 +111,9 @@ function loginOf(username?: string): string | null {
   return username && /^[a-z][a-z0-9_]{4,31}$/i.test(username) ? `@${username}` : null;
 }
 
-function copyMarkup(login: string | null | undefined) {
+function copyMarkup(login: string | null | undefined, enabled = true) {
   // В буфер копируется только логин с «@» (copy_text). У клиента без логина кнопки нет.
-  return login ? { inline_keyboard: [[{ text: `Скопировать ${login}`, copy_text: { text: login } }]] } : undefined;
+  return login && enabled ? { inline_keyboard: [[{ text: `Скопировать ${login}`, copy_text: { text: login } }]] } : undefined;
 }
 
 function personName(from: ManagerMessage['from']): string {
@@ -123,9 +126,10 @@ export async function askAlinaManager(
   client: { chatId: number; connectionId: string; username?: string },
   question: string,
 ): Promise<boolean> {
+  const settings = await loadAlinaSettings();
   const login = loginOf(client.username);
   const text = `${login ?? `Без логина · чат ${client.chatId}`}\n${question}\n\nОтветьте на это сообщение. Текст ответа будет отправлен клиенту.`;
-  const sent = await postTelegram(token, { chat_id: group, text, reply_markup: copyMarkup(login) });
+  const sent = await postTelegram(token, { chat_id: group, text, reply_markup: copyMarkup(login, settings.copyButton) });
   if (sent.kind !== 'ok' || !sent.result?.message_id) return false;
   const { error } = await getAdminClient().from('alina_manager_questions').insert({
     group_id: group,
@@ -163,6 +167,7 @@ async function deliverAlinaManagerReply(token: string, group: number, message: M
   const db = getAdminClient();
   const key = { group_id: group, group_message_id: message.reply_to_message!.message_id! };
   const who = personName(message.from);
+  const settings = await loadAlinaSettings();
   // Берёт ответ один менеджер: второй реплай на то же обращение ничего не отправит.
   let claim = db.from('alina_manager_questions')
     .update({ delivery_state: 'sending', answered_by: message.from?.id ?? null, answered_by_name: who })
@@ -174,7 +179,7 @@ async function deliverAlinaManagerReply(token: string, group: number, message: M
   if (!pending) return;
   const row = pending as Row;
 
-  await showTyping(token, row.client_chat_id, row.business_connection_id, message.text!.trim());
+  await showTyping(token, row.client_chat_id, row.business_connection_id, message.text!.trim(), settings);
   const sent = await postTelegram(token, {
     chat_id: row.client_chat_id,
     business_connection_id: row.business_connection_id,
@@ -193,7 +198,8 @@ async function deliverAlinaManagerReply(token: string, group: number, message: M
     pending: 'Ответ не доставлен: Telegram отказал. Можно ответить на сообщение ещё раз.',
     unconfirmed: '',
   }[state];
-  const reacted = await react(token, group, message.message_id, state === 'sent' ? '❤' : state === 'pending' ? '👎' : '🤔');
+  const reacted = settings.reactions &&
+    await react(token, group, message.message_id, state === 'sent' ? '❤' : state === 'pending' ? '👎' : '🤔');
   if (state === 'unconfirmed') {
     // Здесь молчать нельзя: повтор вручную мог бы дать клиенту дубль.
     await postTelegram(token, {
@@ -208,17 +214,16 @@ async function deliverAlinaManagerReply(token: string, group: number, message: M
     await postTelegram(token, {
       chat_id: group, message_id: key.group_message_id,
       text: `${row.group_text.replace(/\n\nОтветьте на это сообщение[^]*$/, '')}\n\n✅ Ответил: ${who}`,
-      reply_markup: copyMarkup(row.client_login),
+      reply_markup: copyMarkup(row.client_login, settings.copyButton),
     }, 'editMessageText');
   }
 }
 
 /** Напоминание: обращение без ответа дольше 10 минут. Менеджерам в группу, клиенту «ещё уточняю». Один раз. */
-export const ALINA_REMIND_AFTER_MS = 10 * 60 * 1000;
-
 export async function remindAlinaManager(envToken: string, now = Date.now()): Promise<number> {
   const db = getAdminClient();
-  const cutoff = new Date(now - ALINA_REMIND_AFTER_MS).toISOString();
+  const settings = await loadAlinaSettings(now);
+  const cutoff = new Date(now - settings.remindMin * 60_000).toISOString();
   const { data: due, error } = await db.from('alina_manager_questions')
     .select('group_id,group_message_id')
     .eq('delivery_state', 'pending').eq('client_chat_id', alinaManagerTestChat)
@@ -241,10 +246,10 @@ export async function remindAlinaManager(envToken: string, now = Date.now()): Pr
     const row = claimed as Row;
     await postTelegram(token, {
       chat_id: item.group_id, reply_parameters: { message_id: item.group_message_id },
-      text: 'Клиент ждёт ответа уже больше 10 минут. Ответьте реплаем на это обращение.',
+      text: `Клиент ждёт ответа уже больше ${settings.remindMin} мин. Ответьте реплаем на это обращение.`,
     });
     const text = 'Ещё уточняю, скоро вернусь к вам.';
-    await showTyping(token, row.client_chat_id, row.business_connection_id, text);
+    await showTyping(token, row.client_chat_id, row.business_connection_id, text, settings);
     await postTelegram(token, { chat_id: row.client_chat_id, business_connection_id: row.business_connection_id, text });
     done++;
   }
@@ -293,7 +298,8 @@ export async function processAlinaManagerTest(envToken: string, update: {
     }
     const connectionId = incoming.business_connection_id!;
     // Как живой человек: прочитала, спросила менеджеров, ответила «печатает…» и текстом.
-    if (incoming.message_id) {
+    const settings = await loadAlinaSettings();
+    if (incoming.message_id && settings.read) {
       await postTelegram(token, {
         business_connection_id: connectionId, chat_id: alinaManagerTestChat, message_id: incoming.message_id,
       }, 'readBusinessMessage');
@@ -302,9 +308,9 @@ export async function processAlinaManagerTest(envToken: string, update: {
       chatId: alinaManagerTestChat, connectionId, username: incoming.from?.username,
     }, 'ТЕСТ · Можно поговорить с менеджером?');
     const hold = posted
-      ? alinaHoldPhrase(incoming.from?.first_name, update.update_id ?? 0)
+      ? alinaHoldPhrase(incoming.from?.first_name, update.update_id ?? 0, settings.phrases, settings.useName)
       : 'Тест: вопрос не удалось доставить в группу.';
-    await showTyping(token, alinaManagerTestChat, connectionId, hold);
+    await showTyping(token, alinaManagerTestChat, connectionId, hold, settings);
     await postTelegram(token, { chat_id: alinaManagerTestChat, business_connection_id: connectionId, text: hold });
     return true;
   }

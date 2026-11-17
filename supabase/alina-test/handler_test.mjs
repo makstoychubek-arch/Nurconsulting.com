@@ -40,8 +40,8 @@ function setup(env = {}) {
   };
   const manager = load('../functions/_shared/alina-manager.ts');
   const handler = load('./functions/alina-manager-test/handler.ts');
-  const make = new Function('getAdminClient', 'fetch', 'Deno', 'setTimeout', manager + '\n' + handler + '\nreturn { processAlinaManagerTest, handleTestWebhook }');
-  const lib = make(() => db, fetchMock, { env: { get: () => undefined } }, (f) => f());
+  const make = new Function('getAdminClient', 'fetch', 'Deno', 'setTimeout', 'loadAlinaSettings', manager + '\n' + handler + '\nreturn { processAlinaManagerTest, handleTestWebhook }');
+  const lib = make(() => db, fetchMock, { env: { get: () => undefined } }, (f) => f(), async () => ({ read: true, typing: true, pauseMaxSec: 3, useName: true, phrases: ['Минутку, уточню.', 'Секунду, сейчас уточню.', 'Сейчас спрошу и вернусь к вам.'], remindMin: 10, reactions: true, copyButton: true }));
   const full = { SUPABASE_URL: 'https://testproj.supabase.co', ALINA_TEST_WEBHOOK_SECRET: SECRET, ALINA_BOT_TOKEN: 'TESTTOKEN', ...env };
   const deps = { env: (n) => full[n], db, process: lib.processAlinaManagerTest, fetch: fetchMock };
   const post = (update, headers = { 'x-telegram-bot-api-secret-token': SECRET }) =>
