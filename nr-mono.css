@@ -2688,3 +2688,59 @@ html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .r
 @media (max-width: 768px) {
   html#nr-root body header.glass.app-header .app-header-main > .nr-mp.open { position: absolute !important; right: 12px !important; left: auto !important; top: calc(100% - 4px) !important; width: 176px !important; height: auto !important; max-width: calc(100vw - 24px); flex-direction: column; align-items: stretch; padding: 6px !important; border-radius: 22px !important; order: 0; grid-column: auto; grid-row: auto; }
 }
+
+/* ───────── Продвижение → Алина (alina-settings-ui.js): настройки Алины, «Минимализм» на токенах сайта ───────── */
+.as-wrap { position: relative; padding: 4px 0 90px; }
+.as-head p { margin: 0 0 16px; color: var(--text-muted); max-width: 70ch; }
+.as-cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+@media (max-width: 940px) { .as-cols { grid-template-columns: minmax(0, 1fr); } .as-prev { position: static !important; } }
+.as-stack { display: grid; gap: 14px; min-width: 0; }
+.as-card, .as-prev { background: var(--surface-solid); border: 1px solid var(--border); border-radius: 26px; padding: 16px 20px; min-width: 0; }
+.as-prev { position: sticky; top: 12px; padding: 16px; }
+.as-card h3, .as-prev h3 { margin: 0 0 6px; font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.as-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); min-width: 0; }
+.as-row:first-of-type { border-top: 0; }
+.as-t { flex: 1; min-width: 0; }
+.as-t b { display: block; font-weight: 700; color: var(--text-primary); }
+.as-t span { color: var(--text-muted); font-size: 12.5px; }
+.as-pt { padding: 10px 0 4px; border-top: 1px solid var(--border); }
+.as-unit, .as-mute { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+.as-sw { position: relative; width: 44px; height: 26px; flex: none; }
+.as-sw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.as-sw u { position: absolute; inset: 0; border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; transition: .15s; }
+.as-sw u::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-muted); transition: .15s; }
+.as-sw input:checked + u { background: var(--accent); border-color: var(--accent); }
+.as-sw input:checked + u::after { left: 21px; background: var(--on-accent, #fff); }
+.as-sw input:focus-visible + u { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+.as-num { display: inline-flex; align-items: center; border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; overflow: hidden; }
+.as-num button { border: 0; background: none; color: var(--text-primary); width: 32px; height: 32px; font-size: 16px; cursor: pointer; }
+.as-num input { width: 52px; border: 0; background: none; color: var(--text-primary); font: inherit; font-weight: 800; text-align: center; padding: 0; -moz-appearance: textfield; }
+.as-num input::-webkit-outer-spin-button, .as-num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.as-wrap input[type=range] { accent-color: var(--accent); width: 150px; }
+.as-btn { border: 1px solid var(--border-strong, var(--border)); background: none; color: var(--text-primary); border-radius: 999px; font: inherit; font-weight: 700; font-size: 12.5px; padding: 7px 14px; cursor: pointer; }
+.as-ink { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
+.as-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 0 8px; }
+.as-chip { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border-radius: 14px; padding: 5px 8px 5px 12px; max-width: 100%; }
+.as-chip input { background: none; border: 0; color: var(--text-primary); font: inherit; padding: 0; min-width: 8ch; max-width: 100%; }
+.as-chip button { border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 15px; line-height: 1; }
+.as-hist { color: var(--text-muted); font-size: 12.5px; margin: 0; }
+.as-phone { background: var(--surface); border-radius: 22px; padding: 14px 12px; display: grid; gap: 7px; min-height: 260px; align-content: start; }
+.as-m { max-width: 86%; padding: 8px 12px; border-radius: 16px; font-size: 13px; word-wrap: break-word; }
+.as-me { background: var(--surface-solid); justify-self: end; border: 1px solid var(--border); color: var(--text-primary); }
+.as-bot { background: var(--accent); color: var(--on-accent, #fff); justify-self: start; }
+.as-tag { font-size: 10.5px; color: var(--text-muted); padding-left: 4px; }
+.as-typing { justify-self: start; display: inline-flex; gap: 4px; padding: 10px 14px; border-radius: 16px; background: var(--accent); }
+.as-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--on-accent, #fff); opacity: .5; animation: as-b 1s infinite; }
+.as-typing i:nth-child(2) { animation-delay: .15s; } .as-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes as-b { 50% { opacity: 1; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .as-typing i { animation: none; } }
+.as-grp { background: var(--surface); border-radius: 14px; padding: 10px 12px; font-size: 12.5px; color: var(--text-primary); }
+.as-fakebtn { display: block; margin-top: 8px; text-align: center; border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; padding: 5px; font-weight: 700; font-size: 12px; }
+.as-react { font-size: 15px; margin-top: 6px; }
+.as-save { position: sticky; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; pointer-events: none; margin-top: 16px; z-index: 5; }
+.as-save[hidden] { display: none; }
+.as-save > div { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; background: var(--surface-solid); border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; padding: 8px 10px 8px 20px; max-width: 100%; }
+.as-save span { font-weight: 700; color: var(--text-primary); }
+.as-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 9px 18px; font-weight: 700; z-index: 30; }
+.as-toast[hidden] { display: none; }
+.as-toast button { margin-left: 10px; border: 0; background: none; color: inherit; text-decoration: underline; font: inherit; font-weight: 800; cursor: pointer; }

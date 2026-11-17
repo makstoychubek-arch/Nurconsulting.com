@@ -8,6 +8,7 @@ import { applyRestockTelegramReply } from '../_shared/wb-restock-apply.ts';
 import { setTelegramReaction, unwrapTelegramMessage } from '../_shared/wb-restock-reply.ts';
 import { alinaWebhookSecret } from '../_shared/alina-webhook-secret.ts';
 import { processAlinaTelegramUpdate } from '../_shared/alina-telegram.ts';
+import { alinaManagerTestGroup, processAlinaManagerTest } from '../_shared/alina-manager.ts';
 import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 
 const CORS = {
@@ -58,12 +59,20 @@ Deno.serve(async (req) => {
             if (gotSecret !== await alinaWebhookSecret(alinaBot)) {
                 return json({ ok: false, error: 'bad_secret' }, 401);
             }
+            // Тест «вопрос менеджеру»: только @nurcon (7159099638) и только одна тестовая фраза. Остальные идут как раньше.
+            if (alinaBot === 'alina' && await alinaManagerTest(update)) return json({ ok: true, manager_test: true });
             await processAlinaTelegramUpdate(alinaBot, (Deno.env.get(BOT_TOKEN_ENV[alinaBot]) || '').trim(), update);
             return json({ ok: true });
         } catch {
             console.error('[telegram-router] Alina could not accept an update');
             return json({ ok: false, error: 'alina_unavailable' }, 503);
         }
+    }
+    // Реплай менеджера в тестовой группе. Только бот alina, только эта группа, секрет вебхука Алины обязателен.
+    if (alinaBot === 'alina' && update?.message?.chat?.id === alinaManagerTestGroup && update.message.reply_to_message) {
+        if (gotSecret !== await alinaWebhookSecret('alina')) return json({ ok: false, error: 'bad_secret' }, 401);
+        await alinaManagerTest(update);
+        return json({ ok: true, manager_test: true });
     }
     if (sharedSecret && gotSecret !== sharedSecret && (!alinaBot || gotSecret !== await alinaWebhookSecret(alinaBot))) {
         return json({ ok: false, error: 'bad_secret' }, 401);
@@ -113,6 +122,16 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, ignored: 'unknown_chat' });
 });
+
+// Всегда без исключения наружу: Telegram повторяет доставку при не-200, и в группу ушёл бы второй вопрос.
+async function alinaManagerTest(update: Parameters<typeof processAlinaManagerTest>[1]): Promise<boolean> {
+    try {
+        return await processAlinaManagerTest((Deno.env.get(BOT_TOKEN_ENV.alina) || '').trim(), update);
+    } catch {
+        console.error('[telegram-router] Alina manager test failed');
+        return true;
+    }
+}
 
 async function sendTelegram(token: string, chatId: string, text: string, replyTo?: number): Promise<void> {
     if (!token || !chatId) return;

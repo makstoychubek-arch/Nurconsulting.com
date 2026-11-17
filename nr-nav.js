@@ -9,6 +9,7 @@
     var SVG = '<svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">';
     var ICO = {
         camp: '<path d="M4 10v4a1 1 0 0 0 1 1h2.5l7 4.5V5.5L7.5 10H5a1 1 0 0 0-1 0z"/><path d="M18.5 9.5a4 4 0 0 1 0 5"/>',
+        alina: '<path d="M4 5.5h16v10H9.5L5 19.5v-4H4z"/><path d="M8 9.5h8M8 12.5h5"/>',
         give: '<rect x="3.5" y="9" width="17" height="11" rx="2"/><path d="M12 9v11M3.5 13h17M12 9c-2-4-6-3-5 0M12 9c2-4 6-3 5 0"/>',
         cont: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.7"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17"/>',
         box: '<path d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2L12 3z"/><path d="M4.3 7.4L12 11.5l7.7-4.1M12 11.5V21"/>',
@@ -28,6 +29,7 @@
             items: [
                 { id: 'ads', label: 'Кампании', ico: 'camp', sel: '#nr-ads-tabs [data-av="ads"]', on: '#nr-ads-tabs [data-av="ads"].is-on', dflt: true },
                 { id: 'give', label: 'Раздачи', ico: 'give', sel: '#nr-ads-tabs [data-av="give"]', on: '#nr-ads-tabs [data-av="give"].is-on', staff: true },
+                { id: 'alina', label: 'Алина', ico: 'alina', sel: '#nr-ads-tabs [data-av="alina"]', on: '#nr-ads-tabs [data-av="alina"].is-on', staff: true },
                 { id: 'content', label: 'Контент', ico: 'cont', badge: 'BETA', sel: '#nr-ads-tabs [data-av="content"]', on: '#nr-ads-tabs [data-av="content"].is-on', staff: true }
             ]
         },
