@@ -2508,8 +2508,8 @@ html[data-theme="neon"] body .nmd-hero .nmd-chart i.hl { background: var(--text-
 /* ═══════════ Стекло: правки по скринам владельца (17 ноября 2026) ═══════════ */
 /* 1. Подразделы меню (всплывают справа от кнопки «Инструменты», «Аналитика» и др.) лежат внутри левого меню, а у того самого есть размытие:
    вложенное размытие не работает, и страница под подсказкой просвечивала, текст налезал на текст. Заливка плотная, стекло остаётся в кромке и тени. */
-html[data-theme="ios"] { --g-solid: rgba(255,255,255,.97); }
-html[data-theme="neon"] { --g-solid: rgba(38,38,36,.97); }
+html[data-theme="ios"] { --g-solid: #fff; }
+html[data-theme="neon"] { --g-solid: #262624; }
 html[data-theme] body .sidebar-flyout:not(#nr-x), html[data-theme] body .sidebar-flyout.visible:not(#nr-x), html[data-theme] body .sidebar-flyout.pinned:not(#nr-x) {
   background: var(--g-solid) !important; border: 1px solid var(--g-line) !important; border-radius: 18px;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
@@ -2528,3 +2528,14 @@ html body .rnp-gh-rings { grid-auto-rows: 1fr; }
 @media (min-width: 769px) {
   html[data-theme] body :is(header.glass.app-header, .main-rail > header.app-header):not(#nr-x) { background: transparent !important; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none !important; border-color: transparent !important; }
 }
+
+/* Подсказки и всплывающие списки (пояснения к метрикам РНП, календарь, список кабинетов, уведомления, меню): плотная заливка.
+   Под полупрозрачным стеклом просвечивала таблица, и пояснение не читалось (скрин владельца 17.11.2026). Стекло остаётся в кромке и тени. */
+html[data-theme] body :is(.rnp-help-tip, .rnp-gh-pop, #cabinet-dropdown-menu, #date-picker, .nr-notify-panel, .nrt-pop, [role="menu"], [role="listbox"], .rnp-ctx-menu, .nr-mp.open):not(#nr-x) {
+  background: var(--g-solid) !important; color: var(--text-primary) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-theme] body .rnp-help-tip { border: 1px solid var(--g-line); box-shadow: inset 0 1px 0 var(--g-hi), 0 14px 36px var(--g-sh) !important; }
+html[data-theme] body .rnp-help-tip span { color: var(--text-secondary) !important; }
+/* При открытии окна у области страницы пропадала полоса прокрутки, и содержимое прыгало на ширину полосы: резервируем место под неё всегда */
+@media (min-width: 769px) { html body .main-rail .main-content:not(#nr-x), html body .rnp-sheet-body { scrollbar-gutter: stable; } }
