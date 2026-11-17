@@ -449,7 +449,10 @@
             var dr = doc.getElementById('date-range'), t = doc.getElementById('page-title'); if (!dr || !t || !t.parentNode) return;
             var sd = doc.getElementById('nr-subdate');
             if (!sd) { sd = doc.createElement('span'); sd.id = 'nr-subdate'; sd.className = 'nr-subdate'; t.parentNode.insertBefore(sd, t.nextSibling); }
-            var v = (dr.textContent || '').replace(/\s+/g, ' ').trim(); if (sd.textContent !== v) sd.textContent = v;
+            var v = (dr.textContent || '').replace(/\s+/g, ' ').trim();
+            // Страницы без периода (настройки, агенты, А/Б, остатки): плашка даты скрыта, значит и подписи с датой под названием быть не должно
+            var w = doc.getElementById('header-date-chip-wrap'); if (w && (w.offsetParent === null || w.getBoundingClientRect().width < 4)) v = '';
+            if (sd.textContent !== v) sd.textContent = v;
         }
         var dt0 = 0; new MutationObserver(function () { if (dt0) return; dt0 = setTimeout(function () { dt0 = 0; syncDate(); }, 60); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true, characterData: true });
         if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
