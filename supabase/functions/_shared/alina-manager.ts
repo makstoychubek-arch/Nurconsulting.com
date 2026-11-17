@@ -48,16 +48,23 @@ async function postTelegram(token: string, body: object): Promise<TelegramPost> 
       signal: AbortSignal.timeout(8000),
     });
   } catch {
+    console.error('[alina-manager] Telegram unreachable or timed out');
     return { kind: 'unknown' };
   }
-  if (response.status >= 500) return { kind: 'unknown' };
+  if (response.status >= 500) {
+    console.error('[alina-manager] Telegram server error', response.status);
+    return { kind: 'unknown' };
+  }
   let data: { ok?: boolean; result?: ManagerMessage } | null = null;
   try {
     data = await response.json();
   } catch {
     return response.ok ? { kind: 'unknown' } : { kind: 'refused' };
   }
-  return response.ok && data?.ok === true ? { kind: 'ok', result: data.result as ManagerMessage } : { kind: 'refused' };
+  if (response.ok && data?.ok === true) return { kind: 'ok', result: data.result as ManagerMessage };
+  // Причина отказа без токена и без текста сообщения: код, описание Telegram и чат.
+  console.error('[alina-manager] Telegram refused', response.status, String((data as { description?: string } | null)?.description || ''), String((body as { chat_id?: unknown }).chat_id));
+  return { kind: 'refused' };
 }
 
 export async function askAlinaManager(
@@ -136,7 +143,7 @@ async function deliverAlinaManagerReply(token: string, group: number, message: M
 
 // Isolated end-to-end check for the owner's verified private Telegram chat.
 export const alinaManagerTestChat = 7159099638;
-export const alinaManagerTestGroup = -4465341061;
+export const alinaManagerTestGroup = -1004465341061;
 
 export async function processAlinaManagerTest(envToken: string, update: {
   update_id?: number;

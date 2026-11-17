@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 const code = readFileSync(new URL('./alina-manager.ts', import.meta.url), 'utf8')
   .replace(/^import .*\n/m, '').replace(/^export /gm, '');
 const owner = 7159099638;
-const group = -4465341061;
+const group = -1004465341061;
 const manager = 555000111; // менеджер со своего аккаунта, не @nurcon
 
 function setup() {

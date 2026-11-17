@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const load = (path) => stripTypeScriptTypes(readFileSync(new URL(path, import.meta.url), 'utf8')
   .replace(/^import .*\n/gm, '').replace(/^export /gm, ''));
 const owner = 7159099638;
-const group = -4465341061;
+const group = -1004465341061;
 const SECRET = 'test-secret-0123456789-abcdefghij';
 
 function setup(env = {}) {

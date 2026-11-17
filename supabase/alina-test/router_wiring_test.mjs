@@ -4,7 +4,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import assert from 'node:assert/strict';
 
 const src = stripTypeScriptTypes(readFileSync(new URL('../functions/telegram-router/index.ts', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
-const owner = 7159099638, group = -4465341061, SECRET = 'alina-secret';
+const owner = 7159099638, group = -1004465341061, SECRET = 'alina-secret';
 function setup({ manager = async () => false } = {}) {
   const calls = { alina: 0, manager: 0 };
   let handler;
