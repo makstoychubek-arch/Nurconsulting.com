@@ -108,6 +108,7 @@
     function writeCache() { try { root.localStorage.setItem(cacheKey(S.cab), JSON.stringify({ arts: S.arts, prices: S.prices, stock: S.stock, fbo: S.fbo, fbs: S.fbs, pd: S.pd, ratio: S.ratio, ord: S.ord, sal: S.sal, at: Date.now() })); } catch (_) {} }
 
     function open() {
+        var tries = 0; (function wait() { if (rnpGroups().length || ++tries > 12 || mpMode() === 'ozon') { if (rnpGroups().length && S.view === 'prices') schedule(); return; } setTimeout(wait, 700); })();
         if (mpMode() !== 'wb') loadOz();
         var cab = cabId(); if (!cab || !sb()) { paint(); return; }
         var my = ++S.token, same = cab === S.cab && S.arts.length;
@@ -330,6 +331,25 @@
         pane.insertAdjacentHTML('beforeend', (m === 'all' ? '<div class="rp-cat">Ozon</div>' : '') + ozHtml());
         pane.scrollTop = sc;
     }
+    // Группы из РНП (общие названия и порядок). Пока РНП не загрузился, пусто и страница строится по склейкам WB
+    function rnpGroups() { try { var r = root.RNP && root.RNP.groupsView ? root.RNP.groupsView() : []; return (r || []).filter(function (g) { return g.nms && g.nms.length; }); } catch (_) { return []; } }
+    function rgBuild(rg, ord, stock, prices, sal, fb) {
+        var byNm = {}; S.arts.forEach(function (a) { byNm[a.nm_id] = a; });
+        var out = [];
+        rg.forEach(function (g) {
+            var items = g.nms.map(function (nm) { return byNm[nm]; }).filter(Boolean);
+            if (!items.length) return;
+            var st = 0, od = 0, mn = Infinity, mx = 0, ps = 0, pn = 0, fo = 0, fs = 0;
+            items.forEach(function (a) {
+                a._o = ord[a.nm_id] || 0; a._s = sal[a.nm_id] || 0; a._k = stock[a.nm_id] || 0; a._p = prices[a.nm_id] || 0;
+                st += a._k; od += a._o; fo += (fb && fb.fbo[a.nm_id]) || 0; fs += (fb && fb.fbs[a.nm_id]) || 0;
+                if (a._p) { mn = Math.min(mn, a._p); mx = Math.max(mx, a._p); ps += a._p; pn++; }
+            });
+            var top = items.slice().sort(function (x, y) { return y._o - x._o; })[0];
+            out.push({ key: g.name, title: g.name, orig: g.orig, items: items, stock: st, orders: od, min: mn === Infinity ? 0 : mn, max: mx, avg: pn ? Math.round(ps / pn) : 0, fboPct: ratioPct(fo, fs), loco: items.length >= 2 && top._o > 0 ? top.nm_id : 0 });
+        });
+        return out;
+    }
     function paintWb() {
         var pane = doc.getElementById('rnp-prices-pane'); if (!pane || S.view !== 'prices') return;
         var legend = '<div class="rp-tools">' + GEAR_BTN + '</div>';
@@ -337,18 +357,29 @@
             pane.innerHTML = legend + '<div class="rp-stage">' + (S.load.arts ? skeleton() : '<div class="rp-empty"><b>В этом кабинете пока нет артикулов в РНП</b><p>Добавьте артикулы в РНП, и они появятся здесь по склейкам.</p></div>') + '</div>';
             return;
         }
-        var pf = prefs(), cats = sortBy(build(S.arts, S.ord, S.stock, S.prices, S.sal, { fbo: S.fbo, fbs: S.fbs }), pf.corder, function (c) { return c.name; }), total = S.arts.length, gi = 0;
-        cats.forEach(function (c) { c.groups = sortBy(c.groups, pf.order, function (g) { return 'wb:' + g.key; }); });
         S.gmap = {};
-        var html = cats.map(function (c) {
-            return '<div class="rp-cat">' + esc(c.name) + ' · ' + c.count + ' арт.</div>' + c.groups.map(function (g) {
-                var key = 'g' + (gi++); S.gmap[key] = { k: String(g.key), title: g.title, cat: c.name, nms: g.items.map(function (a) { return a.nm_id; }), imt: g.items[0].imt_id || 0, avg: g.avg };
-                var mcat = g.items[0].subject_name || c.name;
-                return '<div class="rp-row"><div class="rp-nm" data-nm="' + (g.loco || g.items[0].nm_id) + '"><em class="rp-catg">Категория · ' + esc(mcat) + '</em><b>' + esc(nameOf('wb:' + g.key, g.title)) + '</b><span>' + g.items.length + ' арт.' + (g.min ? ' · ' + fmt(g.min) + (g.max > g.min ? '–' + fmt(g.max) : '') : '') + '</span></div>' +
-                    '<div class="rp-shelf">' + g.items.map(function (a) { return tile(a, a.nm_id === g.loco); }).join('') + '</div>' +
-                    '<div class="rp-side">' + rings(g, key) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button></div></div></div>';
+        var gi = 0, total = S.arts.length, rg = rnpGroups(), html;
+        function rowHtml(g, key, catLine) {
+            return '<div class="rp-row"><div class="rp-nm" data-nm="' + (g.loco || g.items[0].nm_id) + '"><em class="rp-catg">Категория · ' + esc(catLine) + '</em><b>' + esc(g.title) + '</b><span>' + g.items.length + ' арт.' + (g.min ? ' · ' + fmt(g.min) + (g.max > g.min ? '–' + fmt(g.max) : '') : '') + '</span></div>' +
+                '<div class="rp-shelf">' + g.items.map(function (a) { return tile(a, a.nm_id === g.loco); }).join('') + '</div>' +
+                '<div class="rp-side">' + rings(g, key) + '<div class="rp-acts"><button type="button" class="rp-btn" data-act="price" data-g="' + key + '">Цена</button></div></div></div>';
+        }
+        if (rg.length) {
+            // Группы, названия и порядок общие с РНП (rnp_settings: groupNames, groupOrder, artOrder), одна группа = один блок
+            html = rgBuild(rg, S.ord, S.stock, S.prices, S.sal, { fbo: S.fbo, fbs: S.fbs }).map(function (g) {
+                var key = 'g' + (gi++); S.gmap[key] = { k: String(g.key), title: g.title, orig: g.orig, cat: '', nms: g.items.map(function (a) { return a.nm_id; }), imt: g.items[0].imt_id || 0, avg: g.avg };
+                return rowHtml(g, key, g.orig && g.orig !== g.title ? g.orig : (g.items[0].subject_name || g.title));
             }).join('');
-        }).join('');
+        } else {
+            var pf = prefs(), cats = sortBy(build(S.arts, S.ord, S.stock, S.prices, S.sal, { fbo: S.fbo, fbs: S.fbs }), pf.corder, function (c) { return c.name; });
+            cats.forEach(function (c) { c.groups = sortBy(c.groups, pf.order, function (g) { return 'wb:' + g.key; }); });
+            html = cats.map(function (c) {
+                return '<div class="rp-cat">' + esc(c.name) + ' · ' + c.count + ' арт.</div>' + c.groups.map(function (g) {
+                    var key = 'g' + (gi++); S.gmap[key] = { k: String(g.key), title: nameOf('wb:' + g.key, g.title), cat: c.name, nms: g.items.map(function (a) { return a.nm_id; }), imt: g.items[0].imt_id || 0, avg: g.avg };
+                    return rowHtml({ title: nameOf('wb:' + g.key, g.title), items: g.items, loco: g.loco, min: g.min, max: g.max, avg: g.avg }, key, g.items[0].subject_name || c.name);
+                }).join('');
+            }).join('');
+        }
         var nsel = Object.keys(S.sel).length, bar = '';
         if (nsel) {
             var names = Object.keys(S.sel).slice(0, 3).map(function (nm) { var a = artOf(nm); return a ? (a.name || nm) : nm; }).join(', ');
@@ -433,32 +464,51 @@
     function toast(type, title, text) { try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast(type, title, text || ''); } catch (_) {} }
 
 
-    /* ───── окно «Настройки товаров» (шестерёнка): себестоимость из Excel, названия, перенос, порядок блоков ───── */
+    /* ───── окно «Настройки товаров» (шестерёнка): себестоимость из Excel, названия, перенос, порядок блоков ─────
+       Группы WB общие с РНП (rnp_settings: groupNames, groupOrder; категория артикула), поэтому названия и порядок меняются сразу
+       в РНП, «Остатках» и здесь. Группы Ozon пока хранятся в браузере. */
     function openSettings() {
         if (!root.NrUi || !root.NrUi.dialog) return;
-        var mode = mpMode(), P = prefs(), items = [], cats = [], seenCat = {};
-        if (mode !== 'ozon') Object.keys(S.gmap).forEach(function (k) { var g = S.gmap[k]; items.push({ k: 'wb:' + g.k, gk: k, label: g.title, def: g.title, cat: 'Категория · ' + (g.cat || ''), cname: g.cat }); if (!seenCat[g.cat]) { seenCat[g.cat] = 1; cats.push(g.cat); } });
-        if (mode !== 'wb') ozGroups().forEach(function (g) { items.push({ k: 'oz:' + g.line, label: g.line, def: g.line, cat: 'Ozon', cname: '' }); });
-        var ord = sortBy(items.map(function (x) { return x.k; }), P.order, function (k) { return k; });
+        var mode = mpMode(), P = prefs(), items = [], cats = [], seenCat = {}, R = root.RNP, rg = mode !== 'ozon' ? rnpGroups() : [];
+        if (rg.length) rg.forEach(function (g) { items.push({ k: 'rg:' + g.name, gk: '', rg: g, label: g.name, def: g.orig || g.name, cur: g.name, cat: 'Категория · ' + (g.orig || g.name) }); });
+        else if (mode !== 'ozon') Object.keys(S.gmap).forEach(function (k) { var g = S.gmap[k]; items.push({ k: 'wb:' + g.k, gk: k, label: g.title, def: g.title, cur: g.title, cat: 'Категория · ' + (g.cat || ''), cname: g.cat }); if (g.cat && !seenCat[g.cat]) { seenCat[g.cat] = 1; cats.push(g.cat); } });
+        if (mode !== 'wb') ozGroups().forEach(function (g) { items.push({ k: 'oz:' + g.line, label: g.line, def: g.line, cur: nameOf('oz:' + g.line, g.line), cat: 'Ozon' }); });
+        var ord = sortBy(items.map(function (x) { return x.k; }), rg.length ? [] : P.order, function (k) { return k; });
         var corder = sortBy(cats.slice(), P.corder, function (c) { return c; });
-        var lab = {}; items.forEach(function (x) { lab[x.k] = nameOf(x.k, x.def); });
-        function esel() { return items.map(function (x, i) { return '<option value="' + i + '">' + esc(x.def) + '</option>'; }).join(''); }
+        var lab = {}; items.forEach(function (x) { lab[x.k] = x.cur; });
+        var itemOf = function (k) { return items.filter(function (y) { return y.k === k; })[0]; };
         function nameRows() { return items.map(function (x) { return '<div class="rps-r"><small>' + esc(x.cat) + '</small><input class="rps-in" data-n="' + esc(x.k) + '" value="' + esc(lab[x.k]) + '" placeholder="' + esc(x.def) + '" autocomplete="off"></div>'; }).join(''); }
         function ordRows() {
             var c = corder.map(function (n, i) { return '<div class="rps-o"><i>' + (i + 1) + '</i><b>' + esc(n) + '</b><span><button type="button" data-oc="' + i + '" data-d="-1" aria-label="Выше">▲</button><button type="button" data-oc="' + i + '" data-d="1" aria-label="Ниже">▼</button></span></div>'; }).join('');
-            var g = ord.map(function (k, i) { var x = items.filter(function (y) { return y.k === k; })[0]; return '<div class="rps-o"><i>' + (i + 1) + '</i><b>' + esc(lab[k] || (x && x.def) || k) + '</b><span><button type="button" data-og="' + i + '" data-d="-1" aria-label="Выше">▲</button><button type="button" data-og="' + i + '" data-d="1" aria-label="Ниже">▼</button></span></div>'; }).join('');
-            return (c ? '<small class="rps-h">Группы</small>' + c : '') + '<small class="rps-h">Склейки (один блок на странице)</small>' + g;
+            var g = ord.map(function (k, i) { var x = itemOf(k); return '<div class="rps-o"><i>' + (i + 1) + '</i><b>' + esc(lab[k] || (x && x.def) || k) + '</b><span><button type="button" data-og="' + i + '" data-d="-1" aria-label="Выше">▲</button><button type="button" data-og="' + i + '" data-d="1" aria-label="Ниже">▼</button></span></div>'; }).join('');
+            return (c ? '<small class="rps-h">Группы</small>' + c : '') + '<small class="rps-h">Блоки на странице (одна склейка или группа = один блок)</small>' + g;
+        }
+        function moveBlock() {
+            if (mode === 'ozon' || !items.length) return '';
+            if (rg.length && !rg[0].wb) {
+                var arts = [].concat.apply([], rg.map(function (g) { return g.nms.map(function (nm) { var a = artOf(nm); return { nm: nm, name: (a && (a.name || a.card_title)) || String(nm), g: g.name }; }); }));
+                return '<div class="rps-s"><b>Перенести товар в другую группу</b><div class="rps-mv"><select id="rps-art" class="rps-in">' + arts.map(function (a) { return '<option value="' + a.nm + '">' + esc(a.name + ' · ' + a.g) + '</option>'; }).join('') + '</select><span>→</span><select id="rps-to" class="rps-in">' + rg.map(function (g, i) { return '<option value="' + i + '">' + esc(g.name) + '</option>'; }).join('') + '</select><button type="button" class="rp-btn" data-s="mvart">Перенести</button></div></div>';
+            }
+            var src = items.filter(function (x) { return x.gk; });
+            return src.length ? '<div class="rps-s"><b>Перенести товар в другую склейку</b><div class="rps-mv"><select id="rps-src" class="rps-in">' + src.map(function (x) { return '<option value="' + x.gk + '">' + esc(x.def) + '</option>'; }).join('') + '</select><button type="button" class="rp-btn" data-s="move">Выбрать, куда</button></div></div>' : '';
         }
         var body = '<div class="rps">' +
             '<div class="rps-s"><b>Себестоимость из Excel</b><p>Вставьте таблицу: артикул и себестоимость за штуку. Цены применятся ко всем артикулам из таблицы сразу.</p><button type="button" class="rp-btn" data-s="cost">Загрузить таблицу</button></div>' +
-            '<div class="rps-s"><b>Названия</b><div id="rps-names">' + nameRows() + '</div></div>' +
-            (mode !== 'ozon' && items.length ? '<div class="rps-s"><b>Перенести товар в другую склейку</b><div class="rps-mv"><select id="rps-src" class="rps-in">' + items.filter(function (x) { return x.gk; }).map(function (x) { return '<option value="' + x.gk + '">' + esc(x.def) + '</option>'; }).join('') + '</select><button type="button" class="rp-btn" data-s="move">Выбрать, куда</button></div></div>' : '') +
+            '<div class="rps-s"><b>Названия</b><div id="rps-names">' + nameRows() + '</div></div>' + moveBlock() +
             '<div class="rps-s"><b>Порядок блоков</b><div id="rps-ord">' + ordRows() + '</div></div></div>';
         var d = root.NrUi.dialog({ title: 'Настройки товаров', size: 'm', body: body, actions: [{ label: 'Отмена' }, { label: 'Сохранить', primary: true, onClick: function () {
-            var names = {}; Array.prototype.forEach.call(d.el.querySelectorAll('.rps-in[data-n]'), function (i) { var v = String(i.value || '').trim(), x = items.filter(function (y) { return y.k === i.getAttribute('data-n'); })[0]; if (v && x && v !== x.def) names[x.k] = v; });
-            var np = prefs(); np.names = Object.assign({}, np.names); items.forEach(function (x) { delete np.names[x.k]; }); Object.keys(names).forEach(function (k) { np.names[k] = names[k]; });
-            np.order = ord.slice(); np.corder = corder.slice(); savePrefs(np); paint();
-            toast('success', 'Настройки сохранены', 'Названия и порядок блоков обновлены');
+            var np = prefs(), changed = false;
+            items.forEach(function (x) {
+                var v = String(lab[x.k] == null ? '' : lab[x.k]).trim();
+                if (x.rg) {
+                    if (v !== x.cur && R && R.renameGroup) { R.renameGroup(x.cur, v === x.def ? '' : v); changed = true; }
+                } else { delete np.names[x.k]; if (v && v !== x.def) np.names[x.k] = v; }
+            });
+            var rgOrder = ord.filter(function (k) { return k.indexOf('rg:') === 0; }).map(function (k) { var x = itemOf(k), v = String(lab[k] || '').trim(); return v || x.cur; });
+            if (rgOrder.length && R && R.setGroupOrder) { R.setGroupOrder(rgOrder); changed = true; }
+            np.order = ord.filter(function (k) { return k.indexOf('rg:') !== 0; }); np.corder = corder.slice(); savePrefs(np);
+            setTimeout(paint, changed ? 350 : 0);
+            toast('success', 'Настройки сохранены', changed ? 'Названия и порядок общие с РНП и «Остатками»' : 'Названия и порядок блоков обновлены');
         } }] });
         function repaintOrd() { var e = d.el.querySelector('#rps-ord'); if (e) e.innerHTML = ordRows(); }
         d.el.addEventListener('input', function (e) { var n = e.target && e.target.getAttribute && e.target.getAttribute('data-n'); if (n) lab[n] = e.target.value; });
@@ -469,7 +519,13 @@
             if (b.hasAttribute('data-og')) { sw(ord, Number(b.getAttribute('data-og')), Number(b.getAttribute('data-d'))); return; }
             var a = b.getAttribute('data-s');
             if (a === 'cost') { d.close(); openCostImport(); return; }
-            if (a === 'move') { var src = (d.el.querySelector('#rps-src') || {}).value; d.close(); if (src) openModal('move', src); }
+            if (a === 'move') { var src = (d.el.querySelector('#rps-src') || {}).value; d.close(); if (src) openModal('move', src); return; }
+            if (a === 'mvart') {
+                var nm = (d.el.querySelector('#rps-art') || {}).value, to = rg[Number((d.el.querySelector('#rps-to') || {}).value)];
+                if (!nm || !to || !R || !R.setCategory) return;
+                d.close(); R.setCategory(Number(nm), to.orig || to.name);
+                toast('success', 'Товар перенесён', 'Теперь в группе «' + to.name + '», в РНП и «Остатках» тоже'); setTimeout(function () { open(); }, 600);
+            }
         });
     }
 
