@@ -17,8 +17,8 @@ const tables = {
         const env = await openApp(browser, base, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 120, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async () => ({}) } });
         const { page } = env;
         await page.addInitScript(() => {
-            window.__tops = []; window.__body = [];
-            setInterval(() => { const t = document.getElementById('page-title'); if (t) window.__tops.push(Math.round(t.getBoundingClientRect().top)); const c = document.querySelector('.main-content > .tab-content.active'); if (c && c.getBoundingClientRect().height > 20) window.__body.push(Math.round(c.getBoundingClientRect().top)); }, 40);
+            window.__tops = []; window.__body = []; window.__chart = [];
+            setInterval(() => { const t = document.getElementById('page-title'); if (t) window.__tops.push(Math.round(t.getBoundingClientRect().top)); const ch = document.getElementById('pnl-chart-card'); if (ch && ch.getBoundingClientRect().height > 20) window.__chart.push(Math.round(ch.getBoundingClientRect().top)); const c = document.querySelector('.main-content > .tab-content.active'); if (c && c.getBoundingClientRect().height > 20) window.__body.push(Math.round(c.getBoundingClientRect().top)); }, 40);
         });
         for (const [tab, view] of [['dashboard'], ['goods-groups'], ['advertising'], ['ab-testing'], ['rnp', 'unit'], ['rnp', 'prices'], ['rnp-planfact'], ['rnp-planning']]) {
             await page.evaluate(([t, v]) => { localStorage.setItem('nr_active_tab', t); if (v) localStorage.setItem('nr_rnp_view', v); else localStorage.removeItem('nr_rnp_view'); }, [tab, view]);
@@ -34,6 +34,9 @@ const tables = {
         await page.goto(base + '/space'); await page.waitForSelector('#pnl-mini .pnl-mini', { timeout: 8000 });
         const h = await page.evaluate(() => Math.round(document.querySelector('#pnl-mini .pnl-mini').getBoundingClientRect().height));
         assert.ok(h >= 121, 'карточки «Заказы/Выкупы» в каркасе той же высоты, что готовые: ' + h);
+        const ct = await page.evaluate(() => window.__chart);
+        assert.ok(ct.length > 5 && Math.max(...ct) - Math.min(...ct) <= 2, 'график «Динамика» на дашборде не уезжает, когда приходят данные: от ' + Math.min(...ct) + ' до ' + Math.max(...ct) + 'px');
+        console.log('ok   дашборд: полоса баланса держит место, график не уезжает (' + Math.min(...ct) + 'px)');
         console.log('ok   дашборд: ряд карточек держит высоту готовых (' + h + 'px)');
         assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
     } catch (e) { console.error('FAIL', e.message); process.exitCode = 1; } finally { await browser.close(); srv.close(); }
