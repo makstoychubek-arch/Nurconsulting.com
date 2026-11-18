@@ -15,7 +15,7 @@
     var EXTRA_ROWS = 100;
 
     // Колонки ровно как в шаблоне. key — поле таблицы giveaways.
-    var COLS = [
+    var LEGACY_COLS = [
         { key: 'kind', label: 'Вид', type: 'select', options: KINDS, w: 104 },
         { key: 'tg_link', label: 'Ссылка ТГ', type: 'text', w: 130 },
         { key: 'order_date', label: 'Дата заказа', type: 'date', w: 96 },
@@ -40,9 +40,37 @@
         { key: 'reels_link', label: 'Ссылка на Reels', type: 'text', w: 130 },
     ];
 
+    // Кабинеты с листом Google («ИП МАРС»): те же колонки и тот же порядок, что на листе «Раздачи».
+    var SHEET_COLS = [
+        { key: 'model', label: 'ТОВАР', type: 'text', w: 200 },
+        { key: 'kind', label: 'ВИД РАЗДАЧИ', type: 'select', options: KINDS, w: 112 },
+        { key: 'tg_link', label: 'Ссылка ТГ', type: 'text', w: 140 },
+        { key: 'order_date', label: 'Дата заказа', type: 'date', w: 96 },
+        { key: 'order_price', label: 'Цена в заказе', type: 'number', w: 84 },
+        { key: 'cash_amount', label: 'Размер кэша', type: 'number', w: 84 },
+        { key: 'cash_status', label: 'Кэш выплачен', type: 'select', options: CASH_STATUSES, w: 112 },
+        { key: 'pickup_planned', label: 'Примерная дата забора', type: 'date', w: 100 },
+        { key: 'pickup_date', label: 'Фактическая дата забора', type: 'date', w: 100 },
+        { key: 'barcode_cut', label: 'Разрезанный ШК', type: 'bool', w: 80 },
+        { key: 'review_date', label: 'Дата публикации отзыва', type: 'date', w: 100 },
+        { key: 'review_kind', label: 'Вид отзыва', type: 'select', options: REVIEW_KINDS, w: 84 },
+        { key: 'requisites', label: 'Реквизиты', type: 'text', w: 160 },
+        { key: 'requisites2', label: 'Реквизиты', type: 'text', w: 160 },
+        { key: 'payout_date', label: 'Фактическая дата выплаты', type: 'date', w: 100 },
+        { key: 'review_status', label: 'Отзыв опубликован', type: 'select', options: REVIEW_STATUSES, w: 96 },
+        { key: 'responsible', label: 'Ответственный', type: 'text', w: 110 },
+        { key: 'keyword', label: 'Ключ', type: 'text', w: 150 },
+        { key: 'payout_planned', label: 'Планируемая дата выплаты', type: 'date', w: 100 },
+        { key: 'filters', label: 'Фильтры', type: 'text', w: 100 },
+        { key: 'comment', label: 'Чёрный список / комментарии', type: 'text', w: 170 },
+        { key: 'reels_views', label: 'Просмотры рилс', type: 'number', w: 90 },
+        { key: 'reels_link', label: 'Ссылка на Reels', type: 'text', w: 140 },
+    ];
+    var COLS = LEGACY_COLS;
+
     var state = {
         sb: null, cab: '', host: null, loaded: false, active: false,
-        slots: [], articles: [], size: MIN_ROWS,
+        slots: [], articles: [], size: MIN_ROWS, sheet: null, syncing: false,
         anchor: null, sel: null, drag: false, fill: null, edit: null, q: '', queue: Promise.resolve(),
     };
 
@@ -87,6 +115,7 @@
     }
 
     function payoutDate(row) {
+        if (row && row.payout_planned) return String(row.payout_planned).slice(0, 10); // лист хранит дату сам
         return row && row.pickup_date ? addDays(String(row.pickup_date).slice(0, 10), PAYOUT_DELAY_DAYS) : '';
     }
 
@@ -216,6 +245,18 @@
         return h + '</tr>';
     }
 
+    /** Полоса обмена с Google для кабинетов с листом: когда последний раз сверялись и кнопка «Обновить из таблицы». */
+    function syncHtml() {
+        if (!state.sheet) return '';
+        var sh = state.sheet, bad = !!sh.last_error;
+        var when = sh.last_sync_at ? Math.max(0, Math.round((Date.now() - new Date(sh.last_sync_at).getTime()) / 1000)) : null;
+        var txt = bad ? 'Нет связи с таблицей: ' + sh.last_error
+            : when == null ? 'Ещё не сверялось с Google'
+            : 'Синхронизировано с Google · ' + (when < 90 ? when + ' с назад' : Math.round(when / 60) + ' мин назад');
+        return '<span class="gv-sync' + (bad ? ' is-bad' : '') + '" role="status"><i></i>' + esc(txt) + '</span>'
+            + '<button type="button" class="gv-ghost" data-act="sync"' + (state.syncing ? ' disabled' : '') + '>' + (state.syncing ? 'Обновляю…' : 'Обновить из таблицы') + '</button>';
+    }
+
     function chromeHtml() {
         var s = summary(state.slots);
         var nf = function (n) { return Number(n).toLocaleString('ru-RU'); };
@@ -224,6 +265,7 @@
             + '<button type="button" class="gv-ghost" data-act="more" title="Добавить ещё 100 пустых строк">+100 строк</button>'
             + '<span class="gv-hint">Выделяйте мышью, копируйте Ctrl+C / вставляйте Ctrl+V группами, тяните квадратик у выделения — значения копируются</span>'
             + '<span class="gv-sp"></span>'
+            + syncHtml()
             + '<button type="button" class="gv-ghost" data-act="template" title="Пустой шаблон с заголовками">Шаблон</button>'
             + '<button type="button" class="gv-ghost" data-act="export" title="Скачать таблицу">Excel</button>'
             + '<button type="button" class="gv-ai" data-act="calc" title="Калькулятор раздач" aria-label="Калькулятор раздач">Калькулятор</button>'
@@ -658,6 +700,7 @@
             if (b.dataset.act === 'more') { state.size += 100; paint(); return; }
             if (b.dataset.act === 'template') return download('razdachi-shablon.csv', templateCsv());
             if (b.dataset.act === 'export') return download('razdachi-' + todayYmd() + '.csv', exportCsv());
+            if (b.dataset.act === 'sync') return syncNow();
             if (b.dataset.act === 'calc') { if (root.NrGiveCalc) root.NrGiveCalc.open({ supabase: state.sb, cabinetId: state.cab }); }
         });
 
@@ -748,6 +791,39 @@
         } catch (e) { /* без кэша */ }
     }
 
+    /** Привязка кабинета к листу: определяет раскладку колонок. Возвращает true, если раскладка сменилась. */
+    function setSheet(info) {
+        var was = COLS === SHEET_COLS;
+        state.sheet = info && info.enabled !== false ? info : null;
+        COLS = state.sheet ? SHEET_COLS : LEGACY_COLS;
+        try { root.localStorage.setItem('nr_give_sheet_' + state.cab, state.sheet ? '1' : '0'); } catch (e) { /* без кэша */ }
+        return was !== (COLS === SHEET_COLS);
+    }
+    async function loadSheet() {
+        var res = await state.sb.from('giveaway_sheets').select('cabinet_id, enabled, last_sync_at, last_error').eq('cabinet_id', state.cab).maybeSingle();
+        if (res.error) return false;
+        return setSheet(res.data || null);
+    }
+    async function syncNow() {
+        if (!state.sheet || state.syncing) return;
+        state.syncing = true; paintChrome();
+        try {
+            var res = await state.sb.functions.invoke('giveaways-sync', { body: { cabinet_id: state.cab } });
+            var r = res && res.data && res.data.results && res.data.results[state.cab];
+            if (res.error || !res.data || res.data.ok === false) state.sheet.last_error = (res.data && res.data.error) || 'Нет связи с сервером';
+            else if (r && r.busy) { /* обмен уже идёт, данные подтянутся сами */ }
+            else if (r && r.ok === false) state.sheet.last_error = r.error;
+            else { state.sheet.last_error = null; state.sheet.last_sync_at = new Date().toISOString(); }
+            await load(); writeCache(state.cab);
+        } catch (e) { state.sheet.last_error = 'Нет связи с сервером'; }
+        state.syncing = false; paint();
+    }
+    function paintChrome() {
+        var bar = state.host && state.host.querySelector('.gv-bar'); if (!bar) return;
+        var tmp = state.host.ownerDocument.createElement('div'); tmp.innerHTML = chromeHtml();
+        bar.replaceWith(tmp.firstChild);
+    }
+
     async function load() {
         var all = [];
         for (var from = 0; ; from += 1000) {
@@ -777,6 +853,8 @@
         if (changed || !state.loaded) {
             // Сразу показываем прошлые данные кабинета (или пустую таблицу), свежие подставятся следом без «Загрузка…».
             state.anchor = null; state.sel = null;
+            var cachedSheet = false; try { cachedSheet = root.localStorage.getItem('nr_give_sheet_' + opts.cabinetId) === '1'; } catch (e) { /* без кэша */ }
+            COLS = cachedSheet ? SHEET_COLS : LEGACY_COLS; state.sheet = cachedSheet ? (state.sheet || { enabled: true }) : null;
             var hit = readCache(opts.cabinetId);
             if (hit) { state.slots = hit.slots; state.articles = hit.articles; state.size = Math.max(MIN_ROWS, state.slots.length + EXTRA_ROWS); }
             else { state.slots = []; state.articles = []; state.size = MIN_ROWS; }
@@ -784,7 +862,7 @@
             paint();
             var cab = opts.cabinetId;
             var snap = JSON.stringify([state.slots, state.articles]);
-            try { await load(); writeCache(cab); } catch (e) {
+            try { var layoutChanged = await loadSheet(); await load(); writeCache(cab); if (layoutChanged) snap = ''; } catch (e) {
                 if (!hit) state.loaded = false;
                 if (!hit) state.host.innerHTML = '<div class="gv-wrap"><div class="gv-empty">Не удалось загрузить раздачи: ' + esc(e && e.message) + '. Откройте раздел ещё раз.</div></div>';
                 return;
@@ -798,7 +876,7 @@
     function hide() { state.active = false; }
 
     var api = {
-        COLS: COLS, show: show, hide: hide, payoutDate: payoutDate, isOverdue: isOverdue, summary: summary,
+        COLS: LEGACY_COLS, SHEET_COLS: SHEET_COLS, show: show, hide: hide, payoutDate: payoutDate, isOverdue: isOverdue, summary: summary,
         templateCsv: templateCsv, coerce: coerce, parseDate: parseDate, parseTsv: parseTsv, toTsv: toTsv, fillPlan: fillPlan,
         cellText: cellText, MIN_ROWS: MIN_ROWS,
     };
