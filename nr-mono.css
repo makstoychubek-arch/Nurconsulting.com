@@ -2923,3 +2923,10 @@ html body #tab-dashboard .pnl-grid.ff-row { min-height: 60px; }
 /* Площадка без подключения у кабинета: кнопка серая и не нажимается (подсказка: «Ozon не подключён») */
 html body .nr-mp button.is-na { opacity: .35; cursor: not-allowed; }
 html body .nr-mp button.is-na:hover { background: transparent; }
+/* Закреплённая шапка: маска прячет содержимое под шапкой вместе с фоном рамки, поэтому фон рамки возвращаем полосой за шапкой (цвет как у .main-content в каждой теме) */
+html { --nr-frame: rgba(255, 255, 255, .037); }
+html[data-theme="ios"] { --nr-frame: rgba(255, 255, 255, .92); }
+html:has(.main-content.rnp-compact) { --nr-frame: var(--surface-solid); }
+@media (min-width: 769px) {
+  html body header.glass.app-header:not(#nr-x)::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--nr-frame); border-radius: 18px 18px 0 0; pointer-events: none; }
+}
