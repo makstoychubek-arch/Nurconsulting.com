@@ -90,6 +90,9 @@ const RNP = (() => {
     let _compareNm = null;
     let _sectionView = 'all';
     let _notesCache = {};
+    let _notesGenMp = null; // площадка, для которой загружены заметки «Общего» (у WB и Ozon они свои)
+    /** Заметки «Общего» хранятся в базе под -1 для WB и -2 для Ozon: у площадок они разные. */
+    const _noteDbNm = (nm) => (Number(nm) === -1 && _mp() === 'ozon' ? -2 : nm);
     let _strategyTab = 0;
     let _notesVisible = false;
     let _editMode = false;
@@ -499,6 +502,7 @@ const RNP = (() => {
         _metricsCache = new Map();
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
+        _notesGenMp = null;
         _articles = [];
         _articlesCab = null;
         _paintedCab = null;
@@ -2779,13 +2783,13 @@ const RNP = (() => {
             for (let i = 0; i < nmIds.length; i += CHUNK) {
                 const batch = nmIds.slice(i, i + CHUNK);
                 const { data, error } = await _db.from('rnp_date_notes')
-                    .select('*').eq('cabinet_id', cab0).in('nm_id', batch)
+                    .select('*').eq('cabinet_id', cab0).in('nm_id', batch.map(_noteDbNm))
                     .gte('note_date', from).lte('note_date', to)
                     .order('created_at', { ascending: false });
                 if (error) throw error;
                 if (cab0 !== _cab) return; // сменили кабинет: кэш заметок уже сброшен, чужие заметки не записываем
                 (data || []).forEach(row => {
-                    const nm = row.nm_id;
+                    const nm = row.nm_id === -2 ? -1 : row.nm_id;
                     const d = row.note_date;
                     if (!_notesCache[nm]) _notesCache[nm] = {};
                     if (!_notesCache[nm][d]) _notesCache[nm][d] = { text: '', history: [] };
@@ -3208,7 +3212,7 @@ const RNP = (() => {
         if (t === String(_notesCache[nmId]?.[date]?.text || '').trim() && img === String(_notesCache[nmId]?.[date]?.image || '')) return;
         try {
             const { error } = await _db.from('rnp_date_notes').insert({
-                cabinet_id: _cab, nm_id: nmId, note_date: date,
+                cabinet_id: _cab, nm_id: _noteDbNm(nmId), note_date: date,
                 note: t, author: _userEmail || 'user', image_url: img || null
             });
             if (error) throw error;
@@ -8225,6 +8229,7 @@ const RNP = (() => {
         }
 
         if (_activeNm === GENERAL_TAB) {
+            if (_notesGenMp !== _mp()) { delete _notesCache[-1]; _notesGenMp = _mp(); }
             if (_notesVisible && !_notesCache[-1]) { try { await _loadNotes([-1]); } catch (e) {} }
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
