@@ -44,6 +44,11 @@ const tables = (sheet) => ({
         assert.ok(second.includes('карта 2'), 'второй «Реквизиты» показан');
         assert.ok(await until(() => page.evaluate(() => /Синхронизировано с Google · \d+ с назад/.test(document.querySelector('.gv-sync').textContent))), 'полоса «Синхронизировано с Google»');
         console.log('ok   данные листа в ячейках, второй «Реквизиты», полоса синхронизации');
+        // как лист Google: таблица до нижнего края окна, шапка закреплена внутри таблицы и не перекрывает заголовок страницы
+        const box = await page.evaluate(() => { const sc = document.querySelector('#nr-ads-give .gv-scroll'); const r = sc.getBoundingClientRect(); return { bottom: Math.round(r.bottom), vh: innerHeight, iso: getComputedStyle(sc).isolation, gear: !!document.querySelector('#nr-ads-give [data-act="gear"]') }; });
+        assert.ok(box.vh - box.bottom >= 0 && box.vh - box.bottom <= 40, 'таблица доходит до низа окна: низ ' + box.bottom + ' из ' + box.vh);
+        assert.strictEqual(box.iso, 'isolate', 'шапка таблицы не вылезает поверх шапки страницы'); assert.ok(box.gear, 'шестерёнка настроек в панели раздач');
+        console.log('ok   таблица до низа окна, шапка внутри таблицы, шестерёнка');
         await page.click('[data-act="sync"]');
         assert.ok(await until(() => synced.length === 1 && synced[0].cabinet_id === CAB), 'кнопка вызывает обмен для этого кабинета');
         assert.ok(await until(() => page.evaluate(() => /Синхронизировано с Google · [0-4] с назад/.test(document.querySelector('.gv-sync').textContent))), 'после обмена «только что»');

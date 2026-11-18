@@ -240,12 +240,10 @@
     // «Раздачи» и «Контент» живут в «Продвижении» (только команда): полоска «Реклама | Раздачи | Контент» над списком кампаний.
     function setAdsView(which) {
         var bar = doc.getElementById('nr-ads-tabs'), view = doc.getElementById('adv-view-ads');
-        var give = doc.getElementById('nr-ads-give'), content = doc.getElementById('nr-ads-content'), alina = doc.getElementById('nr-ads-alina');
+        var give = doc.getElementById('nr-ads-give'), content = doc.getElementById('nr-ads-content');
         if (!bar || !view || !give || !content) return;
         Array.prototype.forEach.call(bar.children, function (x) { x.classList.toggle('is-on', x.getAttribute('data-av') === which); });
         give.hidden = which !== 'give'; content.hidden = which !== 'content';
-        if (alina) alina.hidden = which !== 'alina';
-        if (root.NrAlinaSettings) { if (which === 'alina' && alina) root.NrAlinaSettings.show({ host: alina, supabase: db(), canPower: (function () { try { return typeof isSuperAdmin !== 'undefined' && isSuperAdmin === true; } catch (e) { return false; } })() }); else root.NrAlinaSettings.hide(); }
         view.style.display = which === 'ads' ? '' : 'none';
         if (which === 'give' && root.NrGiveaways && cab()) root.NrGiveaways.show({ host: give, supabase: db(), cabinetId: cab() });
         else if (root.NrGiveaways) root.NrGiveaways.hide();
@@ -261,11 +259,10 @@
         var tab = doc.getElementById('tab-advertising'), view = doc.getElementById('adv-view-ads');
         if (!tab || !view) return;
         var bar = doc.createElement('div'); bar.id = 'nr-ads-tabs';
-        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" data-av="ads">Реклама</button><button type="button" class="gg-view-btn" data-av="give">Раздачи</button><button type="button" class="gg-view-btn" data-av="alina">Алина</button><button type="button" class="gg-view-btn" data-av="content">Контент</button>';
+        bar.innerHTML = '<button type="button" class="gg-view-btn is-on" data-av="ads">Реклама</button><button type="button" class="gg-view-btn" data-av="give">Раздачи</button><button type="button" class="gg-view-btn" data-av="content">Контент</button>';
         var host = doc.createElement('div'); host.id = 'nr-ads-give'; host.className = 'gg-give'; host.hidden = true;
-        var alina = doc.createElement('div'); alina.id = 'nr-ads-alina'; alina.hidden = true;
         var cont = doc.createElement('div'); cont.id = 'nr-ads-content'; cont.hidden = true;
-        tab.insertBefore(bar, tab.firstChild); tab.appendChild(host); tab.appendChild(alina); tab.appendChild(cont);
+        tab.insertBefore(bar, tab.firstChild); tab.appendChild(host); tab.appendChild(cont);
         bar.addEventListener('click', function (e) {
             var b = e.target.closest('[data-av]'); if (b) setAdsView(b.getAttribute('data-av'));
         });
