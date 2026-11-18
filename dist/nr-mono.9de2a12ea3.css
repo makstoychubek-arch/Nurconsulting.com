@@ -2903,3 +2903,10 @@ html body .ru-i { width: 13px; height: 13px; margin-left: 6px; border: 1px solid
 html body .ru-i:hover, html body .ru-i.on { background: var(--text-primary); color: var(--bg-primary, #fff); border-color: var(--text-primary); }
 html body .ru-pop { position: fixed; z-index: 80; max-width: 240px; background: var(--bg-card, var(--surface-solid, #fff)); color: var(--text-primary); border: 1.5px solid var(--text-primary); border-radius: 14px; padding: 9px 12px; font-size: 11px; line-height: 1.35; }
 html body .ru-pop small { display: block; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--text-muted); margin-bottom: 3px; }
+
+/* РНП: панель действий держит высоту готовой (кнопки приходят позже), таблица ниже не сдвигается */
+html body .rnp-workspace > #rnp-action-bar-wrap { min-height: 32px; box-sizing: border-box; }
+/* Отступ сверху у страниц с цепочкой тот же с первого кадра (иначе всё содержимое съезжает на 20px, когда цепочка нарисована) */
+@media (min-width: 769px) { html.nr-f-crumb body .main-rail .main-content:not(#nr-x) { padding-top: 82px !important; } }
+/* РНП: полоса вкладок артикулов держит высоту готовой (группы приходят позже) */
+html body #rnp-sheet-tabs { min-height: 54px; box-sizing: border-box; }

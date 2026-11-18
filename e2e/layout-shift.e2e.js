@@ -17,8 +17,8 @@ const tables = {
         const env = await openApp(browser, base, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 120, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async () => ({}) } });
         const { page } = env;
         await page.addInitScript(() => {
-            window.__tops = [];
-            setInterval(() => { const t = document.getElementById('page-title'); if (t) window.__tops.push(Math.round(t.getBoundingClientRect().top)); }, 40);
+            window.__tops = []; window.__body = [];
+            setInterval(() => { const t = document.getElementById('page-title'); if (t) window.__tops.push(Math.round(t.getBoundingClientRect().top)); const c = document.querySelector('.main-content > .tab-content.active'); if (c && c.getBoundingClientRect().height > 20) window.__body.push(Math.round(c.getBoundingClientRect().top)); }, 40);
         });
         for (const [tab, view] of [['dashboard'], ['goods-groups'], ['advertising'], ['ab-testing'], ['rnp', 'unit']]) {
             await page.evaluate(([t, v]) => { localStorage.setItem('nr_active_tab', t); if (v) localStorage.setItem('nr_rnp_view', v); else localStorage.removeItem('nr_rnp_view'); }, [tab, view]);
@@ -26,6 +26,8 @@ const tables = {
             const tops = await page.evaluate(() => window.__tops);
             const lo = Math.min(...tops), hi = Math.max(...tops);
             assert.ok(tops.length > 5 && hi - lo <= 1, 'заголовок «' + tab + (view ? ':' + view : '') + '» не прыгает при загрузке: от ' + lo + ' до ' + hi + 'px');
+            const bt = await page.evaluate(() => window.__body);
+            assert.ok(bt.length > 5 && Math.max(...bt) - Math.min(...bt) <= 1, 'содержимое «' + tab + (view ? ':' + view : '') + '» не съезжает при загрузке: от ' + Math.min(...bt) + ' до ' + Math.max(...bt) + 'px');
             console.log('ok   ' + tab + (view ? ':' + view : '') + ': заголовок на месте с первого кадра (' + lo + 'px)');
         }
         await page.evaluate(() => { localStorage.setItem('nr_active_tab', 'dashboard'); localStorage.removeItem('nr_rnp_view'); });
