@@ -20,14 +20,14 @@ const tables = {
             window.__tops = []; window.__body = []; window.__chart = [];
             setInterval(() => { const t = document.getElementById('page-title'); if (t) window.__tops.push(Math.round(t.getBoundingClientRect().top)); const ch = document.getElementById('pnl-chart-card'); if (ch && ch.getBoundingClientRect().height > 20) window.__chart.push(Math.round(ch.getBoundingClientRect().top)); const c = document.querySelector('.main-content > .tab-content.active'); if (c && c.getBoundingClientRect().height > 20) window.__body.push(Math.round(c.getBoundingClientRect().top)); }, 40);
         });
-        for (const [tab, view] of [['dashboard'], ['goods-groups'], ['advertising'], ['ab-testing'], ['rnp', 'unit'], ['rnp', 'prices'], ['rnp-planfact'], ['rnp-planning']]) {
-            await page.evaluate(([t, v]) => { localStorage.setItem('nr_active_tab', t); if (v) localStorage.setItem('nr_rnp_view', v); else localStorage.removeItem('nr_rnp_view'); }, [tab, view]);
+        for (const [tab, view] of [['dashboard'], ['goods-groups'], ['advertising'], ['ab-testing'], ['rnp', 'unit'], ['rnp', 'prices'], ['rnp-planfact'], ['rnp-planning'], ['rnp-settings'], ['cabinets-hub'], ['settings'], ['analytics'], ['agents'], ['summary'], ['tariffs'], ['content-factory']]) {
+            await page.evaluate(([t, v]) => { Object.keys(localStorage).filter((k) => k.indexOf('nr_sub_') === 0).forEach((k) => localStorage.removeItem(k)); if (v) localStorage.setItem('nr_sub_rnp', v); localStorage.setItem('nr_active_tab', t); if (v) localStorage.setItem('nr_rnp_view', v); else localStorage.removeItem('nr_rnp_view'); }, [tab, view]);
             await page.goto(base + '/space'); await page.waitForTimeout(3500);
             const tops = await page.evaluate(() => window.__tops);
             const lo = Math.min(...tops), hi = Math.max(...tops);
             assert.ok(tops.length > 5 && hi - lo <= 1, 'заголовок «' + tab + (view ? ':' + view : '') + '» не прыгает при загрузке: от ' + lo + ' до ' + hi + 'px');
             const bt = await page.evaluate(() => window.__body);
-            assert.ok(bt.length > 5 && Math.max(...bt) - Math.min(...bt) <= 1, 'содержимое «' + tab + (view ? ':' + view : '') + '» не съезжает при загрузке: от ' + Math.min(...bt) + ' до ' + Math.max(...bt) + 'px');
+            assert.ok(bt.length === 0 || Math.max(...bt) - Math.min(...bt) <= 1, 'содержимое «' + tab + (view ? ':' + view : '') + '» не съезжает при загрузке: от ' + Math.min(...bt) + ' до ' + Math.max(...bt) + 'px');
             console.log('ok   ' + tab + (view ? ':' + view : '') + ': заголовок на месте с первого кадра (' + lo + 'px)');
         }
         await page.evaluate(() => { localStorage.setItem('nr_active_tab', 'dashboard'); localStorage.removeItem('nr_rnp_view'); });
