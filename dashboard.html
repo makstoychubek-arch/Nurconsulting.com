@@ -2765,9 +2765,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .gv-chip { font-size: 11px; padding: 4px 9px; border-radius: 8px; background: var(--sel); color: var(--text-secondary); }
         .gv-chip.is-late { background: rgba(239,68,68,0.14); color: #dc2626; }
         .gv-scroll { overflow: auto; max-height: calc(100vh - 290px); border-radius: 10px; border: 1px solid var(--border); overscroll-behavior: contain; }
-        .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; }
-        .gv-th { position: sticky; top: 0; z-index: 3; background: #d9ead3; color: #274e13; font-weight: 700; font-size: 10px; text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
-        .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: 28px; }
+        .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: var(--gv-fs, 11px); font-family: var(--gv-font, inherit); }
+        .gv-th { position: sticky; top: 0; z-index: 3; background: var(--gv-head-bg, #d9ead3); color: #274e13; font-weight: var(--gv-hfw, 700); font-size: var(--gv-hfs, 10px); height: var(--gv-head-h, auto); text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
+        .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: var(--gv-row-h, 28px); }
         .gv-center { text-align: center; }
         .gv-pay { text-align: center; font-variant-numeric: tabular-nums; background: #f3f7f1; color: var(--text-secondary); }
         .gv-pay.is-late { background: #f4c7c3; color: #8a1c14; font-weight: 700; }
@@ -2805,7 +2805,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .gv-hint { font-size: 11px; color: var(--text-muted); }
         .gv-wrap { position: relative; }
         .gv-cb { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; padding: 0; border: 0; resize: none; pointer-events: none; }
-        .gv-table td.gv-c { position: relative; user-select: none; -webkit-user-select: none; cursor: cell; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; font-size: 11px; color: var(--text-primary); }
+        .gv-table td.gv-c { position: relative; user-select: none; -webkit-user-select: none; cursor: cell; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; font-size: var(--gv-fs, 11px); color: var(--text-primary); }
         .gv-num { text-align: right; font-variant-numeric: tabular-nums; }
         .gv-rn { position: sticky; left: 0; z-index: 2; background: #f1f5ef; color: var(--text-muted); font-size: 10px; font-weight: 600; text-align: center; border-right: 1px solid #c4dcb9; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
         .gv-rn.is-on { background: #d9ead3; color: #274e13; }
@@ -8192,7 +8192,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/adv-controls.c6f92b0845.min.js"></script>
 <script src="/dist/adv-stats.d641132d6b.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/giveaways.09afa1c5bb.min.js"></script>
+<script src="/dist/giveaways.d0af3bfd09.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.389aa73deb.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
 <script src="/dist/viewer-mode.1d9ff5a747.min.js"></script>
 <script src="/dist/space-admin-ext.68d561b81b.min.js"></script>

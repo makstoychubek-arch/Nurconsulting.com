@@ -4,7 +4,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import assert from 'node:assert/strict';
 
 const code = readFileSync(new URL('./giveaways-sheet.ts', import.meta.url), 'utf8').replace(/^export /gm, '');
-const L = new Function(stripTypeScriptTypes(code) + '\nreturn { SHEET_FIELDS, detectLayout, toIsoDate, fromIsoDate, cellToValue, valueToCell, canon, hashCells, planSync, rowCells, recordFromCells }')();
+const L = new Function(stripTypeScriptTypes(code) + '\nreturn { parseSheetFormat, SHEET_FIELDS, detectLayout, toIsoDate, fromIsoDate, cellToValue, valueToCell, canon, hashCells, planSync, rowCells, recordFromCells }')();
 
 const HEAD = ['ТОВАР', 'ВИД РАЗДАЧИ', 'Ссылка ТГ', 'Дата заказа', 'Цена в заказе', 'Размер кэша', 'Кэш выплачен', 'Примерная Дата забора', 'фактическая дата забора', 'Разрезанный ШК', 'Дата публикации отзыва ', 'Вид отзыва', 'Реквизиты', 'Реквизиты', 'Фактическая дата выплаты', 'Отзыв опубликован', 'Отвественный', 'Ключ', 'Планируемая дата выплаты', 'Фильтры', 'Черный список/комментарии', 'Просмотры рилс', 'Ссылка на Reels'];
 const mk = (model, tg, date, extra = {}) => { const r = Array(HEAD.length).fill(''); r[0] = model; r[1] = 'БЛОГЕР'; r[2] = tg; r[3] = date; for (const [i, v] of Object.entries(extra)) r[Number(i)] = v; return r; };
@@ -117,5 +117,25 @@ console.log('ok   без правок и после сортировки лис�
   p = L.planSync({ layout: lay2, sheet: sheetRows(rowsWithId.concat([mk('Новая', '@n', '14.11.2026')]), lay2), db: dbRows(), cabinetId: CAB, genId });
   assert.equal(p.insertDb[0].pos, 2, 'новая строка листа занимает свою позицию');
   console.log('ok   позиция в сетке сайта: сортировка листа двигает строки, новая строка получает место');
+}
+// ── оформление листа ──
+{
+  const lay = L.detectLayout(values([mk('А', '@a', '14.11.2026')]));
+  const colMeta = Array.from({ length: 23 }, (_, i) => ({ pixelSize: 100 + i }));
+  const api = { sheets: [{ data: [{
+    rowMetadata: [{ pixelSize: 21 }, { pixelSize: 38 }, { pixelSize: 25 }],
+    columnMetadata: colMeta,
+    rowData: [
+      { values: Array(23).fill({}) },
+      { values: Array(23).fill({ effectiveFormat: { textFormat: { fontFamily: 'Times New Roman', fontSize: 9, bold: true }, backgroundColor: { red: 217 / 255, green: 234 / 255, blue: 211 / 255 } } }) },
+      { values: Array(23).fill({ effectiveFormat: { textFormat: { fontFamily: 'Times New Roman', fontSize: 11 }, backgroundColor: { red: 1, green: 1, blue: 1 } } }) },
+    ],
+  }] }] };
+  const f = L.parseSheetFormat(api, lay);
+  assert.equal(lay.headerRow, 2);
+  assert.deepEqual([f.font, f.size, f.headerSize, f.headerBold, f.headerBg, f.rowBg, f.headerH, f.rowH], ['Times New Roman', 11, 9, true, '#d9ead3', '#ffffff', 38, 25], 'шрифт, кегль, высоты и цвета как в листе');
+  assert.equal(f.cols.model, 100); assert.equal(f.cols.tg_link, 102); assert.equal(f.cols.reels_link, 122, 'ширина колонки по полю, а не по порядку');
+  assert.equal(L.parseSheetFormat(null, lay), null); assert.equal(L.parseSheetFormat({ sheets: [{ data: [{}] }] }, lay), null, 'без данных оформления ничего не меняем');
+  console.log('ok   оформление листа: шрифт, кегль, высота строк, ширина колонок, цвета');
 }
 console.log('PASS: giveaways-sheet');

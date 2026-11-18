@@ -283,17 +283,38 @@
         return '<datalist id="gv-dl-article">' + state.articles.map(function (a) { return '<option value="' + esc(a.name) + '">'; }).join('') + '</datalist>';
     }
 
+    /** Оформление листа Google → CSS-переменные таблицы (кегль pt→px, высоты и ширины в px). */
+    function fmtVars(f) {
+        var out = { css: '', cols: {} };
+        if (!f || typeof f !== 'object') return out;
+        var px = function (pt) { return Math.round(pt * 4 / 3 * 100) / 100; };
+        var ok = function (n, a, b) { return typeof n === 'number' && n >= a && n <= b; };
+        var css = '';
+        if (typeof f.font === 'string' && /^[\w \-]{1,60}$/.test(f.font)) css += '--gv-font:"' + f.font + '",Arial,sans-serif;';
+        if (ok(f.size, 6, 40)) css += '--gv-fs:' + px(f.size) + 'px;';
+        if (ok(f.headerSize, 6, 40)) css += '--gv-hfs:' + px(f.headerSize) + 'px;';
+        if (ok(f.rowH, 14, 200)) css += '--gv-row-h:' + f.rowH + 'px;';
+        if (ok(f.headerH, 14, 300)) css += '--gv-head-h:' + f.headerH + 'px;';
+        if (typeof f.headerBg === 'string' && /^#[0-9a-f]{6}$/i.test(f.headerBg)) css += '--gv-head-bg:' + f.headerBg + ';';
+        if (f.headerBold === false) css += '--gv-hfw:400;';
+        out.css = css;
+        if (f.cols && typeof f.cols === 'object') Object.keys(f.cols).forEach(function (k) { if (ok(f.cols[k], 30, 800)) out.cols[k] = f.cols[k]; });
+        return out;
+    }
+
     function paint() {
         if (!state.host) return;
         var sc = state.host.querySelector('.gv-scroll');
         var sx = sc ? sc.scrollLeft : 0, sy = sc ? sc.scrollTop : 0;
-        var total = 44 + COLS.reduce(function (n, c) { return n + c.w; }, 0);
-        var cols = '<col style="width:44px">' + COLS.map(function (c) { return '<col style="width:' + c.w + 'px">'; }).join('');
+        var fmt = fmtVars(state.sheet && state.sheet.format);
+        var cw = function (c) { return fmt.cols[c.key] || c.w; };
+        var total = 44 + COLS.reduce(function (n, c) { return n + cw(c); }, 0);
+        var cols = '<col style="width:44px">' + COLS.map(function (c) { return '<col style="width:' + cw(c) + 'px">'; }).join('');
         var head = '<th class="gv-th gv-rn-h"></th>' + COLS.map(function (c) { return '<th class="gv-th">' + esc(c.label) + '</th>'; }).join('');
         var body = '';
         for (var r = 0; r < state.size; r++) body += rowHtml(r);
         state.host.innerHTML = '<div class="gv-wrap">' + chromeHtml()
-            + '<div class="gv-scroll"><table class="gv-table" style="width:' + total + 'px"><colgroup>' + cols + '</colgroup><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
+            + '<div class="gv-scroll"><table class="gv-table" style="width:' + total + 'px;' + fmt.css + '"><colgroup>' + cols + '</colgroup><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
             + datalist() + '<textarea class="gv-cb" tabindex="-1" aria-hidden="true" spellcheck="false"></textarea></div>';
         var sc2 = state.host.querySelector('.gv-scroll');
         if (sc2) { sc2.scrollLeft = sx; sc2.scrollTop = sy; }
@@ -816,7 +837,7 @@
         return was !== (COLS === SHEET_COLS);
     }
     async function loadSheet() {
-        var res = await state.sb.from('giveaway_sheets').select('cabinet_id, enabled, last_sync_at, last_error').eq('cabinet_id', state.cab).maybeSingle();
+        var res = await state.sb.from('giveaway_sheets').select('cabinet_id, enabled, last_sync_at, last_error, format').eq('cabinet_id', state.cab).maybeSingle();
         if (res.error) return false;
         return setSheet(res.data || null);
     }

@@ -2,6 +2,7 @@
 // Доступ: сервис (cron) или сотрудник с кабинетом из giveaway_sheets. Лист главный при одновременной правке.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { googleAccessToken } from '../_shared/alina-google-auth.ts';
+import { detectLayout, parseSheetFormat } from '../_shared/giveaways-sheet.ts';
 import { secretOrEnv } from '../_shared/integration-secrets.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { syncCabinet, type Db, type SheetIO } from './handler.ts';
@@ -42,8 +43,8 @@ Deno.serve(async (req) => {
         allowedCabinets = ((mine || []) as unknown[]).map((x) => String(typeof x === 'object' && x ? Object.values(x as Record<string, unknown>)[0] : x));
     }
 
-    const { data: maps } = await admin.from('giveaway_sheets').select('cabinet_id, sheet_id, tab').eq('enabled', true);
-    let list = (maps || []) as Array<{ cabinet_id: string; sheet_id: string; tab: string }>;
+    const { data: maps } = await admin.from('giveaway_sheets').select('cabinet_id, sheet_id, tab, format_at').eq('enabled', true);
+    let list = (maps || []) as Array<{ cabinet_id: string; sheet_id: string; tab: string; format_at?: string | null }>;
     if (body.cabinet_id) list = list.filter((m) => m.cabinet_id === String(body.cabinet_id));
     if (allowedCabinets) list = list.filter((m) => allowedCabinets!.includes(m.cabinet_id));
     if (!list.length) return json({ ok: true, synced: 0 });
@@ -105,6 +106,21 @@ Deno.serve(async (req) => {
             },
         };
         results[m.cabinet_id] = await syncCabinet(m, sheets, db, () => new Date().toISOString(), { dryRun: body.dry_run === true });
+    }
+    // Оформление листа: раз в час (или по запросу), чтобы сайт совпадал с Google по шрифту и размерам
+    for (const m of list) {
+        const stale = !m.format_at || Date.now() - new Date(m.format_at).getTime() > 3600_000;
+        if (!stale && body.format !== true) continue;
+        try {
+            const vals = await sheets.readAll(m.sheet_id, m.tab);
+            const layout = vals ? detectLayout(vals) : null;
+            if (!layout) continue;
+            const rng = `${q(m.tab)}!A1:AD${layout.headerRow + 2}`;
+            const res = await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${m.sheet_id}?ranges=${encodeURIComponent(rng)}&includeGridData=true&fields=${encodeURIComponent('sheets(data(startRow,rowMetadata(pixelSize),columnMetadata(pixelSize),rowData(values(effectiveFormat(textFormat(fontFamily,fontSize,bold),backgroundColor)))))')}`, token);
+            if (!res?.ok) continue;
+            const fmt = parseSheetFormat(await res.json().catch(() => null), layout);
+            if (fmt) await admin.from('giveaway_sheets').update({ format: fmt, format_at: new Date().toISOString() }).eq('cabinet_id', m.cabinet_id);
+        } catch (_) { /* оформление не критично */ }
     }
     return json({ ok: true, results });
 });
