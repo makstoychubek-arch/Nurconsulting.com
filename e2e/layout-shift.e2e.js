@@ -20,7 +20,7 @@ const tables = {
             window.__tops = []; window.__body = [];
             setInterval(() => { const t = document.getElementById('page-title'); if (t) window.__tops.push(Math.round(t.getBoundingClientRect().top)); const c = document.querySelector('.main-content > .tab-content.active'); if (c && c.getBoundingClientRect().height > 20) window.__body.push(Math.round(c.getBoundingClientRect().top)); }, 40);
         });
-        for (const [tab, view] of [['dashboard'], ['goods-groups'], ['advertising'], ['ab-testing'], ['rnp', 'unit']]) {
+        for (const [tab, view] of [['dashboard'], ['goods-groups'], ['advertising'], ['ab-testing'], ['rnp', 'unit'], ['rnp', 'prices'], ['rnp-planfact'], ['rnp-planning']]) {
             await page.evaluate(([t, v]) => { localStorage.setItem('nr_active_tab', t); if (v) localStorage.setItem('nr_rnp_view', v); else localStorage.removeItem('nr_rnp_view'); }, [tab, view]);
             await page.goto(base + '/space'); await page.waitForTimeout(3500);
             const tops = await page.evaluate(() => window.__tops);
