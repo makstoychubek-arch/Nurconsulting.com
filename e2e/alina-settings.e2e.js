@@ -17,11 +17,20 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
     try {
         const url = 'http://127.0.0.1:' + srv.address().port;
         // 1. Настройки по умолчанию, изменения, сохранение
-        const tg = []; let alinaOn = false;
+        const tg = []; let alinaOn = false; const sbx = []; let sbxFail = false; let sbxLead = null;
         const env = await openApp(browser, url, {
             userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables: Object.assign({}, base, { alina_settings: [], alina_settings_log: [] }), rpcs: { is_super_admin: true },
             functions: {
                 'wb-proxy': async () => ({}),
+                'alina-sandbox': async (b) => {
+                    sbx.push(b);
+                    if (b.action === 'reset') { sbxLead = null; return { ok: true, lead: null }; }
+                    if (b.action === 'state') return { ok: true, lead: sbxLead };
+                    if (sbxFail) return { ok: false, error: 'Алина не смогла ответить. Это сбой сценария, диалог не потерян.' };
+                    await new Promise((r) => setTimeout(r, 400));
+                    sbxLead = { status: 'ask_ad', deal_type: null, product_name: null };
+                    return { ok: true, replies: ['Здравствуйте! По какому объявлению вы пишете?'], photos: [], ms: 1200, lead: sbxLead };
+                },
                 'telegram-admin': async (b) => { tg.push(b); if (b.action === 'enable') alinaOn = true; if (b.action === 'disable') alinaOn = false; return b.action === 'list' ? { bots: [{ id: 'alina', title: 'Алина', is_enabled: alinaOn }] } : { ok: true }; },
             },
         });
@@ -93,6 +102,27 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         await page.click('input[data-power]');
         assert.ok(await until(() => tg.some((c) => c.action === 'disable' && c.bot_id === 'alina')), 'выключение без подтверждения');
         console.log('ok   включатель Алины: подтверждение словом, включение и выключение');
+
+        // песочница: клиент пишет Алине, ответ приходит из настоящего сценария
+        assert.ok(await page.evaluate(() => !document.querySelector('[data-v="sandbox"]').hidden && /Диалог пуст/.test(document.querySelector('[data-sb="chat"]').textContent)), 'администратору виден пустой чат песочницы');
+        await page.click('[data-sb-chip="Здравствуйте, хочу участвовать"]');
+        assert.ok(await page.evaluate(() => /Здравствуйте, хочу участвовать/.test(document.querySelector('[data-sb="chat"]').textContent) && !!document.querySelector('.asb-typing')), 'сообщение клиента и «печатает» появляются сразу, не дожидаясь ответа');
+        assert.ok(await until(() => page.evaluate(() => /По какому объявлению/.test(document.querySelector('[data-sb="chat"]').textContent) && !document.querySelector('.asb-typing'))), 'ответ Алины подставился');
+        assert.ok(await page.evaluate(() => /Этап: выясняет объявление · ответила за 1,2 с/.test(document.querySelector('[data-sb="state"]').textContent)), 'этап диалога и время ответа');
+        assert.strictEqual(sbx.find((c) => c.action === 'send').username, 'sandbox_client', 'логин по умолчанию');
+        await page.fill('[data-sb="login"]', 'my_blogger'); await page.fill('[data-sb="text"]', 'Привет'); await page.click('[data-sb="send"]');
+        assert.ok(await until(() => sbx.filter((c) => c.action === 'send').length === 2 && sbx.filter((c) => c.action === 'send')[1].username === 'my_blogger'), 'свой логин клиента уходит в сценарий');
+        await until(() => page.evaluate(() => !document.querySelector('.asb-typing')));
+        sbxFail = true; await page.fill('[data-sb="text"]', 'ещё'); await page.click('[data-sb="send"]');
+        assert.ok(await until(() => page.evaluate(() => /не смогла ответить/.test(document.querySelector('[data-sb="chat"]').textContent) && !!document.querySelector('.asb-retry'))), 'сбой показан с «Повторить»');
+        sbxFail = false; await page.click('.asb-retry');
+        assert.ok(await until(() => sbx.filter((c) => c.action === 'send').length === 4), 'повтор отправляет то же сообщение ещё раз');
+        await until(() => page.evaluate(() => !document.querySelector('.asb-typing') && !document.querySelector('.asb-retry')));
+        await page.click('[data-sb-act="reset"]');
+        assert.ok(await page.evaluate(() => /Диалог пуст/.test(document.querySelector('[data-sb="chat"]').textContent)), 'начать заново очищает чат сразу');
+        assert.ok(await until(() => sbx.some((c) => c.action === 'reset')), 'сброс отправлен на сервер');
+        console.log('ok   песочница: сообщение и «печатает» сразу, ответ, этап, свой логин, сбой и повтор, начать заново');
+        assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
 
         // 2. Значения из базы применяются; кэш показывается сразу
         const env2 = await openApp(browser, url, { userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables: Object.assign({}, base, { alina_settings: [{ key: 'typing', value: false }, { key: 'admitLimit', value: 50 }, { key: 'remindMin', value: 25 }, { key: 'phrases', value: ['Свяжусь с менеджером.'] }], alina_settings_log: [{ key: 'typing', changed_at: new Date().toISOString() }] }), rpcs: { is_super_admin: true } });

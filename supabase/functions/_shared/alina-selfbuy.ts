@@ -1471,7 +1471,15 @@ export async function logAlinaRawEvent(
 
 // ── Google Sheets ───────────────────────────────────────────────────────────
 
+/** Диалоги «песочницы» с сайта (отрицательный chat_id, source_account = sandbox) никогда не пишутся в рабочую таблицу. */
+export async function isSandboxLead(db: SupabaseClient, leadId: string): Promise<boolean> {
+  const { data } = await db.from('alina_selfbuy_leads').select('chat_id, source_account').eq('id', leadId).maybeSingle();
+  const l = data as { chat_id?: number | null; source_account?: string | null } | null;
+  return Boolean(l && (l.source_account === 'sandbox' || Number(l.chat_id) < 0));
+}
+
 async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
+  if (await isSandboxLead(db, leadId)) return;
   if (razdachiRowsMode()) {
     // Строки размечены заранее: заполняем свою строку в фоне, ответ клиенту не ждёт таблицу. Новые строки не добавляем.
     const task = syncLeadToRazdachiRow(db, leadId).catch(() => console.error('[alina-selfbuy] razdachi sync'));

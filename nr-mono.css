@@ -2799,3 +2799,27 @@ html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .r
 .as-card[hidden] { display: none; }
 .nk-sheets { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .nk-sheets h4 { margin: 0 0 4px; font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+
+/* Песочница Алины (alina-sandbox-ui.js) */
+.asb h3 { margin: 0 0 4px; font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.asb-sub { margin: 0 0 10px; color: var(--text-muted); font-size: 12.5px; }
+.asb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.asb-login { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--text-muted); }
+.asb-login input, .asb-form input { background: transparent; color: var(--text-primary); border: 1px solid var(--border-strong, var(--border)); border-radius: 14px; padding: 7px 11px; font: inherit; min-width: 0; }
+.asb-login input { width: 18ch; }
+.asb-chat { background: var(--surface); border-radius: 22px; padding: 12px; display: flex; flex-direction: column; gap: 7px; height: 320px; overflow-y: auto; }
+.asb-m { max-width: 82%; padding: 8px 12px; border-radius: 16px; font-size: 13px; word-wrap: break-word; white-space: pre-wrap; }
+.asb-me { align-self: flex-end; background: var(--surface-solid); border: 1px solid var(--border); color: var(--text-primary); }
+.asb-bot { align-self: flex-start; background: var(--accent); color: var(--on-accent, #fff); }
+.asb-err { align-self: flex-start; border: 1px solid var(--red); color: var(--red); }
+.asb-retry { margin-left: 8px; border: 0; background: none; color: inherit; text-decoration: underline; font: inherit; font-weight: 800; cursor: pointer; }
+.asb-img { display: block; max-width: 220px; max-height: 220px; border-radius: 12px; margin-bottom: 6px; }
+.asb-empty { margin: auto; color: var(--text-muted); font-size: 12.5px; text-align: center; }
+.asb-typing { align-self: flex-start; display: inline-flex; gap: 4px; padding: 10px 14px; border-radius: 16px; background: var(--accent); }
+.asb-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--on-accent, #fff); opacity: .5; animation: as-b 1s infinite; }
+.asb-typing i:nth-child(2) { animation-delay: .15s; } .asb-typing i:nth-child(3) { animation-delay: .3s; }
+.asb-state { min-height: 18px; margin-top: 6px; color: var(--text-muted); font-size: 12px; }
+.asb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.asb-chip { border: 1px solid var(--border-strong, var(--border)); background: none; color: var(--text-primary); border-radius: 999px; font: inherit; font-size: 12px; padding: 5px 11px; cursor: pointer; }
+.asb-form { display: flex; gap: 8px; }
+.asb-form input { flex: 1; }
