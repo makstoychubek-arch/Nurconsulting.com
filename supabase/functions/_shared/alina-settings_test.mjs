@@ -18,6 +18,10 @@ assert.equal(n.read, true, 'неверный тип заменяется зна�
 assert.equal(lib.normalizeAlinaSettings({ remindMin: 0 }).remindMin, 1); assert.equal(lib.normalizeAlinaSettings({ remindMin: 9999 }).remindMin, 120);
 assert.deepEqual(lib.normalizeAlinaSettings({ phrases: [] }).phrases, lib.ALINA_DEFAULTS.phrases, 'пустой список фраз не оставляет Алину без ответа');
 assert.equal(lib.normalizeAlinaSettings({ phrases: Array(30).fill('а') }).phrases.length, 12);
+assert.deepEqual([d.admitLimit, d.admitHours, d.llmBudgetUsd], [30, 3, 0], 'лимит клиентов и бюджет по умолчанию прежние');
+const lim = lib.normalizeAlinaSettings({ admitLimit: 0, admitHours: 500, llmBudgetUsd: '12.345' });
+assert.equal(lim.admitLimit, 0, '0 = без лимита'); assert.equal(lim.admitHours, 72); assert.equal(lim.llmBudgetUsd, 12.35);
+assert.equal(lib.normalizeAlinaSettings({ admitLimit: -5 }).admitLimit, 0); assert.equal(lib.normalizeAlinaSettings({ admitLimit: 'много' }).admitLimit, 30);
 console.log('ok   значения по умолчанию, границы, неверные типы');
 
 const a = await lib.loadAlinaSettings(1000); assert.equal(a.typing, false); assert.equal(reads, 1);

@@ -13,8 +13,10 @@ assert.deepStrictEqual(A.changedKeys(A.DEFAULTS, Object.assign({}, A.DEFAULTS, {
 assert.deepStrictEqual(A.changedKeys(A.DEFAULTS, JSON.parse(JSON.stringify(A.DEFAULTS))), [], 'копия без правок не считается изменением');
 assert.strictEqual(A.previewPhrase(A.DEFAULTS, 'Мара'), 'Мара, минутку, уточню.');
 assert.strictEqual(A.previewPhrase(Object.assign({}, A.DEFAULTS, { useName: false }), 'Мара'), 'Минутку, уточню.');
+assert.deepStrictEqual([A.DEFAULTS.admitLimit, A.DEFAULTS.admitHours, A.DEFAULTS.llmBudgetUsd], [30, 3, 0]);
+assert.strictEqual(A.normalize({ admitLimit: 0 }).admitLimit, 0, '0 значит без лимита'); assert.strictEqual(A.normalize({ admitHours: 500 }).admitHours, 72); assert.strictEqual(A.normalize({ llmBudgetUsd: '12.345' }).llmBudgetUsd, 12.35);
 // те же значения по умолчанию, что на сервере
 const server = require('fs').readFileSync(__dirname + '/supabase/functions/_shared/alina-settings.ts', 'utf8');
-for (const [k, v] of Object.entries({ pauseMaxSec: A.DEFAULTS.pauseMaxSec, remindMin: A.DEFAULTS.remindMin })) assert.ok(new RegExp(k + ': ' + v).test(server), 'значение ' + k + ' совпадает с серверным');
+for (const [k, v] of Object.entries({ pauseMaxSec: A.DEFAULTS.pauseMaxSec, remindMin: A.DEFAULTS.remindMin, admitLimit: A.DEFAULTS.admitLimit, admitHours: A.DEFAULTS.admitHours })) assert.ok(new RegExp(k + ': ' + v).test(server), 'значение ' + k + ' совпадает с серверным');
 A.DEFAULTS.phrases.forEach((p) => assert.ok(server.includes(p), 'фраза совпадает с серверной: ' + p));
 console.log('alina-settings-ui: ok');

@@ -17,7 +17,14 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
     try {
         const url = 'http://127.0.0.1:' + srv.address().port;
         // 1. Настройки по умолчанию, изменения, сохранение
-        const env = await openApp(browser, url, { userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables: Object.assign({}, base, { alina_settings: [], alina_settings_log: [] }), rpcs: { is_super_admin: true } });
+        const tg = []; let alinaOn = false;
+        const env = await openApp(browser, url, {
+            userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables: Object.assign({}, base, { alina_settings: [], alina_settings_log: [] }), rpcs: { is_super_admin: true },
+            functions: {
+                'wb-proxy': async () => ({}),
+                'telegram-admin': async (b) => { tg.push(b); if (b.action === 'enable') alinaOn = true; if (b.action === 'disable') alinaOn = false; return b.action === 'list' ? { bots: [{ id: 'alina', title: 'Алина', is_enabled: alinaOn }] } : { ok: true }; },
+            },
+        });
         const { page } = env;
         await page.evaluate(() => showTab('advertising'));
         await page.waitForSelector('#nr-ads-tabs [data-av="alina"]', { state: 'attached', timeout: 10000 });
@@ -55,6 +62,14 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.as-chip').length), 3);
         console.log('ok   выключатели, число с границей, фразы, предпросмотр и счётчик изменений');
 
+        // клиенты и расход: числа с границами
+        assert.strictEqual(await page.evaluate(() => document.querySelector('input[data-k="admitLimit"]').value), '30', 'лимит по умолчанию 30');
+        for (let i = 0; i < 8; i++) await page.click('[data-step="-5"][data-for="admitLimit"]');
+        assert.strictEqual(await page.evaluate(() => document.querySelector('input[data-k="admitLimit"]').value), '0', 'лимит до 0 («без лимита»), ниже нельзя');
+        await page.click('[data-step="5"][data-for="llmBudgetUsd"]'); await page.click('[data-step="5"][data-for="llmBudgetUsd"]');
+        assert.strictEqual(await page.evaluate(() => document.querySelector('input[data-k="llmBudgetUsd"]').value), '10', 'бюджет ChatGPT 10 $');
+        console.log('ok   лимит клиентов (0 = без лимита) и бюджет ChatGPT');
+
         const t0 = Date.now();
         await page.click('[data-v="bar"] [data-act="save"]');
         assert.ok(await page.evaluate(() => !document.querySelector('[data-v="toast"]').hidden && /Сохранено/.test(document.querySelector('[data-v="toast"]').textContent)), 'тост сразу');
@@ -65,13 +80,28 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         console.log('ok   сохранение: тост и панель сразу, запись в базу и журнал в фоне');
         assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
 
+        // включатель Алины для клиентов (только администратор): подтверждение словом
+        assert.ok(await until(() => page.evaluate(() => !document.querySelector('[data-v="powercard"]').hidden && /Выключено/.test(document.querySelector('[data-v="powersub"]').textContent))), 'администратору виден включатель, Алина выключена');
+        await page.click('input[data-power]');
+        assert.ok(await page.evaluate(() => !document.querySelector('[data-v="confirm"]').hidden && !document.querySelector('input[data-power]').checked), 'включение просит подтверждение, переключатель пока выключен');
+        await page.fill('[data-v="word"]', 'ну да'); await page.click('[data-act="powerok"]');
+        assert.ok(await page.evaluate(() => /слово «включить»/.test(document.querySelector('[data-v="powererr"]').textContent)), 'неверное слово отклоняется');
+        assert.ok(!tg.some((c) => c.action === 'enable'), 'без верного слова бот не включается');
+        await page.fill('[data-v="word"]', 'Включить'); await page.click('[data-act="powerok"]');
+        assert.ok(await until(() => tg.some((c) => c.action === 'enable' && c.bot_id === 'alina')), 'верное слово включает бота alina');
+        assert.ok(await until(() => page.evaluate(() => /Включено: отвечает всем/.test(document.querySelector('[data-v="powersub"]').textContent) && document.querySelector('input[data-power]').checked && document.querySelector('[data-v="confirm"]').hidden)), 'состояние «включено»');
+        await page.click('input[data-power]');
+        assert.ok(await until(() => tg.some((c) => c.action === 'disable' && c.bot_id === 'alina')), 'выключение без подтверждения');
+        console.log('ok   включатель Алины: подтверждение словом, включение и выключение');
+
         // 2. Значения из базы применяются; кэш показывается сразу
-        const env2 = await openApp(browser, url, { userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables: Object.assign({}, base, { alina_settings: [{ key: 'typing', value: false }, { key: 'remindMin', value: 25 }, { key: 'phrases', value: ['Свяжусь с менеджером.'] }], alina_settings_log: [{ key: 'typing', changed_at: new Date().toISOString() }] }), rpcs: { is_super_admin: true } });
+        const env2 = await openApp(browser, url, { userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables: Object.assign({}, base, { alina_settings: [{ key: 'typing', value: false }, { key: 'admitLimit', value: 50 }, { key: 'remindMin', value: 25 }, { key: 'phrases', value: ['Свяжусь с менеджером.'] }], alina_settings_log: [{ key: 'typing', changed_at: new Date().toISOString() }] }), rpcs: { is_super_admin: true } });
         await env2.page.evaluate(() => showTab('advertising'));
         await env2.page.waitForSelector('#nr-ads-tabs [data-av="alina"]', { state: 'attached', timeout: 10000 });
         await env2.page.evaluate(() => document.querySelector('#nr-ads-tabs [data-av="alina"]').click());
         assert.ok(await until(() => env2.page.evaluate(() => document.querySelector('input[data-k="remindMin"]') && document.querySelector('input[data-k="remindMin"]').value === '25')), 'значение из базы: напоминание 25 минут');
         assert.ok(await env2.page.evaluate(() => !document.querySelector('input[data-k="typing"]').checked), 'из базы: «печатает» выключено');
+        assert.strictEqual(await env2.page.evaluate(() => document.querySelector('input[data-k="admitLimit"]').value), '50', 'из базы: лимит 50');
         assert.ok(await env2.page.evaluate(() => /Мара, свяжусь с менеджером\./.test(document.querySelector('.as-phone').textContent)), 'своя фраза из базы в предпросмотре');
         assert.ok(await until(() => env2.page.evaluate(() => /Последние изменения/.test(document.querySelector('[data-v="hist"]').textContent))), 'история изменений показана');
         console.log('ok   настройки из базы применяются, своя фраза, история');

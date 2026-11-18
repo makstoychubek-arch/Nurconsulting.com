@@ -2790,3 +2790,12 @@ html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .r
 .gv-sync { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .gv-sync i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
 .gv-sync.is-bad i { background: var(--red); }
+.as-confirm { border: 1px solid var(--red); border-radius: 18px; padding: 12px 14px; margin-top: 10px; display: grid; gap: 6px; font-size: 13px; color: var(--text-primary); }
+.as-confirm span { color: var(--text-muted); }
+.as-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.as-actions input { background: transparent; color: var(--text-primary); border: 1px solid var(--border-strong, var(--border)); border-radius: 14px; padding: 7px 11px; font: inherit; min-width: 0; width: 14ch; }
+.as-err { margin: 0; color: var(--red); font-weight: 700; font-size: 12.5px; min-height: 0; }
+.as-err:empty { display: none; }
+.as-card[hidden] { display: none; }
+.nk-sheets { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.nk-sheets h4 { margin: 0 0 4px; font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }

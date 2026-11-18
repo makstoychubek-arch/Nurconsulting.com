@@ -21,7 +21,7 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         const calls = { tg: [], keys: [] };
         let openai = { configured: false, source: 'none', meta: {} };
         let bots = [{ id: 'alina', title: 'Алина', live_username: 'alinaaaxx_bot', status: 'online', is_enabled: true }];
-        let failOpenai = true;
+        let failOpenai = true, linked = false, failLink = true;
         const google = { configured: true, source: 'db', meta: { email: 'alina@proj.iam.gserviceaccount.com', project: 'proj' } };
         const env = await openApp(browser, url, {
             userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 20, tables: base(ADMIN_ID, 'admin@example.com'), rpcs: { is_super_admin: true },
@@ -36,7 +36,9 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
                 },
                 'integrations-admin': async (b) => {
                     calls.keys.push(b);
-                    if (b.action === 'status') return { ok: true, openai, google, models: ['gpt-4o-mini', 'gpt-4o'] };
+                    if (b.action === 'status') return { ok: true, openai, google, models: ['gpt-4o-mini', 'gpt-4o'], llm: { costUsd: 1.5, todayUsd: 0.2, budgetUsd: 10, errors: 1, lastError: 'insufficient_quota' }, sheets: [{ id: 'cabM', name: 'ИП МАРС', link: linked ? { tab: 'Раздачи', last_sync_at: new Date().toISOString(), last_error: null } : null }, { id: 'cabZ', name: 'Zevina 1', link: null }] };
+                    if (b.action === 'link_sheet') { if (failLink) return { ok: false, error: 'Таблица недоступна. Откройте доступ для адреса alina@proj.iam.gserviceaccount.com и повторите.' }; linked = true; return { ok: true, title: 'Кэшбэки / Выкупы МАРС', rows: 8 }; }
+                    if (b.action === 'unlink_sheet') { linked = false; return { ok: true }; }
                     if (b.action === 'set_openai') {
                         if (failOpenai) return { ok: false, error: 'OpenAI не принял ключ. Проверьте, что скопировали его целиком.' };
                         openai = { configured: true, source: 'db', meta: { mask: 'sk-…6789', model: b.model } }; return { ok: true, mask: 'sk-…6789' };
@@ -85,6 +87,19 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         await page.click('[data-bot="elium"] input[data-act="toggle"]');
         assert.ok(await until(() => calls.tg.some((c) => c.action === 'disable' && c.bot_id === 'elium')), 'выключатель отправляет «disable»');
         console.log('ok   добавление бота: токен скрыт при вводе, бот в списке, выключатель');
+
+        // расход ChatGPT и привязка листов к кабинетам
+        assert.ok(await until(() => page.evaluate(() => /Расход в этом месяце ≈ \$1\.50 из \$10\.00/.test(document.querySelector('[data-card="openai"]').textContent) && /последняя: закончились деньги на счёте OpenAI/.test(document.querySelector('[data-card="openai"]').textContent))), 'расход, бюджет и последняя ошибка человеческим текстом');
+        assert.ok(await until(() => page.evaluate(() => /ИП МАРС/.test(document.querySelector('[data-card="google"]').textContent) && /Не привязана/.test(document.querySelector('[data-cab="cabM"]').textContent))), 'кабинеты и статус привязки листа');
+        await page.click('[data-act="linkform"][data-cab="cabM"]');
+        await page.fill('[data-form="link"] input[name="sheet"]', 'https://docs.google.com/spreadsheets/d/1ZSdNfnflgwOQZFSm1qcvfOB94bnfipZu5fB3pDodrik/edit');
+        await page.click('[data-form="link"] button[type="submit"]');
+        assert.ok(await until(() => page.evaluate(() => /Таблица недоступна\. Откройте доступ/.test(document.querySelector('[data-v="toast"]').textContent))), 'нет доступа: понятно, что делать');
+        assert.strictEqual(await page.evaluate(() => document.querySelector('[data-form="link"] input[name="sheet"]').value.length > 20), true, 'введённая ссылка не пропала');
+        failLink = false; await page.click('[data-form="link"] button[type="submit"]');
+        assert.ok(await until(() => page.evaluate(() => /Синхронизируется/.test(document.querySelector('[data-cab="cabM"]').textContent) && !document.querySelector('[data-form="link"]'))), 'после привязки статус «Синхронизируется»');
+        const linkCall = calls.keys.filter((c) => c.action === 'link_sheet').pop(); assert.strictEqual(linkCall.cabinet_id, 'cabM'); assert.strictEqual(linkCall.tab, 'Раздачи');
+        console.log('ok   расход ChatGPT с бюджетом и ошибкой, привязка листа к кабинету (отказ и успех)');
 
         // секреты нигде на странице не видны
         const text = await page.evaluate(() => document.body.innerHTML + JSON.stringify(Object.assign({}, localStorage)));

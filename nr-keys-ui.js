@@ -28,6 +28,18 @@
     }
     function scenario(b) { return b.id === 'alina' || b.id === 'alina2' ? 'Алина: самовыкупы и раздачи' : 'Сценарий не назначен'; }
 
+    var LLM_ERR = { insufficient_quota: 'закончились деньги на счёте OpenAI', invalid_api_key: 'ключ не принят', rate_limit_exceeded: 'слишком много запросов за короткое время' };
+    function llmErrText(code) { return LLM_ERR[code] || (/^http_/.test(code) ? 'ошибка OpenAI (' + code.replace('http_', '') + ')' : String(code || '')); }
+    function usd(n) { return '$' + Number(n || 0).toFixed(2); }
+    /** Строки про расход ChatGPT. Чистая функция для теста. */
+    function usageLines(llm) {
+        if (!llm) return [];
+        var out = ['Расход в этом месяце ≈ ' + usd(llm.costUsd) + (llm.budgetUsd > 0 ? ' из ' + usd(llm.budgetUsd) : ' (бюджет не задан)') + ' · сегодня ≈ ' + usd(llm.todayUsd)];
+        if (llm.budgetUsd > 0 && llm.costUsd >= llm.budgetUsd) out.push('Бюджет израсходован: Алина отвечает по шаблонам, пока вы не увеличите его в «Продвижение → Алина».');
+        if (llm.errors > 0 && llm.lastError) out.push('Были ошибки (' + llm.errors + '), последняя: ' + llmErrText(llm.lastError));
+        return out;
+    }
+
     function pill(tone, text) { return '<span class="nk-pill nk-' + tone + '"><i></i>' + esc(text) + '</span>'; }
 
     function botRow(b) {
@@ -68,6 +80,7 @@
                 '<button type="button" class="nk-link" data-act="copyemail" data-email="' + esc(item.meta.email) + '">Скопировать адрес</button></p>';
         }
         if (state.sheet && isG) h += '<p class="nk-hint ' + (state.sheet.ok ? 'nk-okt' : 'nk-badt') + '">' + esc(state.sheet.text) + '</p>';
+        if (!isG && state.keys && state.keys.llm) usageLines(state.keys.llm).forEach(function (t, i) { h += '<p class="nk-hint' + (i > 0 && /Бюджет израсходован|ошибки/.test(t) ? ' nk-badt' : '') + '">' + esc(t) + '</p>'; });
         if (state.form === kind) {
             h += '<form class="nk-form" data-form="' + kind + '">';
             if (isG) h += '<label>Файл ключа (JSON)<input type="file" name="file" accept="application/json,.json"></label><label>или вставьте содержимое<textarea name="json" rows="4" placeholder=\'{"type":"service_account", …}\' spellcheck="false"></textarea></label>';
@@ -79,7 +92,23 @@
             h += '<div class="nk-actions"><button type="button" class="nk-btn" data-act="replace" data-kind="' + kind + '">' + (item && item.configured ? 'Заменить ключ' : '+ Подключить') + '</button>' +
                 (item && item.configured && item.source === 'db' ? '<button type="button" class="nk-btn" data-act="test" data-kind="' + kind + '"' + (busy ? ' disabled' : '') + '>' + (busy === 'test' ? 'Проверяю…' : 'Проверить') + '</button><button type="button" class="nk-btn nk-danger" data-act="remove" data-kind="' + kind + '">Отключить</button>' : '') + '</div>';
         }
+        if (isG && state.keys && state.keys.sheets && state.keys.sheets.length) h += sheetsBlock(state.keys.sheets);
         return h + '</section>';
+    }
+
+    function sheetsBlock(list) {
+        var h = '<div class="nk-sheets"><h4>Таблицы по кабинетам</h4>';
+        list.forEach(function (c) {
+            var l = c.link, st = !l ? ['off', 'Не привязана'] : l.last_error ? ['bad', 'Ошибка'] : l.last_sync_at ? ['ok', 'Синхронизируется'] : ['ok', 'Привязана'];
+            h += '<div class="nk-row" data-cab="' + esc(c.id) + '"><div class="nk-t"><b>' + esc(c.name) + '</b><span>' + esc(l ? (l.last_error ? l.last_error : 'Лист «' + l.tab + '»') : 'Раздачи этого кабинета не связаны с Google') + '</span></div>' + pill(st[0], st[1]) +
+                (l ? '<button type="button" class="nk-btn nk-danger" data-act="unlink" data-cab="' + esc(c.id) + '">Отвязать</button>' : '<button type="button" class="nk-btn" data-act="linkform" data-cab="' + esc(c.id) + '">Привязать</button>') + '</div>';
+            if (state.form === 'link:' + c.id) {
+                h += '<form class="nk-form" data-form="link"><input type="hidden" name="cab" value="' + esc(c.id) + '"><label>Ссылка на таблицу Google<input type="text" name="sheet" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off" spellcheck="false"></label>' +
+                    '<label>Лист<input type="text" name="tab" value="Раздачи" autocomplete="off"></label><p class="nk-hint">Мы проверим доступ, наличие листа и шапки до сохранения. Строки других кабинетов это не затронет.</p>' +
+                    '<div class="nk-actions"><button type="submit" class="nk-btn nk-ink"' + (state.busy.link ? ' disabled' : '') + '>' + (state.busy.link ? 'Проверяю…' : 'Привязать') + '</button><button type="button" class="nk-btn" data-act="cancel">Отмена</button></div></form>';
+            }
+        });
+        return h + '</div>';
     }
 
     function paint() {
@@ -125,11 +154,19 @@
     }
 
     function refreshTg() { return call('telegram-admin', { action: 'list' }).then(function (d) { state.tg = { bots: d.bots || [] }; writeCache(); paint(); }, function () { if (!state.tg) { state.tg = { bots: [] }; paint(); } }); }
-    function refreshKeys() { return call('integrations-admin', { action: 'status' }).then(function (d) { state.keys = { openai: d.openai, google: d.google, models: d.models }; writeCache(); paint(); }, function () { /* остаётся кэш */ }); }
+    function refreshKeys() { return call('integrations-admin', { action: 'status' }).then(function (d) { state.keys = { openai: d.openai, google: d.google, models: d.models, llm: d.llm, sheets: d.sheets }; writeCache(); paint(); }, function () { /* остаётся кэш */ }); }
 
     function onSubmit(e) {
         var f = e.target.closest('form[data-form]'); if (!f) return; e.preventDefault();
         var kind = f.getAttribute('data-form'), v = function (n) { var el = f.elements[n]; return el ? String(el.value || '').trim() : ''; };
+        if (kind === 'link') {
+            if (!v('sheet')) return toast('Вставьте ссылку на таблицу', true);
+            state.busy.link = true; paint();
+            call('integrations-admin', { action: 'link_sheet', cabinet_id: v('cab'), sheet: v('sheet'), tab: v('tab') }).then(function (d) {
+                state.busy.link = false; state.form = ''; toast('Привязано: «' + (d.title || 'таблица') + '»'); refreshKeys();
+            }, function (err) { state.busy.link = false; toast(err.message, true); paint(); });
+            return;
+        }
         if (kind === 'bot') {
             if (!v('title') || !v('token')) return toast('Укажите название и токен бота', true);
             state.busy.addbot = true; paint();
@@ -167,6 +204,11 @@
             state.busy['bot:' + id] = 'webhook'; paint();
             call('telegram-admin', { action: 'set_webhook', bot_id: id }).then(function () { state.busy['bot:' + id] = false; toast('Связь с Telegram обновлена'); refreshTg(); }, function (er) { state.busy['bot:' + id] = false; toast(er.message, true); paint(); });
         } else if (act === 'addbot') { state.form = 'bot'; paint(); }
+        else if (act === 'linkform') { state.form = 'link:' + a.getAttribute('data-cab'); paint(); }
+        else if (act === 'unlink') {
+            if (a.getAttribute('data-sure') !== '1') { a.setAttribute('data-sure', '1'); a.textContent = 'Нажмите ещё раз'; return; }
+            call('integrations-admin', { action: 'unlink_sheet', cabinet_id: a.getAttribute('data-cab') }).then(function () { toast('Таблица отвязана, строки на сайте остались'); refreshKeys(); }, function (er) { toast(er.message, true); });
+        }
         else if (act === 'replace') { state.form = kind; paint(); }
         else if (act === 'cancel') { state.form = ''; paint(); }
         else if (act === 'copyemail') {
@@ -198,7 +240,7 @@
     }
     function hide() { state.active = false; }
 
-    var api = { keyView: keyView, botStatus: botStatus, scenario: scenario, show: show, hide: hide };
+    var api = { usageLines: usageLines, llmErrText: llmErrText, keyView: keyView, botStatus: botStatus, scenario: scenario, show: show, hide: hide };
     root.NrKeys = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
