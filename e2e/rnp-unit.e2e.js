@@ -76,13 +76,43 @@ const tables = {
         assert.strictEqual((await val()).profit, '1620', 'сброс возвращает значения снимка');
         console.log('ok   «Сбросить значения» возвращает снимок');
         if (process.env.RU_SHOT) { await page.setViewportSize({ width: 1440, height: 900 }); await page.waitForTimeout(500); await page.screenshot({ path: process.env.RU_SHOT + '.png' }); }
+        // подсказка «i»: короткое объяснение, откуда цифра
+        await page.click('.ru-t2 .ru-i[data-ui="log"]');
+        assert.ok(await page.evaluate(() => /Из финотчёта/.test((document.getElementById('ru-pop') || {}).textContent || '')), 'подсказка «i» открывается');
+        await page.keyboard.press('Escape');
+        assert.ok(await page.evaluate(() => !document.getElementById('ru-pop')), 'Esc закрывает подсказку');
+        await page.click('.ru-t2 .ru-i[data-ui="log"]'); await page.click('.ru-t2 .ru-i[data-ui="log"]');
+        assert.ok(await page.evaluate(() => !document.getElementById('ru-pop')), 'повторное нажатие закрывает подсказку');
+        console.log('ok   кнопка «i» у строки: короткая подсказка, откуда цифра');
+        // блока «за день» нет, строка переименована
+        assert.ok(await page.evaluate(() => !/Продаж в день|Прибыль в день/.test(document.querySelector('.ru-t2').textContent)), 'блока «за день» нет');
+        assert.ok(await page.evaluate(() => /Прочие удержания WB/.test(document.querySelector('.ru-t2').textContent)), 'строка «Прочие удержания WB»');
+        // «Σ Общее»: колонка на артикул и «В среднем»
+        await page.click('[data-uall]'); await page.waitForSelector('.ru-all', { timeout: 5000 });
+        const heads = await page.evaluate(() => [...document.querySelectorAll('.ru-all thead th')].map((t) => t.textContent));
+        assert.ok(heads.includes('В среднем') && heads.length >= 4, 'в общем виде колонки артикулов и «В среднем»: ' + heads);
+        assert.ok(await page.evaluate(() => !!document.querySelector('.ru-hero2') && !!document.querySelector('.ru-rk')), 'справа чёрная карточка и маржа по артикулам');
+        await page.click('.ru-pt[data-un="1"]');
+        assert.ok(await page.evaluate(() => !document.querySelector('.ru-all') && !!document.querySelector('input.ru-ed')), 'выбор артикула возвращает вид одного артикула');
+        console.log('ok   «Σ Общее»: колонки артикулов и в среднем, карточки справа, возврат к одному артикулу');
+        // себестоимость живая: поменяли в «Товарах» после снимка, в таблице новая, снимок цены не тронут
+        const sn = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => x.indexOf('nr_ru_snap_') === 0); const m = JSON.parse(localStorage.getItem(k)); Object.keys(m).forEach((n) => { m[n].v.cost = 0; }); localStorage.setItem(k, JSON.stringify(m)); return k; });
+        await page.evaluate(() => { document.querySelector('.rp-subtabs button[data-vw="prices"]').click(); });
+        await page.waitForSelector('.rp-row', { timeout: 8000 });
+        await page.click('#rnp-prices-pane .rp-subtabs button[data-vw="unit"]'); await page.waitForSelector('.ru-t2', { timeout: 8000 });
+        await page.waitForTimeout(500);
+        v = await val();
+        assert.strictEqual(v.cost && v.cost.replace(/\s/g, ''), '900', 'себестоимость свежая, а не из снимка: ' + JSON.stringify(v));
+        assert.strictEqual(v.profit, '1620', 'остаётся с учётом свежей себестоимости: ' + v.profit);
+        console.log('ok   себестоимость всегда живая, даже если в снимке был 0');
+        void sn;
         // юнит-экономика внутри раздела «Товары»: вкладки наверху страницы, в меню отдельного пункта нет
         assert.ok(await page.evaluate(() => !document.querySelector('#fly-rnp [data-nrn="rnp:unit"]') || document.querySelector('#fly-rnp [data-nrn="rnp:unit"]').offsetParent === null), 'отдельного пункта «Юнит-экономика» в меню РНП нет');
-        assert.ok(await page.evaluate(() => /Товары/.test(document.querySelector('.rp-subtabs button[data-vw="prices"]').textContent) && /Юнит/.test(document.querySelector('.rp-subtabs button[data-vw="unit"]').textContent)), 'наверху вкладки «Товары» и «Юнит-экономика»');
-        await page.click('.rp-subtabs button[data-vw="prices"]');
+        assert.ok(await page.evaluate(() => /Товары/.test(document.querySelector('#rnp-unit-pane .rp-subtabs button[data-vw="prices"]').textContent) && /Юнит/.test(document.querySelector('#rnp-unit-pane .rp-subtabs button[data-vw="unit"]').textContent)), 'наверху вкладки «Товары» и «Юнит-экономика»');
+        await page.click('#rnp-unit-pane .rp-subtabs button[data-vw="prices"]');
         await page.waitForSelector('.rp-row', { timeout: 8000 });
         assert.ok(await page.evaluate(() => document.querySelector('#fly-rnp [data-nrn="rnp:prices"]').classList.contains('active') || /Товары/.test(document.getElementById('page-title').textContent)), 'мы на странице «Товары»');
-        await page.click('.rp-subtabs button[data-vw="unit"]');
+        await page.click('#rnp-prices-pane .rp-subtabs button[data-vw="unit"]');
         await page.waitForSelector('.ru-t2', { timeout: 8000 });
         assert.ok(await page.evaluate(() => /Юнит/.test(document.getElementById('page-title').textContent)), 'заголовок страницы «Юнит-экономика»');
         assert.ok(await page.evaluate(() => /Товары/.test(document.querySelector('.nr-crumbs').textContent)), 'в цепочке сверху «Товары › Юнит-экономика»');

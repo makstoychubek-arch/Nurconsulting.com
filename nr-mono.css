@@ -2856,3 +2856,45 @@ html.nr-f-give #nr-foot { display: none; }
 .as-link[hidden] { display: none; }
 .as-text-pv { margin-top: 6px; padding: 8px 12px; border-radius: 16px; background: var(--accent); color: var(--on-accent, #fff); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; max-width: 92%; }
 .as-hint { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
+
+/* Юнит-экономика: плотная сетка как в РНП, «Σ Общее», карточки справа (макет 18 ноября 2026) */
+html body #rnp-unit-pane .ru-t2 { width: auto; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+html body #rnp-unit-pane .ru-t2 th, html body #rnp-unit-pane .ru-t2 td { padding: 0 7px; height: 19px; min-width: 70px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); line-height: 1.1; }
+html body #rnp-unit-pane .ru-t2 th { font-size: 9px; letter-spacing: .06em; height: 24px; border-top: 1px solid var(--border); }
+html body #rnp-unit-pane .ru-t2 th:first-child, html body #rnp-unit-pane .ru-t2 td:first-child { width: 190px; min-width: 190px; max-width: 190px; border-left: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; }
+html body #rnp-unit-pane .ru-t2 tr.ru-sec td { height: 15px; font-size: 8.5px; padding: 0 7px; }
+html body #rnp-unit-pane .ru-t2 tr.ru-hero td { font-size: 12px; height: 24px; padding: 0 7px; }
+html body #rnp-unit-pane .ru-t2 tr.ru-hero td:first-child { font-size: 10px; }
+html body #rnp-unit-pane .ru-t2 td.ru-s { font-size: 11px; }
+html body #rnp-unit-pane input.ru-ed { width: 66px !important; font-size: 11px !important; }
+html body #rnp-unit-pane .ru-ph { gap: 8px; margin: 2px 0 8px; padding-bottom: 8px; }
+html body #rnp-unit-pane .ru-pt { width: 52px; }
+html body #rnp-unit-pane .ru-pt .ru-pi { width: 34px; height: 44px; margin: 0 auto 3px; border-radius: 9px; }
+html body #rnp-unit-pane .ru-pt b { font-size: 10px; }
+html body #rnp-unit-pane .ru-pt em { font-size: 8px; }
+html body #rnp-unit-pane .ru-gbtn, html body #rnp-unit-pane .ru-allb { padding: 4px 11px; font-size: 11px; }
+html body .ru-allb { flex: none; align-self: flex-start; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-primary); font-family: inherit; font-weight: 800; cursor: pointer; }
+html body .ru-allb.on { background: var(--text-primary); color: var(--bg-primary, var(--bg)); border-color: var(--text-primary); }
+html body .ru-sepv { flex: none; width: 1px; align-self: stretch; background: var(--border); }
+html body .ru-snap { padding: 5px 12px; font-size: 11px; }
+html body .ru-stage2 { display: grid; grid-template-columns: minmax(0, max-content) minmax(200px, 270px); gap: 16px; align-items: start; }
+@media (max-width: 900px) { html body .ru-stage2 { grid-template-columns: 1fr; } }
+html body .ru-side { display: flex; flex-direction: column; gap: 10px; }
+html body .ru-hero2 { background: var(--text-primary); color: var(--bg-primary, #fff); border-radius: 22px; padding: 12px 16px; }
+html body .ru-hero2 small { display: block; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; opacity: .7; }
+html body .ru-hero2 b { display: block; font-size: 26px; font-weight: 900; letter-spacing: -.03em; margin: 2px 0; font-variant-numeric: tabular-nums; }
+html body .ru-pill { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
+html body .ru-card2 { border: 1.5px solid var(--text-primary); border-radius: 22px; padding: 12px 16px; }
+html body .ru-card2 small { display: block; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--text-muted); }
+html body .ru-bar2 { display: flex; height: 6px; border-radius: 999px; overflow: hidden; gap: 2px; margin-top: 10px; }
+html body .ru-bar2 i { display: block; height: 100%; }
+html body .ru-leg2 { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 6px; font-size: 10px; color: var(--text-muted); }
+html body .ru-rk { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 10px; }
+html body .ru-rk span { width: 56px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body .ru-rk u { flex: 1; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; text-decoration: none; }
+html body .ru-rk u i { display: block; height: 100%; background: var(--text-primary); }
+html body .ru-rk b { width: 40px; text-align: right; }
+html body .ru-i { width: 13px; height: 13px; margin-left: 6px; border: 1px solid var(--mono-3, #a8a8a8); border-radius: 50%; background: none; color: var(--text-muted); font: 700 8px/1 inherit; font-family: inherit; padding: 0; cursor: pointer; vertical-align: 1px; }
+html body .ru-i:hover, html body .ru-i.on { background: var(--text-primary); color: var(--bg-primary, #fff); border-color: var(--text-primary); }
+html body .ru-pop { position: fixed; z-index: 80; max-width: 240px; background: var(--bg-card, var(--surface-solid, #fff)); color: var(--text-primary); border: 1.5px solid var(--text-primary); border-radius: 14px; padding: 9px 12px; font-size: 11px; line-height: 1.35; }
+html body .ru-pop small { display: block; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--text-muted); margin-bottom: 3px; }
