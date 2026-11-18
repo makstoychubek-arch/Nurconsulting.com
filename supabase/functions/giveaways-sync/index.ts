@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
             const vals = await sheets.readAll(m.sheet_id, m.tab);
             const layout = vals ? detectLayout(vals) : null;
             if (!layout) continue;
-            const rng = `${q(m.tab)}!A1:AD${layout.headerRow + 2}`;
+            const rng = `${q(m.tab)}!A1:AD${layout.headerRow + 30}`;
             const res = await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${m.sheet_id}?ranges=${encodeURIComponent(rng)}&includeGridData=true&fields=${encodeURIComponent('sheets(data(startRow,rowMetadata(pixelSize),columnMetadata(pixelSize),rowData(values(effectiveFormat(textFormat(fontFamily,fontSize,bold),backgroundColor)))))')}`, token);
             if (!res?.ok) continue;
             const fmt = parseSheetFormat(await res.json().catch(() => null), layout);
