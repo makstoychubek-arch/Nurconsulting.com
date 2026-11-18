@@ -2785,3 +2785,8 @@ html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .r
 .nk-toast-bad { background: var(--red); color: #fff; }
 .nk-toast[hidden] { display: none; }
 @media (max-width: 768px) { .nk-card { padding: 14px 16px; } .nk-toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); } }
+
+/* Раздачи с листом Google: полоса обмена (giveaways.js) */
+.gv-sync { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.gv-sync i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
+.gv-sync.is-bad i { background: var(--red); }
