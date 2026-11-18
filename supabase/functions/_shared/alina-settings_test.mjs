@@ -7,7 +7,10 @@ const code = readFileSync(new URL('./alina-settings.ts', import.meta.url), 'utf8
 let rows = [{ key: 'typing', value: false }, { key: 'pauseMaxSec', value: 99 }, { key: 'phrases', value: [' Привет ', '', 5] }, { key: 'remindMin', value: '15' }];
 let fail = false, reads = 0;
 const db = { from: () => ({ select: async () => { reads++; return fail ? { data: null, error: new Error('x') } : { data: rows, error: null }; } }) };
-const lib = new Function('getAdminClient', stripTypeScriptTypes(code) + '\nreturn { ALINA_DEFAULTS, normalizeAlinaSettings, loadAlinaSettings }')(() => db);
+const strip = (f) => stripTypeScriptTypes(readFileSync(new URL(f, import.meta.url), 'utf8').replace(/^import .*\n/gm, '').replace(/^export /gm, ''));
+const TEXT_DEFS = new Function(strip('./alina-templates.ts') + '\nreturn TEXT_DEFS')();
+const normLogin = new Function(strip('./alina-gate.ts') + '\nreturn normLogin')();
+const lib = new Function('getAdminClient', 'TEXT_DEFS', 'normLogin', stripTypeScriptTypes(code) + '\nreturn { ALINA_DEFAULTS, normalizeAlinaSettings, loadAlinaSettings }')(() => db, TEXT_DEFS, normLogin);
 
 const d = lib.normalizeAlinaSettings(null);
 assert.deepEqual(d, lib.ALINA_DEFAULTS, 'без значений действуют настройки по умолчанию');
@@ -26,6 +29,11 @@ assert.deepEqual([d.hoursOn, d.hoursFrom, d.hoursTo, d.offHoursText, d.topicsOff
 const hh = lib.normalizeAlinaSettings({ hoursOn: true, hoursFrom: '9:5', hoursTo: '7:30', offHoursText: '  Ответим утром  ', topicsOff: ['manager', 'manager', 'Плохо!', 'receipt'], managerGroup: '-1004465341061' });
 assert.deepEqual([hh.hoursOn, hh.hoursFrom, hh.hoursTo, hh.offHoursText, hh.topicsOff, hh.managerGroup], [true, '09:00', '07:30', 'Ответим утром', ['manager', 'receipt'], -1004465341061], 'время, текст, темы и группа приводятся к допустимым');
 assert.equal(lib.normalizeAlinaSettings({ hoursFrom: '25:00' }).hoursFrom, '09:00'); assert.equal(lib.normalizeAlinaSettings({ managerGroup: 12345 }).managerGroup, 0, 'группа должна быть отрицательным номером'); assert.equal(lib.normalizeAlinaSettings({ managerGroup: 'abc' }).managerGroup, 0);
+assert.deepEqual([d.blacklist, d.texts], [[], {}], 'чёрный список и свои тексты пусты по умолчанию');
+const bt = lib.normalizeAlinaSettings({ blacklist: ['@Bad_User', 'bad_user', 'https://t.me/Other_One', 'ab', 5], texts: { closed: 'Мест нет', выдуманный: 'x', key: '   ', ask_pickup: 7 } });
+assert.deepEqual(bt.blacklist, ['bad_user', 'other_one'], 'логины без @ и регистра, без повторов и мусора');
+assert.deepEqual(bt.texts, { closed: 'Мест нет' }, 'только известные непустые тексты');
+assert.equal(lib.normalizeAlinaSettings({ texts: { closed: 'а'.repeat(9000) } }).texts.closed.length, 4000);
 console.log('ok   значения по умолчанию, границы, неверные типы');
 
 const a = await lib.loadAlinaSettings(1000); assert.equal(a.typing, false); assert.equal(reads, 1);

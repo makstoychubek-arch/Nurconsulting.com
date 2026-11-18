@@ -26,7 +26,7 @@ const send = (text: string, hm: string) => handleAlinaClientMessage({ chatId: -1
 
 // 1. вне часов: один ответ, потом молчание
 // Настройки читаются с кэшем 30 с, поэтому задаём всё до первого сообщения.
-Object.assign(settings, { hoursOn: true, hoursFrom: '09:00', hoursTo: '22:00', managerGroup: -1007777 });
+Object.assign(settings, { hoursOn: true, hoursFrom: '09:00', hoursTo: '22:00', managerGroup: -1007777, blacklist: ['bad_user'] });
 let r = await send('Здравствуйте', '23:30');
 assertEquals(r.replies.length, 1); assertEquals(r.replies[0], 'Сейчас нерабочее время. Я на связи с 09:00 до 22:00 по Москве. Напишите мне после 09:00, отвечу сразу.');
 assertEquals(events.at(-1)?.event_type, 'offhours_sent');
@@ -44,6 +44,11 @@ assertEquals(events.at(-1)?.event_type, 'manager_escalated');
 
 // 3. другая тема
 assertEquals((await send('где чек', '12:00')).escalate?.topic, 'receipt');
+// 4. чёрный список: молчание всегда, и вне часов, и вопрос менеджеру
+const bad = (text: string, hm: string) => handleAlinaClientMessage({ chatId: -2, userId: -2, username: 'Bad_User', fullName: 'Плохой', text, nowMs: msk(hm), sourceAccount: 'sandbox' });
+let b = await bad('Здравствуйте', '12:00'); assertEquals(b.replies, []); assertEquals(events.at(-1)?.event_type, 'blacklist_skip');
+b = await bad('Можно поговорить с менеджером?', '12:00'); assertEquals(b.replies, []); assertEquals(b.escalate, undefined);
+b = await bad('Привет', '23:30'); assertEquals(b.replies, [], 'и вне часов ему не отвечаем');
 server.shutdown();
-console.log('PASS: входные правила Алины в настоящем сценарии (часы работы, темы менеджеру)');
+console.log('PASS: входные правила Алины в настоящем сценарии (часы работы, темы менеджеру, чёрный список)');
 Deno.exit(0);

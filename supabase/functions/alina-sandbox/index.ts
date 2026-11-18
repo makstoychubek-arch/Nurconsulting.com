@@ -1,6 +1,7 @@
 // «Песочница» Алины: написать ей как клиент прямо на сайте. Только супер-админ, в Telegram и в рабочую таблицу ничего не уходит.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleAlinaClientMessage } from '../_shared/alina-selfbuy.ts';
+import { TEXT_DEFS } from '../_shared/alina-templates.ts';
 import { handleSandbox } from './handler.ts';
 
 const CORS = {
@@ -34,6 +35,7 @@ Deno.serve(async (req) => {
             return !(await admin.from('alina_selfbuy_leads').delete().eq('chat_id', chatId)).error;
         },
         now: () => Date.now(),
+        texts: () => TEXT_DEFS,
     });
     return json(result.body, result.status);
 });

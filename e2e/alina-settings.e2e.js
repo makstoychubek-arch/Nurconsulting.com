@@ -24,6 +24,7 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
                 'wb-proxy': async () => ({}),
                 'alina-sandbox': async (b) => {
                     sbx.push(b);
+                    if (b.action === 'texts') return { ok: true, texts: [{ id: 'closed', group: 'Начало', label: 'Места на сегодня закончились', vars: [], text: 'На сегодня места закончились 🙌 Напишите завтра — посмотрим' }, { id: 'open_product', group: 'Начало', label: 'Ответ «актуально» с названием товара', vars: ['товар'], text: 'Да, актуально 🙌 по «{товар}»\nВысылаю ТЗ:' }] };
                     if (b.action === 'reset') { sbxLead = null; return { ok: true, lead: null }; }
                     if (b.action === 'state') return { ok: true, lead: sbxLead };
                     if (sbxFail) return { ok: false, error: 'Алина не смогла ответить. Это сбой сценария, диалог не потерян.' };
@@ -115,6 +116,19 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         await page.fill('input[data-k="managerGroup"]', '-1001234567890');
         assert.ok(await page.evaluate((b) => document.querySelector('[data-v="cnt"]').textContent !== b && /Изменено: [4-9]/.test(document.querySelector('[data-v="cnt"]').textContent), before), 'счётчик изменений учитывает часы, текст, тему и группу');
         console.log('ok   часы работы (время, текст) и вопросы менеджеру (темы, группа)');
+
+        // чёрный список и тексты Алины
+        await page.fill('textarea[data-bl]', '@Bad_User\nhttps://t.me/Other_One\nbad_user');
+        assert.ok(await page.evaluate(() => /В списке: 2/.test(document.querySelector('[data-v="blcount"]').textContent)), 'логины приводятся к одному виду, повторы убираются');
+        assert.ok(await until(() => page.evaluate(() => !document.querySelector('[data-v="textscard"]').hidden && document.querySelectorAll('textarea[data-text]').length === 2)), 'администратору виден редактор текстов, стандартные тексты пришли с сервера');
+        assert.ok(await page.evaluate(() => document.querySelector('textarea[data-text="closed"]').value === 'На сегодня места закончились 🙌 Напишите завтра — посмотрим' && document.querySelector('[data-reset="closed"]').hidden), 'в поле стандартный текст, «Вернуть» скрыто');
+        await page.fill('textarea[data-text="open_product"]', 'Актуально: «{товар}», ключ {ключ}');
+        assert.ok(await page.evaluate(() => /Актуально: «Пижама 2в1 шоколадный», ключ пижама женская/.test(document.querySelector('[data-text="open_product"]').closest('.as-text').querySelector('.as-text-pv').textContent) && !document.querySelector('[data-reset="open_product"]').hidden), 'предпросмотр с подстановками, «Вернуть» появилось');
+        await page.click('[data-reset="open_product"]');
+        assert.ok(await page.evaluate(() => /Да, актуально/.test(document.querySelector('textarea[data-text="open_product"]').value) && document.querySelector('[data-reset="open_product"]').hidden), '«Вернуть стандартный» возвращает текст');
+        await page.fill('textarea[data-text="closed"]', 'Мест нет, пишите завтра');
+        assert.ok(await page.evaluate(() => /Изменено: [5-9]/.test(document.querySelector('[data-v="cnt"]').textContent)), 'счётчик учитывает чёрный список и текст');
+        console.log('ok   чёрный список и редактор текстов с предпросмотром');
 
         // песочница: клиент пишет Алине, ответ приходит из настоящего сценария
         assert.ok(await page.evaluate(() => !document.querySelector('[data-v="sandbox"]').hidden && /Диалог пуст/.test(document.querySelector('[data-sb="chat"]').textContent)), 'администратору виден пустой чат песочницы');

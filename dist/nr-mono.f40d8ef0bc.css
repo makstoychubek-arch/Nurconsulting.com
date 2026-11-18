@@ -2848,3 +2848,12 @@ html.nr-f-give #nr-foot { display: none; }
 .as-group { width: 18ch; }
 .as-area { width: 100%; background: transparent; color: var(--text-primary); border: 1px solid var(--border-strong, var(--border)); border-radius: 14px; padding: 8px 12px; font: inherit; resize: vertical; min-width: 0; }
 .as-sub { margin: 0 0 6px; color: var(--text-muted); font-size: 12.5px; }
+.as-text { padding: 10px 0; border-top: 1px solid var(--border); }
+.as-grp-h { margin: 12px 0 0; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.as-text-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
+.as-text-h b { color: var(--text-primary); }
+.as-text-h span { color: var(--text-muted); font-size: 12px; }
+.as-link { margin-left: auto; border: 0; background: none; color: var(--text-primary); text-decoration: underline; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; }
+.as-link[hidden] { display: none; }
+.as-text-pv { margin-top: 6px; padding: 8px 12px; border-radius: 16px; background: var(--accent); color: var(--on-accent, #fff); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; max-width: 92%; }
+.as-hint { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }

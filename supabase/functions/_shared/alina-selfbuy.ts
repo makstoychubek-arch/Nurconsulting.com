@@ -50,6 +50,7 @@ import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
 import { clientRowsToday, syncLeadToRazdachiRow } from './alina-razdachi-sync.ts';
 import { loadAlinaSettings } from './alina-settings.ts';
 import { gate, isWorkingTime } from './alina-gate.ts';
+import { setTextOverrides } from './alina-templates.ts';
 import { alinaHoldPhrase, managerGroupId } from './alina-manager.ts';
 import {
   fetchWbMainPhoto,
@@ -225,6 +226,7 @@ export async function handleAlinaClientMessage(opts: {
   // Входные правила: часы работы и темы для менеджера. До чтения таблицы и до ChatGPT, чтобы не тратить на них время.
   {
     const settings = await loadAlinaSettings();
+    setTextOverrides(settings.texts); // свои тексты Алины с сайта
     const nowMs = opts.nowMs ?? Date.now();
     const group = await managerGroupId();
     let told = false;
@@ -236,9 +238,13 @@ export async function handleAlinaClientMessage(opts: {
     }
     const firstName = (opts.fullName || '').trim().split(/\s+/)[0];
     const verdict = gate({
-      text, nowMs, settings, alreadyToldOffHours: told, hasManagerGroup: Boolean(group),
+      text, nowMs, settings, alreadyToldOffHours: told, hasManagerGroup: Boolean(group), username: opts.username,
       holdReply: alinaHoldPhrase(firstName, text.length, settings.phrases, settings.useName),
     });
+    if (verdict.kind === 'blocked') {
+      await logAlinaRawEvent(opts.chatId, 'blacklist_skip', { username: opts.username || null });
+      return { replies: [] };
+    }
     if (verdict.kind === 'offhours') {
       await logAlinaRawEvent(opts.chatId, verdict.reply ? 'offhours_sent' : 'offhours_skip', { text: text.slice(0, 200) });
       return { replies: verdict.reply ? [verdict.reply] : [] };
@@ -414,7 +420,7 @@ export async function handleAlinaClientMessage(opts: {
       username: opts.username || lead.username,
     });
     await logEvent(db, lead.id, opts.chatId, 'closed_no_slots', { text });
-    return r(MSG_CLOSED);
+    return r(MSG_CLOSED());
   }
 
   // ── new / closed: приветствие → уточнить объявление ─────────────────────
@@ -429,11 +435,11 @@ export async function handleAlinaClientMessage(opts: {
 
     if (!campaignAccepting(camp)) {
       await updateLead(db, lead.id, { status: 'closed' });
-      return r(MSG_CLOSED);
+      return r(MSG_CLOSED());
     }
     if (camp && (camp.slots_left ?? 0) <= 0 && camp.is_open) {
       await updateLead(db, lead.id, { status: 'closed' });
-      return r(MSG_CLOSED_FULL);
+      return r(MSG_CLOSED_FULL());
     }
 
     const snap = await fetchSheetPlan(false);
@@ -482,7 +488,7 @@ export async function handleAlinaClientMessage(opts: {
         }
         if (brain.action === 'close') {
           await updateLead(db, lead.id, { status: 'closed' });
-          return r(brain.reply || MSG_CLOSED);
+          return r(brain.reply || MSG_CLOSED());
         }
         if (brain.reply && brain.action === 'reply_only') {
           await updateLead(db, lead.id, { status: 'ask_ad' });
@@ -503,7 +509,7 @@ export async function handleAlinaClientMessage(opts: {
     const choices = await getOpenProductChoices();
     if (!choices.length || !campaignAccepting(camp)) {
       await updateLead(db, lead.id, { status: 'closed', last_client_text: text });
-      return r(MSG_CLOSED);
+      return r(MSG_CLOSED());
     }
     const picked = await resolveClientProduct(text, hasPhoto, readScreen, snap.offers || choices);
     if (picked.unavailableColor) {
@@ -548,7 +554,7 @@ export async function handleAlinaClientMessage(opts: {
 
     await updateLead(db, lead.id, { last_client_text: text || (hasPhoto ? '[фото]' : '') });
     return r(
-      MSG_ASK_AD_AGAIN,
+      MSG_ASK_AD_AGAIN(),
       choices.map((o) => `• ${o.product_name}`).filter((s) => s.length > 2).join('\n'),
     );
   }
@@ -557,7 +563,7 @@ export async function handleAlinaClientMessage(opts: {
   if (lead.status === 'ask_type') {
     const typed = detectDealType(text);
     if (typed === 'barter' && !barterAvailable(camp)) {
-      return r(MSG_ONLY_CASHBACK);
+      return r(MSG_ONLY_CASHBACK());
     }
     return await openDeal(db, lead, camp, typed || 'cashback', text);
   }
@@ -580,7 +586,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT);
+      return r(MSG_APPROVED_PRODUCT());
     }
     return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
@@ -653,7 +659,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT);
+      return r(MSG_APPROVED_PRODUCT());
     }
     return r(
       lead.keyword
@@ -677,7 +683,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_cart', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_CART);
+      return r(MSG_APPROVED_CART());
     }
     return r('Нужен скрин корзины: наш товар + 2–3 конкурента и бренд в избранном ❤️');
   }
@@ -704,7 +710,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER : MSG_ASK_BANK_CASHBACK;
+      const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK();
       return r(bankMsg);
     }
     return r('После оформления пришлите скрин заказа: цена, город/ПВЗ, дата получения.');
@@ -730,7 +736,7 @@ export async function handleAlinaClientMessage(opts: {
     });
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
-    return r('Реквизиты приняла ✅', MSG_ASK_PICKUP);
+    return r('Реквизиты приняла ✅', MSG_ASK_PICKUP());
   }
 
   // ── wait_pickup ──────────────────────────────────────────────────────────
@@ -747,7 +753,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_ASK_REVIEW);
+      return r(MSG_ASK_REVIEW());
     }
     return r('Как заберёте — напишите дату/скрин с ПВЗ.');
   }
@@ -765,12 +771,12 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'review', { text, hasPhoto });
       await syncLeadToSheet(db, lead.id);
-      if (next === 'wait_reels') return r('Отзыв на согласовании/принят 👍', MSG_ASK_REELS);
+      if (next === 'wait_reels') return r('Отзыв на согласовании/принят 👍', MSG_ASK_REELS());
       return r(
         'Супер, зафиксировала ✅ Кэшбек — через 16 дней после получения при выполнении всех условий (отзыв, фото, разрезанные ШК).',
       );
     }
-    return r(MSG_ASK_REVIEW);
+    return r(MSG_ASK_REVIEW());
   }
 
   // ── wait_reels (бартер) ──────────────────────────────────────────────────
@@ -788,7 +794,7 @@ export async function handleAlinaClientMessage(opts: {
         'Рилс/статистику приняла ✅ Спасибо! Если нужно дополнить отзыв или сторис — напишите.',
       );
     }
-    return r(MSG_ASK_REELS);
+    return r(MSG_ASK_REELS());
   }
 
   if (lead.status === 'done') {
@@ -826,7 +832,7 @@ export async function handleAlinaClientMessage(opts: {
   }
 
   // fallback — мозг, иначе мягко в ask_ad
-  if (!campaignAccepting(camp)) return r(MSG_CLOSED);
+  if (!campaignAccepting(camp)) return r(MSG_CLOSED());
   const { brain, choices } = await runBrain();
   if (brain.action === 'pick_product') {
     const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
@@ -862,7 +868,7 @@ async function startDealFromOffer(
     typed = 'cashback';
   }
   if (typed === 'barter' && !barterAvailable(camp)) {
-    return r(MSG_ONLY_CASHBACK);
+    return r(MSG_ONLY_CASHBACK());
   }
   const mode = campaignDealMode(camp);
   const deal = (typed || (mode === 'barter' ? 'barter' : 'cashback')) as DealType;
@@ -932,11 +938,11 @@ async function openDeal(
   await syncLeadToSheet(db, lead.id);
 
   const replies: string[] = [];
-  if (ig) replies.push(MSG_GOT_IG);
+  if (ig) replies.push(MSG_GOT_IG());
   replies.push(msgOpenHuman(deal, product));
   replies.push(deal === 'barter'
     ? tzBarter(offer?.order_deadline || camp?.order_deadline)
-    : TZ_CASHBACK);
+    : TZ_CASHBACK());
 
   if (keyword) {
     await updateLead(db, lead.id, { keyword, status: 'key_sent' });
@@ -974,7 +980,7 @@ function tzBundle(deal: DealType, camp: Campaign | null, _lead: SelfbuyLead): st
   if (deal === 'barter') {
     return ['ТЗ ещё раз 👇', tzBarter(camp?.order_deadline || null)];
   }
-  return ['ТЗ ещё раз 👇', TZ_CASHBACK];
+  return ['ТЗ ещё раз 👇', TZ_CASHBACK()];
 }
 
 function campaignAccepting(camp: Campaign | null): boolean {
@@ -1020,7 +1026,7 @@ function handleBarterWhenCashOnly(
     // «бартер есть?» без явного detect — ловим вопросом
     if (!/бартер/i.test(text)) return null;
   }
-  return r(MSG_ONLY_CASHBACK);
+  return r(MSG_ONLY_CASHBACK());
 }
 
 function extractInstagram(text: string): string | null {
@@ -1154,28 +1160,28 @@ function resumeHints(
 ): string[] {
   switch (status) {
     case 'ask_ad':
-      return [MSG_ASK_AD_AGAIN];
+      return [MSG_ASK_AD_AGAIN()];
     case 'ask_type':
-      return [MSG_NEED_TYPE];
+      return [MSG_NEED_TYPE()];
     case 'ask_filters':
-      return [MSG_ASK_FILTERS];
+      return [MSG_ASK_FILTERS()];
     case 'tz_sent':
       return tzBundle((lead.deal_type || 'cashback') as DealType, camp, lead);
     case 'key_sent':
     case 'wait_product':
       return ['Продолжаем: скрин поиска с ключом и нашим товаром. Если не находите — напишите.'];
     case 'wait_cart':
-      return [MSG_APPROVED_PRODUCT];
+      return [MSG_APPROVED_PRODUCT()];
     case 'wait_order':
-      return [MSG_APPROVED_CART];
+      return [MSG_APPROVED_CART()];
     case 'wait_bank':
-      return [lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER : MSG_ASK_BANK_CASHBACK];
+      return [lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK()];
     case 'wait_pickup':
-      return [MSG_ASK_PICKUP];
+      return [MSG_ASK_PICKUP()];
     case 'wait_review':
-      return [MSG_ASK_REVIEW];
+      return [MSG_ASK_REVIEW()];
     case 'wait_reels':
-      return [MSG_ASK_REELS];
+      return [MSG_ASK_REELS()];
     default:
       return ['Продолжаем 🙌'];
   }
@@ -1410,7 +1416,7 @@ async function handleCantFindFilters(
     }
     if (!isYes(text) && !cantFindProduct(text)) {
       // ждём да/нет
-      if (lead.status === 'ask_filters') return r(MSG_ASK_FILTERS);
+      if (lead.status === 'ask_filters') return r(MSG_ASK_FILTERS());
       return null;
     }
     // yes → ниже отправим batch
@@ -1430,7 +1436,7 @@ async function handleCantFindFilters(
         last_client_text: text,
       });
       await logEvent(db, lead.id, lead.chat_id, 'ask_filters', { text });
-      return r(MSG_ASK_FILTERS);
+      return r(MSG_ASK_FILTERS());
     }
   } else {
     return null;
