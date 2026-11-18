@@ -1218,7 +1218,20 @@ async function getOrCreateLead(
     })
     .select('*')
     .single();
-  if (error) throw new Error(`alina lead insert: ${error.message}`);
+  if (error) {
+    // Два сообщения нового клиента пришли одновременно: заявку уже создало первое. Берём её, а не падаем.
+    const dup = (error as { code?: string }).code === '23505' || /duplicate key/i.test(error.message || '');
+    if (dup) {
+      const { data: again } = await db
+        .from('alina_selfbuy_leads')
+        .select('*')
+        .eq('telegram_user_id', opts.userId)
+        .eq('chat_id', opts.chatId)
+        .maybeSingle();
+      if (again) return again as SelfbuyLead;
+    }
+    throw new Error(`alina lead insert: ${error.message}`);
+  }
   return created as SelfbuyLead;
 }
 
