@@ -1846,26 +1846,7 @@ html body .rnp-pfp-host > .pf-bar { display: flex !important; align-items: cente
 html body .rnp-pfp-host .pf-close { display: none !important; }
 html body .rnp-pfp-host .pf-back { border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); border-radius: 999px; padding: 6px 14px; font-weight: 800; cursor: pointer; }
 html body .rnp-pfp-host .pf-bar-title { font-size: 20px; font-weight: 900; color: var(--text-primary); }
-/* План/факт: одна неделя на экране (переключатель недель), без горизонтальной прокрутки; без дубля заголовка в таблице;
-   каркас виден сразу, цифры размыты, пока идёт загрузка (если в кэше есть настоящие, показываем их без размытия) */
-html body .rnp-pfp-host .pf-pager { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 12px; overflow: visible; background: transparent; border: 0; }
-html body .rnp-pfp-host .pf-pg { height: 32px; padding: 0 14px; border: 1px solid var(--text-primary); border-radius: 999px; background: transparent; color: var(--text-primary); font-size: 13px; font-weight: 800; cursor: pointer; }
-html body .rnp-pfp-host .pf-pg.is-on { background: var(--accent); color: var(--on-accent, #fff); }
-html body .rnp-pfp-host .pf-scroll { overflow-x: hidden; }
-html body .rnp-pfp-host .pf-sheet { width: 100%; }
-html body .rnp-pfp-host .pf-sheet[data-wk="0"] [class*="pf-w"]:not(.pf-w0),
-html body .rnp-pfp-host .pf-sheet[data-wk="1"] [class*="pf-w"]:not(.pf-w1),
-html body .rnp-pfp-host .pf-sheet[data-wk="2"] [class*="pf-w"]:not(.pf-w2),
-html body .rnp-pfp-host .pf-sheet[data-wk="3"] [class*="pf-w"]:not(.pf-w3),
-html body .rnp-pfp-host .pf-sheet[data-wk="4"] [class*="pf-w"]:not(.pf-w4),
-html body .rnp-pfp-host .pf-sheet[data-wk="5"] [class*="pf-w"]:not(.pf-w5)
-{ display: none; }
-html body .rnp-pfp-host .pf-sheet .pf-title { font-size: 0; }
-html body .rnp-pfp-host .pf-sheet .pf-dow { font-size: 9.5px; letter-spacing: -.3px; padding: 0 1px; }
-html body .rnp-pfp-host .pf-sheet.is-skel :is(tbody .pf-b, tbody .pf-c) { filter: blur(5px); }
-html body .rnp-pfp-host .pf-sheet.is-loading :is(tbody .pf-day, tbody .pf-plan, tbody .pf-fact, thead .pf-coeff, thead .pf-total:not(.pf-a):not(.pf-b):not(.pf-c), thead .pf-dark) { filter: blur(5px); transition: filter .18s ease; }
-html body #rnp-pfp-host { height: calc((100dvh - 130px) / var(--nr-zoom, 1)); min-height: 0; }
-html body .rnp-pfp-host .pf-scroll { flex: 1 1 0; min-height: 0; max-height: none; overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
+html body .rnp-pfp-host .pf-scroll { flex: 1 1 auto; max-height: calc((100dvh - 135px) / var(--nr-zoom, 1)); overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
 html body .rnp-pfp-host .rnp-plan-panel.rnp-plan-page { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; box-shadow: none !important; border: 1px solid var(--text-primary) !important; border-radius: 26px; padding: 18px; display: flex; flex-direction: column; background: var(--surface-solid, var(--bg, #fff)); }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-scroll { max-height: calc((100dvh - 330px) / var(--nr-zoom, 1)); overflow: auto; }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { display: inline-flex; }
@@ -2875,3 +2856,66 @@ html.nr-f-give #nr-foot { display: none; }
 .as-link[hidden] { display: none; }
 .as-text-pv { margin-top: 6px; padding: 8px 12px; border-radius: 16px; background: var(--accent); color: var(--on-accent, #fff); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; max-width: 92%; }
 .as-hint { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
+
+/* Цепочка над заголовком: место зарезервировано с первого кадра (html.nr-f-crumb), заголовок не прыгает при загрузке; когда цепочка нарисована, резерв снимается */
+html.nr-f-crumb body header.glass.app-header .header-page-title::before { content: ''; display: block; height: 20px; }
+html.nr-f-crumb body header.glass.app-header .header-page-title:has(.nr-crumbs.on)::before { display: none; }
+/* Дашборд: ряд «Заказы / Выкупы / Логистика / Реклама» держит высоту готовой карточки (с таблеткой динамики) уже в каркасе, ниже ничего не сдвигается */
+html body #tab-dashboard .pnl-mini-grid > .pnl-mini { min-height: 121px !important; box-sizing: border-box; }
+/* Юнит-экономика: плотная сетка как в РНП, «Σ Общее», карточки справа (макет 18 ноября 2026) */
+html body #rnp-unit-pane .ru-t2 { width: auto; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+html body #rnp-unit-pane .ru-t2 th, html body #rnp-unit-pane .ru-t2 td { padding: 0 7px; height: 19px; min-width: 70px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); line-height: 1.1; }
+html body #rnp-unit-pane .ru-t2 th { font-size: 9px; letter-spacing: .06em; height: 24px; border-top: 1px solid var(--border); }
+html body #rnp-unit-pane .ru-t2 th:first-child, html body #rnp-unit-pane .ru-t2 td:first-child { width: 190px; min-width: 190px; max-width: 190px; border-left: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; }
+html body #rnp-unit-pane .ru-t2 tr.ru-sec td { height: 15px; font-size: 8.5px; padding: 0 7px; }
+html body #rnp-unit-pane .ru-t2 tr.ru-hero td { font-size: 12px; height: 24px; padding: 0 7px; }
+html body #rnp-unit-pane .ru-t2 tr.ru-hero td:first-child { font-size: 10px; }
+html body #rnp-unit-pane .ru-t2 td.ru-s { font-size: 11px; }
+html body #rnp-unit-pane input.ru-ed { width: 66px !important; font-size: 11px !important; }
+html body #rnp-unit-pane .ru-ph { gap: 8px; margin: 2px 0 8px; padding-bottom: 8px; }
+html body #rnp-unit-pane .ru-pt { width: 52px; }
+html body #rnp-unit-pane .ru-pt .ru-pi { width: 34px; height: 44px; margin: 0 auto 3px; border-radius: 9px; }
+html body #rnp-unit-pane .ru-pt b { font-size: 10px; }
+html body #rnp-unit-pane .ru-pt em { font-size: 8px; }
+html body #rnp-unit-pane .ru-gbtn, html body #rnp-unit-pane .ru-allb { padding: 4px 11px; font-size: 11px; }
+html body .ru-allb { flex: none; align-self: flex-start; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-primary); font-family: inherit; font-weight: 800; cursor: pointer; }
+html body .ru-allb.on { background: var(--text-primary); color: var(--bg-primary, var(--bg)); border-color: var(--text-primary); }
+html body .ru-sepv { flex: none; width: 1px; align-self: stretch; background: var(--border); }
+html body .ru-snap { padding: 5px 12px; font-size: 11px; }
+html body .ru-stage2 { display: grid; grid-template-columns: minmax(0, max-content) minmax(200px, 270px); gap: 16px; align-items: start; }
+@media (max-width: 900px) { html body .ru-stage2 { grid-template-columns: 1fr; } }
+html body .ru-side { display: flex; flex-direction: column; gap: 10px; }
+html body .ru-hero2 { background: var(--text-primary); color: var(--bg-primary, #fff); border-radius: 22px; padding: 12px 16px; }
+html body .ru-hero2 small { display: block; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; opacity: .7; }
+html body .ru-hero2 b { display: block; font-size: 26px; font-weight: 900; letter-spacing: -.03em; margin: 2px 0; font-variant-numeric: tabular-nums; }
+html body .ru-pill { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
+html body .ru-card2 { border: 1.5px solid var(--text-primary); border-radius: 22px; padding: 12px 16px; }
+html body .ru-card2 small { display: block; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--text-muted); }
+html body .ru-bar2 { display: flex; height: 6px; border-radius: 999px; overflow: hidden; gap: 2px; margin-top: 10px; }
+html body .ru-bar2 i { display: block; height: 100%; }
+html body .ru-leg2 { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 6px; font-size: 10px; color: var(--text-muted); }
+html body .ru-rk { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 10px; }
+html body .ru-rk span { width: 56px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body .ru-rk u { flex: 1; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; text-decoration: none; }
+html body .ru-rk u i { display: block; height: 100%; background: var(--text-primary); }
+html body .ru-rk b { width: 40px; text-align: right; }
+html body .ru-i { width: 13px; height: 13px; margin-left: 6px; border: 1px solid var(--mono-3, #a8a8a8); border-radius: 50%; background: none; color: var(--text-muted); font: 700 8px/1 inherit; font-family: inherit; padding: 0; cursor: pointer; vertical-align: 1px; }
+html body .ru-i:hover, html body .ru-i.on { background: var(--text-primary); color: var(--bg-primary, #fff); border-color: var(--text-primary); }
+html body .ru-pop { position: fixed; z-index: 80; max-width: 240px; background: var(--bg-card, var(--surface-solid, #fff)); color: var(--text-primary); border: 1.5px solid var(--text-primary); border-radius: 14px; padding: 9px 12px; font-size: 11px; line-height: 1.35; }
+html body .ru-pop small { display: block; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--text-muted); margin-bottom: 3px; }
+
+/* РНП: панель действий держит высоту готовой (кнопки приходят позже), таблица ниже не сдвигается */
+html body .rnp-workspace > #rnp-action-bar-wrap { min-height: 32px; box-sizing: border-box; }
+/* Отступ сверху у страниц с цепочкой тот же с первого кадра (иначе всё содержимое съезжает на 20px, когда цепочка нарисована) */
+@media (min-width: 769px) { html.nr-f-crumb body .main-rail .main-content:not(#nr-x) { padding-top: 82px !important; } }
+/* РНП: полоса вкладок артикулов держит высоту готовой (группы приходят позже) */
+html body #rnp-sheet-tabs { min-height: 54px; box-sizing: border-box; }
+/* Дашборд: полоса «Баланс» занимает своё место с первого кадра (скрытая карточка «Динамика заказов» не растягивает ряд до 140px, потом схлопываясь) */
+html body #tab-dashboard .pnl-grid.ff-row > #ff-chart { display: none !important; }
+html body #tab-dashboard .pnl-grid.ff-row { min-height: 60px; }
+/* Шапка закреплена: содержимое при прокрутке уходит под неё и не просвечивает сквозь название и кнопки.
+   Верхняя полоса высотой с отступ страницы (62px, с цепочкой 82px) закрыта маской, шапка остаётся на своём месте поверх. */
+@media (min-width: 769px) {
+  html body .main-rail .main-content:not(#nr-x) { --nr-pt: 62px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent calc(var(--nr-pt) - 6px), #000 var(--nr-pt)); mask-image: linear-gradient(to bottom, transparent 0, transparent calc(var(--nr-pt) - 6px), #000 var(--nr-pt)); }
+  html body:has(.nr-crumbs.on) .main-rail .main-content:not(#nr-x), html.nr-f-crumb body .main-rail .main-content:not(#nr-x) { --nr-pt: 82px; }
+}

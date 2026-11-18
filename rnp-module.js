@@ -9744,8 +9744,7 @@ const RNP = (() => {
         return daily;
     }
 
-    // loading: цифр за период в кэше нет, каркас рисуется сразу, а числа размыты, пока идёт загрузка.
-    function _paintPlanFact(loading) {
+    function _paintPlanFact() {
         if (!window.RnpPlanFact) return;
         const articles = _planFactArticles();
         window.RnpPlanFact.open({
@@ -9754,15 +9753,6 @@ const RNP = (() => {
             plans: _planCache,
             monthKey: _viewMonthKey(),
             host: document.getElementById('rnp-pfp-host'),
-            loading: !!loading,
-        });
-    }
-
-    // Есть ли в кэше настоящие цифры по заказам за период (тогда показываем их сразу, без размытия).
-    function _planFactHasCache(from, to) {
-        return _planFactArticles().some((a) => {
-            const m = _dataCache[a.nm_id] || _dataCache[String(a.nm_id)] || {};
-            return Object.keys(m).some((d) => d >= from && d <= to);
         });
     }
 
@@ -9822,14 +9812,14 @@ const RNP = (() => {
         const weeks = window.RnpPlanFact.weeksForMonth(monthKey);
         const from = weeks[0] && weeks[0].start;
         const to = weeks.length ? weeks[weeks.length - 1].end : '';
-        _paintPlanFact(!!from && !!to && !_planFactHasCache(from, to));
+        _paintPlanFact();
         if (!from || !to || !_db || !_cab) return;
         try {
             await _mergePlanFactRange(from, to);
         } catch (e) {
             console.warn('[RNP] plan-fact range:', e && e.message);
         }
-        _paintPlanFact(false);
+        _paintPlanFact();
     }
 
     async function openSettings(opts) {

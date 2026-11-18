@@ -26,6 +26,8 @@ export function getLastRazdachi(): { sheet: RazSheet; at: number; sheetId: strin
 }
 
 export type SheetPlanOffer = {
+  /** Когда начато чтение графика, из которого взят этот оффер (мс): заявки на место, поданные позже, в нём не видны. */
+  read_ms?: number;
   date: string | null;
   deal_type: 'cashback' | 'barter' | 'both';
   product_name: string | null;
@@ -558,6 +560,11 @@ export function listOpenProductChoices(offers: SheetPlanOffer[]): SheetPlanOffer
   return out;
 }
 
+/** Момент (мс), когда прочитан последний график: места, выданные позже, в нём ещё не видны. */
+export function lastPlanAtMs(): number {
+  return planCache.at || Date.now();
+}
+
 export async function getOpenProductChoices(): Promise<SheetPlanOffer[]> {
   const snap = await fetchSheetPlan(false);
   if (!snap.ok) return [];
@@ -808,6 +815,7 @@ export async function fetchSheetPlan(
     return planCache.snap;
   }
 
+  const readStartMs = Date.now();
   const sheetId = (sheetOverride?.sheet_id || Deno.env.get('ALINA_SHEET_ID') || '').trim();
   const cabinetKey = sheetOverride?.cabinet_key ||
     (Deno.env.get('ALINA_CABINET_KEY') || '').trim() ||
@@ -905,6 +913,7 @@ export async function fetchSheetPlan(
 
   const dealMode = inferDealModeFromLeads(leads);
   const offers = buildOffers(blocks, leads, dealMode);
+  for (const o of offers) o.read_ms = readStartMs;
   const active = pickActive(offers);
   if (active) active.deal_type = dealMode;
   const cabLabel = sheetOverride?.cabinet_name || cabinetKey;

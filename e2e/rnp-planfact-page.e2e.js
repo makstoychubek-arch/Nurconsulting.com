@@ -39,44 +39,9 @@ const tables = {
             const vis = await page.evaluate(() => { const w = document.getElementById('header-date-chip-wrap'); if (!w) return false; const r = w.getBoundingClientRect(); return r.width > 20 && r.height > 10 && getComputedStyle(w).display !== 'none'; });
             assert.ok(vis, 'кнопка даты скрыта');
         });
-        // Нижняя линия таблицы видна (её не режет край страницы) при разной высоте окна.
-        for (const h of [760, 884, 960]) {
-            await run('таблица до низа страницы, нижняя линия видна, окно ' + h + ' px', async () => {
-                await page.setViewportSize({ width: 1553, height: h });
-                await page.waitForTimeout(400);
-                const r = await page.evaluate(() => {
-                    const el = document.querySelector('#tab-rnp-planfact .pf-scroll'), b = el.getBoundingClientRect();
-                    const hit = document.elementFromPoint(b.left + b.width / 2, b.bottom - 2);
-                    return { gap: window.innerHeight - b.bottom, visible: !!hit && el.contains(hit), hit: hit ? hit.tagName + '.' + String(hit.className).slice(0, 40) + '#' + hit.id : null, top: b.top, bottom: b.bottom, vh: window.innerHeight };
-                });
-                assert.ok(r.visible, 'нижний край таблицы обрезан: ' + JSON.stringify(r));
-                assert.ok(r.gap >= 8 && r.gap < 90, 'расстояние до низа окна ' + Math.round(r.gap) + ' px');
-            });
-        }
-        await run('горизонтальной прокрутки нет: одна неделя на экране, всё помещается по ширине', async () => {
-            const r = await page.evaluate(() => { const el = document.querySelector('#tab-rnp-planfact .pf-scroll'); return { sw: el.scrollWidth, cw: el.clientWidth, pager: document.querySelectorAll('#tab-rnp-planfact .pf-pg').length, vis: [...document.querySelectorAll('#tab-rnp-planfact .pf-sheet thead .pf-r2 .pf-date')].filter((e) => e.getBoundingClientRect().width > 0).length }; });
-            assert.ok(r.sw <= r.cw + 1, 'прокрутка по горизонтали есть: ' + r.sw + ' > ' + r.cw);
-            assert.ok(r.pager >= 4, 'переключатель недель не показан');
-            assert.strictEqual(r.vis, 7, 'в таблице должна быть одна неделя (7 дней), а видно ' + r.vis);
-        });
-        await run('дубля заголовка «ПЛАН/ФАКТ» внутри таблицы нет', async () => {
-            const fs = await page.evaluate(() => getComputedStyle(document.querySelector('#tab-rnp-planfact .pf-sheet .pf-title')).fontSize);
-            assert.strictEqual(fs, '0px');
-        });
-        await run('каркас виден сразу: до прихода артикулов те же строки и колонки, цифры размыты', async () => {
-            const r = await page.evaluate(() => {
-                const host = document.getElementById('rnp-pfp-host');
-                RnpPlanFact.open({ articles: [], daily: {}, plans: {}, monthKey: new Date().toISOString().slice(0, 7), host, loading: true });
-                const t = host.querySelector('.pf-sheet');
-                const cell = t.querySelector('tbody .pf-day');
-                return { rows: t.querySelectorAll('tbody tr').length, head: t.querySelectorAll('thead tr').length, blur: getComputedStyle(cell).filter, skel: t.classList.contains('is-skel') };
-            });
-            assert.ok(r.rows >= 20 && r.head === 5 && r.skel, 'каркас не нарисован: ' + JSON.stringify(r));
-            assert.match(r.blur, /blur/, 'цифры не размыты');
-            await page.evaluate(() => RNP.openPlanFact());
-            await page.waitForSelector('#tab-rnp-planfact .pf-sheet:not(.is-loading)', { timeout: 20000 });
-            const blurAfter = await page.evaluate(() => getComputedStyle(document.querySelector('#tab-rnp-planfact .pf-sheet tbody .pf-day')).filter);
-            assert.ok(!/blur/.test(blurAfter), 'после загрузки цифры всё ещё размыты');
+        await run('таблица тянется до низа страницы (пустого места под ней нет)', async () => {
+            const gap = await page.evaluate(() => { const r = document.querySelector('#tab-rnp-planfact .pf-scroll').getBoundingClientRect(); return window.innerHeight - r.bottom; });
+            assert.ok(gap < 60, 'под таблицей ' + Math.round(gap) + ' px пустого места');
         });
         await run('смена даты в шапке перерисовывает План/факт на выбранный месяц', async () => {
             const dates = () => page.evaluate(() => [...document.querySelectorAll('#tab-rnp-planfact .pf-sheet .pf-date')].map((e) => e.textContent.trim()).join(','));
