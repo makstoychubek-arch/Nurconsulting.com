@@ -10,17 +10,38 @@
         read: true, typing: true, pauseMaxSec: 3, useName: true,
         phrases: ['Минутку, уточню.', 'Секунду, сейчас уточню.', 'Сейчас спрошу и вернусь к вам.'],
         remindMin: 10, reactions: true, copyButton: true, admitLimit: 30, admitHours: 3, llmBudgetUsd: 0,
+        hoursOn: false, hoursFrom: '09:00', hoursTo: '22:00', offHoursText: '', topicsOff: [], managerGroup: 0,
     };
+    // Темы, по которым Алина не отвечает сама, а спрашивает менеджера (идентификаторы совпадают с alina-gate.ts).
+    var TOPICS = [
+        { id: 'other_item', label: 'Заказал другой вариант', hint: '«заказала не ту модель», «другой артикул»' },
+        { id: 'payout_missing', label: 'Выплата не пришла', hint: '«деньги не пришли», «выплата не пришла»' },
+        { id: 'payout_when', label: 'Когда выплата', hint: '«когда придут деньги»' },
+        { id: 'receipt', label: 'Чек перевода', hint: '«где чек»' },
+        { id: 'manager', label: 'Позвать менеджера', hint: '«можно поговорить с менеджером»' },
+    ];
     var KEYS = Object.keys(DEFAULTS);
     var LABELS = {
         read: 'Прочитано', typing: '«Печатает…»', pauseMaxSec: 'Пауза «печатает»', useName: 'Имя клиента', phrases: 'Фразы «уточняю»',
         remindMin: 'Напоминание менеджерам', reactions: 'Итог реакцией', copyButton: 'Кнопка копирования логина',
         admitLimit: 'Лимит новых клиентов', admitHours: 'Период лимита', llmBudgetUsd: 'Бюджет ChatGPT',
+        hoursOn: 'Часы работы', hoursFrom: 'Начало работы', hoursTo: 'Конец работы', offHoursText: 'Сообщение вне часов', topicsOff: 'Вопросы менеджеру', managerGroup: 'Группа менеджеров',
     };
 
     function clone(o) { return JSON.parse(JSON.stringify(o)); }
     function bool(v, d) { return typeof v === 'boolean' ? v : d; }
     function num(v, d, min, max) { var n = typeof v === 'number' ? v : Number(v); return isFinite(n) ? Math.min(max, Math.max(min, n)) : d; }
+
+    function hm(v, d) {
+        var m = String(v == null ? '' : v).trim().match(/^(\d{1,2}):(\d{2})$/);
+        if (!m) return d;
+        var h = Number(m[1]), min = Number(m[2]);
+        return h >= 0 && h <= 23 && min >= 0 && min < 60 ? (h < 10 ? '0' : '') + h + ':' + m[2] : d;
+    }
+    function groupId(v) {
+        var n = typeof v === 'number' ? v : Number(String(v == null ? '' : v).trim());
+        return isFinite(n) && Math.floor(n) === n && n < 0 ? n : 0;
+    }
 
     /** Допустимые значения: неверное заменяется значением по умолчанию, числа обрезаются по границам. */
     function normalize(raw) {
@@ -34,6 +55,10 @@
             reactions: bool(r.reactions, DEFAULTS.reactions), copyButton: bool(r.copyButton, DEFAULTS.copyButton),
             admitLimit: Math.round(num(r.admitLimit, DEFAULTS.admitLimit, 0, 100000)), admitHours: Math.round(num(r.admitHours, DEFAULTS.admitHours, 1, 72)),
             llmBudgetUsd: Math.round(num(r.llmBudgetUsd, DEFAULTS.llmBudgetUsd, 0, 100000) * 100) / 100,
+            hoursOn: bool(r.hoursOn, DEFAULTS.hoursOn), hoursFrom: hm(r.hoursFrom, DEFAULTS.hoursFrom), hoursTo: hm(r.hoursTo, DEFAULTS.hoursTo),
+            offHoursText: typeof r.offHoursText === 'string' ? r.offHoursText.trim().slice(0, 400) : '',
+            topicsOff: Array.isArray(r.topicsOff) ? r.topicsOff.map(String).filter(function (x, i, a) { return /^[a-z_]{1,30}$/.test(x) && a.indexOf(x) === i; }).slice(0, 20) : [],
+            managerGroup: groupId(r.managerGroup),
         };
     }
 
@@ -80,6 +105,16 @@
             numHtml('admitLimit', 'Лимит новых клиентов', '0 значит без лимита. Остальные ждут очереди и допускаются по мере освобождения', 'клиентов', 5, 0) +
             numHtml('admitHours', 'Период лимита', 'За какое время считается лимит', 'ч', 1, 1) +
             numHtml('llmBudgetUsd', 'Бюджет ChatGPT в месяц', '0 значит без ограничения. При превышении Алина отвечает по шаблонам и пишет вам в Telegram', '$', 5, 0) + '</section>' +
+            '<section class="as-card"><h3>Часы работы</h3>' +
+            switchHtml('hoursOn', 'Отвечать только в рабочие часы', 'Вне часов клиент один раз получает сообщение о времени работы') +
+            '<div class="as-row"><div class="as-t"><b>Время работы по Москве</b><span>Окно может переходить через полночь</span></div>' +
+            '<input type="time" class="as-time" data-k="hoursFrom" aria-label="Начало работы"><span class="as-unit">до</span><input type="time" class="as-time" data-k="hoursTo" aria-label="Конец работы"></div>' +
+            '<div class="as-t as-pt"><b>Сообщение вне часов</b><span>Подставляются {от} и {до}. Пусто: стандартный текст</span></div>' +
+            '<textarea class="as-area" data-k="offHoursText" rows="3" maxlength="400" placeholder="Сейчас нерабочее время. Я на связи с {от} до {до} по Москве. Напишите мне после {от}, отвечу сразу." aria-label="Сообщение вне часов"></textarea></section>' +
+            '<section class="as-card"><h3>Вопросы менеджеру</h3><p class="as-sub">Если клиент пишет об этом, Алина отвечает «Минутку, уточню» и отправляет вопрос в группу менеджеров.</p>' +
+            TOPICS.map(function (t) { return '<div class="as-row"><div class="as-t"><b>' + esc(t.label) + '</b><span>' + esc(t.hint) + '</span></div><label class="as-sw"><input type="checkbox" data-topic="' + t.id + '"><u></u></label></div>'; }).join('') +
+            '<div class="as-row"><div class="as-t"><b>Группа менеджеров</b><span>Номер группы Telegram, например -1004465341061. Пусто: группа по умолчанию</span></div>' +
+            '<input type="text" class="as-group" data-k="managerGroup" inputmode="numeric" placeholder="по умолчанию" autocomplete="off" aria-label="Номер группы менеджеров"></div></section>' +
             '<section class="as-card"><h3>Как отвечает</h3>' +
             switchHtml('read', 'Отмечать прочитанным', 'Сообщение клиента помечается прочитанным до ответа') +
             switchHtml('typing', '«Печатает…» перед ответом', 'Индикатор виден в чате клиента') +
@@ -109,8 +144,12 @@
         var s = state.cur, host = state.host;
         Array.prototype.forEach.call(host.querySelectorAll('[data-k]'), function (el) {
             var k = el.getAttribute('data-k');
-            if (el.type === 'checkbox') el.checked = !!s[k]; else if (String(el.value) !== String(s[k])) el.value = s[k];
+            if (el.type === 'checkbox') el.checked = !!s[k];
+            else if (k === 'managerGroup') { var gv = s.managerGroup ? String(s.managerGroup) : ''; if (document.activeElement !== el && el.value !== gv) el.value = gv; }
+            else if (document.activeElement === el && (el.type === 'time' || el.tagName === 'TEXTAREA')) { /* не мешаем вводу */ }
+            else if (String(el.value) !== String(s[k])) el.value = s[k];
         });
+        Array.prototype.forEach.call(host.querySelectorAll('[data-topic]'), function (el) { el.checked = s.topicsOff.indexOf(el.getAttribute('data-topic')) === -1; });
         q('[data-v="pause"]').textContent = 'до ' + String(s.pauseMaxSec).replace('.', ',') + ' с';
         var box = q('[data-v="phrases"]');
         if (!box.contains(state.host.ownerDocument.activeElement) || box.children.length !== s.phrases.length) {
@@ -178,6 +217,12 @@
         state.host.addEventListener('input', function (e) {
             var el = e.target, k = el.getAttribute && el.getAttribute('data-k');
             if (k) { setValue(k, el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.type === 'range' ? Number(el.value) : el.value)); return; }
+            var tp = el.getAttribute && el.getAttribute('data-topic');
+            if (tp) {
+                var off = state.cur.topicsOff.filter(function (x) { return x !== tp; });
+                if (!el.checked) off.push(tp);
+                setValue('topicsOff', off); return;
+            }
             var pi = el.getAttribute && el.getAttribute('data-p');
             if (pi != null) { state.cur.phrases[Number(pi)] = el.value; paintPreview(); var n = changedKeys(state.saved, normalize(state.cur)).length; q('[data-v="bar"]').hidden = n === 0; q('[data-v="cnt"]').textContent = 'Изменено: ' + n; }
         });

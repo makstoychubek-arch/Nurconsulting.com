@@ -4,7 +4,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import assert from 'node:assert/strict';
 
 const code = readFileSync(new URL('./handler.ts', import.meta.url), 'utf8').replace(/^export /gm, '');
-const lib = new Function(stripTypeScriptTypes(code) + '\nreturn { handleSandbox, sandboxChatId }')();
+const lib = new Function(stripTypeScriptTypes(code) + '\nreturn { handleSandbox, sandboxChatId, mskToday }')();
 
 function setup(reply = { replies: ['Здравствуйте!'] }, opts = {}) {
   const calls = []; let lead = null, resets = 0, t = 1000;
@@ -49,5 +49,15 @@ function setup(reply = { replies: ['Здравствуйте!'] }, opts = {}) {
   assert.ok(i > 0 && /async function syncLeadToSheet\([^)]*\) \{\n  if \(await isSandboxLead\(db, leadId\)\) return;/.test(src.slice(i, i + 200)), 'запись в таблицу первым делом проверяет, что диалог не из песочницы');
   assert.match(src, /export async function isSandboxLead[\s\S]{0,400}source_account === 'sandbox' \|\| Number\(l\.chat_id\) < 0/, 'песочница узнаётся по source_account и отрицательному chat_id');
   console.log('ok   запись в рабочую таблицу пропускается для диалогов песочницы');
+}
+{ // время по Москве и вопрос менеджерам
+  assert.equal(lib.mskToday('23:30', Date.parse('2026-11-18T10:00:00Z')), Date.parse('2026-11-18T20:30:00Z'), 'сегодняшний день по Москве');
+  assert.equal(lib.mskToday('01:00', Date.parse('2026-11-17T22:30:00Z')), Date.parse('2026-11-17T22:00:00Z'), 'после полуночи по Москве уже следующий день');
+  assert.equal(lib.mskToday('', 1), null); assert.equal(lib.mskToday('25:00', 1), null); assert.equal(lib.mskToday('мусор', 1), null);
+  const t = setup({ replies: ['Минутку, уточню.'], escalate: { topic: 'manager', question: 'Клиент просит подключить менеджера.', group: -1007777 } });
+  const r = await t.run({ action: 'send', text: 'Можно поговорить с менеджером?', now_msk: '23:30' });
+  assert.ok(Number.isFinite(t.calls[0].nowMs), 'выбранное время передаётся в сценарий'); assert.deepEqual(r.body.escalate, { topic: 'manager', question: 'Клиент просит подключить менеджера.' }, 'песочница показывает, что ушло бы менеджерам');
+  const none = setup(); await none.run({ action: 'send', text: 'привет' }); assert.equal(none.calls[0].nowMs, undefined, 'без выбранного времени действует настоящее');
+  console.log('ok   время по Москве в песочнице и показ вопроса менеджерам');
 }
 console.log('PASS: alina-sandbox');

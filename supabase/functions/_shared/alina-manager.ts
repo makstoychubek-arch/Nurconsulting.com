@@ -17,7 +17,7 @@ type Row = {
 };
 
 export function alinaManagerGroup(): number | null {
-  const value = Deno.env.get('ALINA_MANAGER_CHAT_ID')?.trim() || '';
+  const value = (typeof Deno !== 'undefined' ? Deno.env.get('ALINA_MANAGER_CHAT_ID') : '')?.trim() || '';
   const id = Number(value);
   return /^-\d+$/.test(value) && Number.isSafeInteger(id) ? id : null;
 }
@@ -260,6 +260,21 @@ export async function remindAlinaManager(envToken: string, now = Date.now()): Pr
 export const alinaManagerTestChat = 7159099638;
 export const alinaManagerTestGroup = -1004465341061;
 
+/** Группа менеджеров: из настроек, иначе из окружения, иначе группа тестов. */
+export async function managerGroupId(): Promise<number> {
+  const s = await loadAlinaSettings();
+  return s.managerGroup || alinaManagerGroup() || alinaManagerTestGroup;
+}
+
+async function alinaEnabled(): Promise<boolean> {
+  try {
+    const { data } = await getAdminClient().from('telegram_bots').select('is_enabled, deleted_at').eq('id', 'alina').maybeSingle();
+    return Boolean(data && (data as { is_enabled?: boolean }).is_enabled && !(data as { deleted_at?: string | null }).deleted_at);
+  } catch {
+    return false;
+  }
+}
+
 export async function processAlinaManagerTest(envToken: string, update: {
   update_id?: number;
   business_message?: ManagerMessage & { business_connection_id?: string };
@@ -274,7 +289,8 @@ export async function processAlinaManagerTest(envToken: string, update: {
     /^(?:тест:\s*)?можно поговорить с менеджером[?.!]*$/i.test(incoming.text?.trim() || '');
   // Ответить может любой менеджер группы со своего аккаунта (не только отправитель вопроса).
   // Доставляется только ответ на сообщение бота с записью в таблице заявок, и только в личку тестового клиента.
-  const isTestReply = groupReply?.chat?.id === alinaManagerTestGroup &&
+  const group = await managerGroupId();
+  const isTestReply = groupReply?.chat?.id === group &&
     typeof groupReply.from?.id === 'number' && !groupReply.from.is_bot &&
     groupReply.reply_to_message?.message_id && groupReply.text?.trim();
   if (!isTestQuestion && !isTestReply) return false;
@@ -304,7 +320,7 @@ export async function processAlinaManagerTest(envToken: string, update: {
         business_connection_id: connectionId, chat_id: alinaManagerTestChat, message_id: incoming.message_id,
       }, 'readBusinessMessage');
     }
-    const posted = await askAlinaManager(token, alinaManagerTestGroup, {
+    const posted = await askAlinaManager(token, group, {
       chatId: alinaManagerTestChat, connectionId, username: incoming.from?.username,
     }, 'ТЕСТ · Можно поговорить с менеджером?');
     const hold = posted
@@ -315,6 +331,8 @@ export async function processAlinaManagerTest(envToken: string, update: {
     return true;
   }
 
-  await deliverAlinaManagerReply(token, alinaManagerTestGroup, groupReply!, alinaManagerTestChat);
+  // Ответ менеджера доставляется клиенту из любой заявки, созданной ботом. Пока Алина выключена для клиентов,
+  // доставка ограничена тестовым чатом, чтобы выключенная Алина не писала настоящим клиентам.
+  await deliverAlinaManagerReply(token, group, groupReply!, (await alinaEnabled()) ? undefined : alinaManagerTestChat);
   return true;
 }

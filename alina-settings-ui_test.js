@@ -15,8 +15,14 @@ assert.strictEqual(A.previewPhrase(A.DEFAULTS, 'Мара'), 'Мара, мину�
 assert.strictEqual(A.previewPhrase(Object.assign({}, A.DEFAULTS, { useName: false }), 'Мара'), 'Минутку, уточню.');
 assert.deepStrictEqual([A.DEFAULTS.admitLimit, A.DEFAULTS.admitHours, A.DEFAULTS.llmBudgetUsd], [30, 3, 0]);
 assert.strictEqual(A.normalize({ admitLimit: 0 }).admitLimit, 0, '0 значит без лимита'); assert.strictEqual(A.normalize({ admitHours: 500 }).admitHours, 72); assert.strictEqual(A.normalize({ llmBudgetUsd: '12.345' }).llmBudgetUsd, 12.35);
+const hh = A.normalize({ hoursOn: true, hoursFrom: '9:5', hoursTo: '7:30', offHoursText: '  Ответим утром  ', topicsOff: ['manager', 'manager', 'Плохо!', 'receipt'], managerGroup: '-1004465341061' });
+assert.deepStrictEqual([hh.hoursOn, hh.hoursFrom, hh.hoursTo, hh.offHoursText, hh.topicsOff, hh.managerGroup], [true, '09:00', '07:30', 'Ответим утром', ['manager', 'receipt'], -1004465341061]);
+assert.strictEqual(A.normalize({ managerGroup: 12345 }).managerGroup, 0); assert.strictEqual(A.normalize({ hoursFrom: '25:00' }).hoursFrom, '09:00');
 // те же значения по умолчанию, что на сервере
 const server = require('fs').readFileSync(__dirname + '/supabase/functions/_shared/alina-settings.ts', 'utf8');
 for (const [k, v] of Object.entries({ pauseMaxSec: A.DEFAULTS.pauseMaxSec, remindMin: A.DEFAULTS.remindMin, admitLimit: A.DEFAULTS.admitLimit, admitHours: A.DEFAULTS.admitHours })) assert.ok(new RegExp(k + ': ' + v).test(server), 'значение ' + k + ' совпадает с серверным');
+const gateSrc = require('fs').readFileSync(__dirname + '/supabase/functions/_shared/alina-gate.ts', 'utf8');
+['other_item', 'payout_missing', 'payout_when', 'receipt', 'manager'].forEach((id) => assert.ok(gateSrc.includes("id: '" + id + "'"), 'тема ' + id + ' есть и на сервере'));
+assert.ok(/hoursFrom: '09:00'/.test(server) && /hoursTo: '22:00'/.test(server), 'часы по умолчанию совпадают с серверными');
 A.DEFAULTS.phrases.forEach((p) => assert.ok(server.includes(p), 'фраза совпадает с серверной: ' + p));
 console.log('alina-settings-ui: ok');

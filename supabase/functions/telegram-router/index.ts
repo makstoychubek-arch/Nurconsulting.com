@@ -8,7 +8,7 @@ import { applyRestockTelegramReply } from '../_shared/wb-restock-apply.ts';
 import { setTelegramReaction, unwrapTelegramMessage } from '../_shared/wb-restock-reply.ts';
 import { alinaWebhookSecret } from '../_shared/alina-webhook-secret.ts';
 import { processAlinaTelegramUpdate } from '../_shared/alina-telegram.ts';
-import { alinaManagerTestGroup, processAlinaManagerTest } from '../_shared/alina-manager.ts';
+import { managerGroupId, processAlinaManagerTest } from '../_shared/alina-manager.ts';
 import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 
 const CORS = {
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
         }
     }
     // Реплай менеджера в тестовой группе. Только бот alina, только эта группа, секрет вебхука Алины обязателен.
-    if (alinaBot === 'alina' && update?.message?.chat?.id === alinaManagerTestGroup && update.message.reply_to_message) {
+    if (alinaBot === 'alina' && update?.message?.reply_to_message && update.message.chat?.id === await managerGroupId()) {
         if (gotSecret !== await alinaWebhookSecret('alina')) return json({ ok: false, error: 'bad_secret' }, 401);
         await alinaManagerTest(update);
         return json({ ok: true, manager_test: true });

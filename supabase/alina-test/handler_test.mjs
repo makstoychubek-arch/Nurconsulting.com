@@ -16,6 +16,7 @@ function setup(env = {}) {
   const db = { from(table) {
     if (table === 'alina_selfbuy_events') return { insert: async () => ({ error: null }) };
     if (table === 'alina_test_updates') return { insert: async (r) => seen.has(r.update_id) ? { error: { code: '23505' } } : (seen.add(r.update_id), { error: null }) };
+    if (table === 'telegram_bots') { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { is_enabled: false, deleted_at: null } }) }; return q; }
     if (table === 'telegram_bot_secrets') { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: null }) }; return q; }
     assert.equal(table, 'alina_manager_questions');
     return {
