@@ -230,9 +230,10 @@
         if (!label) {
             // Вернулись на основную страницу раздела (например, из «Юнит-экономики» в РНП): прежний заголовок подраздела заменяем обычным
             if (title && s && desired) { try { var d0 = typeof tabTitles !== 'undefined' && tabTitles[tab]; if (d0 && title.textContent !== d0) title.textContent = d0; } catch (e) { /* заголовок остаётся */ } }
-            desired = ''; el.innerHTML = ''; el.classList.remove('on'); return;
+            desired = ''; el.innerHTML = ''; el.classList.remove('on'); doc.documentElement.classList.remove('nr-f-crumb'); return;
         }
         el.classList.add('on');
+        doc.documentElement.classList.add('nr-f-crumb');
         el.innerHTML = '<button type="button" class="nr-crumb" data-nrc="' + (go1 ? (go1.charAt(0) === '*' ? go1 : tab + ':' + go1) : '') + '">' + esc(secTitle) + '</button><span class="nr-crumb-sep">›</span><span class="nr-crumb-cur">' + esc(label) + '</span>';
         desired = (s && label !== secTitle) ? label : '';
         if (title && desired && title.textContent !== desired) title.textContent = desired;
