@@ -10,6 +10,7 @@ export type GateSettings = {
   offHoursText: string; // с подстановками {от} и {до}
   topicsOff: string[]; // выключенные темы
   managerGroup: number; // 0 = группа по умолчанию (задаёт вызывающий код)
+  blacklist: string[]; // логины клиентов без @ в нижнем регистре: им Алина не отвечает
 };
 
 export type Topic = { id: string; label: string; re: RegExp; question: string };
@@ -30,6 +31,18 @@ export function detectTopic(text: string, topicsOff: string[] = []): Topic | nul
     if (topic.re.test(t)) return topic;
   }
   return null;
+}
+
+/** Логин без @, ссылки t.me и регистра: так список и сообщения сравниваются одинаково. */
+export function normLogin(raw: unknown): string {
+  let s = String(raw ?? '').normalize('NFKC').replace(/[\u200b-\u200d\ufeff]/g, '').trim().toLowerCase();
+  s = s.replace(/^https?:\/\/(?:www\.)?t\.me\//, '').replace(/^@+/, '').replace(/[/?#].*$/, '').replace(/[.,;:\s]+$/, '');
+  return /^[a-z0-9_]{3,64}$/.test(s) ? s : '';
+}
+
+export function isBlacklisted(username: string | null | undefined, list: string[] | undefined): boolean {
+  const u = normLogin(username);
+  return Boolean(u && list && list.some((x) => normLogin(x) === u));
 }
 
 export const DEFAULT_OFF_TEXT = 'Сейчас нерабочее время. Я на связи с {от} до {до} по Москве. Напишите мне после {от}, отвечу сразу.';
@@ -62,6 +75,7 @@ export function offHoursReply(template: string, from: string, to: string): strin
 
 export type GateResult =
   | { kind: 'pass' }
+  | { kind: 'blocked' } // клиент в чёрном списке: молчим
   | { kind: 'offhours'; reply: string | null } // reply = null: уже отвечали в это окно, молчим
   | { kind: 'escalate'; topic: string; question: string; reply: string };
 
@@ -72,8 +86,10 @@ export function gate(input: {
   alreadyToldOffHours: boolean;
   holdReply: string; // «Минутку, уточню.» с именем, готовит вызывающий код
   hasManagerGroup: boolean; // есть ли куда отправить вопрос
+  username?: string | null;
 }): GateResult {
   const s = input.settings;
+  if (isBlacklisted(input.username, s.blacklist)) return { kind: 'blocked' };
   // Вне часов вопросы менеджерам не уходят: клиент получает сообщение о времени работы и пишет позже.
   const topic = input.hasManagerGroup ? detectTopic(input.text, s.topicsOff) : null;
   if (s.hoursOn && !isWorkingTime(input.nowMs, s.hoursFrom, s.hoursTo)) {

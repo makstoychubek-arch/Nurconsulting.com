@@ -10,6 +10,7 @@ function setup(reply = { replies: ['Здравствуйте!'] }, opts = {}) {
   const calls = []; let lead = null, resets = 0, t = 1000;
   const deps = {
     handle: async (o) => { calls.push(o); if (opts.fail) throw new Error('boom'); lead = { status: 'ask_ad', deal_type: null, product_name: null }; return reply; },
+    texts: () => [{ id: 'closed', group: 'Начало', label: 'Места закончились', vars: [], text: 'На сегодня места закончились' }],
     leadState: async () => lead, reset: async () => { resets++; lead = null; return !opts.resetFail; }, now: () => (t += 250),
   };
   return { calls, deps, resets: () => resets, run: (b, u = 'user-1') => lib.handleSandbox(b, u, deps) };
@@ -59,5 +60,10 @@ function setup(reply = { replies: ['Здравствуйте!'] }, opts = {}) {
   assert.ok(Number.isFinite(t.calls[0].nowMs), 'выбранное время передаётся в сценарий'); assert.deepEqual(r.body.escalate, { topic: 'manager', question: 'Клиент просит подключить менеджера.' }, 'песочница показывает, что ушло бы менеджерам');
   const none = setup(); await none.run({ action: 'send', text: 'привет' }); assert.equal(none.calls[0].nowMs, undefined, 'без выбранного времени действует настоящее');
   console.log('ok   время по Москве в песочнице и показ вопроса менеджерам');
+}
+{ // тексты для редактора
+  const r = await setup().run({ action: 'texts' });
+  assert.equal(r.status, 200); assert.equal(r.body.texts[0].id, 'closed'); assert.deepEqual(Object.keys(r.body.texts[0]).sort(), ['group', 'id', 'label', 'text', 'vars']);
+  console.log('ok   список текстов Алины для редактора');
 }
 console.log('PASS: alina-sandbox');

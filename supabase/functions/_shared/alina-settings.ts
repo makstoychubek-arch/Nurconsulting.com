@@ -3,6 +3,8 @@
  * Читаются с кэшем 30 секунд; если таблицы или значения нет, действуют значения по умолчанию, поведение прежнее.
  */
 import { getAdminClient } from './alina-db.ts';
+import { TEXT_DEFS } from './alina-templates.ts';
+import { normLogin } from './alina-gate.ts';
 
 export type AlinaSettings = {
   read: boolean; // отмечать сообщение клиента прочитанным
@@ -22,6 +24,8 @@ export type AlinaSettings = {
   offHoursText: string; // сообщение вне часов, подстановки {от} и {до}
   topicsOff: string[]; // темы, по которым менеджеру НЕ пишем (id из alina-gate.ts)
   managerGroup: number; // группа менеджеров (отрицательный номер), 0 = по умолчанию
+  blacklist: string[]; // логины, которым Алина не отвечает
+  texts: Record<string, string>; // свои тексты вместо стандартных (id из alina-templates.ts)
 };
 
 export const ALINA_DEFAULTS: AlinaSettings = {
@@ -42,6 +46,8 @@ export const ALINA_DEFAULTS: AlinaSettings = {
   offHoursText: '',
   topicsOff: [],
   managerGroup: 0,
+  blacklist: [],
+  texts: {},
 };
 
 function bool(v: unknown, d: boolean): boolean {
@@ -58,6 +64,18 @@ function hm(v: unknown, d: string): string {
   if (!m) return d;
   const h = Number(m[1]), min = Number(m[2]);
   return h >= 0 && h <= 23 && min >= 0 && min < 60 ? `${String(h).padStart(2, '0')}:${m[2]}` : d;
+}
+
+/** Свои тексты: только известные идентификаторы, непустые, не длиннее 4000 символов. */
+function cleanTexts(v: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (v && typeof v === 'object') {
+    for (const d of TEXT_DEFS) {
+      const t = (v as Record<string, unknown>)[d.id];
+      if (typeof t === 'string' && t.trim()) out[d.id] = t.slice(0, 4000);
+    }
+  }
+  return out;
 }
 
 /** Номер группы Telegram: отрицательное целое; всё остальное значит «по умолчанию» (0). */
@@ -90,6 +108,8 @@ export function normalizeAlinaSettings(raw: Record<string, unknown> | null | und
     offHoursText: typeof r.offHoursText === 'string' ? r.offHoursText.trim().slice(0, 400) : '',
     topicsOff: Array.isArray(r.topicsOff) ? [...new Set(r.topicsOff.map((x) => String(x)).filter((x) => /^[a-z_]{1,30}$/.test(x)))].slice(0, 20) : [],
     managerGroup: groupId(r.managerGroup),
+    blacklist: Array.isArray(r.blacklist) ? [...new Set(r.blacklist.map(normLogin).filter(Boolean))].slice(0, 2000) : [],
+    texts: cleanTexts(r.texts),
   };
 }
 

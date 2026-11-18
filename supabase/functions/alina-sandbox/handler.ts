@@ -10,6 +10,8 @@ export type Deps = {
   leadState: (chatId: number) => Promise<{ status: string | null; deal_type: string | null; product_name: string | null } | null>;
   reset: (chatId: number) => Promise<boolean>;
   now: () => number;
+  /** Тексты Алины со стандартным содержимым (для редактора на сайте). */
+  texts: () => Array<{ id: string; group: string; label: string; vars: string[]; text: string }>;
 };
 
 export type Result = { status: number; body: Record<string, unknown> };
@@ -48,6 +50,8 @@ const fail = (status: number, error: string): Result => ({ status, body: { ok: f
 export async function handleSandbox(body: Record<string, unknown>, userId: string, deps: Deps): Promise<Result> {
   const action = String(body.action || 'send');
   const chatId = sandboxChatId(userId);
+
+  if (action === 'texts') return { status: 200, body: { ok: true, texts: deps.texts() } };
 
   if (action === 'state') return { status: 200, body: { ok: true, lead: await deps.leadState(chatId) } };
 

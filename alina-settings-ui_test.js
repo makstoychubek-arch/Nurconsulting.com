@@ -18,6 +18,10 @@ assert.strictEqual(A.normalize({ admitLimit: 0 }).admitLimit, 0, '0 значит
 const hh = A.normalize({ hoursOn: true, hoursFrom: '9:5', hoursTo: '7:30', offHoursText: '  Ответим утром  ', topicsOff: ['manager', 'manager', 'Плохо!', 'receipt'], managerGroup: '-1004465341061' });
 assert.deepStrictEqual([hh.hoursOn, hh.hoursFrom, hh.hoursTo, hh.offHoursText, hh.topicsOff, hh.managerGroup], [true, '09:00', '07:30', 'Ответим утром', ['manager', 'receipt'], -1004465341061]);
 assert.strictEqual(A.normalize({ managerGroup: 12345 }).managerGroup, 0); assert.strictEqual(A.normalize({ hoursFrom: '25:00' }).hoursFrom, '09:00');
+assert.deepStrictEqual(A.normalize({ blacklist: ['@Bad_User', 'bad_user', 'https://t.me/Other_One', 'ab', 5] }).blacklist, ['bad_user', 'other_one']);
+assert.deepStrictEqual(A.normalize({ texts: { closed: 'Мест нет', key: '  ', ask_pickup: 7, 'Плохой ключ': 'x' } }).texts, { closed: 'Мест нет' });
+assert.strictEqual(A.previewText('Актуально: «{товар}», ключ {ключ}, {неизвестная}'), 'Актуально: «Пижама 2в1 шоколадный», ключ пижама женская, {неизвестная}');
+assert.strictEqual(A.normLogin(' @Bad_User '), 'bad_user');
 // те же значения по умолчанию, что на сервере
 const server = require('fs').readFileSync(__dirname + '/supabase/functions/_shared/alina-settings.ts', 'utf8');
 for (const [k, v] of Object.entries({ pauseMaxSec: A.DEFAULTS.pauseMaxSec, remindMin: A.DEFAULTS.remindMin, admitLimit: A.DEFAULTS.admitLimit, admitHours: A.DEFAULTS.admitHours })) assert.ok(new RegExp(k + ': ' + v).test(server), 'значение ' + k + ' совпадает с серверным');

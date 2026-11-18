@@ -10,7 +10,7 @@
         read: true, typing: true, pauseMaxSec: 3, useName: true,
         phrases: ['Минутку, уточню.', 'Секунду, сейчас уточню.', 'Сейчас спрошу и вернусь к вам.'],
         remindMin: 10, reactions: true, copyButton: true, admitLimit: 30, admitHours: 3, llmBudgetUsd: 0,
-        hoursOn: false, hoursFrom: '09:00', hoursTo: '22:00', offHoursText: '', topicsOff: [], managerGroup: 0,
+        hoursOn: false, hoursFrom: '09:00', hoursTo: '22:00', offHoursText: '', topicsOff: [], managerGroup: 0, blacklist: [], texts: {},
     };
     // Темы, по которым Алина не отвечает сама, а спрашивает менеджера (идентификаторы совпадают с alina-gate.ts).
     var TOPICS = [
@@ -25,7 +25,7 @@
         read: 'Прочитано', typing: '«Печатает…»', pauseMaxSec: 'Пауза «печатает»', useName: 'Имя клиента', phrases: 'Фразы «уточняю»',
         remindMin: 'Напоминание менеджерам', reactions: 'Итог реакцией', copyButton: 'Кнопка копирования логина',
         admitLimit: 'Лимит новых клиентов', admitHours: 'Период лимита', llmBudgetUsd: 'Бюджет ChatGPT',
-        hoursOn: 'Часы работы', hoursFrom: 'Начало работы', hoursTo: 'Конец работы', offHoursText: 'Сообщение вне часов', topicsOff: 'Вопросы менеджеру', managerGroup: 'Группа менеджеров',
+        hoursOn: 'Часы работы', hoursFrom: 'Начало работы', hoursTo: 'Конец работы', offHoursText: 'Сообщение вне часов', topicsOff: 'Вопросы менеджеру', managerGroup: 'Группа менеджеров', blacklist: 'Чёрный список', texts: 'Тексты Алины',
     };
 
     function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -37,6 +37,21 @@
         if (!m) return d;
         var h = Number(m[1]), min = Number(m[2]);
         return h >= 0 && h <= 23 && min >= 0 && min < 60 ? (h < 10 ? '0' : '') + h + ':' + m[2] : d;
+    }
+    /** Логин без @, ссылки t.me и регистра (как на сервере). */
+    function normLogin(v) {
+        var s = String(v == null ? '' : v).trim().toLowerCase().replace(/^https?:\/\/(?:www\.)?t\.me\//, '').replace(/^@+/, '').replace(/[\/?#].*$/, '').replace(/[.,;:\s]+$/, '');
+        return /^[a-z0-9_]{3,64}$/.test(s) ? s : '';
+    }
+    function cleanTexts(v) {
+        var out = {};
+        if (v && typeof v === 'object') Object.keys(v).forEach(function (k) { if (/^[a-z_]{1,30}$/.test(k) && typeof v[k] === 'string' && v[k].trim()) out[k] = v[k].slice(0, 4000); });
+        return out;
+    }
+    /** Значения подстановок для предпросмотра текстов. */
+    var SAMPLE = { 'товар': 'Пижама 2в1 шоколадный', 'ключ': 'пижама женская', 'срок': '18.11.2026 до 22:00 МСК' };
+    function previewText(raw, vars) {
+        return String(raw || '').replace(/\{([^{}]+)\}/g, function (m, k) { return (vars || SAMPLE)[k] != null ? (vars || SAMPLE)[k] : m; });
     }
     function groupId(v) {
         var n = typeof v === 'number' ? v : Number(String(v == null ? '' : v).trim());
@@ -59,6 +74,8 @@
             offHoursText: typeof r.offHoursText === 'string' ? r.offHoursText.trim().slice(0, 400) : '',
             topicsOff: Array.isArray(r.topicsOff) ? r.topicsOff.map(String).filter(function (x, i, a) { return /^[a-z_]{1,30}$/.test(x) && a.indexOf(x) === i; }).slice(0, 20) : [],
             managerGroup: groupId(r.managerGroup),
+            blacklist: Array.isArray(r.blacklist) ? r.blacklist.map(normLogin).filter(function (x, i, a) { return x && a.indexOf(x) === i; }).slice(0, 2000) : [],
+            texts: cleanTexts(r.texts),
         };
     }
 
@@ -115,6 +132,9 @@
             TOPICS.map(function (t) { return '<div class="as-row"><div class="as-t"><b>' + esc(t.label) + '</b><span>' + esc(t.hint) + '</span></div><label class="as-sw"><input type="checkbox" data-topic="' + t.id + '"><u></u></label></div>'; }).join('') +
             '<div class="as-row"><div class="as-t"><b>Группа менеджеров</b><span>Номер группы Telegram, например -1004465341061. Пусто: группа по умолчанию</span></div>' +
             '<input type="text" class="as-group" data-k="managerGroup" inputmode="numeric" placeholder="по умолчанию" autocomplete="off" aria-label="Номер группы менеджеров"></div></section>' +
+            '<section class="as-card"><h3>Чёрный список</h3><p class="as-sub">Этим клиентам Алина не отвечает совсем: ни в рабочие часы, ни вне них, и вопросы менеджеру от них не уходят.</p>' +
+            '<textarea class="as-area" data-bl="1" rows="4" placeholder="по одному логину в строке, например @ivan_petrov" aria-label="Чёрный список" spellcheck="false"></textarea><p class="as-hint" data-v="blcount"></p></section>' +
+            '<section class="as-card" data-v="textscard" hidden><h3>Тексты Алины</h3><p class="as-sub">Измените любой ответ. Подстановки в фигурных скобках: {товар}, {ключ}, {срок}. Пустое поле или «Вернуть» возвращают стандартный текст. Изменения применяются за полминуты, проверить можно в песочнице.</p><div data-v="texts"></div></section>' +
             '<section class="as-card"><h3>Как отвечает</h3>' +
             switchHtml('read', 'Отмечать прочитанным', 'Сообщение клиента помечается прочитанным до ответа') +
             switchHtml('typing', '«Печатает…» перед ответом', 'Индикатор виден в чате клиента') +
@@ -149,6 +169,10 @@
             else if (document.activeElement === el && (el.type === 'time' || el.tagName === 'TEXTAREA')) { /* не мешаем вводу */ }
             else if (String(el.value) !== String(s[k])) el.value = s[k];
         });
+        var bl = q('[data-bl]');
+        if (bl && document.activeElement !== bl) { var blv = s.blacklist.join('\n'); if (bl.value !== blv) bl.value = blv; }
+        var blc = q('[data-v="blcount"]'); if (blc) blc.textContent = s.blacklist.length ? 'В списке: ' + s.blacklist.length : 'Список пуст';
+        paintTexts();
         Array.prototype.forEach.call(host.querySelectorAll('[data-topic]'), function (el) { el.checked = s.topicsOff.indexOf(el.getAttribute('data-topic')) === -1; });
         q('[data-v="pause"]').textContent = 'до ' + String(s.pauseMaxSec).replace('.', ',') + ' с';
         var box = q('[data-v="phrases"]');
@@ -161,6 +185,39 @@
         var n = changedKeys(state.saved, s).length;
         q('[data-v="bar"]').hidden = n === 0;
         q('[data-v="cnt"]').textContent = 'Изменено: ' + n;
+    }
+
+    function updateBar() {
+        var n = changedKeys(state.saved, normalize(state.cur)).length;
+        q('[data-v="bar"]').hidden = n === 0; q('[data-v="cnt"]').textContent = 'Изменено: ' + n;
+    }
+
+    /** Редактор текстов (только администратор): стандартные тексты приходят с сервера, чтобы не дублировать их в браузере. */
+    function paintTexts() {
+        var card = q('[data-v="textscard"]'); if (!card) return;
+        card.hidden = !state.canPower || !state.textDefs; if (card.hidden) return;
+        var key = JSON.stringify(state.cur.texts) + '|' + state.textDefs.length;
+        var box = q('[data-v="texts"]');
+        if (state.textsKey === key || box.contains(document.activeElement)) return;
+        state.textsKey = key;
+        var groups = [];
+        state.textDefs.forEach(function (d) { if (groups.indexOf(d.group) === -1) groups.push(d.group); });
+        box.innerHTML = groups.map(function (g) {
+            return '<h4 class="as-grp-h">' + esc(g) + '</h4>' + state.textDefs.filter(function (d) { return d.group === g; }).map(function (d) {
+                var cur = state.cur.texts[d.id], val = cur != null ? cur : d.text;
+                return '<div class="as-text"><div class="as-text-h"><b>' + esc(d.label) + '</b>' + (d.vars.length ? '<span>' + d.vars.map(function (v) { return '{' + esc(v) + '}'; }).join(' ') + '</span>' : '') +
+                    '<button type="button" class="as-link" data-reset="' + d.id + '"' + (cur != null ? '' : ' hidden') + '>Вернуть стандартный</button></div>' +
+                    '<textarea class="as-area" data-text="' + d.id + '" rows="' + Math.min(8, Math.max(2, Math.ceil(val.length / 70))) + '" aria-label="' + esc(d.label) + '">' + esc(val) + '</textarea>' +
+                    '<div class="as-text-pv" aria-label="Так увидит клиент">' + esc(previewText(val)) + '</div></div>';
+            }).join('');
+        }).join('');
+    }
+
+    function loadTexts() {
+        if (!state.canPower || state.textDefs) return Promise.resolve();
+        return Promise.resolve(state.sb.functions.invoke('alina-sandbox', { body: { action: 'texts' } })).then(function (r) {
+            var t = r && r.data && r.data.texts; if (Array.isArray(t) && t.length) { state.textDefs = t; if (state.active) paintValues(); }
+        }, function () { /* без списка редактор остаётся скрытым */ });
     }
 
     function paintPower() {
@@ -217,6 +274,17 @@
         state.host.addEventListener('input', function (e) {
             var el = e.target, k = el.getAttribute && el.getAttribute('data-k');
             if (k) { setValue(k, el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.type === 'range' ? Number(el.value) : el.value)); return; }
+            if (el.getAttribute && el.getAttribute('data-bl')) { state.cur.blacklist = el.value.split(/[\n,;]+/).map(normLogin).filter(function (x, i, a) { return x && a.indexOf(x) === i; }); updateBar(); var c2 = q('[data-v="blcount"]'); if (c2) c2.textContent = state.cur.blacklist.length ? 'В списке: ' + state.cur.blacklist.length : 'Список пуст'; return; }
+            var tid = el.getAttribute && el.getAttribute('data-text');
+            if (tid) {
+                var def = (state.textDefs || []).filter(function (d) { return d.id === tid; })[0];
+                var next = Object.assign({}, state.cur.texts);
+                if (!el.value.trim() || (def && el.value === def.text)) delete next[tid]; else next[tid] = el.value;
+                state.cur.texts = cleanTexts(next); updateBar();
+                var pv = el.closest('.as-text').querySelector('.as-text-pv'); if (pv) pv.textContent = previewText(el.value.trim() ? el.value : def.text);
+                var rs = el.closest('.as-text').querySelector('[data-reset]'); if (rs) rs.hidden = !state.cur.texts[tid];
+                return;
+            }
             var tp = el.getAttribute && el.getAttribute('data-topic');
             if (tp) {
                 var off = state.cur.topicsOff.filter(function (x) { return x !== tp; });
@@ -231,6 +299,8 @@
             if (st) { var k = st.getAttribute('data-for'); setValue(k, Number(state.cur[k]) + Number(st.getAttribute('data-step'))); return; }
             var del = t.closest('[data-del]');
             if (del) { if (state.cur.phrases.length > 1) { state.cur.phrases.splice(Number(del.getAttribute('data-del')), 1); paintValues(); } return; }
+            var rst = t.closest('[data-reset]');
+            if (rst) { var rid = rst.getAttribute('data-reset'), n2 = Object.assign({}, state.cur.texts); delete n2[rid]; state.cur.texts = cleanTexts(n2); state.textsKey = ''; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); paintValues(); return; }
             var pw = t.closest('[data-power]');
             if (pw) { if (pw.checked) { pw.checked = false; state.power.confirm = true; state.power.error = ''; paintPower(); var wi = q('[data-v="word"]'); if (wi) wi.focus(); } else setPower(false); return; }
             var act = t.closest('[data-act]'); if (!act) return;
@@ -298,7 +368,7 @@
             build();
         }
         paintValues();
-        loadPower();
+        loadPower(); loadTexts();
         load().catch(function () { if (state.active && !state.loadedFresh) toast('Не удалось загрузить настройки, показаны сохранённые на этом устройстве'); });
     }
 
@@ -323,7 +393,7 @@
         show({ host: win.body, supabase: opts.supabase, canPower: canPower });
     }
 
-    var api = { openWindow: openWindow,
+    var api = { previewText: previewText, normLogin: normLogin, openWindow: openWindow,
         DEFAULTS: DEFAULTS, normalize: normalize, changedKeys: changedKeys, previewPhrase: previewPhrase, show: show, hide: hide,
         _state: state, _save: save,
     };
