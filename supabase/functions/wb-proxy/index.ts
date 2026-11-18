@@ -15,6 +15,9 @@ function fetch(input: string | URL | Request, init: RequestInit = {}): Promise<R
 }
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
+import { sendTelegramMessage } from '../_shared/notify-once.ts';
+import { type CurrentPrice, type PriceItem } from '../_shared/price-guard.ts';
+import { guardPriceChange, notifyPriceChange } from '../_shared/price-guard-run.ts';
 import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
 import {
     FINANCE_DASHBOARD_FIELDS,
@@ -1728,8 +1731,16 @@ serve(async (req) => {
                     .filter((i) => i.nmID && i.price > 0 && i.price < 10_000_000 && (i.discount == null || (i.discount >= 0 && i.discount <= 99)));
                 if (!items.length || items.length > 200) return json({ error: 'Нужны цены для 1–200 товаров' }, 400);
                 const old = (params.old as Record<string, { price?: number; discount?: number; delta?: number }>) || {};
+                // Защита: оценка снижения по ТЕКУЩИМ ценам WB; у сотрудников крупное снижение уходит в WB только с кодом из Telegram.
+                const guard = await guardPriceChange({
+                    cabinetId: cabinet_id, cabName: String(cab.name || ''), userId: user.id,
+                    email: String(user.email || ''), staff: allCabinets, items: items as PriceItem[], confirm: params.confirm as { id?: string; code?: string } | undefined,
+                }, { admin, currentPrices: (nm) => wbCurrentPrices(WB_TOKEN, nm), sendAdmin, json });
+                if (guard.response) return guard.response;
                 const res = await wbSend(`${PRICES_API}/api/v2/upload/task`, WB_TOKEN, 'POST', { data: items });
                 if (!res.ok) return json({ error: wbError(res), status: res.status }, res.status >= 500 ? 502 : 400);
+                // Владелец видит каждую смену цен сразу (кто, где, на сколько); сбой уведомления не мешает смене цен
+                try { await notifyPriceChange({ email: String(user.email || ''), cabName: String(cab.name || ''), staff: allCabinets, confirmed: guard.confirmed, assessment: guard.assessment }, sendAdmin); } catch (e) { console.warn('[wb-proxy] price notify:', String(e)); }
                 const up = ((res.data as Record<string, any>)?.data || {}) as Record<string, any>;
                 try {
                     await admin.from('price_changes').insert(items.map((i) => ({
@@ -2167,6 +2178,23 @@ async function verifyPhotoUrls(basket: number, vol: number, part: number, nm: nu
         .filter((c): c is { i: number; url: string } => c != null)
         .sort((a, b) => a.i - b.i)
         .map((c) => c.url);
+}
+
+const adminChat = () => (Deno.env.get('TELEGRAM_CHAT_ADMIN') ?? '').trim() || getTelegramChatId('team');
+const sendAdmin = async (text: string): Promise<boolean> => {
+    const token = getTelegramToken(), chat = adminChat();
+    return token && chat ? await sendTelegramMessage(token, chat, text) : false;
+};
+async function wbCurrentPrices(wbToken: string, nmList: number[]): Promise<Record<number, CurrentPrice>> {
+    const out: Record<number, CurrentPrice> = {};
+    const res = await wbSend(`${PRICES_API}/api/v2/list/goods/filter`, wbToken, 'POST', { nmList });
+    if (res.ok) {
+        for (const g of ((res.data as Record<string, any>)?.data?.listGoods || []) as Record<string, any>[]) {
+            const sz = (g.sizes || [])[0] || {};
+            out[Number(g.nmID)] = { price: Number(sz.price ?? 0), discount: Number(g.discount ?? 0), discounted: Number(sz.discountedPrice ?? 0) };
+        }
+    }
+    return out;
 }
 
 function json(data: unknown, status = 200) {

@@ -607,7 +607,7 @@
         closeModal(); S.sel = {}; paint(); writeCache();
         toast('info', 'Цены отправлены в WB', rows.length + ' арт.');
         function revert(why) { rows.forEach(function (r) { S.prices[r.nm] = prevP[r.nm]; S.pd[r.nm] = prevD[r.nm]; }); paint(); toast('error', 'Цены не поменялись', why || 'WB не принял. Попробуйте ещё раз.'); }
-        Promise.resolve(root.callWbProxy('prices_set', { items: items, old: old }, cab)).then(function (res) {
+        Promise.resolve(root.NrPriceSend ? root.NrPriceSend(cab, { items: items, old: old }) : root.callWbProxy('prices_set', { items: items, old: old }, cab)).then(function (res) {
             if (!res || res.error) { revert(res && res.error); return; }
             var up = res.uploadId, tries = 0;
             if (!up) { toast('success', 'Цены применены в WB', ''); return; }
