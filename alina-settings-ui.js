@@ -92,6 +92,7 @@
             numHtml('remindMin', 'Напомнить, если нет ответа', 'Один раз менеджерам и клиенту «ещё уточняю»', 'мин', 5, 1) +
             switchHtml('reactions', 'Итог реакцией', '❤ ответ доставлен, 👎 не доставлен, без лишних сообщений') +
             switchHtml('copyButton', 'Кнопка «Скопировать @логин»', 'Под обращением в группе менеджеров') + '</section>' +
+            '<section class="as-card asb" data-v="sandbox" hidden></section>' +
             '<p class="as-hist" data-v="hist"></p></div>' +
             '<aside class="as-prev"><h3>Как это увидит клиент</h3><div class="as-phone" data-v="phone"></div>' +
             '<h3 style="margin-top:14px">Что увидят менеджеры</h3><div class="as-grp" data-v="grp"></div></aside></div>' +
@@ -125,6 +126,8 @@
 
     function paintPower() {
         var card = q('[data-v="powercard"]'); if (!card) return;
+        var sbx = q('[data-v="sandbox"]');
+        if (sbx) { sbx.hidden = !state.canPower; if (state.canPower && !sbx.getAttribute('data-mounted') && root.NrAlinaSandbox) { sbx.setAttribute('data-mounted', '1'); root.NrAlinaSandbox.mount({ host: sbx, supabase: state.sb }); } }
         card.hidden = !state.canPower; if (!state.canPower) return;
         var p = state.power, sw = card.querySelector('[data-power]');
         sw.checked = p.on; sw.disabled = p.busy || !p.known;
