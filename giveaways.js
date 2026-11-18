@@ -269,6 +269,7 @@
             + '<button type="button" class="gv-ghost" data-act="template" title="Пустой шаблон с заголовками">Шаблон</button>'
             + '<button type="button" class="gv-ghost" data-act="export" title="Скачать таблицу">Excel</button>'
             + '<button type="button" class="gv-ai" data-act="calc" title="Калькулятор раздач" aria-label="Калькулятор раздач">Калькулятор</button>'
+            + '<button type="button" class="gv-gear" data-act="gear" title="Настройки раздач и Алины" aria-label="Настройки раздач и Алины"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>'
             + '</div>'
             + '<div class="gv-sum">'
             + '<span class="gv-chip">Раздач: <b>' + nf(s.total) + '</b></span>'
@@ -296,8 +297,22 @@
             + datalist() + '<textarea class="gv-cb" tabindex="-1" aria-hidden="true" spellcheck="false"></textarea></div>';
         var sc2 = state.host.querySelector('.gv-scroll');
         if (sc2) { sc2.scrollLeft = sx; sc2.scrollTop = sy; }
+        fitHeight();
         markSelection();
     }
+
+    /** Таблица занимает всё место до нижнего края окна, как лист Google: шапка и номера строк закреплены внутри неё. */
+    function zoomOf(el) {
+        var z = 1;
+        try { for (var n = el; n && n.nodeType === 1; n = n.parentElement) { var v = parseFloat(root.getComputedStyle(n).zoom); if (v && v !== 1) z *= v; } } catch (e) { z = 1; }
+        return z || 1;
+    }
+    function fitHeight() {
+        var sc = state.host && state.host.querySelector('.gv-scroll'); if (!sc || !state.active) return;
+        var top = sc.getBoundingClientRect().top, h = (root.innerHeight - top - 14) / zoomOf(sc);
+        sc.style.maxHeight = 'none'; sc.style.height = Math.max(260, Math.round(h)) + 'px';
+    }
+    if (typeof root.addEventListener === 'function') root.addEventListener('resize', function () { fitHeight(); });
 
     /** Скрытое поле держит фокус и содержит TSV выделения — так Ctrl+C/Ctrl+V работают как в Google Sheets. */
     function focusCb() {
@@ -701,6 +716,7 @@
             if (b.dataset.act === 'template') return download('razdachi-shablon.csv', templateCsv());
             if (b.dataset.act === 'export') return download('razdachi-' + todayYmd() + '.csv', exportCsv());
             if (b.dataset.act === 'sync') return syncNow();
+            if (b.dataset.act === 'gear') { if (root.NrAlinaSettings) root.NrAlinaSettings.openWindow({ supabase: state.sb }); return; }
             if (b.dataset.act === 'calc') { if (root.NrGiveCalc) root.NrGiveCalc.open({ supabase: state.sb, cabinetId: state.cab }); }
         });
 
@@ -849,6 +865,7 @@
         if (!opts || !opts.host || !opts.supabase || !opts.cabinetId) return;
         var changed = state.cab !== opts.cabinetId;
         state.sb = opts.supabase; state.host = opts.host; state.cab = opts.cabinetId; state.active = true;
+        try { root.document.documentElement.classList.add('nr-f-give'); } catch (e) { /* без документа */ }
         bindOnce();
         if (changed || !state.loaded) {
             // Сразу показываем прошлые данные кабинета (или пустую таблицу), свежие подставятся следом без «Загрузка…».
@@ -873,7 +890,10 @@
         paint();
     }
 
-    function hide() { state.active = false; }
+    function hide() {
+        state.active = false;
+        try { root.document.documentElement.classList.remove('nr-f-give'); } catch (e) { /* без документа */ }
+    }
 
     var api = {
         COLS: LEGACY_COLS, SHEET_COLS: SHEET_COLS, show: show, hide: hide, payoutDate: payoutDate, isOverdue: isOverdue, summary: summary,

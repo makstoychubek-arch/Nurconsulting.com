@@ -259,7 +259,26 @@
 
     function hide() { state.active = false; }
 
-    var api = {
+    /** Окно настроек Алины из шестерёнки в «Раздачах». Фон за окном размыт (правило сайта), Esc и клик по фону закрывают. */
+    var win = null;
+    function openWindow(opts) {
+        if (!opts || !opts.supabase) return;
+        var doc = root.document;
+        if (!win) {
+            var ov = doc.createElement('div'); ov.className = 'as-overlay'; ov.setAttribute('data-nr-blur', ''); ov.hidden = true;
+            ov.innerHTML = '<div class="as-win" role="dialog" aria-modal="true" aria-label="Настройки раздач"><div class="as-win-bar"><b>Настройки раздач · Алина</b><button type="button" class="as-win-x" aria-label="Закрыть">×</button></div><div class="as-win-body"></div></div>';
+            doc.body.appendChild(ov);
+            var close = function () { ov.hidden = true; hide(); };
+            ov.addEventListener('click', function (e) { if (e.target === ov || e.target.closest('.as-win-x')) close(); });
+            doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !ov.hidden) close(); });
+            win = { ov: ov, body: ov.querySelector('.as-win-body') };
+        }
+        win.ov.hidden = false;
+        var canPower = false; try { canPower = typeof isSuperAdmin !== 'undefined' && isSuperAdmin === true; } catch (e) { canPower = false; }
+        show({ host: win.body, supabase: opts.supabase, canPower: canPower });
+    }
+
+    var api = { openWindow: openWindow,
         DEFAULTS: DEFAULTS, normalize: normalize, changedKeys: changedKeys, previewPhrase: previewPhrase, show: show, hide: hide,
         _state: state, _save: save,
     };

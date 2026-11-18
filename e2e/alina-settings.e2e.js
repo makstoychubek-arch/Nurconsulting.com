@@ -36,20 +36,19 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         });
         const { page } = env;
         await page.evaluate(() => showTab('advertising'));
-        await page.waitForSelector('#nr-ads-tabs [data-av="alina"]', { state: 'attached', timeout: 10000 });
-        assert.ok(await page.evaluate(() => /Алина/.test(document.querySelector('#nr-ads-tabs [data-av="alina"]').textContent)), 'во вкладках «Продвижения» есть «Алина»');
-        await page.evaluate(() => document.querySelector('#nr-ads-tabs [data-av="alina"]').click());
-        // каркас виден сразу, без ожидания базы
-        await page.waitForSelector('#nr-ads-alina .as-wrap', { timeout: 3000 });
-        assert.ok(await page.evaluate(() => !document.getElementById('nr-ads-alina').hidden), 'страница «Алина» открыта');
-        assert.ok(await page.evaluate(() => getComputedStyle(document.getElementById('adv-view-ads')).display === 'none'), 'кампании скрыты на самом деле (правило оформления их не возвращает)');
+        await page.waitForSelector('#nr-ads-tabs [data-av="give"]', { state: 'attached', timeout: 10000 });
+        assert.ok(await page.evaluate(() => !document.querySelector('#nr-ads-tabs [data-av="alina"]') && !/Алина/.test(document.querySelector('#nr-ads-tabs').textContent)), 'отдельной вкладки «Алина» нет');
+        await page.evaluate(() => document.querySelector('#nr-ads-tabs [data-av="give"]').click());
+        await page.waitForSelector('#nr-ads-give [data-act="gear"]', { timeout: 6000 });
+        // шестерёнка в «Раздачах» открывает окно настроек Алины; каркас виден сразу, без ожидания базы
+        await page.click('#nr-ads-give [data-act="gear"]');
+        await page.waitForSelector('.as-win .as-wrap', { timeout: 3000 });
+        assert.ok(await page.evaluate(() => !document.querySelector('.as-overlay').hidden && /Настройки раздач/.test(document.querySelector('.as-win-bar').textContent)), 'окно настроек открыто');
+        assert.ok(await page.evaluate(() => { const o = document.querySelector('.as-overlay'); const cs = getComputedStyle(o); return /blur/.test(cs.backdropFilter || cs.webkitBackdropFilter || ''); }), 'фон за окном размыт');
         assert.ok(await page.evaluate(() => !!document.querySelector('.as-typing') && /прочитано/.test(document.querySelector('.as-phone').textContent)), 'предпросмотр: «прочитано» и «печатает»');
         assert.ok(await page.evaluate(() => /Мара, минутку, уточню\./.test(document.querySelector('.as-phone').textContent)), 'предпросмотр: фраза с именем');
         assert.ok(await page.evaluate(() => document.querySelector('[data-v="bar"]').hidden), 'панели «Сохранить» нет, пока ничего не менялось');
         console.log('ok   вкладка «Алина» в «Продвижении»: каркас сразу, значения по умолчанию, предпросмотр');
-        await page.evaluate(() => document.querySelector('#nr-ads-tabs [data-av="ads"]').click());
-        assert.ok(await page.evaluate(() => getComputedStyle(document.getElementById('adv-view-ads')).display !== 'none' && document.getElementById('nr-ads-alina').hidden), 'обратно на «Кампании»: они видны, «Алина» скрыта');
-        await page.evaluate(() => document.querySelector('#nr-ads-tabs [data-av="alina"]').click());
 
         await page.click('input[data-k="typing"]');
         assert.ok(await page.evaluate(() => !document.querySelector('.as-typing')), '«Печатает» выключено: индикатора в предпросмотре нет');
@@ -127,8 +126,9 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         // 2. Значения из базы применяются; кэш показывается сразу
         const env2 = await openApp(browser, url, { userId: ADMIN_ID, email: 'admin@example.com', latencyMs: 30, tables: Object.assign({}, base, { alina_settings: [{ key: 'typing', value: false }, { key: 'admitLimit', value: 50 }, { key: 'remindMin', value: 25 }, { key: 'phrases', value: ['Свяжусь с менеджером.'] }], alina_settings_log: [{ key: 'typing', changed_at: new Date().toISOString() }] }), rpcs: { is_super_admin: true } });
         await env2.page.evaluate(() => showTab('advertising'));
-        await env2.page.waitForSelector('#nr-ads-tabs [data-av="alina"]', { state: 'attached', timeout: 10000 });
-        await env2.page.evaluate(() => document.querySelector('#nr-ads-tabs [data-av="alina"]').click());
+        await env2.page.waitForSelector('#nr-ads-tabs [data-av="give"]', { state: 'attached', timeout: 10000 });
+        await env2.page.evaluate(() => document.querySelector('#nr-ads-tabs [data-av="give"]').click());
+        await env2.page.waitForSelector('#nr-ads-give [data-act="gear"]'); await env2.page.click('#nr-ads-give [data-act="gear"]');
         assert.ok(await until(() => env2.page.evaluate(() => document.querySelector('input[data-k="remindMin"]') && document.querySelector('input[data-k="remindMin"]').value === '25')), 'значение из базы: напоминание 25 минут');
         assert.ok(await env2.page.evaluate(() => !document.querySelector('input[data-k="typing"]').checked), 'из базы: «печатает» выключено');
         assert.strictEqual(await env2.page.evaluate(() => document.querySelector('input[data-k="admitLimit"]').value), '50', 'из базы: лимит 50');
@@ -136,6 +136,8 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         assert.ok(await until(() => env2.page.evaluate(() => /Последние изменения/.test(document.querySelector('[data-v="hist"]').textContent))), 'история изменений показана');
         console.log('ok   настройки из базы применяются, своя фраза, история');
         assert.deepStrictEqual(env2.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
+        await env2.page.keyboard.press('Escape');
+        assert.ok(await env2.page.evaluate(() => document.querySelector('.as-overlay').hidden), 'Esc закрывает окно');
         console.log('e2e настроек Алины: все проверки прошли');
     } finally { await browser.close(); srv.close(); }
 })().catch((e) => { console.error(e); process.exit(1); });

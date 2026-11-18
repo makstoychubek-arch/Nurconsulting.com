@@ -2823,3 +2823,22 @@ html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .r
 .asb-chip { border: 1px solid var(--border-strong, var(--border)); background: none; color: var(--text-primary); border-radius: 999px; font: inherit; font-size: 12px; padding: 5px 11px; cursor: pointer; }
 .asb-form { display: flex; gap: 8px; }
 .asb-form input { flex: 1; }
+
+/* «Раздачи» как лист Google: без карточки вокруг, таблица на всю ширину и до низа окна, шапка и номера закреплены внутри таблицы */
+html body .gv-wrap { padding: 0; background: transparent; box-shadow: none; border-radius: 0; }
+html body .gv-bar, html body .gv-sum { padding-inline: 2px; }
+html body .gv-scroll { isolation: isolate; border-radius: 12px; border: 1px solid var(--border-strong, var(--border)); }
+html body .gv-gear { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 1px solid var(--border-strong, var(--border)); border-radius: 50%; background: transparent; color: var(--text-primary); cursor: pointer; padding: 0; }
+html body .gv-gear:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+
+/* Окно настроек Алины из шестерёнки «Раздач»: фон размыт, шапка с названием и круглым крестиком */
+.as-overlay { position: fixed; inset: 0; z-index: 10100; display: grid; place-items: center; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 16px; background: rgba(0, 0, 0, .28); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.as-overlay[hidden] { display: none; }
+.as-win { width: min(1040px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--surface-solid); border: 1px solid var(--border-strong, var(--border)); border-radius: 26px; overflow: hidden; }
+.as-win-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+.as-win-x { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-strong, var(--border)); background: none; color: var(--text-primary); font-size: 20px; line-height: 1; cursor: pointer; padding: 0; }
+.as-win-body { overflow-y: auto; padding: 16px 20px 20px; }
+
+/* Раздачи открыты: подвал сайта не нужен, страница сама не прокручивается (прокручивается таблица), как лист Google */
+html.nr-f-give #nr-foot { display: none; }
+@media (min-height: 620px) { html.nr-f-give body main.main-rail > .flex-1 { overflow-y: hidden !important; } }
