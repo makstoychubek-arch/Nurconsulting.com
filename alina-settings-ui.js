@@ -9,12 +9,13 @@
     var DEFAULTS = {
         read: true, typing: true, pauseMaxSec: 3, useName: true,
         phrases: ['Минутку, уточню.', 'Секунду, сейчас уточню.', 'Сейчас спрошу и вернусь к вам.'],
-        remindMin: 10, reactions: true, copyButton: true,
+        remindMin: 10, reactions: true, copyButton: true, admitLimit: 30, admitHours: 3, llmBudgetUsd: 0,
     };
     var KEYS = Object.keys(DEFAULTS);
     var LABELS = {
         read: 'Прочитано', typing: '«Печатает…»', pauseMaxSec: 'Пауза «печатает»', useName: 'Имя клиента', phrases: 'Фразы «уточняю»',
         remindMin: 'Напоминание менеджерам', reactions: 'Итог реакцией', copyButton: 'Кнопка копирования логина',
+        admitLimit: 'Лимит новых клиентов', admitHours: 'Период лимита', llmBudgetUsd: 'Бюджет ChatGPT',
     };
 
     function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -31,6 +32,8 @@
             phrases: phrases.length ? phrases : DEFAULTS.phrases.slice(),
             remindMin: Math.round(num(r.remindMin, DEFAULTS.remindMin, 1, 120)),
             reactions: bool(r.reactions, DEFAULTS.reactions), copyButton: bool(r.copyButton, DEFAULTS.copyButton),
+            admitLimit: Math.round(num(r.admitLimit, DEFAULTS.admitLimit, 0, 100000)), admitHours: Math.round(num(r.admitHours, DEFAULTS.admitHours, 1, 72)),
+            llmBudgetUsd: Math.round(num(r.llmBudgetUsd, DEFAULTS.llmBudgetUsd, 0, 100000) * 100) / 100,
         };
     }
 
@@ -48,7 +51,7 @@
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
     }
 
-    var state = { sb: null, host: null, saved: clone(DEFAULTS), cur: clone(DEFAULTS), active: false, built: false, loadedFresh: false };
+    var state = { sb: null, host: null, saved: clone(DEFAULTS), cur: clone(DEFAULTS), active: false, built: false, loadedFresh: false, canPower: false, power: { known: false, on: false, busy: false, confirm: false, error: '' } };
 
     function readCache() { try { var r = JSON.parse(root.localStorage.getItem(CACHE_KEY) || 'null'); return r ? normalize(r) : null; } catch (e) { return null; } }
     function writeCache(s) { try { root.localStorage.setItem(CACHE_KEY, JSON.stringify(s)); } catch (e) { /* без кэша работает */ } }
@@ -68,6 +71,15 @@
         var h = '<div class="as-wrap">' +
             '<div class="as-head"><p>Как Алина отвечает клиентам и менеджерам. Изменения применяются в течение полуминуты.</p></div>' +
             '<div class="as-cols"><div class="as-stack">' +
+            '<section class="as-card" data-v="powercard" hidden><h3>Кому отвечает</h3>' +
+            '<div class="as-row"><div class="as-t"><b>Алина отвечает клиентам</b><span data-v="powersub">Проверяю состояние…</span></div>' +
+            '<label class="as-sw"><input type="checkbox" data-power="1"><u></u></label></div>' +
+            '<div class="as-confirm" data-v="confirm" hidden><b>Включить Алину для всех клиентов?</b><span>Она начнёт отвечать каждому, кто напишет в Business-чат. Чтобы подтвердить, введите слово «включить».</span>' +
+            '<div class="as-actions"><input type="text" data-v="word" placeholder="включить" autocomplete="off" aria-label="Подтверждение"><button type="button" class="as-btn as-ink" data-act="powerok">Подтвердить</button><button type="button" class="as-btn" data-act="powerno">Отмена</button></div><p class="as-err" data-v="powererr"></p></div></section>' +
+            '<section class="as-card"><h3>Клиенты и расход</h3>' +
+            numHtml('admitLimit', 'Лимит новых клиентов', '0 значит без лимита. Остальные ждут очереди и допускаются по мере освобождения', 'клиентов', 5, 0) +
+            numHtml('admitHours', 'Период лимита', 'За какое время считается лимит', 'ч', 1, 1) +
+            numHtml('llmBudgetUsd', 'Бюджет ChatGPT в месяц', '0 значит без ограничения. При превышении Алина отвечает по шаблонам и пишет вам в Telegram', '$', 5, 0) + '</section>' +
             '<section class="as-card"><h3>Как отвечает</h3>' +
             switchHtml('read', 'Отмечать прочитанным', 'Сообщение клиента помечается прочитанным до ответа') +
             switchHtml('typing', '«Печатает…» перед ответом', 'Индикатор виден в чате клиента') +
@@ -105,10 +117,34 @@
                 return '<span class="as-chip"><input type="text" data-p="' + i + '" value="' + esc(p) + '" aria-label="Фраза ' + (i + 1) + '" maxlength="120" style="width:' + Math.min(48, Math.max(12, p.length + 3)) + 'ch"><button type="button" data-del="' + i + '" aria-label="Удалить фразу">×</button></span>';
             }).join('');
         }
-        paintPreview();
+        paintPower(); paintPreview();
         var n = changedKeys(state.saved, s).length;
         q('[data-v="bar"]').hidden = n === 0;
         q('[data-v="cnt"]').textContent = 'Изменено: ' + n;
+    }
+
+    function paintPower() {
+        var card = q('[data-v="powercard"]'); if (!card) return;
+        card.hidden = !state.canPower; if (!state.canPower) return;
+        var p = state.power, sw = card.querySelector('[data-power]');
+        sw.checked = p.on; sw.disabled = p.busy || !p.known;
+        q('[data-v="powersub"]').textContent = !p.known ? 'Проверяю состояние…' : p.on ? 'Включено: отвечает всем, кто написал в Business-чат' : 'Выключено: отвечает только @nurcon на тестовый вопрос';
+        var box = q('[data-v="confirm"]'); box.hidden = !p.confirm; q('[data-v="powererr"]').textContent = p.error || '';
+    }
+
+    function loadPower() {
+        if (!state.canPower) return Promise.resolve();
+        return Promise.resolve(state.sb.functions.invoke('telegram-admin', { body: { action: 'list' } })).then(function (r) {
+            var bots = (r && r.data && r.data.bots) || [], a = bots.filter(function (b) { return b.id === 'alina'; })[0];
+            state.power.known = !!a; state.power.on = !!(a && a.is_enabled); if (state.active) paintPower();
+        }, function () { /* состояние не определилось: переключатель остаётся недоступным */ });
+    }
+    function setPower(on) {
+        state.power.busy = true; state.power.error = ''; paintPower();
+        return Promise.resolve(state.sb.functions.invoke('telegram-admin', { body: { action: on ? 'enable' : 'disable', bot_id: 'alina' } })).then(function (r) {
+            if (r && (r.error || (r.data && r.data.error))) throw new Error('fail');
+            state.power.on = on; state.power.confirm = false; state.power.busy = false; paintPower(); toast(on ? 'Алина включена для клиентов' : 'Алина выключена для клиентов');
+        }, function () { state.power.busy = false; state.power.error = 'Не получилось. Повторите.'; paintPower(); });
     }
 
     function paintPreview() {
@@ -147,8 +183,15 @@
             if (st) { var k = st.getAttribute('data-for'); setValue(k, Number(state.cur[k]) + Number(st.getAttribute('data-step'))); return; }
             var del = t.closest('[data-del]');
             if (del) { if (state.cur.phrases.length > 1) { state.cur.phrases.splice(Number(del.getAttribute('data-del')), 1); paintValues(); } return; }
+            var pw = t.closest('[data-power]');
+            if (pw) { if (pw.checked) { pw.checked = false; state.power.confirm = true; state.power.error = ''; paintPower(); var wi = q('[data-v="word"]'); if (wi) wi.focus(); } else setPower(false); return; }
             var act = t.closest('[data-act]'); if (!act) return;
             var a = act.getAttribute('data-act');
+            if (a === 'powerno') { state.power.confirm = false; state.power.error = ''; paintPower(); return; }
+            if (a === 'powerok') {
+                var w = q('[data-v="word"]'); if (String(w.value || '').trim().toLowerCase() !== 'включить') { state.power.error = 'Введите слово «включить» для подтверждения.'; paintPower(); return; }
+                w.value = ''; setPower(true); return;
+            }
             if (a === 'addPhrase') { state.cur.phrases.push('Сейчас уточню.'); q('[data-v="phrases"]').innerHTML = ''; paintValues(); }
             else if (a === 'undo') { state.cur = clone(state.saved); q('[data-v="phrases"]').innerHTML = ''; paintValues(); }
             else if (a === 'save') save();
@@ -200,13 +243,14 @@
 
     function show(opts) {
         if (!opts || !opts.host || !opts.supabase) return;
-        state.sb = opts.supabase; state.active = true;
+        state.sb = opts.supabase; state.active = true; state.canPower = !!opts.canPower;
         if (state.host !== opts.host) { state.host = opts.host; state.built = false; }
         if (!state.built) {
             var c = readCache(); if (c) { state.saved = c; state.cur = clone(c); }
             build();
         }
         paintValues();
+        loadPower();
         load().catch(function () { if (state.active && !state.loadedFresh) toast('Не удалось загрузить настройки, показаны сохранённые на этом устройстве'); });
     }
 

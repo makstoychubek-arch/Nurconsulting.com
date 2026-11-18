@@ -12,6 +12,12 @@ export type AlertSnapshot = {
     dbBytes: number;
     planBytes: number;
     access: { id: number; action: string; target: string | null; detail: string | null }[];
+    /** Обмен «Раздач» с листом Google по кабинетам. */
+    sheets?: { name: string; error: string | null; last_sync: string | null }[];
+    /** Расход ChatGPT за месяц и последняя ошибка. */
+    llm?: { costUsd: number; budgetUsd: number; lastError: string | null; lastErrorAt: string | null } | null;
+    /** Вебхук Алины в Telegram: очередь недоставленного и последняя ошибка. */
+    alinaHook?: { pending: number; error: string | null; errorAt: string | null } | null;
 };
 export type Alert = { key: string; fingerprint: string; text: string };
 
@@ -72,6 +78,43 @@ export function buildAlerts(s: AlertSnapshot): Alert[] {
             key: 'access', fingerprint: s.access.map((a) => a.id).join(','),
             text: 'Изменения доступа:\n' + s.access.map((a) => `• ${a.action === 'access_granted' ? 'выдан' : 'отозван'}: ${a.detail || '?'} → ${a.target || '?'}`).join('\n'),
         });
+    }
+    const gs = on(s, 'giveaway_sync');
+    if (gs && s.sheets?.length) {
+        const staleMs = (gs.threshold ?? 30) * 60 * 1000;
+        const bad = s.sheets.filter((x) => x.error || !x.last_sync || s.now.getTime() - new Date(x.last_sync).getTime() > staleMs);
+        if (bad.length) {
+            out.push({
+                key: 'giveaway_sync', fingerprint: bad.map((x) => x.name + (x.error ? String(x.error).slice(0, 30) : 'stale')).sort().join(','),
+                text: 'Обмен «Раздач» с Google не проходит:\n' + bad.map((x) => `• ${x.name}: ${x.error ? String(x.error).slice(0, 100) : 'давно нет обмена'}`).join('\n'),
+            });
+        }
+    }
+
+    const llm = on(s, 'llm');
+    if (llm && s.llm) {
+        const { costUsd, budgetUsd, lastError, lastErrorAt } = s.llm;
+        const todayErr = lastError && lastErrorAt && s.now.getTime() - new Date(lastErrorAt).getTime() < 24 * 3600 * 1000;
+        if (budgetUsd > 0 && costUsd >= budgetUsd) {
+            out.push({ key: 'llm', fingerprint: 'over', text: `Бюджет ChatGPT на месяц израсходован ($${costUsd.toFixed(2)} из $${budgetUsd.toFixed(2)}). Алина отвечает по шаблонам. Увеличьте бюджет в «Продвижение → Алина».` });
+        } else if (budgetUsd > 0 && costUsd / budgetUsd * 100 >= (llm.threshold ?? 80)) {
+            const pct = Math.round(costUsd / budgetUsd * 100);
+            out.push({ key: 'llm', fingerprint: 'pct' + Math.floor(pct / 10), text: `ChatGPT: израсходовано ${pct}% месячного бюджета ($${costUsd.toFixed(2)} из $${budgetUsd.toFixed(2)}).` });
+        } else if (todayErr && /insufficient_quota|invalid_api_key|incorrect_api_key/.test(String(lastError))) {
+            out.push({ key: 'llm', fingerprint: String(lastError), text: `ChatGPT не отвечает: ${/quota/.test(String(lastError)) ? 'закончились деньги на счёте OpenAI' : 'ключ не принят'}. Алина отвечает по шаблонам.` });
+        }
+    }
+
+    const hook = on(s, 'alina_hook');
+    if (hook && s.alinaHook) {
+        const limit = hook.threshold ?? 20;
+        const recentErr = !!s.alinaHook.error && !!s.alinaHook.errorAt && s.now.getTime() - new Date(s.alinaHook.errorAt).getTime() < 15 * 60 * 1000;
+        if (recentErr || s.alinaHook.pending > limit) {
+            out.push({
+                key: 'alina_hook', fingerprint: (recentErr ? String(s.alinaHook.error).slice(0, 40) : '') + (s.alinaHook.pending > limit ? 'q' : ''),
+                text: `Алина: Telegram не доставляет сообщения (в очереди ${s.alinaHook.pending}${recentErr ? ', ошибка: ' + String(s.alinaHook.error).slice(0, 100) : ''}).`,
+            });
+        }
     }
     return out;
 }

@@ -13,7 +13,15 @@ export type Deps = {
     set: (key: string, value: string, meta: Record<string, unknown>, by: string | null) => Promise<boolean>;
     remove: (key: string) => Promise<boolean>;
     activeSheetId: () => Promise<string | null>;
+    cabinets: () => Promise<Array<{ id: string; name: string }>>;
+    links: () => Promise<Array<{ cabinet_id: string; sheet_id: string; tab: string; enabled: boolean; last_sync_at: string | null; last_error: string | null }>>;
+    linkSheet: (cabinetId: string, sheetId: string, tab: string) => Promise<boolean>;
+    unlinkSheet: (cabinetId: string) => Promise<boolean>;
+    usage: () => Promise<{ costUsd: number; todayUsd: number; calls: number; errors: number; lastError: string | null; lastErrorAt: string | null } | null>;
+    budget: () => Promise<number>;
   };
+  /** Проверка листа аккаунтом Google: доступ, вкладки, найдена ли шапка «Раздачи». */
+  checkSheetTab: (token: string, sheetId: string, tab: string) => Promise<{ ok: boolean; title?: string; tabs?: string[]; hasTab?: boolean; header?: boolean; rows?: number }>;
   envHas: (name: string) => boolean;
   fetch: (url: string, init?: RequestInit) => Promise<Response>;
   googleToken: (json: string) => Promise<string>;
@@ -59,6 +67,13 @@ async function checkSheet(deps: Deps, token: string): Promise<SheetCheck> {
   return { sheet: true, title: data?.properties?.title };
 }
 
+export function extractSheetId(raw: string): string | null {
+  const s = raw.trim();
+  const m = s.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (m) return m[1];
+  return /^[a-zA-Z0-9-_]{25,}$/.test(s) ? s : null;
+}
+
 export function parseServiceAccount(raw: string): { email: string; project: string | null } | null {
   try {
     const j = JSON.parse(raw);
@@ -84,7 +99,13 @@ export async function handleIntegrations(body: Record<string, unknown>, deps: De
         ? { configured: true, source: 'db', meta: r.meta || {}, updated_at: r.updated_at }
         : deps.envHas(env) ? { configured: true, source: 'env', meta: {}, updated_at: null } : { configured: false, source: 'none', meta: {}, updated_at: null };
     };
-    return ok({ openai: item(OPENAI, 'OPENAI_API_KEY'), google: item(GOOGLE, 'GOOGLE_SERVICE_ACCOUNT_JSON'), models: OPENAI_MODELS });
+    const [cabinets, links, usage, budget] = await Promise.all([deps.db.cabinets(), deps.db.links(), deps.db.usage(), deps.db.budget()]);
+    const linkBy = new Map(links.map((l) => [l.cabinet_id, l]));
+    return ok({
+      openai: item(OPENAI, 'OPENAI_API_KEY'), google: item(GOOGLE, 'GOOGLE_SERVICE_ACCOUNT_JSON'), models: OPENAI_MODELS,
+      llm: usage ? { ...usage, budgetUsd: budget } : null,
+      sheets: cabinets.map((c) => ({ id: c.id, name: c.name, link: linkBy.get(c.id) ?? null })),
+    });
   }
 
   if (action === 'set_openai') {
@@ -132,6 +153,36 @@ export async function handleIntegrations(body: Record<string, unknown>, deps: De
       }
     }
     return fail(400, 'Неизвестная интеграция.');
+  }
+
+  if (action === 'link_sheet') {
+    const cabinetId = String(body.cabinet_id || '');
+    const sheetId = extractSheetId(String(body.sheet || ''));
+    const tab = String(body.tab || 'Раздачи').trim().slice(0, 80) || 'Раздачи';
+    if (!cabinetId) return fail(400, 'Выберите кабинет.');
+    if (!sheetId) return fail(400, 'Не вижу ссылку на таблицу Google. Вставьте адрес из браузера или её идентификатор.');
+    const cabinets = await deps.db.cabinets();
+    if (!cabinets.some((c) => c.id === cabinetId)) return fail(404, 'Кабинет не найден.');
+    const links = await deps.db.links();
+    if (links.some((l) => l.sheet_id === sheetId && l.cabinet_id !== cabinetId)) return fail(409, 'Эта таблица уже привязана к другому кабинету.');
+    const raw = await deps.db.get(GOOGLE);
+    if (!raw) return fail(400, 'Сначала подключите Google-аккаунт для таблиц.');
+    let token: string;
+    try { token = await deps.googleToken(raw); } catch { return fail(400, 'Google не принял сохранённый ключ. Загрузите новый.'); }
+    const email = parseServiceAccount(raw)?.email || 'сервисного аккаунта';
+    const check = await deps.checkSheetTab(token, sheetId, tab);
+    if (!check.ok) return fail(400, `Таблица недоступна. Откройте доступ к ней для адреса ${email} и повторите.`);
+    if (!check.hasTab) return fail(400, `В таблице нет листа «${tab}». Есть: ${(check.tabs || []).slice(0, 8).join(', ') || 'пусто'}.`);
+    if (!check.header) return fail(400, `На листе «${tab}» не найдена шапка (ТОВАР, Ссылка ТГ, Дата заказа).`);
+    if (!await deps.db.linkSheet(cabinetId, sheetId, tab)) return fail(500, 'Не удалось сохранить привязку. Повторите.');
+    return ok({ title: check.title, rows: check.rows ?? 0 });
+  }
+
+  if (action === 'unlink_sheet') {
+    const cabinetId = String(body.cabinet_id || '');
+    if (!cabinetId) return fail(400, 'Выберите кабинет.');
+    if (!await deps.db.unlinkSheet(cabinetId)) return fail(500, 'Не удалось отвязать. Повторите.');
+    return ok();
   }
 
   if (action === 'remove') {

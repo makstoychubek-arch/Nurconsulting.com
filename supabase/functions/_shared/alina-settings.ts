@@ -13,6 +13,9 @@ export type AlinaSettings = {
   remindMin: number; // напомнить менеджерам, минут
   reactions: boolean; // итог реакцией ❤ / 👎
   copyButton: boolean; // кнопка «Скопировать @логин»
+  admitLimit: number; // новых клиентов за период, 0 = без лимита (читает и функция базы alina_admit_chat)
+  admitHours: number; // период лимита, часы
+  llmBudgetUsd: number; // месячный бюджет ChatGPT в долларах, 0 = без ограничения
 };
 
 export const ALINA_DEFAULTS: AlinaSettings = {
@@ -24,6 +27,9 @@ export const ALINA_DEFAULTS: AlinaSettings = {
   remindMin: 10,
   reactions: true,
   copyButton: true,
+  admitLimit: 30,
+  admitHours: 3,
+  llmBudgetUsd: 0,
 };
 
 function bool(v: unknown, d: boolean): boolean {
@@ -50,6 +56,9 @@ export function normalizeAlinaSettings(raw: Record<string, unknown> | null | und
     remindMin: Math.round(num(r.remindMin, ALINA_DEFAULTS.remindMin, 1, 120)),
     reactions: bool(r.reactions, ALINA_DEFAULTS.reactions),
     copyButton: bool(r.copyButton, ALINA_DEFAULTS.copyButton),
+    admitLimit: Math.round(num(r.admitLimit, ALINA_DEFAULTS.admitLimit, 0, 100000)),
+    admitHours: Math.round(num(r.admitHours, ALINA_DEFAULTS.admitHours, 1, 72)),
+    llmBudgetUsd: Math.round(num(r.llmBudgetUsd, ALINA_DEFAULTS.llmBudgetUsd, 0, 100000) * 100) / 100,
   };
 }
 

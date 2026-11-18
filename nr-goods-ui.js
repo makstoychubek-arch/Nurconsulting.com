@@ -245,7 +245,7 @@
         Array.prototype.forEach.call(bar.children, function (x) { x.classList.toggle('is-on', x.getAttribute('data-av') === which); });
         give.hidden = which !== 'give'; content.hidden = which !== 'content';
         if (alina) alina.hidden = which !== 'alina';
-        if (root.NrAlinaSettings) { if (which === 'alina' && alina) root.NrAlinaSettings.show({ host: alina, supabase: db() }); else root.NrAlinaSettings.hide(); }
+        if (root.NrAlinaSettings) { if (which === 'alina' && alina) root.NrAlinaSettings.show({ host: alina, supabase: db(), canPower: (function () { try { return typeof isSuperAdmin !== 'undefined' && isSuperAdmin === true; } catch (e) { return false; } })() }); else root.NrAlinaSettings.hide(); }
         view.style.display = which === 'ads' ? '' : 'none';
         if (which === 'give' && root.NrGiveaways && cab()) root.NrGiveaways.show({ host: give, supabase: db(), cabinetId: cab() });
         else if (root.NrGiveaways) root.NrGiveaways.hide();

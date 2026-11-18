@@ -1,6 +1,7 @@
 // «Мозг» Алины: понимает свободный текст клиента и отвечает как живой менеджер.
 // CRM-статусы и слоты по-прежнему решает state-machine; мозг — смысл + формулировка.
 import { secretOrEnv } from './integration-secrets.ts';
+import { llmBudgetOk, openAiErrorCode, recordLlmUsage } from './llm-usage.ts';
 
 export type BrainAction =
   | 'reply_only' // просто ответить, статус не менять
@@ -44,6 +45,7 @@ export async function alinaBrain(opts: {
   const apiKey = await secretOrEnv('OPENAI_API_KEY');
   if (!apiKey) return empty;
   if (!opts.text.trim() && !opts.hasPhoto) return empty;
+  if (!await llmBudgetOk()) return empty; // бюджет месяца израсходован: отвечаем по шаблонам
 
   const model = (Deno.env.get('ALINA_BRAIN_MODEL') ||
     Deno.env.get('OPENAI_MODEL') ||
@@ -120,14 +122,16 @@ export async function alinaBrain(opts: {
     const raw = await res.text();
     if (!res.ok) {
       console.warn('[alina-brain]', res.status, raw.slice(0, 200));
+      await recordLlmUsage(model, null, openAiErrorCode(res.status, raw));
       return empty;
     }
-    let data: { choices?: Array<{ message?: { content?: string } }> };
+    let data: { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     try {
       data = JSON.parse(raw);
     } catch {
       return empty;
     }
+    await recordLlmUsage(model, data?.usage);
     const content = String(data?.choices?.[0]?.message?.content ?? '').trim();
     if (!content) return empty;
     let parsed: Record<string, unknown>;
