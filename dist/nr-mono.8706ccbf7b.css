@@ -2919,3 +2919,7 @@ html body #tab-dashboard .pnl-grid.ff-row { min-height: 60px; }
   html body .main-rail .main-content:not(#nr-x) { --nr-pt: 62px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent calc(var(--nr-pt) - 6px), #000 var(--nr-pt)); mask-image: linear-gradient(to bottom, transparent 0, transparent calc(var(--nr-pt) - 6px), #000 var(--nr-pt)); }
   html body:has(.nr-crumbs.on) .main-rail .main-content:not(#nr-x), html.nr-f-crumb body .main-rail .main-content:not(#nr-x) { --nr-pt: 82px; }
 }
+
+/* Площадка без подключения у кабинета: кнопка серая и не нажимается (подсказка: «Ozon не подключён») */
+html body .nr-mp button.is-na { opacity: .35; cursor: not-allowed; }
+html body .nr-mp button.is-na:hover { background: transparent; }
