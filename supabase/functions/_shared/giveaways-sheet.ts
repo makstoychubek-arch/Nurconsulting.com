@@ -223,3 +223,61 @@ export function planSync(opts: {
   if (plan.deleteDb.length > 0 && (dataRows < db.length * 0.5)) { plan.deleteDb = []; plan.skippedDelete = true; }
   return plan;
 }
+
+// ── Оформление листа: шрифт, размер, высота строк, ширина колонок, цвета ─────────────────────────────
+
+export type SheetFormat = {
+  font: string | null; // «Times New Roman»
+  size: number | null; // кегль ячеек данных, pt
+  headerSize: number | null;
+  headerBold: boolean;
+  headerBg: string | null; // «#d9ead3»
+  rowBg: string | null;
+  headerH: number | null; // px
+  rowH: number | null; // px
+  cols: Record<string, number>; // поле → ширина колонки, px
+};
+
+type ApiColor = { red?: number; green?: number; blue?: number } | undefined;
+type ApiCell = { effectiveFormat?: { textFormat?: { fontFamily?: string; fontSize?: number; bold?: boolean }; backgroundColor?: ApiColor } };
+type ApiGrid = { rowData?: Array<{ values?: ApiCell[] }>; rowMetadata?: Array<{ pixelSize?: number }>; columnMetadata?: Array<{ pixelSize?: number }>; startRow?: number; startColumn?: number };
+
+function hex(c: ApiColor): string | null {
+  if (!c) return null;
+  const h = (v?: number) => Math.round(Math.min(1, Math.max(0, v ?? 0)) * 255).toString(16).padStart(2, '0');
+  return `#${h(c.red)}${h(c.green)}${h(c.blue)}`;
+}
+
+/**
+ * Разбирает ответ spreadsheets.get с gridData запрошенного диапазона A1:… (строки с первой).
+ * Шапка берётся по номеру строки из раскладки, данные по первой строке под шапкой.
+ */
+export function parseSheetFormat(api: { sheets?: Array<{ data?: ApiGrid[] }> } | null | undefined, layout: Layout): SheetFormat | null {
+  const grid = api?.sheets?.[0]?.data?.[0];
+  if (!grid) return null;
+  const rows = grid.rowData || [];
+  const headRow = rows[layout.headerRow - 1];
+  const dataRow = rows[layout.headerRow];
+  const cell = (row: { values?: ApiCell[] } | undefined, col: number) => row?.values?.[col]?.effectiveFormat;
+  const nameCol = layout.col.model ?? 0;
+  const hf = cell(headRow, nameCol), df = cell(dataRow, nameCol);
+  const pt = (n?: number) => (typeof n === 'number' && n > 0 ? n : null);
+  const px = (n?: number) => (typeof n === 'number' && n > 0 ? Math.round(n) : null);
+  const cols: Record<string, number> = {};
+  for (const [field, idx] of Object.entries(layout.col)) {
+    const w = px(grid.columnMetadata?.[idx]?.pixelSize);
+    if (w) cols[field] = w;
+  }
+  const out: SheetFormat = {
+    font: (df?.textFormat?.fontFamily || hf?.textFormat?.fontFamily || null),
+    size: pt(df?.textFormat?.fontSize),
+    headerSize: pt(hf?.textFormat?.fontSize),
+    headerBold: Boolean(hf?.textFormat?.bold),
+    headerBg: hex(hf?.backgroundColor),
+    rowBg: hex(df?.backgroundColor),
+    headerH: px(grid.rowMetadata?.[layout.headerRow - 1]?.pixelSize),
+    rowH: px(grid.rowMetadata?.[layout.headerRow]?.pixelSize),
+    cols,
+  };
+  return out.font || out.size || out.rowH || Object.keys(cols).length ? out : null;
+}
