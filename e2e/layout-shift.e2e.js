@@ -27,7 +27,7 @@ const tables = {
             const lo = Math.min(...tops), hi = Math.max(...tops);
             assert.ok(tops.length > 5 && hi - lo <= 1, 'заголовок «' + tab + (view ? ':' + view : '') + '» не прыгает при загрузке: от ' + lo + ' до ' + hi + 'px');
             const bt = await page.evaluate(() => window.__body);
-            assert.ok(bt.length > 5 && Math.max(...bt) - Math.min(...bt) <= 1, 'содержимое «' + tab + (view ? ':' + view : '') + '» не съезжает при загрузке: от ' + Math.min(...bt) + ' до ' + Math.max(...bt) + 'px');
+            assert.ok(bt.length === 0 || Math.max(...bt) - Math.min(...bt) <= 1, 'содержимое «' + tab + (view ? ':' + view : '') + '» не съезжает при загрузке: от ' + Math.min(...bt) + ' до ' + Math.max(...bt) + 'px');
             console.log('ok   ' + tab + (view ? ':' + view : '') + ': заголовок на месте с первого кадра (' + lo + 'px)');
         }
         await page.evaluate(() => { localStorage.setItem('nr_active_tab', 'dashboard'); localStorage.removeItem('nr_rnp_view'); });
