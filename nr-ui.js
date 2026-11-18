@@ -14,6 +14,7 @@
     var GLYPH = { success: '✓', error: '!', warning: '!', info: 'i' };
 
     var css =
+        '.nru-wrap[popover],.nru-ov[popover]{border:0;margin:0;padding:0;background:transparent;color:inherit;overflow:visible;max-width:none;max-height:none;width:auto;height:auto}.nru-wrap[popover]{inset:auto;top:16px;right:16px;overflow:hidden;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px)}@media (max-width:640px){.nru-wrap[popover]{inset:auto 12px auto 12px;top:calc(env(safe-area-inset-top,0px) + 8px);max-width:none}}.nru-ov[popover]{inset:0;width:100%;height:100%;padding:16px}' +
         '.nru-wrap{position:fixed;top:16px;right:16px;z-index:100000;display:flex;flex-direction:column;gap:10px;pointer-events:none;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:hidden}' +
         '.nru-toast,.nru-dlg,.nru-win{font:13px/1.45 var(--font-ui,Inter,system-ui,sans-serif);color:var(--text-primary,#111)}' +
         '.nru-toast{pointer-events:auto;width:344px;max-width:100%;display:flex;gap:12px;align-items:flex-start;padding:12px 14px 14px;background:var(--surface-solid,#fff);' +
@@ -34,7 +35,7 @@
         '.nru-ov{position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;padding:16px;background:transparent;opacity:0;transition:opacity .2s ease}' +
         '.nru-ov.on{opacity:1}.nru-ov.on .nru-dlg,.nru-ov.on .nru-win{transform:none;opacity:1}' +
         '.nru-dlg,.nru-win{background:var(--surface-solid,#fff);border:1.5px solid var(--text-primary,#0b0b0b);border-radius:26px;box-shadow:none;' +
-        'transform:translateY(10px) scale(.97);opacity:0;transition:opacity .22s ease,transform .26s cubic-bezier(.2,.8,.2,1);max-width:100%}' +
+        'transform:translateY(10px) scale(.97);opacity:0;transition:opacity .16s ease,transform .18s cubic-bezier(.2,.8,.2,1);max-width:100%}' +
         '.nru-dlg{width:400px;padding:22px 24px;text-align:left}.nru-dlg.static,.nru-win.static{transform:none;opacity:1}' +
         '.nru-dlg .fx{display:flex;justify-content:center;margin:-6px 0 4px}' +
         '.nru-dlg h3{margin:0 0 8px;font-size:22px;font-weight:900;letter-spacing:-.01em}.nru-dlg p{margin:0;color:var(--text-secondary,#3f3f46);font-size:14px;line-height:1.5}' +
@@ -53,6 +54,15 @@
     function el(tag, cls, html) { var e = doc.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
     function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     var wrap = null, n = 0;
+    /* Окно кампании открыто в верхнем слое браузера (popover): уведомления и подтверждения поднимаем туда же, иначе они окажутся под ним. */
+    function lift(e) {
+        try {
+            if (!e || typeof e.showPopover !== 'function') return;
+            if (!e.hasAttribute('popover')) e.setAttribute('popover', 'manual');
+            if (e.matches(':popover-open')) e.hidePopover();
+            e.showPopover();
+        } catch (err) { /* остаётся fixed */ }
+    }
     function wrapEl() { if (!wrap || !wrap.isConnected) { wrap = el('div', 'nru-wrap'); wrap.setAttribute('aria-live', 'polite'); doc.body.appendChild(wrap); } return wrap; }
 
     /* ───── Уведомление ───── */
@@ -80,7 +90,7 @@
         }
         t.querySelector('.nru-x').addEventListener('click', function () { h.close(); });
         if (opts.preview) { t.classList.add('static'); if (!(opts.duration || DUR[type]) || opts.sticky || opts.loading) t.classList.add('sticky'); opts.preview.appendChild(t); h.close = function () {}; return h; }
-        var w = wrapEl();
+        var w = wrapEl(); lift(w);
         if (opts.key) { var ex = null; for (var i = 0; i < w.children.length; i++) { if (w.children[i].getAttribute('data-k') === String(opts.key)) { ex = w.children[i]; break; } } if (ex) ex.remove(); t.setAttribute('data-k', opts.key); }
         while (w.children.length >= 4) w.firstChild.remove();
         w.appendChild(t);
@@ -121,7 +131,7 @@
     /* ───── Подтверждение ───── */
     function overlay(content, onClose, preview) {
         if (preview) { content.classList.add('static'); preview.appendChild(content); return { close: function () {} }; }
-        var ov = el('div', 'nru-ov'); ov.appendChild(content); doc.body.appendChild(ov);
+        var ov = el('div', 'nru-ov'); ov.appendChild(content); doc.body.appendChild(ov); lift(ov);
         var prev = doc.activeElement;
         function close(v) { doc.removeEventListener('keydown', key, true); ov.classList.remove('on'); setTimeout(function () { ov.remove(); }, 220); try { prev && prev.focus && prev.focus(); } catch (e) {} onClose && onClose(v); }
         function key(e) { if (e.key === 'Escape') { e.stopPropagation(); close(false); } }
@@ -203,6 +213,70 @@
         var verb = (m.match(DANGER) || [])[1];
         return confirmDlg({ title: title, text: text, danger: o.danger != null ? o.danger : !!verb, confirmLabel: o.confirmLabel || (verb ? verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase() : 'Подтвердить'), cancelLabel: o.cancelLabel });
     }
+
+    // Масштаб страницы: ползунок рядом с кабинетом меняет масштаб только содержимого вкладок (меню и шапка остаются), один на все страницы.
+    (function pageZoom() {
+        var KEY = 'nr_page_zoom';
+        var d = root.document; if (!d) return;
+        function get() { var z = 1; try { z = Number(root.localStorage.getItem(KEY)) || 1; } catch (_) { /* без памяти */ } return z >= 0.25 && z <= 2 ? z : 1; }
+        var raf = 0;
+        function apply(z) {
+            d.documentElement.style.setProperty('--nr-zoom', String(z));
+            var r = d.getElementById('nr-zoom-r'); if (r) { r.value = String(Math.round(z * 100)); r.title = 'Масштаб ' + Math.round(z * 100) + '% (двойной клик — 100%)'; r.style.setProperty('--p', ((z * 100 - 25) / 175 * 100) + '%'); }
+            if (raf) return;
+            raf = root.requestAnimationFrame(function () { raf = 0; try { root.dispatchEvent(new root.Event('resize')); } catch (_) { /* старый браузер */ } });
+        }
+        function set(z) { try { root.localStorage.setItem(KEY, String(z)); } catch (_) { /* без памяти */ } apply(z); }
+        function init() {
+            var r = d.getElementById('nr-zoom-r'); if (!r || r.__z) return; r.__z = 1;
+            apply(get());
+            r.addEventListener('input', function () { set(Number(r.value) / 100); });
+            r.addEventListener('dblclick', function () { set(1); });
+        }
+        if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', init); else init();
+    })();
+
+    // Правило сайта: у каждой модалки размывается фон. Любой новый полноэкранный слой, добавленный в <body>, получает метку data-nr-blur (CSS в nr-mono.css).
+    (function blurSafetyNet() {
+        var d = root.document;
+        if (!d || !root.MutationObserver || !d.body) return;
+        function check(el) {
+            if (!el || el.nodeType !== 1 || el.hasAttribute('data-nr-blur') || el.id === 'nr-splash' || el.classList.contains('nra')) return;
+            try {
+                var cs = root.getComputedStyle(el);
+                if (cs.position !== 'fixed' || (parseInt(cs.zIndex, 10) || 0) < 100) return;
+                var r = el.getBoundingClientRect();
+                if (r.width >= root.innerWidth * 0.95 && r.height >= root.innerHeight * 0.95) el.setAttribute('data-nr-blur', '');
+            } catch (e) { /* без метки */ }
+        }
+        new root.MutationObserver(function (list) { list.forEach(function (m) { m.addedNodes.forEach(check); }); }).observe(d.body, { childList: true });
+    })();
+
+    // Ошибки консоли (красные и ошибки API) уходят в базу пачкой раз в минуту, без адресов с параметрами (по просьбе владельца): чиним до скрина.
+    (function () {
+        var buf = {}, timer = 0, sent = 0;
+        function add(msg, src) {
+            msg = String(msg || '').replace(/\s+/g, ' ').slice(0, 300);
+            if (!msg || /ResizeObserver|Script error|Non-Error promise/i.test(msg)) return;
+            var b = buf[msg] || (buf[msg] = { msg: msg, src: String(src || '').replace(/[?#].*$/, '').slice(-120), n: 0 }); b.n++;
+            if (!timer) timer = setTimeout(flush, 60000);
+        }
+        function flush() {
+            timer = 0;
+            var rows = Object.keys(buf).slice(0, 20).map(function (k) { return buf[k]; }); buf = {};
+            var sb = root.supabase; if (!rows.length || !sb || !sb.rpc || sent > 30) return; sent++;
+            try { sb.rpc('log_client_errors', { p_rows: rows, p_cabinet: root.currentCabinetId || null, p_mp: root.NrMp ? root.NrMp.get() : null, p_page: (root.getCurrentActiveTab ? root.getCurrentActiveTab() : '') || null }).then(function () {}, function () {}); } catch (e) { /* не мешаем сайту */ }
+        }
+        root.addEventListener('error', function (e) { add(e.message, e.filename); });
+        root.addEventListener('unhandledrejection', function (e) { add('rejection: ' + ((e.reason && e.reason.message) || e.reason), ''); });
+        ['error', 'warn'].forEach(function (lv) {
+            var orig = root.console && root.console[lv]; if (!orig) return;
+            root.console[lv] = function () {
+                try { var t = [].slice.call(arguments).map(function (a) { return a && a.message ? a.message : typeof a === 'object' ? '' : String(a); }).join(' '); if (lv === 'error' || /error|API [45]\d\d|failed|не удалось/i.test(t)) add('[' + lv + '] ' + t, 'console'); } catch (e) { /* ок */ }
+                return orig.apply(root.console, arguments);
+            };
+        });
+    })();
 
     root.NrUi = { toast: toast, confirm: confirmDlg, dialog: dialog, alert: alertFn, ask: ask, notice: notice };
 })(typeof window !== 'undefined' ? window : globalThis);

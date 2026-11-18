@@ -50,6 +50,20 @@ test('список тестов обновляется патчем, а не п�
     assert.ok(survived, 'узел карточки должен быть тем же самым DOM-элементом после повторной отрисовки (без мигания)');
 });
 
+test('сразу после создания теста каркас фото на месте: превью и кольцо, пока фото грузятся', async ({ page }) => {
+    const r = await page.evaluate(() => {
+        const t = { id: 'tmp-1', cabinet_id: currentCabinetId, nm_id: '1', product_name: 'Новый', status: 'active', rotation_interval_min: 15, started_at: new Date().toISOString(), settings: {}, variants: [] };
+        abPending['tmp-1'] = { previews: ['https://example.test/p1.jpg', '', 'https://example.test/p3.jpg'] };
+        allABTests.unshift(t); renderABTests();
+        const c = document.getElementById('abtest-card-tmp-1');
+        const out = { tiles: c ? c.querySelectorAll('.abtest-variant.is-pending').length : -1, rings: c ? c.querySelectorAll('.abtest-pend-ring').length : -1, imgs: c ? c.querySelectorAll('.abtest-variant img').length : -1 };
+        delete abPending['tmp-1']; allABTests = allABTests.filter((x) => x !== t); renderABTests();
+        out.gone = !document.getElementById('abtest-card-tmp-1');
+        return out;
+    });
+    assert.deepStrictEqual(r, { tiles: 3, rings: 3, imgs: 2, gone: true }, JSON.stringify(r));
+});
+
 test('«Удалить» убирает карточку сразу, не дожидаясь ответа сервера', async ({ page }) => {
     const t0 = Date.now();
     // Не ждём завершения всей цепочки запросов — только запускаем её, как реальный клик по кнопке.

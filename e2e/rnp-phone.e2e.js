@@ -38,6 +38,31 @@ const tables = {
         assert.ok(saved.length > 1000, 'снимок экрана сохранён');
         assert.ok(!/rnp-sheet-body--swap|nr-stale/.test(saved), 'в сохранённом снимке нет классов приглушения');
         console.log('ok   телефон: снимок экрана не хранит приглушение');
+        // последняя строка таблицы при прокрутке до конца видна над нижним меню
+        const endRow = await page.evaluate(async () => { const b = document.getElementById('rnp-sheet-body'); b.scrollTop = b.scrollHeight; await new Promise((r) => setTimeout(r, 200)); const rows = [...b.querySelectorAll('tbody tr')]; const last = rows[rows.length - 1].getBoundingClientRect(), nav = document.getElementById('nr-bottom-nav').getBoundingClientRect(); return { last: Math.round(last.bottom), nav: Math.round(nav.top) }; });
+        assert.ok(endRow.last <= endRow.nav + 2, 'последняя строка РНП не прячется под нижним меню: ' + JSON.stringify(endRow));
+        console.log('ok   телефон: последняя строка таблицы видна над нижним меню');
+        // названия метрик читаются: колонка названий не обрезает слова
+        const clipped = await page.evaluate(() => [...document.querySelectorAll('.rnp-sheet-table .rnp-metric-col')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent.trim().slice(0, 30)));
+        assert.deepStrictEqual(clipped, [], 'названия метрик на телефоне помещаются в колонку: ' + clipped.join(', '));
+        const mw = await page.evaluate(() => document.querySelector('.rnp-sheet-table .rnp-metric-col').getBoundingClientRect().width);
+        assert.ok(mw >= 110, 'колонка названий достаточно широкая: ' + mw);
+        console.log('ok   телефон: названия метрик читаются');
+        // пока идёт прокрутка, перерисовка листа откладывается и выполняется после остановки
+        const defer = await page.evaluate(async () => {
+            const body = document.getElementById('rnp-sheet-body');
+            body.dispatchEvent(new Event('scroll'));
+            const mark = body.querySelector('tbody tr'); mark.__m = 1;
+            const before = body.querySelectorAll('tbody tr').length;
+            RNP.toggleSplit('delivery_sum');
+            const immediate = body.querySelectorAll('tbody tr').length;
+            await new Promise((r) => setTimeout(r, 600));
+            const after = body.querySelectorAll('tbody tr').length;
+            RNP.toggleSplit('delivery_sum');
+            return { before, immediate, after };
+        });
+        assert.ok(defer.immediate === defer.before && defer.after !== defer.before, 'во время прокрутки лист не перерисовывается, после остановки обновляется: ' + JSON.stringify(defer));
+        console.log('ok   телефон: во время прокрутки лист не перерисовывается');
         // жест почти по диагонали, но больше вправо: едет только вправо, вертикаль не плывёт
         const cdp = await page.context().newCDPSession(page);
         const pos = () => page.evaluate(() => { const b = document.getElementById('rnp-sheet-body'); return { l: b.scrollLeft, t: b.scrollTop, sw: b.scrollWidth - b.clientWidth, sh: b.scrollHeight - b.clientHeight }; });
@@ -55,6 +80,21 @@ const tables = {
         const restored = await page.evaluate(() => document.getElementById('rnp-sheet-body').style.overflowY);
         assert.strictEqual(restored, '', 'после жеста вертикальная прокрутка возвращена');
         console.log('ok   телефон: горизонтальный жест едет вбок и не трогает вертикаль (замок оси не ломает прокрутку)');
+        // вертикальный жест после сдвига вправо: горизонтальная позиция остаётся (раньше на iPhone сбрасывалась к названиям строк),
+        // а стили overflow у таблицы не трогаются
+        await page.evaluate(() => { const b = document.getElementById('rnp-sheet-body'); b.scrollLeft = Math.min(120, b.scrollWidth - b.clientWidth); });
+        await page.waitForTimeout(200);
+        const mid = await pos();
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(box.x, box.y + 80) });
+        for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(box.x - i * 2, box.y + 80 - i * 14) });
+        const midStyle = await page.evaluate(() => { const b = document.getElementById('rnp-sheet-body'); return b.style.overflowX + '|' + b.style.overflowY; });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.waitForTimeout(600);
+        const down = await pos();
+        assert.ok(mid.l > 50, 'таблица сдвинута вправо: ' + JSON.stringify(mid));
+        assert.ok(Math.abs(down.l - mid.l) < 4, 'после вертикального жеста горизонтальная позиция не сбросилась: ' + JSON.stringify([mid, down]));
+        assert.strictEqual(midStyle, '|', 'во время жеста стили overflow таблицы не меняются: ' + midStyle);
+        console.log('ok   телефон: вертикальный свайп не сбрасывает горизонтальную позицию таблицы');
         const ov = await page.evaluate(() => getComputedStyle(document.getElementById('rnp-sheet-body')).overscrollBehaviorX);
         assert.strictEqual(ov, 'none', 'таблица не тянется за край (нет пустого угла): ' + ov);
         console.log('ok   телефон: таблицу нельзя оттянуть за край');
@@ -65,18 +105,16 @@ const tables = {
         await page.evaluate(() => RNP.openPlanFact());
         await page.locator('.pf-sheet .pf-b').first().waitFor({ state: 'visible', timeout: 5000 });
         await page.waitForTimeout(600);
+        // План/факт теперь открывается отдельной страницей (вкладка), а не окном: на телефоне она помещается в ширину экрана
         const pf = await page.evaluate(() => {
-            const d = document.querySelector('.rnp-plan-fact-dialog').getBoundingClientRect();
+            const sheet = document.querySelector('.pf-scroll').getBoundingClientRect();
             const b = document.querySelector('.pf-sheet tbody td.pf-b').getBoundingClientRect();
             const back = document.querySelector('.pf-back').getBoundingClientRect();
-            return { dl: d.left, dw: d.width, vw: innerWidth, bw: b.width, bl: back.left, bt: back.top, bv: back.width > 0, ov: getComputedStyle(document.querySelector('.pf-scroll')).overscrollBehaviorX };
+            return { sl: sheet.left, sw: sheet.width, vw: innerWidth, bw: b.width, bl: back.left, bt: back.top, bv: back.width > 0, ov: getComputedStyle(document.querySelector('.pf-scroll')).overscrollBehaviorX, title: document.getElementById('page-title').textContent.trim() };
         });
-        assert.ok(Math.abs(pf.dl) < 1 && Math.abs(pf.dw - pf.vw) < 1, 'план/факт на весь экран: ' + JSON.stringify(pf));
+        assert.ok(pf.sl >= 0 && pf.sl + pf.sw <= pf.vw + 1 && /План/.test(pf.title), 'план/факт открыт страницей, прокручиваемая область не шире экрана: ' + JSON.stringify(pf));
         assert.ok(pf.bw <= 96, 'столбец артикулов узкий: ' + pf.bw);
-        assert.ok(pf.bv && pf.bl < 16 && pf.bt < 24, '«Назад» на краю сверху: ' + JSON.stringify(pf));
-        assert.strictEqual(pf.ov, 'none', 'таблицу плана нельзя оттянуть за край');
-        await page.locator('.pf-back').click();
-        assert.strictEqual(await page.evaluate(() => document.getElementById('rnp-plan-fact-overlay').classList.contains('is-open')), false, '«Назад» закрывает план/факт');
+        assert.ok(pf.bv && pf.bl < 40 && pf.bt < 160, '«Назад» вверху слева: ' + JSON.stringify(pf));
         console.log('ok   телефон: план/факт на весь экран, «Назад» на краю, узкий столбец артикулов');
         // Общий замок оси: любой прокручиваемый блок (например в РК) на телефоне едет по одной оси за жест
         await page.evaluate(() => {
@@ -110,6 +148,7 @@ const tables = {
         const prevented = await page.evaluate(() => { document.getElementById('free-probe').remove(); return window.__tmPrevented; });
         assert.ok(prevented > 0, 'горизонтальный жест вне прокручиваемых блоков гасится: ' + prevented);
         console.log('ok   телефон: экран целиком не уезжает вбок во всех разделах');
+        await page.evaluate(() => showTab('rnp')); await page.waitForSelector('.rnp-ph2-bar', { state: 'visible', timeout: 8000 }); await page.waitForTimeout(500);
         // свёрнутая шапка: стрелка раскрывает панель с ответственным, статусом, ценой и заметками
         const vis = () => page.evaluate(() => { const e = document.querySelector('.rnp-ph2-panel .rnp-ph2-meta'); return !!e && e.getBoundingClientRect().height > 10; });
         assert.strictEqual(await vis(), false, 'панель закрыта');

@@ -71,7 +71,7 @@ assert.ok(/id="settings-tab-btn-tariffs"/.test(html) && !html.includes('data-fly
     'Тарифы живут в Настройках; кнопки BETA на левой панели больше нет');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])"),
+assert.ok(html.includes("const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])"),
     'Кабинеты, dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
@@ -280,7 +280,7 @@ assert.ok(
     betaFly.includes("showTab('summary'") &&
     betaFly.includes("showTab('summary-biz'") &&
     betaFly.includes("showTab('deductions'") &&
-    betaFly.includes("showTab('plan-fact'"),
+    betaFly.includes("nrOpenRnp('planfact')") && betaFly.includes("nrOpenRnp('planning')"),
     'Оцифровка items move into BETA, not a dashboard submenu'
 );
 assert.ok(!betaFly.includes("showTab('rnp'"), 'РНП is not duplicated inside BETA');
@@ -297,17 +297,17 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
 {
     const bn = html.slice(html.indexOf('id="nr-bottom-nav"'), html.indexOf('id="nr-beta-overlay"'));
     assert.ok(
-        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-rnp"') &&
-        bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
-        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-goods"') &&
+        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rnp"') &&
+        bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-rk"') &&
+        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-goods"') &&
         bn.indexOf('id="bn-goods"') < bn.indexOf('id="bn-beta"'),
-        'bottom nav order: РК, РНП, Дашборд, Остатки, Меню'
+        'bottom nav order: Дашборд, РНП, Продвижение, Логистика, Ещё'
     );
     assert.ok(
-        bn.includes('bn-lbl">Продвиж') &&
+        bn.includes('bn-lbl">Продвижение') &&
         !bn.includes('id="bn-agents"') &&
-        bn.includes('bn-lbl">Остатки') &&
-        bn.includes('bn-lbl">Меню') &&
+        bn.includes('bn-lbl">Логистика') &&
+        bn.includes('bn-lbl">Ещё') &&
         !bn.includes('id="bn-ab"') &&
         !bn.includes('id="bn-settings"'),
         'Agents, A/B and settings live in the menu sheet; RK is on the bar'
@@ -315,8 +315,8 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
     assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
         'theme toggle is not on the bottom nav');
 }
-assert.ok(html.includes('bottom-nav-btn--home') && html.includes('id="bn-dash"'),
-    'dashboard is the accent center item on the bottom nav');
+assert.ok(html.includes('id="bn-dash"') && html.indexOf('id="bn-dash"') < html.indexOf('id="bn-rnp"'),
+    'dashboard is the first item on the bottom nav');
 assert.ok(
     html.includes('function toggleBetaSheet') &&
     html.includes('function openBetaSheet') &&
@@ -662,7 +662,7 @@ assert.ok(rnpSrc.includes("from('exchange_rates')"), 'RNP must read the fixed ex
 assert.ok(rnpSrc.includes('function _latestNbkr'), 'the official NBKR rate is still read for the daily rate');
 assert.ok(!rnpSrc.includes('Курс ₽ → сом</label>') && !rnpSrc.includes('Период расчёта метрик</label>'),
     'the «Основные настройки» card (rates, period, default plan, months) is gone: everything is automatic');
-assert.ok(/key: 'storage_sum',\s+label: 'Хранение \(сверено\)'/.test(rnpSrc), 'RNP shows reconciled storage row');
+assert.ok(/key: 'storage_sum',\s+label: 'Хранение'/.test(rnpSrc), 'RNP shows storage row in the expense ladder');
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903152000_rnp_nbkr_rate_cron.sql')),
     'daily NBKR cron migration must exist'
@@ -846,7 +846,7 @@ assert.ok(rnpSrc.includes('function _mergeAdStatsFromDb'), 'RNP must merge adver
 assert.ok(rnpSrc.includes("from('advertising_daily_stats')") || rnpSrc.includes("'advertising_daily_stats'"),
     'RNP must read advertising_daily_stats, not only rnp_daily_data');
 assert.ok(rnpSrc.includes('_hydrateFunnelAfterPaint'), 'organic impressions must hydrate after first paint');
-assert.ok(rnpSrc.includes("label: 'Показатели воронки'"), 'funnel section title stays short for sellers');
+assert.ok(rnpSrc.includes("label: 'Воронка'"), 'funnel section title stays short for sellers');
 assert.ok(!rnpSrc.includes('WB 7 дней, старше из кэша'), 'technical funnel footnote must stay off the sheet');
 assert.ok(!rnpSrc.includes('•live'), 'live badge text must not sit on the grid');
 assert.ok(!rnpSrc.includes('enrichment ограничен'), 'English enrichment warning must stay hidden');
@@ -908,7 +908,7 @@ assert.ok(
 assert.ok(html.includes('.cabinet-picker-label { max-width: 96px'), 'cabinet name must not crowd the iPhone header');
 assert.ok(rnpSrc.includes('function _isPhone()'), 'RNP must detect a phone viewport');
 assert.ok(rnpSrc.includes('function _isNarrow()'), 'iPad uses the same swipe sheet as iPhone');
-assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 62'), 'phone metric column is narrower than desktop');
+assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 118') && 118 < 132, 'phone metric column is narrower than desktop (132) but wide enough to read the names');
 assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
 assert.ok(rnpSrc.includes('function togglePrevWeeks') && rnpSrc.includes('rnp-action-bar--phone'),
     'phone RNP bar still exists; last-month weeks are opt-in via compare');
@@ -1029,16 +1029,16 @@ assert.ok(
     const desk = make(false);
     assert.strictEqual(phone._isPhone(), true);
     assert.strictEqual(phone._isNarrow(), true);
-    assert.strictEqual(phone._metricW(), 62);
+    assert.strictEqual(phone._metricW(), 118);
     assert.strictEqual(phone._sparkW(), 0);
     assert.strictEqual(phone._dayColW(), 28);
-    assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 62);
+    assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 118);
     assert.strictEqual(desk._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 412);
     assert.strictEqual(phone._frozenLeft(0, [{ type: 'week' }]), null);
     assert.strictEqual(desk._frozenLeft(0, [{ type: 'week' }]), 172);
     const cal = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30) };
     assert.strictEqual(phone._sheetDataColCount(cal), 36);
-    assert.strictEqual(phone._sheetMinWidthPx(cal), 62 + 0 + 36 * 28);
+    assert.strictEqual(phone._sheetMinWidthPx(cal), 118 + 0 + 36 * 28);
     assert.ok(phone._colgroupHTML(cal).includes('<colgroup>'));
     assert.strictEqual((phone._colgroupHTML(cal).match(/<col /g) || []).length, 38);
 }
@@ -1250,6 +1250,17 @@ assert.ok(html.includes('function loadTelegramBotsPage') && html.includes('toggl
     'Telegram page must list bots and mute a cabinet channel');
 assert.ok(html.includes('function saveOzonForCabinet') && html.includes('ozon_client_id'),
     'Ozon page must save client id and api key per cabinet');
+{
+    const fn = html.slice(html.indexOf('async function saveOzonForCabinet'), html.indexOf('const GPT_MODELS'));
+    assert.ok(fn.includes("functions.invoke('cabinet-token'") && fn.includes("action: 'ozon_set'"),
+        'Ozon key is saved through the cabinet-token function, which checks it in Ozon');
+    assert.ok(!/from\('cabinets'\)\.update/.test(fn), 'Ozon key is not written from the browser straight into the table');
+    assert.ok(fn.includes('Проверяем ключ') && fn.includes('restore()'), 'Ozon save button answers at once and comes back to normal');
+    const api = html.slice(html.indexOf('id="settings-api"'), html.indexOf('id="tab-telegram-bots"'));
+    assert.ok(api.includes('id="ozon-token-list"') && api.includes('Ключи Ozon'), 'Ozon keys are entered in Settings, API tab, below the WB cabinets');
+    assert.equal((html.match(/id="ozon-token-list"/g) || []).length, 1, 'only one Ozon key list exists (input ids must stay unique)');
+    assert.ok(/section === 'api'\) \{ loadCabinetsAPIList\(\); if \(typeof loadOzonTokenPage/.test(html), 'opening the API tab loads the Ozon key list');
+}
 assert.ok(/class="settings-section-tab" id="settings-tab-btn-api"[^>]*>API Wildberries</.test(html),
     'settings shows the API Wildberries tab to regular users, not only Super Admin');
 assert.ok(!html.includes('id="settings-about"') && !html.includes('id="settings-features"') && html.includes('id="agents-page-cabs"'),
@@ -1305,8 +1316,10 @@ assert.ok(rnpSrc.includes('function _excelSvg') && rnpSrc.includes('function _ed
     'RNP toolbar Plan / Excel / Edit are SVG icons');
 assert.ok(rnpSrc.includes('function _iconToolsHtml'),
     'RNP toolbar icons stay in one row');
-assert.ok(rnpSrc.includes('План/факт') && rnpSrc.includes('openPlanFact') && rnpSrc.includes('function _planFactSvg'),
-    'RNP toolbar has a visible План/факт chip that opens the Excel sheet');
+assert.ok(rnpSrc.includes('openPlanFact') && !rnpSrc.includes('class="rnp-plan-fact-open"'),
+    'План/факт is no longer a button on the RNP page: it opens from the RNP menu item');
+assert.ok(require('fs').readFileSync(__dirname + '/nr-nav.js', 'utf8').includes("act: 'openPlanFact'"),
+    'RNP menu has the План/факт item that opens the full-screen sheet');
 assert.ok(html.includes('.rnp-plan-fact-open svg') && html.includes('height: 26px'),
     'План/факт chip is a labeled control, not 10px muted text among icons');
 assert.ok(html.includes('id="rnp-plan-fact-overlay"') && html.includes('.pf-sheet'),
@@ -1365,7 +1378,7 @@ assert.ok(html.includes('function cabinetDisplayName'), 'cabinet picker shows le
 assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП Айзада'), 'Baza and Elium show the IP names from WB');
 assert.ok(html.includes('ИП Уркунбаев К.А.'), 'Zevina 1 shows the legal name from WB');
 assert.ok(html.includes('function isHiddenCabinet') && html.includes('visibleCabinets'),
-    'Ailin / Zevina 2 is hidden from every cabinet list');
+    'cabinet hiding hook stays (Zevina 2 is shown as Ailin Textile now)');
 assert.ok(!html.includes('id="cabinet-picker-initial"'), 'letter avatar next to the cabinet name is gone');
 assert.ok(!html.includes('cab-dot'), 'dropdown no longer draws B/E/Z circles');
 const cabFns = new Function(
@@ -1375,15 +1388,15 @@ const cabFns = new Function(
 assert.strictEqual(cabFns.cabinetDisplayName('Baza'), 'ИП Бейшеев А.Д.');
 assert.strictEqual(cabFns.cabinetDisplayName('Elium'), 'ИП Айзада');
 assert.strictEqual(cabFns.cabinetDisplayName('Zevina 1'), 'ИП Уркунбаев К.А.');
-assert.strictEqual(cabFns.cabinetDisplayName('Zevina 2'), 'ОсОО «Айлин Стиль»');
-assert.ok(cabFns.isHiddenCabinet({ name: 'Zevina 2' }) && cabFns.isHiddenCabinet({ name: 'ОсОО Айлин Стиль' }));
+assert.strictEqual(cabFns.cabinetDisplayName('Zevina 2'), 'ОсОО Айлин Текстиль');
+assert.ok(!cabFns.isHiddenCabinet({ name: 'Zevina 2' }), 'Zevina 2 (Ailin Textile) is shown in cabinet lists');
 assert.ok(!cabFns.isHiddenCabinet({ name: 'Zevina 1' }) && !cabFns.isHiddenCabinet({ name: 'Baza' }));
 assert.ok(!cabFns.isHiddenCabinet({ name: 'ИП Уркунбаев К.А.' }), 'Urkunbaev stays visible');
 assert.strictEqual(cabFns.visibleCabinets([
     { id: '1', name: 'Zevina 1' },
     { id: '2', name: 'Zevina 2' },
     { id: '3', name: 'Elium' },
-]).map((c) => c.id).join(','), '1,3');
+]).map((c) => c.id).join(','), '1,2,3');
 assert.ok(
     html.includes('input[type="number"]::-webkit-inner-spin-button')
         && html.includes('input[type="number"]::-webkit-outer-spin-button')
@@ -1836,7 +1849,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])") &&
+    html.includes("LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs'])") &&
     html.includes("tab-agents") &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&
@@ -2232,6 +2245,10 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
             function _imgHtml() { return '<img class="rnp-gs-photo-img">'; }
             function _phoneCollapseHtml(id, title, open, inner) { return inner; }
             function _copyMiniBtn() { return ''; }
+            function _mxHtml() { return '<div class="rnp-mx"></div>'; }
+            ${grabFn(rnpSrc, '_nmIdHtml')}
+            function _ghEsc(v) { return String(v); }
+            function _copyMiniBtn() { return ''; }
             ${grabFn(rnpSrc, '_collectKpiView')}
             ${grabFn(rnpSrc, '_kpiGridHTML')}
             ${grabFn(rnpSrc, '_buildKpiTopHTML')}
@@ -2556,8 +2573,8 @@ assert.ok(
     );
 }
 
-assert.ok(html.includes('data-theme="tabler"') && html.includes("NR_THEMES = ['ios', 'tabler', 'neon']"),
-    'Tabler is a third theme and can be rolled back by cycling Тема');
+assert.ok(html.includes("NR_THEMES = ['neon', 'ios']") && !html.includes('data-theme="tabler"'),
+    'две темы живого стекла: чёрная и белая; Tabler удалён (решение владельца 16.11.2026)');
 assert.ok(html.includes('id="evidence-report-root"') && html.includes('EvidenceReport.paint'),
     'Сводный отчёт paints Evidence P&L from dashboard metrics');
 assert.ok(
@@ -2587,7 +2604,7 @@ assert.ok(!html.includes('План заказов · все кабинеты'),
     'all-cabinets plan row is gone');
 assert.ok(!html.includes('main-content:has(#tab-dashboard.active) {\n                padding: 4px 24px') && html.includes('padding: 4px 6px 12px !important;'),
     'one page padding for every tab (no jump on load)');
-assert.ok(html.includes('.main-rail:has(#tab-dashboard.active)') && html.includes('padding-top: 66px'),
+assert.ok(html.includes('html#nr-root.nr-f-dash .main-rail') && html.includes('padding-top: 66px'),
     'dashboard sits flush under the header');
 assert.ok(
     /<script src="\/(?:dist\/)?dash-cabinet-plans(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
@@ -2605,7 +2622,7 @@ assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' &
 {
     // Тарифы рисует nr-tariffs.js (Старт / Рост / Лидер), на странице остаётся только место под них.
     const tr = require('fs').readFileSync(__dirname + '/nr-tariffs.js', 'utf8');
-    assert.ok(html.includes('id="tab-tariffs"') && html.includes('<div id="nr-tr"></div>') && /<script src="\/(?:dist\/nr-tariffs\.[0-9a-f]+\.min|nr-tariffs)\.js"><\/script>/.test(html), 'tariffs page mounts nr-tariffs.js');
+    assert.ok(html.includes('id="settings-tariffs"') && html.includes('<div id="nr-tr"></div>') && /<script src="\/(?:dist\/nr-tariffs\.[0-9a-f]+\.min|nr-tariffs)\.js"><\/script>/.test(html), 'tariffs page mounts nr-tariffs.js');
     assert.ok(tr.includes('Акылай бесплатно до 1 ноября') && tr.includes("showTab(\\'dashboard\\')") && tr.includes('Подключить магазин'), 'Akylai stays free until 1 November');
     assert.ok(tr.includes("name: 'Старт', base: 2599, old: 5999") && tr.includes("name: 'Рост', base: 5599, old: 7999") && tr.includes("name: 'Лидер', base: 8999"), 'prices: 2 599 (was 5 999), 5 599 (was 7 999), 8 999');
     assert.ok(tr.includes('off: 0.1') && tr.includes('off: 0.15') && tr.includes('off: 0.2'), 'period discounts 3/6/12 months');

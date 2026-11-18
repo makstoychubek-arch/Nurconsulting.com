@@ -15,7 +15,7 @@
     var EXTRA_ROWS = 100;
 
     // Колонки ровно как в шаблоне. key — поле таблицы giveaways.
-    var COLS = [
+    var LEGACY_COLS = [
         { key: 'kind', label: 'Вид', type: 'select', options: KINDS, w: 104 },
         { key: 'tg_link', label: 'Ссылка ТГ', type: 'text', w: 130 },
         { key: 'order_date', label: 'Дата заказа', type: 'date', w: 96 },
@@ -40,9 +40,37 @@
         { key: 'reels_link', label: 'Ссылка на Reels', type: 'text', w: 130 },
     ];
 
+    // Кабинеты с листом Google («ИП МАРС»): те же колонки и тот же порядок, что на листе «Раздачи».
+    var SHEET_COLS = [
+        { key: 'model', label: 'ТОВАР', type: 'text', w: 200 },
+        { key: 'kind', label: 'ВИД РАЗДАЧИ', type: 'select', options: KINDS, w: 112 },
+        { key: 'tg_link', label: 'Ссылка ТГ', type: 'text', w: 140 },
+        { key: 'order_date', label: 'Дата заказа', type: 'date', w: 96 },
+        { key: 'order_price', label: 'Цена в заказе', type: 'number', w: 84 },
+        { key: 'cash_amount', label: 'Размер кэша', type: 'number', w: 84 },
+        { key: 'cash_status', label: 'Кэш выплачен', type: 'select', options: CASH_STATUSES, w: 112 },
+        { key: 'pickup_planned', label: 'Примерная дата забора', type: 'date', w: 100 },
+        { key: 'pickup_date', label: 'Фактическая дата забора', type: 'date', w: 100 },
+        { key: 'barcode_cut', label: 'Разрезанный ШК', type: 'bool', w: 80 },
+        { key: 'review_date', label: 'Дата публикации отзыва', type: 'date', w: 100 },
+        { key: 'review_kind', label: 'Вид отзыва', type: 'select', options: REVIEW_KINDS, w: 84 },
+        { key: 'requisites', label: 'Реквизиты', type: 'text', w: 160 },
+        { key: 'requisites2', label: 'Реквизиты', type: 'text', w: 160 },
+        { key: 'payout_date', label: 'Фактическая дата выплаты', type: 'date', w: 100 },
+        { key: 'review_status', label: 'Отзыв опубликован', type: 'select', options: REVIEW_STATUSES, w: 96 },
+        { key: 'responsible', label: 'Ответственный', type: 'text', w: 110 },
+        { key: 'keyword', label: 'Ключ', type: 'text', w: 150 },
+        { key: 'payout_planned', label: 'Планируемая дата выплаты', type: 'date', w: 100 },
+        { key: 'filters', label: 'Фильтры', type: 'text', w: 100 },
+        { key: 'comment', label: 'Чёрный список / комментарии', type: 'text', w: 170 },
+        { key: 'reels_views', label: 'Просмотры рилс', type: 'number', w: 90 },
+        { key: 'reels_link', label: 'Ссылка на Reels', type: 'text', w: 140 },
+    ];
+    var COLS = LEGACY_COLS;
+
     var state = {
         sb: null, cab: '', host: null, loaded: false, active: false,
-        slots: [], articles: [], size: MIN_ROWS,
+        slots: [], articles: [], size: MIN_ROWS, sheet: null, syncing: false,
         anchor: null, sel: null, drag: false, fill: null, edit: null, q: '', queue: Promise.resolve(),
     };
 
@@ -87,6 +115,7 @@
     }
 
     function payoutDate(row) {
+        if (row && row.payout_planned) return String(row.payout_planned).slice(0, 10); // лист хранит дату сам
         return row && row.pickup_date ? addDays(String(row.pickup_date).slice(0, 10), PAYOUT_DELAY_DAYS) : '';
     }
 
@@ -216,6 +245,18 @@
         return h + '</tr>';
     }
 
+    /** Полоса обмена с Google для кабинетов с листом: когда последний раз сверялись и кнопка «Обновить из таблицы». */
+    function syncHtml() {
+        if (!state.sheet) return '';
+        var sh = state.sheet, bad = !!sh.last_error;
+        var when = sh.last_sync_at ? Math.max(0, Math.round((Date.now() - new Date(sh.last_sync_at).getTime()) / 1000)) : null;
+        var txt = bad ? 'Нет связи с таблицей: ' + sh.last_error
+            : when == null ? 'Ещё не сверялось с Google'
+            : 'Синхронизировано с Google · ' + (when < 90 ? when + ' с назад' : Math.round(when / 60) + ' мин назад');
+        return '<span class="gv-sync' + (bad ? ' is-bad' : '') + '" role="status"><i></i>' + esc(txt) + '</span>'
+            + '<button type="button" class="gv-ghost" data-act="sync"' + (state.syncing ? ' disabled' : '') + '>' + (state.syncing ? 'Обновляю…' : 'Обновить из таблицы') + '</button>';
+    }
+
     function chromeHtml() {
         var s = summary(state.slots);
         var nf = function (n) { return Number(n).toLocaleString('ru-RU'); };
@@ -224,9 +265,11 @@
             + '<button type="button" class="gv-ghost" data-act="more" title="Добавить ещё 100 пустых строк">+100 строк</button>'
             + '<span class="gv-hint">Выделяйте мышью, копируйте Ctrl+C / вставляйте Ctrl+V группами, тяните квадратик у выделения — значения копируются</span>'
             + '<span class="gv-sp"></span>'
+            + syncHtml()
             + '<button type="button" class="gv-ghost" data-act="template" title="Пустой шаблон с заголовками">Шаблон</button>'
             + '<button type="button" class="gv-ghost" data-act="export" title="Скачать таблицу">Excel</button>'
             + '<button type="button" class="gv-ai" data-act="calc" title="Калькулятор раздач" aria-label="Калькулятор раздач">Калькулятор</button>'
+            + '<button type="button" class="gv-gear" data-act="gear" title="Настройки раздач и Алины" aria-label="Настройки раздач и Алины"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>'
             + '</div>'
             + '<div class="gv-sum">'
             + '<span class="gv-chip">Раздач: <b>' + nf(s.total) + '</b></span>'
@@ -240,22 +283,57 @@
         return '<datalist id="gv-dl-article">' + state.articles.map(function (a) { return '<option value="' + esc(a.name) + '">'; }).join('') + '</datalist>';
     }
 
+    /** Оформление листа Google → CSS-переменные таблицы (кегль pt→px, высоты и ширины в px). */
+    function fmtVars(f) {
+        var out = { css: '', cols: {} };
+        if (!f || typeof f !== 'object') return out;
+        var px = function (pt) { return Math.round(pt * 4 / 3 * 100) / 100; };
+        var ok = function (n, a, b) { return typeof n === 'number' && n >= a && n <= b; };
+        var css = '';
+        if (typeof f.font === 'string' && /^[\w \-]{1,60}$/.test(f.font)) css += '--gv-font:"' + f.font + '",Arial,sans-serif;';
+        if (ok(f.size, 6, 40)) css += '--gv-fs:' + px(f.size) + 'px;';
+        if (ok(f.headerSize, 6, 40)) css += '--gv-hfs:' + px(f.headerSize) + 'px;';
+        if (ok(f.rowH, 14, 200)) css += '--gv-row-h:' + f.rowH + 'px;';
+        if (ok(f.headerH, 14, 300)) css += '--gv-head-h:' + f.headerH + 'px;';
+        if (typeof f.headerBg === 'string' && /^#[0-9a-f]{6}$/i.test(f.headerBg)) css += '--gv-head-bg:' + f.headerBg + ';';
+        if (f.headerBold === false) css += '--gv-hfw:400;';
+        out.css = css;
+        if (f.cols && typeof f.cols === 'object') Object.keys(f.cols).forEach(function (k) { if (ok(f.cols[k], 30, 800)) out.cols[k] = f.cols[k]; });
+        return out;
+    }
+
     function paint() {
         if (!state.host) return;
         var sc = state.host.querySelector('.gv-scroll');
         var sx = sc ? sc.scrollLeft : 0, sy = sc ? sc.scrollTop : 0;
-        var total = 44 + COLS.reduce(function (n, c) { return n + c.w; }, 0);
-        var cols = '<col style="width:44px">' + COLS.map(function (c) { return '<col style="width:' + c.w + 'px">'; }).join('');
+        var fmt = fmtVars(state.sheet && state.sheet.format);
+        var cw = function (c) { return fmt.cols[c.key] || c.w; };
+        var total = 44 + COLS.reduce(function (n, c) { return n + cw(c); }, 0);
+        var cols = '<col style="width:44px">' + COLS.map(function (c) { return '<col style="width:' + cw(c) + 'px">'; }).join('');
         var head = '<th class="gv-th gv-rn-h"></th>' + COLS.map(function (c) { return '<th class="gv-th">' + esc(c.label) + '</th>'; }).join('');
         var body = '';
         for (var r = 0; r < state.size; r++) body += rowHtml(r);
         state.host.innerHTML = '<div class="gv-wrap">' + chromeHtml()
-            + '<div class="gv-scroll"><table class="gv-table" style="width:' + total + 'px"><colgroup>' + cols + '</colgroup><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
+            + '<div class="gv-scroll"><table class="gv-table" style="width:' + total + 'px;' + fmt.css + '"><colgroup>' + cols + '</colgroup><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
             + datalist() + '<textarea class="gv-cb" tabindex="-1" aria-hidden="true" spellcheck="false"></textarea></div>';
         var sc2 = state.host.querySelector('.gv-scroll');
         if (sc2) { sc2.scrollLeft = sx; sc2.scrollTop = sy; }
+        fitHeight();
         markSelection();
     }
+
+    /** Таблица занимает всё место до нижнего края окна, как лист Google: шапка и номера строк закреплены внутри неё. */
+    function zoomOf(el) {
+        var z = 1;
+        try { for (var n = el; n && n.nodeType === 1; n = n.parentElement) { var v = parseFloat(root.getComputedStyle(n).zoom); if (v && v !== 1) z *= v; } } catch (e) { z = 1; }
+        return z || 1;
+    }
+    function fitHeight() {
+        var sc = state.host && state.host.querySelector('.gv-scroll'); if (!sc || !state.active) return;
+        var top = sc.getBoundingClientRect().top, h = (root.innerHeight - top - 14) / zoomOf(sc);
+        sc.style.maxHeight = 'none'; sc.style.height = Math.max(260, Math.round(h)) + 'px';
+    }
+    if (typeof root.addEventListener === 'function') root.addEventListener('resize', function () { fitHeight(); });
 
     /** Скрытое поле держит фокус и содержит TSV выделения — так Ctrl+C/Ctrl+V работают как в Google Sheets. */
     function focusCb() {
@@ -658,6 +736,8 @@
             if (b.dataset.act === 'more') { state.size += 100; paint(); return; }
             if (b.dataset.act === 'template') return download('razdachi-shablon.csv', templateCsv());
             if (b.dataset.act === 'export') return download('razdachi-' + todayYmd() + '.csv', exportCsv());
+            if (b.dataset.act === 'sync') return syncNow();
+            if (b.dataset.act === 'gear') { if (root.NrAlinaSettings) root.NrAlinaSettings.openWindow({ supabase: state.sb }); return; }
             if (b.dataset.act === 'calc') { if (root.NrGiveCalc) root.NrGiveCalc.open({ supabase: state.sb, cabinetId: state.cab }); }
         });
 
@@ -748,6 +828,39 @@
         } catch (e) { /* без кэша */ }
     }
 
+    /** Привязка кабинета к листу: определяет раскладку колонок. Возвращает true, если раскладка сменилась. */
+    function setSheet(info) {
+        var was = COLS === SHEET_COLS;
+        state.sheet = info && info.enabled !== false ? info : null;
+        COLS = state.sheet ? SHEET_COLS : LEGACY_COLS;
+        try { root.localStorage.setItem('nr_give_sheet_' + state.cab, state.sheet ? '1' : '0'); } catch (e) { /* без кэша */ }
+        return was !== (COLS === SHEET_COLS);
+    }
+    async function loadSheet() {
+        var res = await state.sb.from('giveaway_sheets').select('cabinet_id, enabled, last_sync_at, last_error, format').eq('cabinet_id', state.cab).maybeSingle();
+        if (res.error) return false;
+        return setSheet(res.data || null);
+    }
+    async function syncNow() {
+        if (!state.sheet || state.syncing) return;
+        state.syncing = true; paintChrome();
+        try {
+            var res = await state.sb.functions.invoke('giveaways-sync', { body: { cabinet_id: state.cab } });
+            var r = res && res.data && res.data.results && res.data.results[state.cab];
+            if (res.error || !res.data || res.data.ok === false) state.sheet.last_error = (res.data && res.data.error) || 'Нет связи с сервером';
+            else if (r && r.busy) { /* обмен уже идёт, данные подтянутся сами */ }
+            else if (r && r.ok === false) state.sheet.last_error = r.error;
+            else { state.sheet.last_error = null; state.sheet.last_sync_at = new Date().toISOString(); }
+            await load(); writeCache(state.cab);
+        } catch (e) { state.sheet.last_error = 'Нет связи с сервером'; }
+        state.syncing = false; paint();
+    }
+    function paintChrome() {
+        var bar = state.host && state.host.querySelector('.gv-bar'); if (!bar) return;
+        var tmp = state.host.ownerDocument.createElement('div'); tmp.innerHTML = chromeHtml();
+        bar.replaceWith(tmp.firstChild);
+    }
+
     async function load() {
         var all = [];
         for (var from = 0; ; from += 1000) {
@@ -773,10 +886,13 @@
         if (!opts || !opts.host || !opts.supabase || !opts.cabinetId) return;
         var changed = state.cab !== opts.cabinetId;
         state.sb = opts.supabase; state.host = opts.host; state.cab = opts.cabinetId; state.active = true;
+        try { root.document.documentElement.classList.add('nr-f-give'); } catch (e) { /* без документа */ }
         bindOnce();
         if (changed || !state.loaded) {
             // Сразу показываем прошлые данные кабинета (или пустую таблицу), свежие подставятся следом без «Загрузка…».
             state.anchor = null; state.sel = null;
+            var cachedSheet = false; try { cachedSheet = root.localStorage.getItem('nr_give_sheet_' + opts.cabinetId) === '1'; } catch (e) { /* без кэша */ }
+            COLS = cachedSheet ? SHEET_COLS : LEGACY_COLS; state.sheet = cachedSheet ? (state.sheet || { enabled: true }) : null;
             var hit = readCache(opts.cabinetId);
             if (hit) { state.slots = hit.slots; state.articles = hit.articles; state.size = Math.max(MIN_ROWS, state.slots.length + EXTRA_ROWS); }
             else { state.slots = []; state.articles = []; state.size = MIN_ROWS; }
@@ -784,7 +900,7 @@
             paint();
             var cab = opts.cabinetId;
             var snap = JSON.stringify([state.slots, state.articles]);
-            try { await load(); writeCache(cab); } catch (e) {
+            try { var layoutChanged = await loadSheet(); await load(); writeCache(cab); if (layoutChanged) snap = ''; } catch (e) {
                 if (!hit) state.loaded = false;
                 if (!hit) state.host.innerHTML = '<div class="gv-wrap"><div class="gv-empty">Не удалось загрузить раздачи: ' + esc(e && e.message) + '. Откройте раздел ещё раз.</div></div>';
                 return;
@@ -795,10 +911,13 @@
         paint();
     }
 
-    function hide() { state.active = false; }
+    function hide() {
+        state.active = false;
+        try { root.document.documentElement.classList.remove('nr-f-give'); } catch (e) { /* без документа */ }
+    }
 
     var api = {
-        COLS: COLS, show: show, hide: hide, payoutDate: payoutDate, isOverdue: isOverdue, summary: summary,
+        COLS: LEGACY_COLS, SHEET_COLS: SHEET_COLS, show: show, hide: hide, payoutDate: payoutDate, isOverdue: isOverdue, summary: summary,
         templateCsv: templateCsv, coerce: coerce, parseDate: parseDate, parseTsv: parseTsv, toTsv: toTsv, fillPlan: fillPlan,
         cellText: cellText, MIN_ROWS: MIN_ROWS,
     };

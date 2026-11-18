@@ -468,6 +468,9 @@
     }
 
     function compareCampaigns(a, b) {
+        // Активные (идёт показ) всегда выше остановленных; внутри группы прежний порядок.
+        const live = (b && b.live ? 1 : 0) - (a && a.live ? 1 : 0);
+        if (live) return live;
         const yu = (b && b.usedYesterday ? 1 : 0) - (a && a.usedYesterday ? 1 : 0);
         if (yu) return yu;
         const rec = (Number(b && b.recentAt) || 0) - (Number(a && a.recentAt) || 0);
@@ -476,16 +479,22 @@
         if (last) return last;
         const sp = (Number(b && b.spendToday) || 0) - (Number(a && a.spendToday) || 0);
         if (sp) return sp;
-        const live = (b && b.live ? 1 : 0) - (a && a.live ? 1 : 0);
-        if (live) return live;
         return String((a && a.name) || '').localeCompare(String((b && b.name) || ''), 'ru');
     }
 
+    const ARCHIVE_CAP = 60; // архив у кабинета бывает на сотни кампаний: показываем свежие
     function filterCampaigns(campaigns, mode, query) {
-        let list = listableCampaigns(campaigns);
-        if (mode !== 'all') list = list.filter((c) => c.live);
+        let list;
+        if (mode === 'archive') {
+            list = (campaigns || []).filter(campaignEnded);
+        } else {
+            list = listableCampaigns(campaigns);
+            if (mode === 'paused') list = list.filter((c) => !c.live);
+            else if (mode !== 'all') list = list.filter((c) => c.live);
+        }
         if (query) list = list.filter((c) => campaignMatchesSearch(c, query));
-        return list.slice().sort(compareCampaigns);
+        list = list.slice().sort(compareCampaigns);
+        return mode === 'archive' ? list.slice(0, ARCHIVE_CAP) : list;
     }
 
     function extendRangeForRanking(range, now) {
@@ -709,7 +718,7 @@
                     return 0;
                 };
                 const pickLast = () => lastSpend.get(spendKeyWb) || (spendKeyUuid ? lastSpend.get(spendKeyUuid) : '') || '';
-                const name = raw.campaign_name || (v2 && v2.name) || ('РК ' + wbId);
+                const name = (v2 && v2.name) || raw.campaign_name || ('РК ' + wbId); // имя из WB обновляется раз в 30 минут, старая таблица раз в 6 часов
                 const nmId = resolveCampNmId(
                     name,
                     wbId,
@@ -762,6 +771,9 @@
                     currentBids: Array.isArray(raw.current_bids) ? raw.current_bids : [],
                     budget: raw.budget_total == null ? null : Number(raw.budget_total),
                     bidType: raw.bid_type || (v2 && (v2.bid_type || v2.bidType)) || '',
+                    createdAt: raw.wb_created_at || (v2 && v2.wb_created_at) || null,
+                    startedAt: raw.wb_started_at || (v2 && v2.wb_started_at) || null,
+                    placements: raw.placements || (v2 && v2.placements) || null,
                     live: campaignLive(status),
                     spendToday: pickSpend(spendToday),
                     spend7: pickSpend(spend7),
@@ -789,7 +801,9 @@
 
             const listed = listableCampaigns(campaigns);
             const listedIds = new Set(listed.map((c) => String(c.wbId)));
-            const sumField = (field) => listed.reduce((s, c) => s + num(c[field]), 0);
+            // Итоги за период считаем по ВСЕМ кампаниям, в том числе уже завершённым: в тот день они тратили деньги,
+            // и WB в своих итогах их учитывает (раньше завершённые выпадали, и затраты были меньше, чем в кабинете WB).
+            const sumField = (field) => campaigns.reduce((s, c) => s + num(c[field]), 0);
             const spendT = sumField('spendToday');
             const s7 = sumField('spend7');
             const r7 = sumField('revenue7');
@@ -1137,8 +1151,22 @@
         return state.filterCabinetId;
     }
 
+    // Счётчики для фильтра статусов (как в кабинете WB): все, активные, приостановленные, архивные.
+    function statusCounts() {
+        const out = { all: 0, active: 0, paused: 0, archive: 0 };
+        cabinetRows().forEach((cab) => {
+            const list = cab.campaigns || [];
+            const lv = listableCampaigns(list);
+            out.all += lv.length;
+            out.active += lv.filter((c) => c.live).length;
+            out.paused += lv.filter((c) => !c.live).length;
+            out.archive += list.filter(campaignEnded).length;
+        });
+        return out;
+    }
+
     function setCampFilter(mode) {
-        state.campFilter = mode === 'all' ? 'all' : 'active';
+        state.campFilter = ['all', 'active', 'paused', 'archive'].indexOf(mode) >= 0 ? mode : 'all';
         paintFilters();
         paintTree();
         return state.campFilter;
@@ -1167,7 +1195,7 @@
 
     function filterProducts(products, mode, query) {
         let list = products || [];
-        if (mode !== 'all') list = list.filter((p) => p.live);
+        if (mode === 'active') list = list.filter((p) => p.live);
         const q = String(query || '').trim().toLowerCase();
         if (q) {
             list = list.filter((p) => String(p.nmId).includes(q) || String(p.name || '').toLowerCase().includes(q));
@@ -1283,7 +1311,7 @@
         const t = { spend: 0, rev: 0, views: 0, clicks: 0 };
         const inRange = (d) => { const day = String(d || '').slice(0, 10); return (!from || day >= from) && (!to || day <= to); };
         (legacy || []).forEach((r) => { if (!inRange(r.stat_date)) return; t.spend += num(r.spend); t.rev += num(r.sum_price || r.revenue); t.views += num(r.views); t.clicks += num(r.clicks); });
-        (v2 || []).forEach((r) => { if (!inRange(r.date)) return; t.spend += num(r.spend); t.rev += num(r.revenue); t.views += num(r.views); t.clicks += num(r.clicks); });
+        (v2 || []).forEach((r) => { if (!inRange(r.date)) return; t.spend += num(r.spend); t.rev += num(r.revenue); t.views += num(r.views != null ? r.views : r.impressions); t.clicks += num(r.clicks); });
         return t;
     }
     function dynOf(cur, prev) { return prev > 0 && Number.isFinite(cur) ? (cur - prev) / prev * 100 : null; }
@@ -1309,12 +1337,12 @@
                 { op: 'in', column: 'cabinet_id', value: ids },
                 { op: 'gte', column: 'stat_date', value: pFrom },
                 { op: 'lte', column: 'stat_date', value: pTo },
-            ], 'cabinet_id,stat_date,spend,sum_price,revenue,views,clicks') : [],
+            ], 'cabinet_id,stat_date,spend,sum_price,views,clicks', 25000) : [],
             v2Ids.length ? safeRows('adv_daily_stats', [
                 { op: 'in', column: 'campaign_id', value: v2Ids },
                 { op: 'gte', column: 'date', value: pFrom },
                 { op: 'lte', column: 'date', value: pTo },
-            ], 'campaign_id,date,spend,revenue,views,clicks') : [],
+            ], 'campaign_id,date,spend,revenue,impressions,clicks', 25000) : [],
         ]);
         if (gen !== state.dynGen || cab !== state.filterCabinetId) return;
         const cur = kpiMetrics(sumStatRows(legacyStats, v2Stats, range.from, range.to));
@@ -1367,6 +1395,7 @@
         if (!totalCount) {
             return 'В кабинете ещё нет кампаний. Нажмите «Подтянуть из WB».<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
         }
+        if (state.campFilter === 'paused' || state.campFilter === 'archive') return 'Нет ' + noun + ' в этом разделе.';
         if (state.campFilter !== 'all' && pausedCount) {
             return 'Нет активных ' + noun + '. На паузе: ' + pausedCount + '. Откройте «Все» или подтяните свежие из WB.<div class="ads-hq-empty-actions">' +
                 '<button type="button" class="ui-btn ui-btn-secondary" data-camp-filter="all">Показать все</button> ' + syncBtn + '</div>';
@@ -1464,7 +1493,7 @@
 
     const renderListeners = [];
     function visibleRows() {
-        return cabinetRows().map((cab) => ({ id: cab.id, name: cabName(cab.name), campaigns: visibleCampaigns(cab).filter((c) => !campaignEnded(c)) }));
+        return cabinetRows().map((cab) => ({ id: cab.id, name: cabName(cab.name), campaigns: visibleCampaigns(cab).filter((c) => state.campFilter === 'archive' || !campaignEnded(c)) }));
     }
     function renderTable() {
         renderTableBody();
@@ -2029,14 +2058,14 @@
             });
             return;
         }
-        if (AS && pos !== 2 && AS.has(cabinetId, obj.wbId)) AS.setEnabled(cabinetId, obj.wbId, false);
+        // Чистку «Полок» и список разрешённых ключей ползунок режима НЕ выключает (раньше «1» или «0» молча отключали чистку): она управляется своей меткой и окном
         setCampPosCore(cabinetId, wbId, pos);
     }
 
     function setCampPosCore(cabinetId, wbId, pos) {
         const obj = findCampaign(cabinetId, wbId);
         if (!obj) return;
-        const cur = !obj.live ? 0 : ((obj.auto || shelvesOn(cabinetId, wbId)) ? 2 : 1);
+        const cur = !obj.live ? 0 : (obj.auto ? 2 : 1);
         if (cur === pos) return;
         const wasAuto = !!obj.auto;
         const wantAuto = pos === 2;
@@ -2295,7 +2324,7 @@
         if (atEl && !atEl.value) atEl.value = defaultScheduleLocal();
     }
 
-    async function safeRows(table, filters, columns) {
+    async function safeRows(table, filters, columns, timeoutMs) {
         const fetchAll = dep().fetchAllRows;
         if (!fetchAll) return [];
         let timer = 0;
@@ -2303,7 +2332,7 @@
             const work = Promise.resolve(fetchAll(table, filters, columns) || []);
             const rows = await Promise.race([
                 work,
-                new Promise((resolve) => { timer = setTimeout(() => resolve(null), 5000); }),
+                new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs || 5000); }),
             ]);
             if (rows == null) {
                 console.warn('[ads-hq] timeout', table);
@@ -2371,7 +2400,7 @@
                 { op: 'gte', column: 'stat_date', value: rank.from },
                 { op: 'lte', column: 'stat_date', value: rank.to },
             ]),
-            safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
+            safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }], undefined, 12000),
             safeRows('rnp_articles', [{ op: 'in', column: 'cabinet_id', value: ids }], 'cabinet_id,nm_id,photo_url,name,manual_data'),
             safeRows('wb_stocks', [{ op: 'in', column: 'cabinet_id', value: ids }], 'cabinet_id,nm_id,quantity'),
             safeRows('adv_start_schedule', [
@@ -2401,8 +2430,9 @@
         const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks, schedules, autoRows] = core;
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
-        const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
-            safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
+        // Ключи (adv_clusters) нужны модели только у кампаний с правилами автоставок: у остальных диапазон позиции не считается.
+        // Раньше читались все ключи всех кампаний (десятки тысяч строк на каждую загрузку), список ключей открытой кампании грузит Пульт РК.
+        const [rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
             safeRows('autobidder_rules', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('serp_position_snapshots', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('adv_daily_stats', [
@@ -2410,7 +2440,9 @@
                 { op: 'gte', column: 'date', value: rank.from },
                 { op: 'lte', column: 'date', value: rank.to },
             ]),
-        ]) : [[], [], [], []];
+        ]) : [[], [], []];
+        const ruleCampIds = [...new Set((rules || []).map((r) => r.campaign_id).filter(Boolean))];
+        const clusters = ruleCampIds.length ? await safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: ruleCampIds }]) : [];
         if (cab !== state.filterCabinetId) return null;
         state.schedules = schedules || [];
         state.model = buildHqModel({
@@ -2534,6 +2566,8 @@
         getModelReady: () => !!state.model,
         getFilterCabinetId: () => state.filterCabinetId,
         getCampFilter: () => state.campFilter,
+        setCampFilter,
+        getStatusCounts: statusCounts,
         getColPreset: () => state.colPreset,
         getListView: () => state.listView,
         getSearch: () => state.searchQuery,

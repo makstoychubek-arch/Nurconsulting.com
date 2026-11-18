@@ -170,7 +170,7 @@
     function openGuard(cab, camp, name) {
         var g = guards[cab + ':' + camp] || {};
         var ov = document.createElement('div'); ov.className = 'adx-gp-ov';
-        ov.innerHTML = '<div class="adx-gp" role="dialog"><h4>Остановить и запустить</h4><div class="sub">' + esc(name || ('РК ' + camp)) + ' · время по Бишкеку</div>' +
+        ov.innerHTML = '<div class="adx-gp" role="dialog"><div class="adx-gh"><h4>Остановить и запустить</h4><button type="button" class="adx-gx" data-a="close" aria-label="Закрыть">✕</button></div><div class="sub">' + esc(name || ('РК ' + camp)) + ' · время по Бишкеку</div>' +
             '<label>Остановить, когда баланс упадёт до (сом)</label><input type="number" min="0" step="100" id="adx-g-bal" placeholder="не нужно" value="' + (g.pause_below == null ? '' : g.pause_below) + '">' +
             '<label>Остановить в</label><select id="adx-g-stop">' + hourOptions(toLocalH(g.stop_hour_utc)) + '</select>' +
             '<label>Запустить в</label><select id="adx-g-start">' + hourOptions(toLocalH(g.resume_hour_utc)) + '</select>' +
@@ -181,7 +181,8 @@
         function say(t) { ov.querySelector('#adx-g-msg').textContent = t; }
         ov.addEventListener('click', async function (e) {
             if (e.target === ov) return close();
-            var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
+            var bt = e.target.closest && e.target.closest('[data-a]'), a = bt && bt.getAttribute('data-a'); if (!a) return;
+            if (a === 'close') return close();
             try {
                 var rec;
                 if (a === 'off') rec = { cabinet_id: cab, campaign_id: Number(camp), active: false, state: 'idle' };

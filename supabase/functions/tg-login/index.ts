@@ -66,17 +66,27 @@ async function verify(admin: any, token: string, code: string) {
     if (!claimed?.length) return json({ error: 'invalid' }, 400);
 
     const tgId = Number(row.tg_id);
-    const email = telegramEmail(tgId);
     const name = row.tg_name || displayName(null);
-    const created = await admin.auth.admin.createUser({
-        email, email_confirm: true,
-        user_metadata: { full_name: name, telegram_id: tgId, telegram_username: row.tg_username || '', provider_name: 'telegram' },
-    });
-    if (created.error && !/already|registered|exists/i.test(created.error.message)) throw new Error(created.error.message);
+    // Telegram, привязанный вручную к существующему аккаунту (tg_identities.user_id указывает на него), входит именно в него.
+    let email = telegramEmail(tgId);
+    let linked = false;
+    const { data: ident } = await admin.from('tg_identities').select('user_id').eq('tg_id', tgId).maybeSingle();
+    if (ident?.user_id) {
+        const u = await admin.auth.admin.getUserById(ident.user_id);
+        const linkedEmail = u?.data?.user?.email;
+        if (linkedEmail && linkedEmail.toLowerCase() !== telegramEmail(tgId).toLowerCase()) { email = linkedEmail; linked = true; }
+    }
+    if (!linked) {
+        const created = await admin.auth.admin.createUser({
+            email, email_confirm: true,
+            user_metadata: { full_name: name, telegram_id: tgId, telegram_username: row.tg_username || '', provider_name: 'telegram' },
+        });
+        if (created.error && !/already|registered|exists/i.test(created.error.message)) throw new Error(created.error.message);
+    }
 
     const link = await admin.auth.admin.generateLink({ type: 'magiclink', email });
     const hashed = link?.data?.properties?.hashed_token;
-    const userId = link?.data?.user?.id || created?.data?.user?.id;
+    const userId = link?.data?.user?.id;
     if (!hashed || !userId) throw new Error('no_link');
 
     await admin.from('tg_identities').upsert({

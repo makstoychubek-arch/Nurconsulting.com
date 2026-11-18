@@ -45,7 +45,8 @@ test('«Полки»: в «Пульте» у кампании метка с чи
     const wb = String(CAMPS[0][0]);
     await page.waitForFunction((w) => { const e = document.querySelector('.shv-slot[data-shv-adv="' + w + '"]'); return e && /Полки/.test(e.innerText); }, wb, { timeout: 4000 });
     const pos = await page.evaluate((w) => { const r = document.querySelector('.adp2-row[data-key$=":' + w + '"] .adp2-sl'); return r ? r.className : ''; }, wb);
-    assert.ok(/\bp2\b/.test(pos), 'ползунок показывает «A» у кампании с чисткой полок: ' + pos);
+    // «A» теперь только у автопилота; «Полки» показывает метка под названием, ползунок на «1» (включена)
+    assert.ok(/\bp1\b/.test(pos), 'у кампании с чисткой полок ползунок на «1», «A» не горит: ' + pos);
 });
 
 test('«Пауза» по кампании: статус на экране меняется сразу, WB догоняет в фоне', async ({ page, calls }) => {
@@ -70,17 +71,7 @@ test('ползунок 0 / 1 / A: «A» помечает кампанию авт
     assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
 });
 
-test('Пульт: ползунок «A» меняется сразу и ставит пометку автопилота', async ({ page, calls }) => {
-    const sel = '.adp2-sl.p1 button[data-pos="2"]';
-    const key = await page.locator(sel).first().getAttribute('data-key');
-    const t0 = Date.now();
-    await page.evaluate((s) => document.querySelector(s).click(), sel);
-    await page.waitForFunction((k) => document.querySelector('.adp2-sl.p2 button[data-key="' + k + '"]'), key, { timeout: 300 });
-    assert.ok(Date.now() - t0 < 300, 'ползунок переехал за ' + (Date.now() - t0) + ' мс');
-    await page.waitForTimeout(600);
-    assert.ok(calls.some((c) => c.table === 'ad_autopilot_campaigns'), 'пометка ушла в базу');
-});
-
+// Звезда («Автопилот») в «Пульте» убрана с экрана по просьбе владельца, проверка про неё удалена
 test('Пульт: обновление и фоновая подгрузка ставок не пересоздают строки (без «трясёт»)', async ({ page }) => {
     // Раньше render() целиком стирал #adv-pulse через innerHTML при каждой перерисовке AdsHQ,
     // а patchRow() подменял строку через replaceWith — ползунки теряли фокус и мигали на каждое обновление.
@@ -99,6 +90,20 @@ test('Пульт: обновление и фоновая подгрузка ст
     assert.ok(survived, 'строки/ползунки Пульта пережили «Обновить» без пересоздания DOM-узлов');
 });
 
+test('Окно кампании: открывается сразу, есть блоки макета, ESC закрывает, страница не уезжает вбок', async ({ page }) => {
+    await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-head').length >= 4, null, { timeout: 5000 });
+    const t0 = Date.now();
+    await page.locator('#adv-pulse .adp2-head .adp2-nm').first().click();
+    await page.waitForSelector('.adp2-body.cw .cw-hd', { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'окно открылось за ' + (Date.now() - t0) + ' мс');
+    const has = await page.evaluate(() => ['.cw-grid2', '.cw-zones', '.cw-prod', '.cw-x'].every((s) => document.querySelector('.adp2-body.cw ' + s)));
+    assert.ok(has, 'в окне есть блоки бюджета, зон и товаров');
+    const over = await page.evaluate(() => { const b = document.querySelector('.adp2-body.cw'); return b.scrollWidth - b.clientWidth; });
+    assert.ok(over <= 1, 'окно не выпирает вбок: ' + over);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.adp2-body.cw'), null, { timeout: 300 });
+});
+
 test('Дашборд на телефоне: новый компактный вид берёт цифры из блоков дашборда', async ({ page }) => {
     await page.setViewportSize({ width: 424, height: 900 });
     await page.evaluate(() => showTab('dashboard'));
@@ -115,7 +120,7 @@ test('Дашборд на телефоне: новый компактный ви
 test('Пульт: у каждой РК виден баланс, по нажатию открывается пополнение и сумма уходит в WB', async ({ page, calls }) => {
     await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-bal').length >= 4, null, { timeout: 5000 });
     const bals = await page.evaluate(() => [...document.querySelectorAll('#adv-pulse .adp2-bal b')].map((b) => b.textContent.trim()));
-    assert.ok(bals.every((t) => /₽|—/.test(t)), 'в каждой строке есть баланс: ' + bals.join(', '));
+    assert.ok(bals.every((t) => /сом|—/.test(t)), 'в каждой строке есть баланс в сомах: ' + bals.join(', '));
     assert.ok(await page.locator('#adv-pulse .adp2-bal b.bad').count() >= 1, 'маленький баланс (меньше 300 ₽) подсвечен');
     const t0 = Date.now();
     await page.locator('#adv-pulse .adp2-bal').first().click();
@@ -169,6 +174,38 @@ test('после жёсткого обновления РК сразу пока�
     await page.evaluate(() => showTab('advertising'));
     await page.waitForFunction(() => document.querySelectorAll('.ads-sl').length > 0, null, { timeout: 400 });
     assert.ok(Date.now() - t0 < 400, 'список виден через ' + (Date.now() - t0) + ' мс');
+});
+
+test('Окна из окна кампании открываются поверх него: выбор товара и уведомление', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForFunction(() => document.querySelectorAll('#adv-pulse .adp2-head').length >= 4, null, { timeout: 5000 });
+    await page.locator('#adv-pulse .adp2-head .adp2-nm').first().click();
+    // на телефоне блок товаров свёрнут: раскрываем нажатием на строку «Товары»
+    await page.waitForSelector('.adp2-body.cw .cw-prod .cw-ch', { timeout: 2000 });
+    await page.click('.adp2-body.cw .cw-prod .cw-ch');
+    await page.waitForSelector('.adp2-body.cw [data-pact="addp"]', { timeout: 2000 });
+    await page.locator('.adp2-body.cw [data-pact="addp"]').first().scrollIntoViewIfNeeded();
+    await page.click('.adp2-body.cw [data-pact="addp"]');
+    await page.waitForSelector('.adp2-ov', { timeout: 2000 });
+    const top1 = await page.evaluate(() => { const o = document.querySelector('.adp2-ov'); const r = o.querySelector('.adp2-md').getBoundingClientRect(); return o.contains(document.elementFromPoint(r.left + r.width / 2, r.top + 20)); });
+    assert.ok(top1, 'окно выбора товара должно быть поверх окна кампании');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.NrUi.toast('success', 'Проверка уведомления', ''));
+    await page.waitForSelector('.nru-toast', { timeout: 1000 });
+    const top2 = await page.evaluate(() => { const t = document.querySelector('.nru-toast'); const r = t.getBoundingClientRect(); return t.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); });
+    assert.ok(top2, 'уведомление должно быть видно поверх окна кампании');
+});
+
+test('Ползунок режима «0 / 1» не отключает чистку «Полок» и список ключей', async ({ page }) => {
+    const wb = CAMPS[0][0];
+    await page.waitForFunction((w) => window.AdvShelves && window.AdvShelves.has(document.querySelector('.adp2-row') ? document.querySelector('.adp2-row').dataset.key.split(':')[0] : '', w), wb, { timeout: 6000 });
+    const key = await page.evaluate((w) => [...document.querySelectorAll('.adp2-row')].map((r) => r.dataset.key).find((k) => k.split(':')[1] === String(w)), wb);
+    for (const pos of [1, 0, 1]) {
+        await page.evaluate(({ k, p }) => { const cab = k.split(':')[0], w = k.split(':')[1]; window.AdsHQ.setCampPos(cab, Number(w), p); }, { k: key, p: pos });
+        await page.waitForTimeout(300);
+    }
+    const still = await page.evaluate((k) => window.AdvShelves.has(k.split(':')[0], k.split(':')[1]), key);
+    assert.ok(still, 'чистка «Полок» осталась включённой после нажатий «1», «0», «1»');
 });
 
 (async () => {

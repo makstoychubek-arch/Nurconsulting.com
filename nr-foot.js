@@ -56,13 +56,15 @@
         if (f.__h !== h) { f.innerHTML = h; f.__h = h; }
         push(host, f);
     }
-    // Низ показывается только в самом конце прокрутки: если страница короче экрана, отодвигаем его под нижний край.
+    // Низ показывается только в самом конце прокрутки: если страница короче экрана (или чуть длиннее), отодвигаем его глубоко под нижний край.
     function push(host, f) {
         if (!f.offsetParent && f.style.display !== 'none') return;
         var cur = parseFloat(f.style.marginTop) || 0;
         var top = f.getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop;
         var end = top - cur;
-        var need = Math.max(32, Math.ceil(host.clientHeight - end + 24));
+        // Нижняя часть всегда ниже видимого экрана минимум на 140 px: при коротких страницах и при догрузке данных она не выглядывает снизу,
+        // а появляется только когда человек сам прокрутил вниз. На длинных страницах (конец ниже экрана) стоит обычным отступом 36 px.
+        var need = end + 36 > host.clientHeight + 140 ? 36 : Math.max(36, Math.ceil(host.clientHeight - end + 140));
         if (Math.abs(need - cur) > 2) f.style.marginTop = need + 'px';
     }
     function fit() { var host = doc.querySelector('.main-content'), f = doc.getElementById('nr-foot'); if (host && f) push(host, f); }
@@ -70,15 +72,21 @@
     function watch() {
         var host = doc.querySelector('.main-content');
         if (!host || !root.MutationObserver) return;
-        var busy = false;
+        var raf = 0, timer = 0, last = 0;
+        // Изменений страницы бывает десятки за кадр (карточки и таблицы дорисовываются), а пересчёт заставляет браузер заново мерить вёрстку.
+        // Смена раздела пересчитывается сразу (до отрисовки, чтобы низ не мелькал), остальная дорисовка не чаще раза в 250 мс.
+        function run() { raf = 0; last = Date.now(); fit(); }
         new MutationObserver(function (list) {
-            if (busy) return;
+            if (raf) return;
             var f = doc.getElementById('nr-foot');
             if (list.every(function (m) { return f && (m.target === f || f.contains(m.target)); })) return;
-            busy = true;
-            try { fit(); } finally { busy = false; }
+            var urgent = list.some(function (m) { return m.type === 'attributes' && m.target.classList && m.target.classList.contains('tab-content'); });
+            if (urgent) { raf = (root.requestAnimationFrame || root.setTimeout)(run); return; }
+            if (timer) return;
+            // остальная дорисовка: после отрисовки, в простое, и не чаще раза в 250 мс
+            timer = root.setTimeout(function () { timer = 0; if (raf) return; raf = 1; (root.requestIdleCallback || root.setTimeout)(run, root.requestIdleCallback ? { timeout: 400 } : 50); }, Math.max(0, 250 - (Date.now() - last)));
         }).observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
     }
-    function init() { mount(); watch(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(fit, 700); root.addEventListener('resize', fit); }
+    function init() { mount(); watch(); [2000, 6000, 15000].forEach(function (ms) { setTimeout(mount, ms); }); setInterval(function () { if (!doc.hidden) fit(); }, 700); root.addEventListener('resize', fit); }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
 })(typeof window !== 'undefined' ? window : this);

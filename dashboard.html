@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="ios">
+<html lang="ru" data-theme="neon" data-bg="flow">
 <head>
     <meta charset="UTF-8">
     <script id="nr-splash-js">
-(function(){try{if(document.getElementById('nr-splash'))return;var d=0,r=0;try{d=localStorage.getItem('nr_theme')==='neon'}catch(e){}try{r=matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
-var st=document.createElement('style');st.textContent='#nr-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;background:'+(d?'#1C1C1E':'#f5f4f0')+';color:'+(d?'#f1f0f8':'#121212')+';transition:opacity .45s ease}#nr-splash.o{opacity:0;pointer-events:none}#nr-splash .h{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6}#nr-splash .u{width:46px;height:3px;border-radius:3px;background:#f97316;margin:22px 0}#nr-splash .b{display:flex;align-items:center;gap:12px}#nr-splash svg{width:64px;height:64px;border-radius:18px}#nr-splash>svg{width:84px;height:84px;border-radius:24px;opacity:0;transform:scale(.86);animation:nrSpIn .5s cubic-bezier(.22,1,.36,1) .05s forwards}@keyframes nrSpIn{to{opacity:1;transform:none}}#nr-splash .s{border:2px solid #f97316;color:#f97316;border-radius:99px;padding:4px 18px;font-size:27px;font-weight:800;line-height:1.1}#nr-splash .d{display:flex;gap:9px;margin-top:26px}#nr-splash .d i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.4;animation:nrSp 1.2s infinite}#nr-splash .d i:nth-child(2){animation-delay:.2s;opacity:.7}#nr-splash .d i:nth-child(3){animation-delay:.4s;opacity:1}@keyframes nrSp{50%{transform:translateY(-4px)}}@media(max-width:480px){#nr-splash svg{width:50px;height:50px;border-radius:14px}#nr-splash .s{font-size:20px;padding:3px 13px}}'+(r?'#nr-splash .d i,#nr-splash>svg{animation:none;opacity:1;transform:none}':'');
+(function(){try{if(document.getElementById('nr-splash'))return;var d=1,r=0;try{d=localStorage.getItem('nr_theme')!=='ios'}catch(e){}try{r=matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
+var st=document.createElement('style');st.textContent='#nr-splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;background:'+(d?'#262624':'#f5f4f0')+';color:'+(d?'#f1f0f8':'#121212')+';transition:opacity .2s ease}#nr-splash.o{opacity:0;pointer-events:none}#nr-splash .h{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6}#nr-splash .u{width:46px;height:3px;border-radius:3px;background:#f97316;margin:22px 0}#nr-splash .b{display:flex;align-items:center;gap:12px}#nr-splash svg{width:64px;height:64px;border-radius:18px}#nr-splash>svg{width:84px;height:84px;border-radius:24px;opacity:0;transform:scale(.86);animation:nrSpIn .3s cubic-bezier(.22,1,.36,1) .02s forwards}@keyframes nrSpIn{to{opacity:1;transform:none}}#nr-splash .s{border:2px solid #f97316;color:#f97316;border-radius:99px;padding:4px 18px;font-size:27px;font-weight:800;line-height:1.1}#nr-splash .d{display:flex;gap:9px;margin-top:26px}#nr-splash .d i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.4;animation:nrSp 1.2s infinite}#nr-splash .d i:nth-child(2){animation-delay:.2s;opacity:.7}#nr-splash .d i:nth-child(3){animation-delay:.4s;opacity:1}@keyframes nrSp{50%{transform:translateY(-4px)}}@media(max-width:480px){#nr-splash svg{width:50px;height:50px;border-radius:14px}#nr-splash .s{font-size:20px;padding:3px 13px}}'+(r?'#nr-splash .d i,#nr-splash>svg{animation:none;opacity:1;transform:none}':'');
 var el=document.createElement('div');el.id='nr-splash';el.setAttribute('aria-hidden','true');var seen=0;try{seen=sessionStorage.getItem('nr_splash_seen')==='1';sessionStorage.setItem('nr_splash_seen','1')}catch(e){}
 el.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="120" fill="#fff"/><path d="M45.1 355.1V144.9h58.2l79.9 95.5v-95.5h69v210.2h-58.2l-79.9-95.5v95.5zM277.5 355.1V144.9h98.2q48.3 0 73.5 21.3t25.2 58q0 22.8-10.4 39.6t-29.2 26.4l44.1 64.9h-75.6l-35.7-52.8h-19.2v52.8zM348.3 248.8h25.8q14.7 0 21.8-6.6t7-18q0-11.4-7-18t-21.8-6.6h-25.8z"/></svg>';
 (document.head||document.documentElement).appendChild(st);document.documentElement.appendChild(el);
@@ -15,14 +15,15 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     <link rel="icon" type="image/png" href="/icons/favicon.png?v=2" sizes="32x32">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1C1C1E">
+    <meta name="theme-color" content="#262624">
     <script>
         /* Тема до первого кадра */
         try {
             var __nrTheme = localStorage.getItem('nr_theme');
-            if (__nrTheme === 'neon' || __nrTheme === 'ios' || __nrTheme === 'tabler') {
-                document.documentElement.setAttribute('data-theme', __nrTheme);
-            }
+            /* Две темы «живого стекла»: чёрная (по умолчанию) и белая (решение владельца 16.11.2026). Tabler удалён. */
+            var __nrT = (__nrTheme === 'ios') ? 'ios' : 'neon';
+            document.documentElement.setAttribute('data-theme', __nrT);
+            document.documentElement.setAttribute('data-bg', __nrT === 'ios' ? 'live' : 'flow');
             var __nrWin = JSON.parse(localStorage.getItem('nr_win_size') || '');
             if (__nrWin && __nrWin.w && __nrWin.h) {
                 document.documentElement.style.setProperty('--nr-win-w', __nrWin.w + 'px');
@@ -160,60 +161,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
 
         /* Tabler tokens — третья тема, откат: Тема → Светлая */
-        [data-theme="tabler"] {
-            --bg: #f1f5f9;
-            --bg-mesh: none;
-            --surface: #ffffff;
-            --surface-solid: #ffffff;
-            --sidebar-bg: #ffffff;
-            --border: rgba(24, 36, 51, 0.1);
-            --border-strong: rgba(24, 36, 51, 0.16);
-            --text-primary: #182433;
-            --text-secondary: #4b5563;
-            --text-muted: #6b7280;
-            --accent: #066fd1;
-            --accent-hover: #0b5cab;
-            --accent-soft: #e8f1fb;
-            --accent-border: rgba(6, 111, 209, 0.28);
-            --purple: #4263eb;
-            --purple-soft: rgba(66, 99, 235, 0.12);
-            --accent-gradient: #066fd1;
-            --green: #2fb344;
-            --red: #d63939;
-            --amber: #f76707;
-            --blue: #4299e1;
-            --green-soft: rgba(47, 179, 68, 0.15);
-            --red-soft: rgba(214, 57, 57, 0.15);
-            --amber-soft: rgba(247, 103, 7, 0.16);
-            --muted-soft: var(--sel);
-            --card-shadow: 0 1px 3px rgba(24, 36, 51, 0.08);
-            --card-shadow-lg: 0 8px 24px rgba(24, 36, 51, 0.08);
-            --use-blur: none;
-            --use-glow: none;
-            --radius-card: 8px;
-            --radius-control: 6px;
-            --apple-glass: #ffffff;
-            --sel: #eef2f6;
-            --logo-mark: #ffffff;
-            --logo-ink: #182433;
-            --logo-mark-border: rgba(24, 36, 51, 0.12);
-            --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            --font-display: "Inter", system-ui, sans-serif;
-            --bg-primary: #f1f5f9;
-            --bg-secondary: #e7edf3;
-            --bg-card: #ffffff;
-            --border-color: rgba(24, 36, 51, 0.1);
-            color-scheme: light;
-        }
-        [data-theme="tabler"] .metric-card,
-        [data-theme="tabler"] .widget-card,
-        [data-theme="tabler"] .kpi-hero-card {
-            border-radius: 8px;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border);
-        }
-        [data-theme="tabler"] .ui-btn { border-radius: 6px !important; }
-        [data-theme="tabler"] header.glass { box-shadow: var(--card-shadow-lg) !important; }
+
+
+
+
 
         /* Единая шкала: KPI 13px Inter, сетки/таблицы 11px, подписи 10px */
         :root {
@@ -329,7 +280,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             align-items: stretch; padding: 18px 12px 14px;
         }
         .main-rail { margin-left: 220px; padding-top: 76px; transition: margin-left 0.12s ease, padding-top 0.12s ease; }
-        .main-rail:has(#tab-dashboard.active) { padding-top: 66px; }
+        html#nr-root.nr-f-dash .main-rail { padding-top: 66px; }
         body.flyout-expanded .main-rail { margin-left: 440px; }
         .rail-logo {
             width: auto; height: auto; border: none; border-radius: 14px;
@@ -532,7 +483,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .tg-status.deleted { background: rgba(248,113,113,0.12); color: var(--red); }
         .tg-switch { position: relative; width: 36px; height: 20px; border-radius: 999px; border: none; cursor: pointer; background: var(--border); flex-shrink: 0; }
         .tg-switch.on { background: var(--accent); }
-        .tg-switch span { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.15s ease; }
+        .tg-switch span { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.12s ease; }
         .tg-switch.on span { left: 18px; }
         .tg-mute-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
         .tg-mute-row:last-child { border-bottom: none; }
@@ -922,14 +873,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .metric-card:hover { background: var(--sel); transform: none; }
         [data-theme="neon"] .metric-card:hover { box-shadow: none; }
         .menu-group { margin: 2px 0; }
-        .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: 700; border-radius: 8px; margin: 8px 12px 2px; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.2s; }
+        .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: 700; border-radius: 8px; margin: 8px 12px 2px; text-transform: uppercase; letter-spacing: 0.08em; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
         .menu-group-title svg { flex-shrink: 0; opacity: 0.7; }
         .menu-group-title.open svg { opacity: 1; }
         .menu-group-title:hover { color: var(--text-secondary); }
         .menu-group-title.open { color: var(--accent); }
         .menu-group-title .arrow { transition: transform 0.2s; font-size: 10px; }
         .menu-group-title.open .arrow { transform: rotate(180deg); }
-        .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
+        .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.2s ease; }
         .menu-sub.open { max-height: 300px; }
         .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; color: var(--text-primary); font-size: 14px; font-weight: 700; transition: background 0.15s ease; margin: 2px 8px; border-radius: 999px; border: none; }
         .nav-item:hover { background: var(--sel); color: var(--text-primary); transform: none; }
@@ -942,7 +893,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         /* Плавная смена темы (toggleTheme). */
         ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .38s; animation-timing-function: ease; }
         html.theme-fading, html.theme-fading *, html.theme-fading *::before, html.theme-fading *::after {
-            transition: background-color .38s ease, color .38s ease, border-color .38s ease, fill .38s ease, stroke .38s ease, box-shadow .38s ease !important;
+            transition: background-color .2s ease, color .2s ease, border-color .2s ease, fill .2s ease, stroke .2s ease, box-shadow .2s ease !important;
         }
         .beta-theme-row {
             display: flex; align-items: center; gap: 10px;
@@ -954,8 +905,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .beta-theme-ico { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .beta-theme-ico svg { width: 16px; height: 16px; display: block; }
         .beta-theme-ico-moon, .beta-theme-ico-tabler { display: none; }
-        [data-theme="tabler"] .beta-theme-ico-sun { display: none; }
-        [data-theme="tabler"] .beta-theme-ico-tabler { display: flex; }
+
+
         [data-theme="neon"] .beta-theme-ico-sun { display: none; }
         [data-theme="neon"] .beta-theme-ico-tabler { display: none; }
         [data-theme="neon"] .beta-theme-ico-moon { display: flex; }
@@ -1079,7 +1030,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             border-radius: var(--radius-card);
             box-shadow: 0 12px 32px rgba(0,0,0,0.08); padding: 8px;
             opacity: 0; visibility: hidden; transform: translateY(-6px) scale(0.97);
-            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.15s cubic-bezier(0.22, 1, 0.36, 1);
             z-index: 9999; pointer-events: none;
         }
         .cabinet-picker.open .cabinet-dropdown-menu { pointer-events: auto; }
@@ -1142,7 +1093,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             display: inline-flex; align-items: center; gap: 6px;
             padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600;
             cursor: pointer; background: var(--surface); border: 1px solid var(--border);
-            color: var(--text-secondary); transition: all 0.2s; user-select: none;
+            color: var(--text-secondary); transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; user-select: none;
         }
         .module-date-chip:hover, .module-date-chip.active {
             border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft);
@@ -1170,8 +1121,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .date-chip-chevron { width: 10px; height: 10px; flex-shrink: 0; color: var(--text-muted); }
         .filter-chip:hover { border-color: transparent; color: var(--text-primary); background: var(--sel); }
         .filter-chip.active { border-color: transparent; color: var(--text-primary); background: var(--sel); }
-        .theme-pill { position: relative; width: 56px; height: 30px; border-radius: 15px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.3s ease; flex-shrink: 0; }
-        .theme-pill-thumb { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-gradient); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 2px 8px rgba(232,86,142,0.35); }
+        .theme-pill { position: relative; width: 56px; height: 30px; border-radius: 15px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; flex-shrink: 0; }
+        .theme-pill-thumb { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-gradient); transition: transform 0.3s cubic-bezier(.22,1,.36,1); box-shadow: 0 2px 8px rgba(232,86,142,0.35); }
         .theme-icon { position: absolute; top: 50%; transform: translateY(-50%); font-size: 11px; line-height: 1; pointer-events: none; opacity: 0.5; }
         .theme-icon-sun { left: 8px; }
         .theme-icon-moon { right: 8px; }
@@ -1209,11 +1160,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         .nr-wow-col {
             display: inline-block; overflow: hidden; height: 1.15em;
-            vertical-align: -0.05em; line-height: 1.15;
+            vertical-align: -0.21em; line-height: 1.15;
         }
         .nr-wow-strip {
             display: flex; flex-direction: column;
-            transition: transform 0.52s cubic-bezier(.22,.9,.3,1);
+            transition: transform 0.28s cubic-bezier(.22,.9,.3,1);
         }
         .nr-wow-strip > span { display: block; height: 1.15em; line-height: 1.15; }
         .nr-wow-sep { display: inline-block; }
@@ -1236,7 +1187,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             0% { box-shadow: 0 0 0 0 rgba(22,163,74,0.38); }
             100% { box-shadow: 0 0 0 18px rgba(22,163,74,0); }
         }
-        .nr-wow-pulse { animation: nr-wow-pulse 0.7s ease-out; }
+        .nr-wow-pulse { animation: nr-wow-pulse 0.4s ease-out; }
         @media (prefers-reduced-motion: reduce) {
             .nr-wow-strip { transition: none !important; }
             .nr-wow-spot, .nr-wow-burst { display: none !important; }
@@ -1342,7 +1293,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         /* Контроль РК — карточки кабинетов (главная страница рекламы) */
         .advcab-card {
             width: 100%; font-family: inherit; background: var(--surface); border: none; border-radius: var(--radius-card);
-            padding: 20px; box-shadow: var(--card-shadow); transition: all 0.2s ease;
+            padding: 20px; box-shadow: var(--card-shadow); transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
             cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 12px;
         }
         .advcab-card:hover { box-shadow: none; transform: none; background: var(--sel); }
@@ -1376,7 +1327,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .adv-camp-action-btn {
             border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-primary);
             font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 8px; cursor: pointer;
-            white-space: nowrap; transition: all 0.15s ease;
+            white-space: nowrap; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
         }
         .adv-camp-action-btn:hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         .adv-camp-action-btn:disabled { opacity: 0.6; cursor: default; }
@@ -1572,7 +1523,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         #add-cabinet-modal:not(.hidden),
         #autobidder-modal:not(.hidden),
         #supply-detail-modal:not(.hidden) {
-            animation: nr-overlay-in 0.22s ease-out both;
+            animation: nr-overlay-in 0.14s ease-out both;
         }
         .rnp-settings-overlay.is-open > .rnp-settings-dialog,
         .rnp-plan-fact-overlay.is-open > .rnp-plan-fact-dialog,
@@ -1581,7 +1532,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         #add-cabinet-modal:not(.hidden) > .add-cabinet-modal-box,
         #autobidder-modal:not(.hidden) > .nr-glass-dialog,
         #supply-detail-modal:not(.hidden) > .nr-glass-dialog {
-            animation: nr-dialog-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+            animation: nr-dialog-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         @media (prefers-reduced-motion: reduce) {
             .rnp-settings-overlay.is-open,
@@ -2284,7 +2235,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             display: inline-flex; align-items: center; justify-content: center;
             width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
             border: 1px solid var(--border); background: var(--surface);
-            color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+            color: var(--text-secondary); cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
         }
         .rnp-header-refresh:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
         .rnp-header-refresh:disabled { opacity: 0.5; cursor: wait; }
@@ -2538,20 +2489,20 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .rnp-settings-overlay > * { position: relative; z-index: 1; }
         body.rnp-settings-open header.glass.app-header,
         body.rnp-settings-open .bottom-nav { z-index: 1; }
-        body:has(.rnp-settings-overlay.is-open) header.glass.app-header,
-        body:has(.rnp-plan-fact-overlay.is-open) header.glass.app-header,
-        body:has(.rnp-photo-lightbox.is-open) header.glass.app-header,
-        body:has(#premium-modal.is-open) header.glass.app-header,
-        body:has(#add-cabinet-modal:not(.hidden)) header.glass.app-header,
-        body:has(#autobidder-modal:not(.hidden)) header.glass.app-header,
-        body:has(#supply-detail-modal:not(.hidden)) header.glass.app-header,
-        body:has(.rnp-settings-overlay.is-open) .bottom-nav,
-        body:has(.rnp-plan-fact-overlay.is-open) .bottom-nav,
-        body:has(.rnp-photo-lightbox.is-open) .bottom-nav,
-        body:has(#premium-modal.is-open) .bottom-nav,
-        body:has(#add-cabinet-modal:not(.hidden)) .bottom-nav,
-        body:has(#autobidder-modal:not(.hidden)) .bottom-nav,
-        body:has(#supply-detail-modal:not(.hidden)) .bottom-nav { z-index: 1; }
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body header.glass.app-header,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav,
+        html#nr-root.nr-f-ov body .bottom-nav { z-index: 1; }
         .rnp-group-vis-list { display: grid; gap: 6px; }
         .rnp-group-vis {
             display: flex; align-items: center; gap: 10px;
@@ -2814,9 +2765,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .gv-chip { font-size: 11px; padding: 4px 9px; border-radius: 8px; background: var(--sel); color: var(--text-secondary); }
         .gv-chip.is-late { background: rgba(239,68,68,0.14); color: #dc2626; }
         .gv-scroll { overflow: auto; max-height: calc(100vh - 290px); border-radius: 10px; border: 1px solid var(--border); overscroll-behavior: contain; }
-        .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; }
-        .gv-th { position: sticky; top: 0; z-index: 3; background: #d9ead3; color: #274e13; font-weight: 700; font-size: 10px; text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
-        .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: 28px; }
+        .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: var(--gv-fs, 11px); font-family: var(--gv-font, inherit); }
+        .gv-th { position: sticky; top: 0; z-index: 3; background: var(--gv-head-bg, #d9ead3); color: #274e13; font-weight: var(--gv-hfw, 700); font-size: var(--gv-hfs, 10px); height: var(--gv-head-h, auto); text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
+        .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: var(--gv-row-h, 28px); }
         .gv-center { text-align: center; }
         .gv-pay { text-align: center; font-variant-numeric: tabular-nums; background: #f3f7f1; color: var(--text-secondary); }
         .gv-pay.is-late { background: #f4c7c3; color: #8a1c14; font-weight: 700; }
@@ -2854,7 +2805,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .gv-hint { font-size: 11px; color: var(--text-muted); }
         .gv-wrap { position: relative; }
         .gv-cb { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; padding: 0; border: 0; resize: none; pointer-events: none; }
-        .gv-table td.gv-c { position: relative; user-select: none; -webkit-user-select: none; cursor: cell; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; font-size: 11px; color: var(--text-primary); }
+        .gv-table td.gv-c { position: relative; user-select: none; -webkit-user-select: none; cursor: cell; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; font-size: var(--gv-fs, 11px); color: var(--text-primary); }
         .gv-num { text-align: right; font-variant-numeric: tabular-nums; }
         .gv-rn { position: sticky; left: 0; z-index: 2; background: #f1f5ef; color: var(--text-muted); font-size: 10px; font-weight: 600; text-align: center; border-right: 1px solid #c4dcb9; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
         .gv-rn.is-on { background: #d9ead3; color: #274e13; }
@@ -3571,7 +3522,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             font-size: var(--fs-label); font-weight: 600; padding: 4px 10px; border-radius: 999px;
             border: 1px solid var(--border); background: var(--surface);
             color: var(--text-secondary); cursor: pointer; white-space: nowrap;
-            transition: all 0.12s;
+            transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
         }
         .rnp-strategy-tab:hover { border-color: var(--accent-border); color: var(--accent); }
         .rnp-strategy-tab.active {
@@ -4178,6 +4129,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .abtest-variant.winner { border-color: var(--green); box-shadow: none; }
         .abtest-variant.current-active { border-color: var(--accent); box-shadow: none; }
         .abtest-variant img { width: 100%; height: 100px; object-fit: cover; display: block; }
+        /* Каркас фото сразу после создания теста: превью и кольцо «загружается», пока фото уходят на сервер */
+        .abtest-variant.is-pending img { opacity: .45; filter: grayscale(.4); }
+        .abtest-variant.is-pending .abtest-ph { height: 100px; background: linear-gradient(100deg, var(--surface) 30%, rgba(128,128,128,.14) 50%, var(--surface) 70%); background-size: 200% 100%; animation: abtestShimmer 1.2s linear infinite; }
+        .abtest-pend-ring { position: absolute; left: 50%; top: 50px; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; border: 2px solid rgba(128,128,128,.35); border-top-color: var(--text-primary, #000); animation: abtestSpin .8s linear infinite; }
+        @keyframes abtestSpin { to { transform: rotate(360deg); } }
+        @keyframes abtestShimmer { to { background-position: -200% 0; } }
+        @media (prefers-reduced-motion: reduce) { .abtest-pend-ring, .abtest-variant.is-pending .abtest-ph { animation: none; } }
         .abtest-variant-meta { padding: 7px 6px; text-align: center; }
         .abtest-ctr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
         .abtest-orders { font-size: 11px; color: var(--text-secondary); }
@@ -4186,7 +4144,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .abtest-winner-badge { position: absolute; top: 4px; right: 4px; background: var(--green); color: #000; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; }
         .abtest-active-badge { position: absolute; top: 4px; left: 4px; background: var(--accent); color: var(--on-accent, #fff); font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; }
         /* Drag & drop зона */
-        .drop-zone { border: 2px dashed var(--border-strong); border-radius: 12px; padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; position: relative; }
+        .drop-zone { border: 2px dashed var(--border-strong); border-radius: 12px; padding: 20px 16px; text-align: center; cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; position: relative; }
         .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
         .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
         .drop-zone-preview { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; display: block; margin-bottom: 6px; }
@@ -4220,7 +4178,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .ab-pill {
             padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
             border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
-            transition: all 0.15s; user-select: none;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; user-select: none;
         }
         .ab-create-btn {
             display: inline-flex; align-items: center; gap: 8px;
@@ -4342,7 +4300,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         /* Итоговый вердикт */
         .verdict-winner-card { background: rgba(52,199,89,0.08); border: 1.5px solid rgba(52,199,89,0.3); border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
         .verdict-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin-top: 4px; overflow: hidden; }
-        .verdict-bar { height: 6px; border-radius: 4px; transition: width 0.6s ease; }
+        .verdict-bar { height: 6px; border-radius: 4px; transition: width 0.3s ease; }
         /* Детальный отчёт А/Б теста */
         /* Колонки 150–210 px, фото целиком (7:9). auto-fit схлопывает пустые колонки, поэтому 2–3 карточки стоят строго по центру. До 6 вариантов умещаются в ряд на широком окне, на узком переносятся. */
         .ab-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 210px)); gap: 12px; justify-content: center; }
@@ -4381,16 +4339,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .ab-report-meta { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 6px; }
         .ab-report-verdict-box { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); font-size: 13px; }
         .ab-report-verdict-stars { font-size: 15px; letter-spacing: 1px; color: #FFB020; }
-        .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: all 0.15s; }
+        .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
         .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
         .segment-tabs { display: inline-flex; background: var(--sel); border: none; border-radius: 999px; padding: 3px; }
         .segment-tab { padding: 6px 14px; font-size: 13px; font-weight: 700; border-radius: 999px; cursor: pointer; color: var(--text-muted); }
         .segment-tab.active { background: var(--surface-solid); color: var(--text-primary); }
-        .token-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 10px; transition: all 0.25s ease; }
+        .token-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 10px; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
         .token-card:hover { border-color: var(--accent-border); }
         .settings-tab-anim { }
         .settings-section-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
-        .settings-section-tab { flex: 1; text-align: center; padding: 8px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; }
+        .settings-section-tab { flex: 1; text-align: center; padding: 8px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
         .settings-section-tab.active { background: var(--accent-gradient); color: var(--on-accent, #fff); }
 
         /* ====== Безопасность — активные сеансы (Apple style) ====== */
@@ -4468,7 +4426,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             cursor: pointer;
             padding: 6px 10px;
             border-radius: 8px;
-            transition: all 0.15s ease;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
             flex-shrink: 0;
         }
         .security-end-btn:hover {
@@ -4638,7 +4596,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             background: transparent;
             color: var(--text-secondary);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
             letter-spacing: -0.01em;
         }
         .admin-spaces-subtab.active {
@@ -4957,7 +4915,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .ui-input::placeholder { color: var(--text-muted); }
         .ui-input:focus, .ui-select:focus { border-color: var(--accent-border); }
 
-        .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition:all 0.15s; }
+        .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
         .picker-quick-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-border); }
         .picker-date-input { width:100%; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-primary); }
         .dash-wh-total { border-top: 1px solid var(--border); padding-top: 6px; font-weight: 800; }
@@ -5045,7 +5003,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .rnp-save-btn {
             display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 10px;
             font-size: 12px; font-weight: 600; background: var(--surface); border: 1px solid var(--border);
-            color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;
+            color: var(--text-primary); cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
         }
         .rnp-save-btn:hover {
             border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent);
@@ -5107,7 +5065,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             .rail-btn-lbl { line-height: 1; display: flex; align-items: center; }
             .rail-user { padding: 2px 4px 6px; }
             .rail-bottom-icons { justify-content: space-evenly; padding: 0; }
-            .main-rail:has(#tab-dashboard.active) { padding-top: 76px; }
+            html#nr-root.nr-f-dash .main-rail { padding-top: 76px; }
         }
 
         /* A/B тест карточки */
@@ -5403,7 +5361,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 inset: 0 auto 0 0;
                 z-index: 50;
                 transform: translateX(-100%);
-                transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+                transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
                 pointer-events: auto;
                 height: 100vh;
                 height: 100dvh;
@@ -5535,7 +5493,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 background: var(--surface-solid);
                 border-radius: 20px 20px 0 0;
                 transform: translateY(110%);
-                transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+                transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
                 padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
                 box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
                 pointer-events: none;
@@ -5912,7 +5870,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 max-width: none;
             }
             body.is-dash-phone .cabinet-picker-label { max-width: 128px; }
-            .main-content:has(#tab-dashboard.active) {
+            html#nr-root.nr-f-dash .main-content {
                 padding: 10px 8px 12px !important;
             }
             #tab-dashboard.space-y-4 > :not([hidden]) ~ :not([hidden]) {
@@ -6055,8 +6013,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/analytics': 'analytics', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
             // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
-            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs'];
-            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, analytics: 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
+            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs'];
+            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, 'rnp-planfact': 1, 'rnp-planning': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, analytics: 1, agents: 1, 'tg-owner': 1, akylai: 1, summary: 1, tariffs: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -6064,7 +6022,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
             if (!__nrTab) __nrTab = localStorage.getItem('nr_active_tab');
             if (__nrTab) __nrTab = __nrAliases[__nrTab] || __nrTab;
-            if (__nrTab === 'rnp-settings') __nrTab = 'rnp';
+            if (__nrTab === 'rnp-settings' || __nrTab === 'rnp-planfact' || __nrTab === 'rnp-planning') __nrTab = 'rnp';
             if (__nrTab === 'cost') __nrTab = 'goods-groups';
             /* Внутренние вкладки открываем сразу только сотруднику команды —
                флаг из прошлой сессии. Клиента на /agents не пускаем ни на кадр,
@@ -6082,6 +6040,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 __nrTab = 'tariffs';
             }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
+            // Флаги раздела на <html> с первого кадра (их же потом ведёт nr-nav.js), чтобы поля страницы не прыгали при загрузке
+            document.documentElement.id = 'nr-root';
+            if (!__nrPane || __nrPane === 'dashboard') document.documentElement.classList.add('nr-f-dash');
+            else if (__nrPane === 'advertising') document.documentElement.classList.add('nr-f-adv');
             if (__nrPane && __nrPane !== 'dashboard') {
                 document.documentElement.setAttribute('data-nr-early', __nrPane);
                 var __nrStyle = document.createElement('style');
@@ -6091,8 +6053,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     __nrCss += '#tab-rnp{display:flex !important;flex-direction:column;overflow:hidden;flex:1;min-height:0;background:var(--bg)}';
                     __nrCss += '.rnp-workspace,#rnp-sheet-body,.rnp-article-panel--wide{background:var(--surface-solid)}';
                     __nrCss += '.main-content{padding:4px 6px}';
+                    /* «Товары» и «Юнит-экономика» внутри РНП: с первого кадра прячем сам РНП, иначе при обновлении страницы он мигал до появления нужной страницы */
+                    try {
+                        var __nrRv = localStorage.getItem('nr_rnp_view');
+                        if (__nrRv === 'prices' || __nrRv === 'unit') {
+                            document.documentElement.setAttribute('data-nr-rv', __nrRv);
+                            __nrCss += '#tab-rnp>*:not(#rnp-views):not(#rnp-prices-pane):not(#rnp-unit-pane){display:none !important}';
+                        }
+                    } catch (e) { /* без памяти покажем РНП */ }
                 }
-                if (__nrPane !== 'rnp' && __nrPane !== 'rnp-settings') {
+                if (__nrPane !== 'rnp' && __nrPane !== 'rnp-settings' && __nrPane !== 'rnp-planfact' && __nrPane !== 'rnp-planning') {
                     // Те же поля, что у страницы после загрузки (см. «Единые поля страниц»), иначе контент «перепрыгивает».
                     __nrCss += '.main-content{padding:4px 6px 12px}';
                 }
@@ -6108,19 +6078,31 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     __nrCss += 'html[data-nr-early] #header-date-chip-wrap{display:none !important}';
                     __nrCss += 'html[data-nr-early] #header-back-btn.hidden{display:inline-flex !important}';
                 }
+                // Настройки: в первом кадре сразу нужный раздел (Интеграции и др.), без мигания «Профиля»
+                if (__nrPane === 'settings') {
+                    try {
+                        var __nrSec = localStorage.getItem('nr_settings_section');
+                        if (['security', 'integrations', 'api', 'keys'].indexOf(__nrSec) !== -1) {
+                            __nrCss += '#settings-profile{display:none !important}#settings-' + __nrSec + '{display:block !important}';
+                            __nrCss += 'html body #tab-settings #settings-tab-btn-profile.settings-section-tab.active{color:var(--text-muted) !important;box-shadow:none !important}';
+                            __nrCss += 'html body #tab-settings #settings-tab-btn-' + __nrSec + '.settings-section-tab{color:var(--text-primary) !important;box-shadow:inset 0 -2px 0 var(--text-primary) !important}';
+                        }
+                    } catch (e) {}
+                }
                 __nrStyle.textContent = __nrCss;
                 document.head.appendChild(__nrStyle);
                 window.__nrEarlyTab = __nrPane;
             }
         } catch (e) {}
     </script>
-<link rel="stylesheet" href="/dist/content-factory.cd0c9f1232.css">
-<link rel="stylesheet" href="/dist/nr-motion.36b5752019.css">
-<link rel="stylesheet" href="/dist/rnp-extra.23b8bda613.css">
-<link rel="stylesheet" href="/dist/ads-pulse.7e5a1013bc.css">
-<link rel="stylesheet" href="/dist/nr-admin.f32f11f17a.css">
-<link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
-<link rel="stylesheet" href="/dist/nr-mono.b25d315ec8.css">
+<link rel="stylesheet" href="/dist/content-factory.e90044b6a6.css">
+<link rel="stylesheet" href="/dist/nr-motion.11837b104a.css">
+<link rel="stylesheet" href="/dist/rnp-extra.a60fef2840.css">
+<link rel="stylesheet" href="/dist/ads-pulse.f9e582b861.css">
+<link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
+<link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
+<link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
+<link rel="stylesheet" href="/dist/nr-mono.f40d8ef0bc.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -6245,15 +6227,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <span class="nav-item-label">Прочие удержания</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="nav-item" onclick="showTab('plan-fact', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    <span class="nav-item-label">План-факт</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
-                <div class="nav-item" onclick="showTab('planning', this)">
+                <div class="flyout-sec">РНП</div>
+                <div class="nav-item" role="button" tabindex="0" onclick="nrOpenRnp('planning')">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
                     <span class="nav-item-label">Планирование</span>
-                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" role="button" tabindex="0" onclick="nrOpenRnp('planfact')">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span class="nav-item-label">План/факт</span>
                 </div>
                 <div class="flyout-sec">Модули</div>
                 <div class="nav-item" onclick="showTab('seo', this)">
@@ -6605,7 +6586,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </div>
         <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
         <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
-        <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
         <div id="tab-dds" class="tab-content space-y-4">
             <div class="widget-card p-5">
                 <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -7285,7 +7265,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     try { selected = localStorage.getItem('selected_cabinet_id') || ''; } catch (e4) {}
                     var cab = selected || read('rnp_shell_cab');
                     var html = cab ? read('rnp_shell_' + cab) : '';
-                    if (html && html.indexOf('rnp-workspace') !== -1) {
+                    var realRe = /data-rnp-value="(?:[1-9]\d*(?:\.\d+)?|0\.\d*[1-9]\d*)"[^>]*data-rnp-metric="(?:orders_count|sales_count|orders_sum|sales_sum)"/;
+                    if (html && html.indexOf('rnp-workspace') !== -1 && realRe.test(html)) {
                         el.innerHTML = html;
                     } else {
                         var raw = read('rnp_chrome');
@@ -7314,7 +7295,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             var req = tx.objectStore('shell').get(cab);
                             req.onsuccess = function () {
                                 var html2 = req.result;
-                                if (!html2 || String(html2).indexOf('rnp-workspace') === -1) return;
+                                if (!html2 || String(html2).indexOf('rnp-workspace') === -1 || !realRe.test(String(html2))) return;
                                 if (el.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide')) return;
                                 el.innerHTML = html2;
                             };
@@ -7324,8 +7305,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             })();
         </script>
 
+        <div id="tab-rnp-planfact" class="tab-content"><div id="rnp-pfp-host" class="rnp-pfp-host"></div></div>
+        <div id="tab-rnp-planning" class="tab-content"><div id="rnp-plp-host" class="rnp-pfp-host"></div></div>
+
         <div id="tab-ab-testing" class="tab-content space-y-4">
             <div class="ads-hq-bulk ab-toolbar">
+                <button type="button" class="ab-new-pill" id="ab-new-btn" onclick="showNewTestForm()">+ Новый тест</button>
                 <div class="ads-hq-filters" id="ab-filter-chips">
                     <button type="button" class="ads-hq-chip on" data-ab-filter="active" onclick="filterTests('active', this)">Активные</button>
                     <button type="button" class="ads-hq-chip" data-ab-filter="finished" onclick="filterTests('finished', this)">Архив</button>
@@ -7341,14 +7326,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     <button type="button" class="rnp-tool-icon" id="ab-reload" title="Обновить" aria-label="Обновить" onclick="loadABTests()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.2-5.8"></path><path d="M21 3v6h-6"></path></svg>
                     </button>
-                    <button type="button" class="rnp-tool-icon" id="ab-new-btn" title="Создать тест" aria-label="Создать тест" onclick="showNewTestForm()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
-                    </button>
+                    
                 </div>
             </div>
 
-            <div id="abtests-list" class="space-y-3"><div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div></div>
-        </div>
+            <div id="abtests-list" class="space-y-3"><div class="ab-skel"></div><div class="ab-skel"></div></div></div>
 
         <div id="tab-rnp-settings" class="tab-content">
             <div class="p-10 text-center" style="color:var(--text-muted)">
@@ -7538,6 +7520,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
         </div>
 
+
         <div id="tab-planning" class="tab-content space-y-4">
             <div class="flex items-center justify-end flex-wrap gap-2">
                 <span id="plan-save-status" class="text-xs" style="color:var(--text-muted)"></span>
@@ -7561,7 +7544,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="settings-section-tab" id="settings-tab-btn-security" onclick="showSettingsSection('security', this)">Безопасность</div>
                 <div class="settings-section-tab" id="settings-tab-btn-integrations" onclick="showSettingsSection('integrations', this)">Интеграции</div>
                 <div class="settings-section-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API Wildberries</div>
-                <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showTab('tariffs')">Тарифы</div>
+                <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showSettingsSection('tariffs', this)">Тарифы</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-keys" onclick="showSettingsSection('keys', this)">Боты и ключи</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim space-y-4">
@@ -7622,6 +7606,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                 </div>
             </div>
+            <div id="settings-tariffs" class="settings-tab-anim hidden"><div id="nr-tr"></div></div>
+            <div id="settings-keys" class="settings-tab-anim hidden space-y-4"></div>
             <div id="settings-devsessions" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card security-sessions-card p-0">
                     <div class="p-6 pb-4">
@@ -7656,6 +7642,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         </div>
                     </div>
                     <div id="cabinets-api-list" class="space-y-2"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка…</div></div>
+                </div>
+                <div class="widget-card p-6">
+                    <div class="mb-4">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Ключи Ozon</h3>
+                        <p class="text-xs mt-1" style="color:var(--text-muted)">Client-Id и Api-Key из кабинета продавца Ozon (Настройки → Seller API). Один кабинет, одна пара. Ключ проверяется в Ozon при сохранении и дальше не показывается.</p>
+                    </div>
+                    <div id="ozon-token-list"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кабинетов...</div></div>
                 </div>
             </div>
         </div>
@@ -7815,7 +7808,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     </div>
                     <button class="ui-btn ui-btn-secondary" onclick="showTab('settings'); showSettingsSection('api', document.getElementById('settings-tab-btn-api'))">Кабинеты WB</button>
                 </div>
-                <div id="ozon-token-list"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кабинетов...</div></div>
+                <div class="text-sm" style="color:var(--text-secondary)">Ключи Ozon теперь вводятся в Настройки → API Wildberries, ниже кабинетов WB.</div>
             </div>
         </div>
 
@@ -7899,7 +7892,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             </div>
         </div>
 
-        <div id="tab-tariffs" class="tab-content"><div id="nr-tr"></div></div>
         </div>
     </main>
     </div>
@@ -7929,7 +7921,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             if (!tab || tab === 'dashboard') return;
                             var titles = {
                                 rnp: 'Модуль РНП',
-                                'rnp-settings': 'Настройки РНП',
+                                'rnp-settings': 'Настройки РНП', 'rnp-planfact': 'План/факт', 'rnp-planning': 'Планирование',
                                 advertising: 'Продвижение',
                                 'ab-testing': 'А/Б Тесты',
                                 'goods-groups': 'Логистика',
@@ -7938,8 +7930,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             };
                             var t = document.getElementById('page-title');
                             if (t && titles[tab]) t.textContent = titles[tab];
+                            var __rv0 = document.documentElement.getAttribute('data-nr-rv');
+                            if (t && tab === 'rnp' && __rv0) t.textContent = __rv0 === 'unit' ? 'Юнит-экономика' : 'Товары';
                             var main = document.querySelector('.main-content');
-                            if (main && (tab === 'rnp' || tab === 'rnp-settings')) main.classList.add('rnp-compact');
+                            if (main && (tab === 'rnp' || tab === 'rnp-settings' || tab === 'rnp-planfact' || tab === 'rnp-planning')) main.classList.add('rnp-compact');
                         })();
                     </script>
                 </div>
@@ -7957,6 +7951,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             <div id="nr-notify-list"></div>
                         </div>
                     </div>
+                    <div class="nr-zoom" id="nr-zoom" role="group" aria-label="Масштаб страницы"><input type="range" id="nr-zoom-r" min="25" max="200" step="5" value="100" aria-label="Масштаб страницы" title="Масштаб (двойной клик — 100%)"></div>
+                    <script>
+                        /* Масштаб страницы (только содержимое, меню и шапка не меняются): применяем сразу, до отрисовки вкладок */
+                        (function () { try { var z = Number(localStorage.getItem('nr_page_zoom')); if (z >= 0.25 && z <= 2) { document.documentElement.style.setProperty('--nr-zoom', String(z)); var v = document.getElementById('nr-zoom-v'); if (v) v.textContent = Math.round(z * 100) + '%'; } } catch (e) {} })();
+                    </script>
                     <div class="cabinet-picker" id="cabinet-picker-wrap">
                         <button type="button" class="cabinet-picker-btn" id="cabinet-picker-btn" onclick="toggleCabinetDropdown(event)">
                             <span class="cabinet-picker-face">
@@ -7988,25 +7987,25 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </script>
 
     <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
-        <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="Продвижение">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
-            <span class="bn-lbl">Продвиж.</span>
+        <button type="button" class="bottom-nav-btn" id="bn-dash" data-tab="dashboard" onclick="showTab('dashboard')" title="Дашборд">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+            <span class="bn-lbl">Дашборд</span>
         </button>
         <button type="button" class="bottom-nav-btn" id="bn-rnp" data-tab="rnp" onclick="showTab('rnp')" title="РНП">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
             <span class="bn-lbl">РНП</span>
         </button>
-        <button type="button" class="bottom-nav-btn bottom-nav-btn--home" id="bn-dash" data-tab="dashboard" onclick="showTab('dashboard')" title="Дашборд">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-            <span class="bn-lbl">Дашборд</span>
+        <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="Продвижение">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
+            <span class="bn-lbl">Продвижение</span>
         </button>
-        <button type="button" class="bottom-nav-btn" id="bn-goods" data-tab="goods-groups" onclick="showTab('goods-groups')" title="Остатки">
+        <button type="button" class="bottom-nav-btn" id="bn-goods" data-tab="goods-groups" onclick="showTab('goods-groups')" title="Логистика">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
-            <span class="bn-lbl">Остатки</span>
+            <span class="bn-lbl">Логистика</span>
         </button>
         <button type="button" class="bottom-nav-btn" id="bn-beta" onclick="toggleBetaSheet()" title="Меню" aria-label="Меню">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></span>
-            <span class="bn-lbl">Меню</span>
+            <span class="bn-lbl">Ещё</span>
         </button>
     </nav>
     <div class="bottom-beta-overlay" id="nr-beta-overlay" onclick="closeBetaSheet()"></div>
@@ -8071,184 +8070,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-win.9a80ed5b42.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
-<script src="/dist/rnp-module.1055f67e20.min.js"></script>
-<script>
-/* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
-   и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
-   Работает, пока сайт открыт: браузер сначала требует любой клик по странице. Выбор артикулов хранится на этом устройстве. */
-(function () {
-    var KEY = 'nr_order_sound_v1';
-    var SOUNDS = [
-        {id:'dolphin',name:'Дельфин',src:'/sounds/order-dolphin.m4a'},{id:'faaah',name:'Faaah',src:'/sounds/order-faaah.mp3'}
-    ];
-    var audio = null, audioSrc = '', channel = null, started = false;
+<script src="/dist/rnp-metrics.b730968128.min.js"></script>
+<script src="/dist/rnp-module.382b4bfcf0.min.js"></script>
 
-    function soundOf(id) { return SOUNDS.filter(function (x) { return x.id === id; })[0] || SOUNDS[0]; }
-    function clamp(v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8; }
-    function load() {
-        try {
-            var o = JSON.parse(localStorage.getItem(KEY) || 'null');
-            if (o && typeof o === 'object') {
-                return { enabled: !!o.enabled, volume: clamp(o.volume == null ? 0.8 : o.volume), sound: soundOf(o.sound).id,
-                         nms: Array.isArray(o.nms) ? o.nms.map(Number).filter(Boolean) : [] };
-            }
-        } catch (e) {}
-        return { enabled: false, volume: 0.8, sound: SOUNDS[0].id, nms: [] };
-    }
-    function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
-    function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
-
-    function getAudio() {
-        var src = soundOf(load().sound).src;
-        if (!audio || audioSrc !== src) { audio = new Audio(src); audio.preload = 'auto'; audioSrc = src; }
-        return audio;
-    }
-    function play(volume, onBlocked) {
-        var a = getAudio();
-        a.volume = clamp(volume);
-        try {
-            a.currentTime = 0;
-            var p = a.play();
-            if (p && p.catch) p.catch(function () { if (onBlocked) onBlocked(); });
-        } catch (e) { if (onBlocked) onBlocked(); }
-    }
-
-    function toast(text) { if (window.NrUi) window.NrUi.toast('info', text, '', { key: 'ord|' + text }); }
-
-    function handle(row) {
-        if (!row || row.silent) return;
-        var st = load();
-        if (!st.enabled || st.nms.indexOf(Number(row.nm_id)) === -1) return;
-        var label = row.article || String(row.nm_id || '');
-        play(st.volume, function () {
-            if (window.NrNotify) NrNotify.push({ title: 'Звук заказов ждёт клика', detail: 'Браузер не включит звук, пока вы не нажмёте на страницу.', key: 'order-sound-blocked' });
-        });
-        if (window.NrNotify) NrNotify.push({ title: 'Новый заказ', detail: label, key: 'order-' + row.id });
-        toast('Новый заказ: ' + label);
-    }
-
-    // Подписка только при включённом звуке и после трёх неудач не повторяется: цикл переподключений при ошибке JWT грузил базу (сбой 29.10).
-    var fails = 0;
-    function start() {
-        var st = load();
-        if (started || fails >= 3 || !st.enabled || !st.nms.length || typeof supabase === 'undefined' || !supabase.channel) return;
-        started = true;
-        try {
-            channel = supabase.channel('nr-order-events')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_events' }, function (payload) { handle(payload && payload.new); })
-                .subscribe(function (status) {
-                    if (status === 'SUBSCRIBED') { fails = 0; return; }
-                    if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
-                    if (++fails >= 3) { try { supabase.removeChannel(channel); } catch (e) {} channel = null; started = false; }
-                });
-        } catch (e) { started = false; }
-    }
-
-    // ── окно мини-настроек ─────────────────────────────────────────────
-    function articles() {
-        var rnp = window.getRnp && window.getRnp();
-        try { return rnp && rnp.listArticles ? rnp.listArticles() : []; } catch (e) { return []; }
-    }
-    function groupsOf(list) {
-        var map = {}, order = [];
-        list.forEach(function (a) {
-            var g = a.category || 'Без группы';
-            if (!map[g]) { map[g] = []; order.push(g); }
-            map[g].push(a);
-        });
-        return order.map(function (g) { return { name: g, items: map[g] }; });
-    }
-
-    function render() {
-        var host = document.getElementById('nr-order-sound-body');
-        if (!host) return;
-        var st = load();
-        var list = articles();
-        var sel = {}; st.nms.forEach(function (n) { sel[n] = true; });
-        var groupsHtml = groupsOf(list).map(function (g, gi) {
-            var on = g.items.filter(function (a) { return sel[a.nm_id]; }).length;
-            var all = on === g.items.length;
-            var rows = g.items.map(function (a) {
-                return '<label class="nros-row"><input type="checkbox" data-nros-nm="' + a.nm_id + '"' + (sel[a.nm_id] ? ' checked' : '') + '>' +
-                    '<span class="nros-name">' + esc(a.article || a.name || a.nm_id) + '</span><span class="nros-nm">' + a.nm_id + '</span></label>';
-            }).join('');
-            return '<div class="nros-group"><label class="nros-grouphead"><input type="checkbox" data-nros-group="' + gi + '"' + (all ? ' checked' : '') + '>' +
-                '<b>' + esc(g.name) + '</b><span class="nros-cnt">' + on + ' / ' + g.items.length + '</span></label>' + rows + '</div>';
-        }).join('');
-        host.innerHTML =
-            '<label class="nros-main"><input type="checkbox" id="nros-enabled"' + (st.enabled ? ' checked' : '') + '><b>Звук при новом заказе</b></label>' +
-            '<div class="nros-vol"><select id="nros-sound" class="nros-test">' + SOUNDS.map(function (x) { return '<option value="' + x.id + '"' + (x.id === st.sound ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select></div>' +
-            '<div class="nros-vol"><button type="button" class="nros-test" id="nros-test">Проверить звук</button>' +
-            '<input type="range" id="nros-volume" min="0" max="100" value="' + Math.round(st.volume * 100) + '"><span id="nros-volume-v">' + Math.round(st.volume * 100) + '%</span></div>' +
-            '<p class="nros-note">Сигнал приходит через 10–20 секунд после заказа со склада продавца (FBS) и только пока сайт открыт. Отметьте артикулы, на которые нужен звук.</p>' +
-            (list.length
-                ? '<div class="nros-actions"><button type="button" id="nros-all">Выбрать все</button><button type="button" id="nros-none">Снять все</button></div><div class="nros-list">' + groupsHtml + '</div>'
-                : '<p class="nros-note">Артикулы кабинета ещё не загружены. Откройте РНП и подождите несколько секунд.</p>');
-
-        host.onchange = function (e) {
-            var t = e.target, cur = load();
-            if (t.id === 'nros-enabled') { cur.enabled = t.checked; save(cur); if (t.checked) { start(); play(cur.volume); } return; }
-            if (t.id === 'nros-sound') { cur.sound = soundOf(t.value).id; save(cur); play(cur.volume); return; }
-            if (t.id === 'nros-volume') { cur.volume = clamp(t.value / 100); save(cur); var v = document.getElementById('nros-volume-v'); if (v) v.textContent = t.value + '%'; return; }
-            var nm = t.getAttribute('data-nros-nm');
-            if (nm) { var n = Number(nm), i = cur.nms.indexOf(n); if (t.checked && i === -1) cur.nms.push(n); if (!t.checked && i !== -1) cur.nms.splice(i, 1); save(cur); render(); return; }
-            var gi = t.getAttribute('data-nros-group');
-            if (gi != null) {
-                var g = groupsOf(articles())[Number(gi)]; if (!g) return;
-                g.items.forEach(function (a) { var j = cur.nms.indexOf(a.nm_id); if (t.checked && j === -1) cur.nms.push(a.nm_id); if (!t.checked && j !== -1) cur.nms.splice(j, 1); });
-                save(cur); render();
-            }
-        };
-        host.onclick = function (e) {
-            var id = e.target && e.target.id, cur = load();
-            if (id === 'nros-test') { play(cur.volume); return; }
-            if (id === 'nros-all') { cur.nms = articles().map(function (a) { return a.nm_id; }); save(cur); render(); }
-            if (id === 'nros-none') { cur.nms = []; save(cur); render(); }
-        };
-        host.oninput = function (e) {
-            if (e.target && e.target.id === 'nros-volume') { var v = document.getElementById('nros-volume-v'); if (v) v.textContent = e.target.value + '%'; }
-        };
-    }
-
-    function css() {
-        if (document.getElementById('nros-css')) return;
-        var st = document.createElement('style');
-        st.id = 'nros-css';
-        st.textContent =
-            '.nros-main{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-primary);margin-bottom:10px;cursor:pointer}' +
-            '.nros-vol{display:flex;align-items:center;gap:10px;margin-bottom:8px}.nros-vol input[type=range]{flex:1}' +
-            '.nros-test,.nros-actions button{border:1px solid var(--border);background:transparent;color:var(--text-primary);border-radius:10px;padding:5px 12px;font-size:12px;cursor:pointer}' +
-            '.nros-note{font-size:12px;color:var(--text-muted);line-height:1.4;margin:6px 0 10px}' +
-            '.nros-actions{display:flex;gap:8px;margin-bottom:8px}.nros-list{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:12px;padding:6px 10px}' +
-            '.nros-group{padding:4px 0;border-bottom:1px solid var(--border)}.nros-group:last-child{border-bottom:none}' +
-            '.nros-grouphead,.nros-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-primary);padding:3px 0;cursor:pointer}' +
-            '.nros-row{padding-left:22px}.nros-cnt,.nros-nm{margin-left:auto;color:var(--text-muted);font-size:11px}';
-        document.head.appendChild(st);
-    }
-
-    function openSettings() {
-        css();
-        var ov = document.getElementById('nr-order-sound-overlay');
-        if (!ov) {
-            ov = document.createElement('div');
-            ov.id = 'nr-order-sound-overlay';
-            ov.className = 'rnp-settings-overlay';
-            ov.onclick = function (e) { if (e.target === ov) closeSettings(); };
-            ov.innerHTML = '<div class="rnp-settings-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="nros-title" style="max-width:520px">' +
-                '<button type="button" class="rnp-settings-close" onclick="NrOrderSound.close()" aria-label="Закрыть">×</button>' +
-                '<h3 id="nros-title" class="font-semibold" style="color:var(--text-primary);margin-bottom:10px">Уведомления о заказах</h3>' +
-                '<div id="nr-order-sound-body"></div></div>';
-            document.body.appendChild(ov);
-        }
-        if (typeof mountNrGlass === 'function') { try { mountNrGlass(ov); } catch (e) {} }
-        render();
-        ov.classList.add('is-open');
-    }
-    function closeSettings() { var ov = document.getElementById('nr-order-sound-overlay'); if (ov) ov.classList.remove('is-open'); }
-
-    window.NrOrderSound = { start: start, openSettings: openSettings, close: closeSettings, _handle: handle };
-})();
-</script>
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
    Большой кабинет грузится часами (WB отдаёт финотчёт 1 запрос/мин), поэтому клиент видит
@@ -8267,7 +8091,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             '.nr-sync{border:1px solid var(--border);background:var(--surface);color:var(--text-primary);border-radius:14px;padding:12px 14px;font-size:13px}' +
             '.nr-sync b{font-weight:600}.nr-sync small{display:block;margin-top:6px;color:var(--text-muted);font-size:12px}' +
             '.nr-sync-bar{height:8px;border-radius:99px;background:var(--border);overflow:hidden;margin-top:8px}' +
-            '.nr-sync-bar i{display:block;height:100%;border-radius:99px;background:var(--green,#16a34a);transition:width .6s ease}' +
+            '.nr-sync-bar i{display:block;height:100%;border-radius:99px;background:var(--green,#16a34a);transition:width .3s ease}' +
             '.nr-sync button{margin-top:8px;font-size:12px;padding:5px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-primary);cursor:pointer}';
         document.head.appendChild(st);
     }
@@ -8359,45 +8183,54 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 })();
 </script>
 
-<script src="/dist/rnp-selection.95a763588f.min.js"></script>
-<script src="/dist/rnp-plan-fact.68223e16a0.min.js"></script>
+<script src="/dist/rnp-selection.c3f6d82ed4.min.js"></script>
+<script src="/dist/rnp-plan-fact.3b175bdb40.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/adv-shelves-ui.54ba5ff4a0.min.js"></script><script src="/dist/ads-command-center.4fa45b794b.min.js"></script>
-<script src="/dist/ads-pulse.fcc79e09b4.min.js"></script>
+<script src="/dist/adv-shelves-ui.94530b078e.min.js"></script><script src="/dist/ads-command-center.022462979e.min.js"></script>
+<script src="/dist/ads-pulse.34b6922748.min.js"></script>
+<script src="/dist/adv-controls.c6f92b0845.min.js"></script>
+<script src="/dist/adv-stats.d641132d6b.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
-<script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.f0afd2e69f.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
-<script src="/dist/viewer-mode.5362af6cd3.min.js"></script>
+<script src="/dist/giveaways.d0af3bfd09.min.js"></script>
+<script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.389aa73deb.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
+<script src="/dist/viewer-mode.1d9ff5a747.min.js"></script>
 <script src="/dist/space-admin-ext.68d561b81b.min.js"></script>
-<script src="/dist/rnp-planning.193b5a741b.min.js"></script>
+<script src="/dist/rnp-planning.69cadd5068.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
+<script src="/dist/alina-sandbox-ui.0ca35bec6a.min.js"></script>
+<script src="/dist/alina-settings-ui.313f710c69.min.js"></script>
+<script src="/dist/nr-keys-ui.b126159724.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
-<script src="/dist/nr-admin.3b02277165.min.js"></script>
+<script src="/dist/nr-admin.faa87d6cc1.min.js"></script>
 <script src="/dist/ad-autopilot-ui.072c47d435.min.js"></script>
-<script src="/dist/ads-campaign-detail.40f4e1bf6d.min.js"></script>
+<script src="/dist/ads-campaign-detail.9919c0f009.min.js"></script>
 <script src="/dist/cabinets-hub.83b705c24f.min.js"></script>
 <script src="/dist/nr-skeleton.1a0ae1d5ae.min.js"></script>
-<script src="/dist/nr-themes.2fd4d06812.min.js"></script>
+<script src="/dist/nr-themes.cbed5d36f4.min.js"></script>
 <script src="/dist/ak-slides.1bc2120a1b.min.js"></script>
 <script src="/dist/nr-welcome.196452a689.min.js"></script>
 <script src="/dist/nr-next.3d25bd5956.min.js"></script>
 <script src="/dist/fbs-rates.80f8387fcf.min.js"></script>
 <script src="/dist/ff-terms.7f06f7d664.min.js"></script>
-<script src="/dist/nr-ff.3d0e875323.min.js"></script>
+<script src="/dist/nr-ff.315730bc68.min.js"></script>
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
-<script src="/dist/nr-motion.e61346e87a.min.js"></script>
-<script src="/dist/nr-ui.832ba56fc5.min.js"></script>
-<script src="/dist/nr-goods-ui.9a7a894636.min.js"></script>
-<script src="/dist/nr-analytics.97794c8fd3.min.js"></script>
+<script src="/dist/nr-motion.c64e6af0d5.min.js"></script>
+<script src="/dist/nr-ui.60ee969ea1.min.js"></script>
+<script src="/dist/nr-goods-ui.142265b01c.min.js"></script>
+<script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
+<script src="/dist/nr-compare.818d837050.min.js"></script>
+<script src="/dist/rnp-prices.9f9977e1c0.min.js"></script>
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
-<script src="/dist/nr-nav.82278de5be.min.js"></script>
+<script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
+<script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
+<script src="/dist/nr-nav.2e01657404.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
-<script src="/dist/nr-dash-blocks.443f469247.min.js"></script>
-<script src="/dist/nr-foot.d22a2ea3cd.min.js"></script>
+<script src="/dist/nr-dash-blocks.ef12b0ecce.min.js"></script>
+<script src="/dist/nr-foot.3aa9e16910.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -8417,6 +8250,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     var supabase = (__nrSupabaseLib && window.NrAuth)
         ? window.NrAuth.createClient(__nrSupabaseLib, SUPABASE_URL, SUPABASE_KEY)
         : null;
+    if (supabase && window.NrDashMp) window.NrDashMp.wrap(supabase);
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
@@ -8451,7 +8285,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
        внутренние страницы — видно только команде (team_staff / суперадмин).
        Выводить раздел в общий показ — только с разрешения владельца: список
        закреплён тестом public_modules_test.js, без правки теста он не пройдёт. */
-    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs']);
+    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasPaid = (() => {
         try { return localStorage.getItem('nr_paid') === '1'; } catch (_) { return false; }
     })();
@@ -8487,7 +8321,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
         });
     }
-    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
+    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'rnp-planfact', 'rnp-planning', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'analytics', 'agents', 'tg-owner', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
     // До загрузки кабинетов из БД не показываем экран «подключите кабинет» (иначе мигает у активных).
     let cabinetsLoaded = false;
@@ -9511,22 +9345,22 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     let currentUserEmail = '';
     let currentUserId = '';
 
-    const NR_THEMES = ['ios', 'tabler', 'neon'];
+    const NR_THEMES = ['neon', 'ios'];
     function themeLabel(theme) {
         if (theme === 'neon') return 'Тёмная';
-        if (theme === 'tabler') return 'Tabler';
         return 'Светлая';
     }
     function applyTheme(theme) {
-        const next = NR_THEMES.includes(theme) ? theme : 'ios';
+        const next = theme === 'ios' ? 'ios' : 'neon';
         document.documentElement.setAttribute('data-theme', next);
+        document.documentElement.setAttribute('data-bg', next === 'ios' ? 'live' : 'flow');
         localStorage.setItem('nr_theme', next);
         if (window.NRCharts) NRCharts.refreshChartTheme();
         document.querySelectorAll('.beta-theme-label').forEach(el => {
             el.textContent = themeLabel(next);
         });
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', next === 'neon' ? '#1C1C1E' : next === 'tabler' ? '#066fd1' : '#F5F5F7');
+        if (meta) meta.setAttribute('content', next === 'neon' ? '#262624' : '#F5F5F7');
     }
     function toggleTheme() {
         const cur = document.documentElement.getAttribute('data-theme');
@@ -9546,8 +9380,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         window._themeFadeT = setTimeout(() => root.classList.remove('theme-fading'), 450);
     }
     (function initTheme() {
-        const saved = localStorage.getItem('nr_theme') || 'ios';
-        applyTheme(saved);
+        applyTheme(localStorage.getItem('nr_theme') === 'ios' ? 'ios' : 'neon');
     })();
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -9650,7 +9483,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт',
         dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно',
         cost:'Себестоимость', 'goods-groups':'Логистика', 'tg-owner':'Настройки', warehouse:'Склады',
-        rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', planning:'Планирование',
+        rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', 'rnp-planfact':'План/факт', 'rnp-planning':'Планирование', planning:'Планирование',
         'ab-testing':'А/Б Тесты', advertising:'Продвижение', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
         'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты', akylai:'Агенты',
@@ -9663,7 +9496,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         'cabinets-hub':'cabinets',
         settings:'settings',
         summary:'beta', 'summary-biz':'beta', deductions:'beta', 'plan-fact':'beta',
-        rnp:'rnp', 'rnp-settings':'rnp', planning:'beta',
+        rnp:'rnp', 'rnp-settings':'rnp', 'rnp-planfact':'rnp', 'rnp-planning':'rnp', planning:'beta',
         advertising:'ads', 'ab-testing':'ads',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'agents', ozon:'beta', agents:'agents',
@@ -9714,7 +9547,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 b.classList.toggle('active', tabName === 'ab-testing' || tabName === 'agents' || tabName === 'akylai');
             } else if (b.dataset.tab) {
                 const match = live && (b.dataset.tab === tabName
-                    || (b.dataset.tab === 'rnp' && tabName === 'rnp-settings')
+                    || (b.dataset.tab === 'rnp' && (tabName === 'rnp-settings' || tabName === 'rnp-planfact' || tabName === 'rnp-planning'))
                     || (b.dataset.tab === 'agents' && tabName === 'akylai'));
                 b.classList.toggle('active', !!match);
             }
@@ -9724,7 +9557,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function syncBottomNav(tabName) {
-        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', 'goods-groups': 'bn-goods', advertising: 'bn-rk' };
+        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', 'rnp-planfact': 'bn-rnp', 'rnp-planning': 'bn-rnp', dashboard: 'bn-dash', 'goods-groups': 'bn-goods', advertising: 'bn-rk' };
         document.querySelectorAll('#nr-bottom-nav .bottom-nav-btn[data-tab], #bn-beta').forEach(b => b.classList.remove('active'));
         if (map[tabName]) {
             document.getElementById(map[tabName])?.classList.add('active');
@@ -9756,7 +9589,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (pageTitle) {
             pageTitle.classList.remove('header-hidden');
             if (isAdsHq) pageTitle.textContent = 'Продвижение';
-            else pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
+            else {
+                var __rvT = tabName === 'rnp' ? document.documentElement.getAttribute('data-nr-rv') : '';
+                pageTitle.textContent = __rvT ? (__rvT === 'unit' ? 'Юнит-экономика' : 'Товары') : (tabTitles[tabName] || tabTitles.dashboard || 'Дашборд');
+            }
         }
         if (dateWrap) {
             const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty;
@@ -9800,6 +9636,18 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         ['tab-rnp', 'tab-rnp-settings'].forEach(id => {
             const el = document.getElementById(id);
             if (el && /Инициализация РНП|Загрузка РНП|Загрузка данных|Загрузка артикулов|Рисуем таблицу/.test(el.textContent || '')) el.innerHTML = html;
+        });
+    }
+
+    function bootRnpSubPage(name, n) {
+        const pf = name === 'rnp-planfact', host = document.getElementById(pf ? 'rnp-pfp-host' : 'rnp-plp-host'), rnp = getRnp();
+        if (window._rnpSub === name || !host || host.firstElementChild) return;
+        if (!rnp || !hasUserCabinets || !currentCabinetId) { if ((n || 0) < 40) setTimeout(() => getCurrentActiveTab() === name && bootRnpSubPage(name, (n || 0) + 1), 400); return; }
+        window._rnpSub = name;
+        rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+        Promise.resolve(rnp.setDateRange && rnp.setDateRange(activeDateFrom, activeDateTo)).catch(() => {}).then(() => {
+            window._rnpSub = null;
+            if (getCurrentActiveTab() === name) pf ? rnp.openPlanFact() : rnp.openPlanning();
         });
     }
 
@@ -9958,6 +9806,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function showTab(name, el) {
         if (window.NrBusy) window.NrBusy.off();
         name = TAB_ALIASES[name] || name;
+        // Тарифы живут внутри «Настроек» (вкладка «Тарифы»): из любого места ведём туда, страница не меняется.
+        if (name === 'tariffs') {
+            showTab('settings');
+            showSettingsSection('tariffs');
+            return;
+        }
         if (window.NrViewer?.on && !window.NrViewer.allows(name)) {
             const t = window.NrViewer.firstTab();
             if (t !== name) { showTab(t, el); return; }
@@ -10012,11 +9866,15 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             document.getElementById('tab-' + name)?.classList.add('active');
             highlightNavForTab(name, el);
             updateHeaderNav(name);
+            // Временный стиль первого кадра держит открытой вкладку прошлого сеанса (например РНП). Если человек (или переход)
+            // открыл другую вкладку, пока страница ещё грузилась, этот стиль нужно снять сразу, иначе РНП остаётся поверх «Продвижения».
+            const earlyPane = document.documentElement.getAttribute('data-nr-early');
+            if (earlyPane && earlyPane !== name) document.getElementById('nr-early-tab-style')?.remove();
             document.documentElement.removeAttribute('data-nr-early');
             if (name === 'cabinets-hub' || name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'content-factory' || name === 'agents') {
                 window.closeSidebarMenus?.(true);
             }
-            document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
+            document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings' || name === 'rnp-planfact' || name === 'rnp-planning');
             document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
             document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising' || name === 'ab-testing' || name === 'content-factory');
             if (name === 'ab-testing') loadABTests();
@@ -10035,7 +9893,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (name === 'rnp') bootRnpTab(true);
             if (name === 'planning' && hasUserCabinets) loadPlanningTab();
             if (name === 'telegram-bots') loadTelegramBotsPage();
-            if (name === 'ozon') loadOzonTokenPage();
+            if (name === 'ozon') setTimeout(() => { showTab('settings'); showSettingsSection('api', document.getElementById('settings-tab-btn-api')); }, 0);
             if (name === 'agents') loadAgentsPage();
             if (name === 'akylai') window.loadAkylaiPage?.();
             if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
@@ -10051,6 +9909,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             syncRailGroup(name);
             syncModuleUrl(name);
             try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
+            if (name === 'rnp-planfact' || name === 'rnp-planning') bootRnpSubPage(name);
             updateEmptyCabinetState();
         };
         // При первой отрисовке вкладку ставим сразу: анимация перехода откладывала её на несколько сотен миллисекунд,
@@ -11867,7 +11726,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function setGoodsView(view, opts) {
-        ggView = ['daily', 'cost', 'give', 'fbs'].includes(view) ? view : 'now';
+        ggView = ['daily', 'give', 'fbs'].includes(view) ? view : 'now';
         const nowEl = document.getElementById('gg-view-now');
         const dailyEl = document.getElementById('gg-view-daily');
         const costEl = document.getElementById('gg-view-cost');
@@ -12331,6 +12190,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             for (const item of pending) await ggPersistManual(item);
             document.querySelectorAll('.gg-edit-dirty').forEach((el) => el.classList.remove('gg-edit-dirty'));
             if (fresh) fresh.textContent = 'сохранено';
+            document.dispatchEvent(new Event('nr-articles-changed'));
         } catch (e) {
             console.error('[goods] save', e);
             if (fresh) fresh.textContent = 'ошибка сохранения';
@@ -13207,17 +13067,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function cabinetDisplayName(name) {
         const raw = String(name || '').trim();
         if (!raw) return 'Кабинет';
-        if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО «Айлин Стиль»';
+        if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО Айлин Текстиль';
         if (/zevina|зевин|ailin|уркунбаев/i.test(raw)) return 'ИП Уркунбаев К.А.';
         if (/elium|элиум|айзада/i.test(raw)) return 'ИП Айзада';
         if (/^baza$|^baz\.a$/i.test(raw)) return 'ИП Бейшеев А.Д.';
         return raw;
     }
 
+    // Раньше Zevina 2 (Айлин) прятали из списков. Теперь кабинет показываем как «ОсОО Айлин Текстиль»; функция оставлена, чтобы можно было снова скрыть кабинет.
     function isHiddenCabinet(cab) {
-        const raw = String(cab && typeof cab === 'object' ? (cab.name || cab.cabinet_name || '') : (cab || '')).trim();
-        if (!raw) return false;
-        return /zevina\s*2|зевин[аa]?\s*2|айлин\s*стил|ос+оо.{0,20}айлин|ailin\s*style/i.test(raw);
+        return false;
     }
 
     function visibleCabinets(list) {
@@ -13260,6 +13119,20 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             ).join('');
         }
     }
+
+    // Esc закрывает календарь и список кабинетов (раньше они закрывались только кликом мимо, затемнение страницы оставалось)
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        const p = document.getElementById('date-picker');
+        if (p && !p.classList.contains('hidden')) p.classList.add('hidden');
+        const w = document.getElementById('cabinet-picker-wrap');
+        if (w) w.classList.remove('open');
+        // окна «Добавить кабинет», автобиддер и поставка закрываются по Esc, как остальные окна
+        [['add-cabinet-modal', 'closeAddCabinetModal'], ['autobidder-modal', 'closeAutobidderModal'], ['supply-detail-modal', 'closeSupplyDetail']].forEach(function (m) {
+            const el = document.getElementById(m[0]);
+            if (el && !el.classList.contains('hidden') && typeof window[m[1]] === 'function') window[m[1]]();
+        });
+    });
 
     function toggleCabinetDropdown(e) {
         e.stopPropagation();
@@ -13729,6 +13602,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     async function loadAdsSpendForDash(cabinetId, from, to) {
+        const w = await loadAdsSpendForDashWb(cabinetId, from, to);
+        return window.NrDashMp ? window.NrDashMp.ads(cabinetId, from, to, w) : w;
+    }
+    async function loadAdsSpendForDashWb(cabinetId, from, to) {
         if (!cabinetId || !from || !to || typeof fetchAllRows !== 'function') return { spend: 0 };
         try {
             const rows = await fetchAllRows('advertising_daily_stats', [
@@ -13789,15 +13666,24 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         };
     })();
     let _dashPass = null;
-    const dashCacheKey = (cab, range) => cab + '|' + range.from + '|' + range.to;
+    const dashMpSuf = () => (window.NrDashMp ? window.NrDashMp.suffix() : '');
+    const dashCacheKey = (cab, range) => cab + dashMpSuf() + '|' + range.from + '|' + range.to;
 
+    // WB | Ozon | Вместе: меняются только цифры; без кэша площадки они размыты до прихода свежих
+    document.addEventListener('nr-mp-change', async () => {
+        if (!currentCabinetId) return;
+        const tab = document.getElementById('tab-dashboard');
+        const have = (await DASH_CACHE.get(dashCacheKey(currentCabinetId, getActiveDateRange()))) || (await DASH_CACHE.get(currentCabinetId + dashMpSuf() + '|last'));
+        if (!have && tab) tab.classList.add('nr-dash-wait');
+        try { await loadFromDB(); } finally { if (tab) tab.classList.remove('nr-dash-wait'); }
+    });
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
         const cab = currentCabinetId;
         const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
         const key = dashCacheKey(cab, range);
         // Точного кэша нет (новый день, другой период): показываем последний срез кабинета (цифры размыты до прихода свежих).
-        const hit = (await DASH_CACHE.get(key)) || (await DASH_CACHE.get(cab + '|last'));
+        const hit = (await DASH_CACHE.get(key)) || (await DASH_CACHE.get(cab + dashMpSuf() + '|last'));
         if (hit && hit.summary && cab === currentCabinetId) {
             const p = { mode: 'cache', hit, key };
             _dashPass = p;
@@ -13837,6 +13723,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (pass && !fromCache && !summaryErr && summary) { pass.bag.summary = summary; pass.bag.adsCur = adsCur; pass.bag.adsPrev = adsPrev; }
         if (summary && summary.cur) summary.cur.ads_sum = adsCur.spend;
         if (summary && summary.prev) summary.prev.ads_sum = adsPrev.spend;
+        _pnlMiniPrev = { orders: Number(summary && summary.prev && summary.prev.orders_sum || 0) };
         loadDashCabinetPlans();
 
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) {
@@ -13918,6 +13805,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         const applyFin = () => {
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             renderPnl(metrics);
+                            window.__pnlMCab = finCabinet;
                             try { renderPnlDaily(rows, summary.cur_daily, adsCur && adsCur.byDay, settings, from, to, metrics, Number(summary.cur?.orders_sum || 0)); } catch (e) { console.warn('[pnl daily]', e && e.message); }
                             applyExtendedMetricDisplay(metrics);
                             restyleDashNums();
@@ -13932,6 +13820,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     // не должны ждать ещё один запрос в базу.
                     const base = fromCache ? (pass.hit.base || null) : await loadFinanceTrendBase(snapshotCabinet, fin, settings);
                     if (base && finId === _loadRequestId && finCabinet === currentCabinetId) {
+                        _pnlMiniPrev = Object.assign({}, _pnlMiniPrev, { sales: Number(base.salesSum || 0), logistics: Number(base.logisticsSum || 0), ads: Number(base.adsSum || 0) });
+                        if (_pnlDailyArgs) { _pnlMiniOnly = true; try { renderPnlDaily.apply(null, _pnlDailyArgs); } catch (e) { console.warn('[pnl daily]', e && e.message); } _pnlMiniOnly = false; }
                         applyMetricTrends(metrics, base);
                         if (window.NrPnlDelta) NrPnlDelta(metrics, base);
                     }
@@ -14238,6 +14128,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     const _costMapCache = {};
     async function loadCostOfGoodsMap(cabinetId) {
+        const w = await loadCostOfGoodsMapWb(cabinetId);
+        return window.NrDashMp ? window.NrDashMp.cost(w) : w;
+    }
+    async function loadCostOfGoodsMapWb(cabinetId) {
         if (_costMapCache[cabinetId] && Date.now() - _costMapCache[cabinetId].at < 5 * 60 * 1000) return _costMapCache[cabinetId].map;
         const map = {};
         try {
@@ -14350,6 +14244,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     /** Нижний ряд как у Raskpro: Заказы, Продажи, Логистика, Реклама, Все услуги + график «Динамика показателей». */
     let _rubKgs = 0, _rubKgsAsked = false, _pnlDailyArgs = null;
+    /** Итоги прошлого периода для динамики на мини-карточках: заказы из сводки, остальное из финотчёта прошлого окна. */
+    let _pnlMiniPrev = {};
+    let _pnlMiniOnly = false; // обновить только четыре мини-карточки, график не перерисовывать
     try { _rubKgs = Number(localStorage.getItem('nr_rub_kgs_v1')) || 0; } catch (e) {}
     const somKeys = new Set(['orders', 'sales']);
     /** Курс ₽ → сом для карточек «Заказы» и «Выкупы»: из памяти сразу, свежий подтягиваем в фоне. */
@@ -14393,10 +14290,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         };
         const card = (title, total, key, color, costLike) => {
             const vals = days.map(x => x[key]);
-            const a = vals[vals.length - 1] || 0, b = vals[vals.length - 2] || 0;
+            // Сравниваем период с прошлым периодом той же длины. Раньше здесь стояло «последний день к предпоследнему»:
+            // сегодняшний неполный день давал «−53%» по заказам и «−100%» по выкупам, хотя период шёл ровно.
+            const a = Number(total) || 0, b = Number(_pnlMiniPrev[key]);
             const dyn = b > 0 ? Math.round((a - b) / b * 100) : null;
             const good = dyn == null ? '' : ((dyn >= 0) !== !!costLike ? 'up' : 'down');
-            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 ? n(total * _rubKgs) + ' с' : n(total)}</div>
+            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${somKeys.has(key) && _rubKgs > 0 && !(window.NrMp && NrMp.get() === 'ozon') ? n(total * _rubKgs) : n(total)}</div>
               <div class="pnl-mini-dyn ${good}">${dyn == null ? '' : (dyn >= 0 ? '▲ ' : '▼ ') + Math.abs(dyn) + '%'}</div>${spark(vals, color)}</div>`;
         };
         const m = totalMetrics;
@@ -14406,6 +14305,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             card('Логистика', m.logisticsSum, 'logistics', 'currentColor', true),
             card('Реклама', m.adsSum, 'ads', 'currentColor', true),
         ].join('');
+        if (_pnlMiniOnly) return;
 
         const cardEl = document.getElementById('pnl-chart-card');
         const cv = document.getElementById('pnl-chart');
@@ -14559,7 +14459,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         setText('rnp-orders', noDataYet ? '—' : ordersCount + ' шт.');
         setText('rnp-returns', noDataYet ? '—' : returns + ' шт.');
 
-        setFinanceMetricsPlaceholder('…');
+        // Финансовые карточки (реализация, услуги, налоги, прибыль) уже на экране для этого кабинета (из кэша или прошлой загрузки):
+        // не стираем их на время запроса, свежие цифры подставятся поверх. Иначе они пропадали на пару секунд после захода.
+        if (!(window.__pnlM && window.__pnlMCab === currentCabinetId)) setFinanceMetricsPlaceholder('…');
         showFinanceNote('');
 
         if (prev) {
@@ -15052,6 +14954,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
 
     function showNewTestForm() {
+        if (window.NrAbOz && NrAbOz.mode() === 'ozon') return NrAbOz.openNew();
         abWizardStep = 1;
         abSelectedCard = null;
         abVariantFiles = {};
@@ -15530,7 +15433,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
         }
         if (typeof fileOrUrl === 'string') return fileOrUrl;
-        const ext = fileOrUrl.name.split('.').pop();
+        const ext = String(fileOrUrl.name || '').split('.').pop() || (String(fileOrUrl.type || '').split('/')[1] || 'png');
         const path = `${testId}/${label}.${ext}`;
         const { error } = await supabase.storage.from('abtest-photos').upload(path, fileOrUrl, { upsert: true, contentType: fileOrUrl.type });
         if (error) throw new Error('Ошибка загрузки фото: ' + error.message);
@@ -15581,13 +15484,19 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             },
         };
         hideNewTestForm();
-        showPremiumModal('success', 'Тест создан', 'Загружаем фото и ставим первое на WB, это займёт до минуты.');
+        abOk('Тест создан', 'Фото загружаются и встают на WB в фоне.');
         runABCreate(snap);
     }
 
     // Фоновое создание: тест, фото, варианты, первое фото на WB. Если не вышло, короткая ошибка и «Повторить».
+    const abPending = {}; // тест → превью фото, пока они загружаются (каркас не пропадает)
     async function runABCreate(snap) {
         let testId = null;
+        const previews = snap.abFiles.map((f) => { try { return f && f.url ? f.url : (typeof Blob !== 'undefined' && f instanceof Blob ? URL.createObjectURL(f) : ''); } catch (_) { return ''; } });
+        // Сразу показываем карточку в списке, пока тест сохраняется.
+        const tmp = { id: 'tmp-' + Date.now(), cabinet_id: snap.cabinetId, nm_id: snap.nmId, product_name: snap.name, status: 'active', rotation_interval_min: snap.interval, started_at: new Date().toISOString(), settings: snap.settings, variants: [] };
+        abPending[tmp.id] = { previews };
+        allABTests.unshift(tmp); renderABTests();
         try {
             const { data: test, error } = await supabase.from('ab_tests').insert({
                 cabinet_id: snap.cabinetId,
@@ -15602,33 +15511,36 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }).select().single();
             if (error || !test) throw new Error(error?.message || 'Тест не сохранился.');
             testId = test.id;
+            abPending[test.id] = { previews };
             saveABSettings(test.id, snap.settings);
             loadABTests();
 
-            const variantRows = [];
-            for (let i = 0; i < snap.abFiles.length; i++) {
-                const label = abVariantLabel(i);
-                const url = await uploadVariantPhoto(snap.abFiles[i], test.id, label);
-                variantRows.push({ test_id: test.id, variant_label: label, photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
-            }
+            const urls = await Promise.all(snap.abFiles.map((f, i) => uploadVariantPhoto(f, test.id, abVariantLabel(i))));
+            const variantRows = urls.map((url, i) => ({ test_id: test.id, variant_label: abVariantLabel(i), photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 }));
             const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
             if (vErr) throw new Error(vErr.message);
             loadABTests();
 
-            const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label);
-            if (!ok) throw new Error('WB не принял первое фото.');
-            showPremiumModal('success', 'Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
-            loadABTests();
+            // Первый вариант и так стоит на WB (это текущее фото карточки): заново его не отправляем, только отмечаем старт.
+            if (snap.abFiles[0] && snap.abFiles[0].current) await supabase.from('ab_test_rotation_log').insert({ test_id: test.id, variant_label: variantRows[0].variant_label, action: 'start' });
+            else if (!await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, snap.nmId, variantRows[0].variant_label)) throw new Error('WB не принял первое фото.');
+            abOk('Тест запущен', 'Фото будет меняться ' + (snap.rotMode == 'time' ? 'каждые ' + snap.interval + ' мин.' : 'каждые ' + snap.minImp + ' показов.'));
+            await loadABTests();
         } catch (e) {
             if (testId) { try { await supabase.from('ab_tests').delete().eq('id', testId); } catch (_) {} }
+            allABTests = allABTests.filter(t => t !== tmp); renderABTests();
             loadABTests();
             const msg = String(e && e.message || e || 'Попробуйте ещё раз.');
             if (window.NrUi) window.NrUi.toast('error', 'Тест не создался', msg, { action: { label: 'Повторить', onClick: () => runABCreate(snap) } });
             else showPremiumModal('error', 'Тест не создался', msg);
+        } finally {
+            delete abPending[tmp.id]; if (testId) delete abPending[testId];
+            previews.forEach((u) => { if (u && u.startsWith('blob:')) { try { URL.revokeObjectURL(u); } catch (_) {} } });
         }
     }
 
     async function rotateTestPhoto(testId, variantIndex, photoUrl, nmId, variantLabel) {
+        if (window.NrAbOz && NrAbOz.isOz(testId)) return NrAbOz.rotate(testId, variantIndex, photoUrl, variantLabel);
         if (!photoUrl || !nmId) return false;
         const data = await callWbProxy('media_save', { nmId: Number(nmId), photoUrl });
         if (!data) return false;
@@ -15656,19 +15568,14 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (h) h.update(ok ? 'success' : 'error', ok ? 'Фото сменено' : 'Фото не сменилось', ok ? '' : 'WB не принял фото или тест уже завершён. Повторите.');
     }
 
+    const abOk = (t, x) => window.NrUi ? window.NrUi.toast('success', t, x || '') : showPremiumModal('success', t, x || '');
+    let abTestsCab = null;
     async function loadABTests() {
         const container = document.getElementById('abtests-list');
-        if (!currentCabinetId) {
-            allABTests = [];
-            if (container) {
-                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
-                    <div style="font-size:40px;margin-bottom:12px">📊</div>
-                    Выберите кабинет, чтобы увидеть А/Б тесты
-                </div>`;
-            }
-            return;
-        }
+        // Кабинет ещё не определился: каркас остаётся, ничего не стираем и не пишем «выберите кабинет».
+        if (!currentCabinetId) return;
         const abKey = 'nr_ab_' + currentCabinetId;
+        if (abTestsCab !== currentCabinetId) { allABTests = []; abTestsCab = currentCabinetId; }
         if (!allABTests.length) { try { const c = JSON.parse(localStorage.getItem(abKey) || 'null'); if (c && c.length) { allABTests = c; renderABTests(); } } catch (e) {} }
         try {
             const { data: tests, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
@@ -15699,9 +15606,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             renderABTests();
             startRotationTimers();
 
-            // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
-            // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
-            // раз после загрузки списка (не при каждом фоновом обновлении).
             if (!window._abDeepLinkHandled) {
                 window._abDeepLinkHandled = true;
                 try {
@@ -15713,13 +15617,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             }
         } catch (e) {
             console.error('[AB] loadABTests:', e);
-            allABTests = [];
-            if (container) {
-                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
-                    Не удалось загрузить тесты. Обновите страницу.
-                    <div class="mt-2 text-xs">${String(e.message || e).replace(/</g, '&lt;')}</div>
-                </div>`;
-            }
+            // Старый список остаётся на экране; если его нет, коротко говорим и даём повторить.
+            if (!allABTests.length && container) container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">Не удалось загрузить тесты. <button type="button" class="ab-btn ab-btn-ghost" onclick="loadABTests()">Повторить</button></div>`;
         }
     }
 
@@ -15746,7 +15645,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     function renderABTests() {
         const container = document.getElementById('abtests-list');
-        let list = allABTests;
+        let list = window.NrAbOz ? NrAbOz.filter(allABTests) : allABTests;
         if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
         else if (currentTestFilter === 'finished') list = list.filter(t => t.status === 'finished');
         if (abTestQuery) list = list.filter(t => String(t.product_name || '').toLowerCase().includes(abTestQuery) || String(t.nm_id || '').includes(abTestQuery));
@@ -15779,10 +15678,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const maxScore = Math.max(...withRate.map(v => v.score), 0);
         const winner = maxScore > 0 ? withRate.find(v => v.score === maxScore) : null;
         const metricLabel = metric === 'ctr' ? 'CTR' : metric === 'cr' ? 'CR' : 'зак/час';
-        // Вероятность "победы" по CTR (та же Beta-модель, что и в детальном
-        // отчёте) — используем только для явных бейджей "выигрывает"/
-        // "проигрывает" на самой карточке, чтобы статус был виден без
-        // открытия отчёта.
         const probsForCard = hasAdsData ? computeProbabilityBestByCtr(withRate) : new Map();
         const maxProbForCard = Math.max(...Array.from(probsForCard.values()), 0);
         const leaderLabelForCard = Array.from(probsForCard.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -15809,7 +15704,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             ? `${Math.floor(nextRotateMs / 60000)}м ${Math.floor((nextRotateMs % 60000) / 1000)}с`
             : 'сейчас';
 
-        const variantsHtml = withRate.map(v => {
+        const pend = !withRate.length ? abPending[test.id] : null;
+        const variantsHtml = pend ? pend.previews.map((u, i) => `
+            <div class="abtest-variant is-pending" title="Фото загружается">
+                ${u ? `<img src="${escapeHtml(u)}" alt="">` : '<div class="abtest-ph"></div>'}
+                <span class="abtest-pend-ring" aria-hidden="true"></span>
+                <div class="abtest-variant-meta"><div class="abtest-ctr">&nbsp;</div></div>
+            </div>`).join('') : withRate.map(v => {
             const isWinner = winner && v.id === winner.id && maxScore > 0;
             const isActive = v.is_currently_on_wb;
             const scoreStr = metric === 'ctr' ? v.ctr.toFixed(2) + '%' : metric === 'cr' ? v.cr.toFixed(2) + '%' : v.ordersPerHour.toFixed(2);
@@ -15890,12 +15791,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         </div>`;
     }
 
-    // Реальная ротация фото теперь выполняется на сервере (edge-функция
-    // ab-test-rotate по pg_cron каждые 10 мин), поэтому работает даже если
-    // вкладка/браузер закрыты. Здесь только:
-    // 1) визуальный прогресс-бар до следующей ротации,
-    // 2) фоновая переподгрузка тестов, чтобы увидеть серверную ротацию,
-    // 3) подстраховка — если сервер почему-то не сработал сильно позже срока.
     function startRotationTimers() {
         Object.values(abRotationTimers).forEach(id => clearInterval(id));
         abRotationTimers = {};
@@ -16087,7 +15982,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const card = document.getElementById('abtest-card-' + testId);
             if (card) window.NrWow.pulse(card);
         }
-        showPremiumModal('success', 'Тест завершён', paused.length
+        abOk('Тест завершён', paused.length
             ? `Ротация остановлена, на паузе ${paused.length} РК.`
             : 'А/Б тест остановлен.');
         await loadABTests();
@@ -16112,13 +16007,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             return;
         }
         try { localStorage.removeItem(abSettingsKey(testId)); } catch (e) {}
-        showPremiumModal('success', 'Тест удалён', '');
+        abOk('Тест удалён');
     }
     window.deleteABTest = deleteABTest;
 
-    // Детальный отчёт по тесту. Вероятность победы считаем Beta-биномиальным
-    // Монте-Карло по CTR (Beta(clicks+1, views-clicks+1)) — та же модель, что
-    // и на сервере (ab-test-rotate), чтобы цифры совпадали с автозавершением.
     function abGaussianRandom() {
         let u = 0, v = 0;
         while (u === 0) u = Math.random();
@@ -16185,7 +16077,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 return;
             }
         }
-        showPremiumModal('success', 'Автостоп включён', `Тест сам остановится, когда победитель наберёт CTR от ${minCtr}% и выше. Лучшее фото останется на WB, РК встанет на паузу.`);
+        abOk('Автостоп включён', `Тест сам остановится, когда победитель наберёт CTR от ${minCtr}% и выше. Лучшее фото останется на WB, РК встанет на паузу.`);
         await loadABTests();
     }
     window.armABWinnerStop = armABWinnerStop;
@@ -16409,16 +16301,25 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         const ok = await showConfirmModal('Установить это фото на ВБ?', `Фото варианта «${escapeHtml(String(variant.variant_label))}» будет загружено на карточку товара на Wildberries.`);
         if (!ok) return;
-        const applied = await rotateTestPhoto(testId, (test.variants || []).findIndex(v => String(v.id) === String(variantId)), variant.photo_url, test.nm_id, variant.variant_label);
-        if (!applied) return;
-        await supabase.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', testId);
-        await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', variantId);
-        if (test.status === 'active') {
-            await supabase.from('ab_tests').update({ current_variant_index: (test.variants || []).findIndex(v => String(v.id) === String(variantId)) }).eq('id', testId);
-        }
-        showPremiumModal('success', 'Фото установлено', 'Вариант загружен на Wildberries.');
-        closeABReportModal();
-        await loadABTests();
+        const vi = (test.variants || []).findIndex(v => String(v.id) === String(variantId));
+        const prev = (test.variants || []).map(v => !!v.is_currently_on_wb);
+        // Сразу отмечаем вариант как стоящий на WB и закрываем отчёт; WB подтверждает в фоне, при ошибке откатываем.
+        (test.variants || []).forEach(v => { v.is_currently_on_wb = String(v.id) === String(variantId); });
+        renderABTests(); closeABReportModal();
+        const h = window.NrUi ? window.NrUi.toast('info', 'Ставим фото на WB…', '', { loading: true, key: 'ab-apply-' + testId }) : null;
+        let applied = false;
+        try {
+            applied = await rotateTestPhoto(testId, vi, variant.photo_url, test.nm_id, variant.variant_label);
+            if (applied) {
+                await supabase.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', testId);
+                await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', variantId);
+                if (test.status === 'active') await supabase.from('ab_tests').update({ current_variant_index: vi }).eq('id', testId);
+            }
+        } catch (e) { console.warn('[AB] apply:', e); applied = false; }
+        if (!applied) (test.variants || []).forEach((v, i) => { v.is_currently_on_wb = prev[i]; });
+        renderABTests();
+        if (h) h.update(applied ? 'success' : 'error', applied ? 'Фото установлено на WB' : 'Фото не установилось', applied ? '' : 'WB не принял фото. Попробуйте ещё раз.');
+        else if (applied) abOk('Фото установлено', 'Вариант загружен на Wildberries.');
     }
     window.applyWinningVariant = applyWinningVariant;
 
@@ -16521,28 +16422,29 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const indices = Object.keys(abEditNewFiles).map(Number).sort((a, b) => a - b).filter(i => abEditNewFiles[i]);
         if (!indices.length) { showPremiumModal('warning', 'Нет новых фото', 'Добавьте хотя бы один новый вариант.'); return; }
         const startLabel = (test.variants?.length || 0);
-        try {
-            for (let i = 0; i < indices.length; i++) {
-                const file = abEditNewFiles[indices[i]];
-                const label = abVariantLabel(startLabel + i);
-                const url = await uploadVariantPhoto(file, test.id, label);
-                const { error } = await supabase.from('ab_test_variants').insert({
-                    test_id: test.id, variant_label: label, photo_url: url,
-                    impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: false
-                });
+        const files = indices.map(i => abEditNewFiles[i]);
+        closeABEditModal();
+        abOk('Фото добавляются', 'Загрузка идёт в фоне.');
+        (async () => {
+            try {
+                const rows = await Promise.all(files.map(async (file, i) => {
+                    const label = abVariantLabel(startLabel + i);
+                    return { test_id: test.id, variant_label: label, photo_url: await uploadVariantPhoto(file, test.id, label), impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: false };
+                }));
+                const { error } = await supabase.from('ab_test_variants').insert(rows);
                 if (error) throw new Error(error.message);
+                abOk('Варианты добавлены', `Добавлено ${rows.length} новых фото.`);
+                loadABTests();
+            } catch (e) {
+                if (window.NrUi) window.NrUi.toast('error', 'Фото не добавились', String(e.message || e), { action: { label: 'Повторить', onClick: () => saveABEditVariants() } });
+                else showPremiumModal('error', 'Ошибка', e.message);
             }
-            closeABEditModal();
-            showPremiumModal('success', 'Варианты добавлены', `Добавлено ${indices.length} новых фото.`);
-            await loadABTests();
-        } catch (e) {
-            showPremiumModal('error', 'Ошибка', e.message);
-        }
+        })();
     }
 
     function addVariantInput() { addVariantSlot(); }
 
-    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'devsessions'];
+    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'tariffs', 'keys', 'devsessions'];
     function showSettingsSection(section, el) {
         if (!SETTINGS_PANES.includes(section)) section = 'profile';
         el = el || document.getElementById('settings-tab-btn-' + section);
@@ -16552,10 +16454,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (pane) pane.classList.add('hidden');
         });
         el?.classList.add('active');
+        // Раздел запоминаем: после обновления страницы человек остаётся там же (раньше всегда возвращался в «Профиль»)
+        try { localStorage.setItem('nr_settings_section', section); } catch (_) {}
         document.getElementById('settings-' + section)?.classList.remove('hidden');
         if (section === 'profile' || section === 'integrations') { try { window.NrAccess?.card?.(); } catch (_) {} }
         if (section === 'profile') loadSettingsProfile();
-        if (section === 'api') loadCabinetsAPIList();
+        if (section === 'api') { loadCabinetsAPIList(); if (typeof loadOzonTokenPage === 'function') loadOzonTokenPage(); }
         if (section === 'security') {
             loadSecuritySessions();
             if (isSuperAdmin) {
@@ -16563,6 +16467,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 loadSpacesAdmin();
             }
         }
+        if (section === 'keys') { try { window.NrKeys?.show({ host: document.getElementById('settings-keys'), supabase: supabase }); } catch (_) {} } else { try { window.NrKeys?.hide(); } catch (_) {} }
         if (section === 'devsessions') loadDevSessions();
     }
     window.showSettingsSection = showSettingsSection;
@@ -16599,9 +16504,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function applySettingsTabsForRole() {
         // Профиль, Безопасность, Интеграции, API Wildberries и Тарифы видят все; «Сессии» только команда.
         document.getElementById('settings-tab-btn-devsessions')?.classList.toggle('hidden-tab', !isSuperAdmin);
+        document.getElementById('settings-tab-btn-keys')?.classList.toggle('hidden-tab', !isSuperAdmin);
         document.getElementById('admin-access-card')?.classList.toggle('hidden', !isSuperAdmin);
-        const active = document.querySelector('.settings-section-tab.active');
-        showSettingsSection('profile', document.getElementById('settings-tab-btn-profile'));
+        let saved = '';
+        try { saved = localStorage.getItem('nr_settings_section') || ''; } catch (_) {}
+        if ((saved === 'devsessions' || saved === 'keys') && !isSuperAdmin) saved = '';
+        const sec = SETTINGS_PANES.includes(saved) ? saved : 'profile';
+        showSettingsSection(sec, document.getElementById('settings-tab-btn-' + sec));
     }
 
     async function ensureUserSpace(user) {
@@ -17140,7 +17049,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     const TG_CHANNEL_LABELS = {
         sales: 'Продажи', penalties: 'Штрафы', ads: 'Реклама', ab_tests: 'А/Б тесты',
-        news: 'Новости WB', reviews: 'Отзывы', blockings: 'Блокировки',
+        reviews: 'Отзывы',
         fbs: 'FBS', team: 'Тим',
     };
     const TG_CHANNEL_PURPOSE = {
@@ -17148,9 +17057,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         penalties: 'Штрафы и удержания WB',
         ads: 'Реклама: пауза, старт и баланс РК',
         ab_tests: 'Завершение А/Б тестов карточек',
-        news: 'Новости кабинета продавца WB',
         reviews: 'Отзывы и автоответы',
-        blockings: 'Блокировки карточек',
         fbs: 'Отчёты FBS',
         team: 'Общий чат команды',
     };
@@ -17331,7 +17238,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     async function loadOzonTokenPage() {
         const el = document.getElementById('ozon-token-list');
         if (!el) return;
-        const { data, error } = await supabase.from('cabinets').select('id, name, ozon_client_id, ozon_api_key_set').order('name');
+        const { data, error } = await supabase.from('cabinets').select('id, name, ozon_client_id, ozon_api_key_set, ozon_perf_client_id, ozon_perf_set').order('name');
         if (error) {
             el.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">${escapeHtml(error.message)}</div>`;
             return;
@@ -17359,6 +17266,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         <button class="ui-btn ui-btn-secondary" onclick="toggleEditOzon('${c.id}')">Отмена</button>
                     </div>
                 </div>
+                <div class="ui-list-row"><div><div class="ui-list-row-main">Реклама Ozon</div><div class="ui-list-row-sub">${c.ozon_perf_set ? 'ключ рекламного кабинета задан · ' + escapeHtml(String(c.ozon_perf_client_id || '')) : 'ключ рекламного кабинета не задан'}</div></div>
+                    <button class="ui-btn ui-btn-secondary" onclick="document.getElementById('edit-perf-${c.id}').classList.toggle('hidden')">${c.ozon_perf_set ? 'Изменить' : 'Добавить'}</button></div>
+                <div id="edit-perf-${c.id}" class="hidden" style="padding:0 4px 14px">
+                    <input type="text" id="perf-client-${c.id}" placeholder="Client ID (…@advertising.performance.ozon.ru)" value="${escapeHtml(c.ozon_perf_client_id || '')}" class="ui-input mb-2" style="font-family:monospace">
+                    <input type="password" id="perf-secret-${c.id}" placeholder="Client Secret" autocomplete="off" class="ui-input" style="font-family:monospace">
+                    <div class="flex gap-2 mt-2"><button class="ui-btn ui-btn-primary" onclick="saveOzonPerf('${c.id}')">Сохранить</button></div>
+                </div>
             </div>`;
         }).join('') + `</div>`;
     }
@@ -17374,12 +17288,39 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             showPremiumModal('warning', 'Заполните оба поля', 'Нужны Client-Id и Api-Key из кабинета Ozon.');
             return;
         }
-        const { error } = await supabase.from('cabinets').update({
-            ozon_client_id: clientId,
-            ozon_api_key: apiKey,
-        }).eq('id', cabinetId);
-        if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
-        showPremiumModal('success', 'Токен Ozon сохранён', 'Кабинет готов к подключению Ozon API.');
+        // Сохранение идёт через серверную функцию: она проверяет ключ в Ozon и честно отвечает, записалось ли.
+        const btn = document.querySelector('#edit-ozon-' + cabinetId + ' .ui-btn-primary');
+        const label = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Проверяем ключ…'; }
+        const restore = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };
+        let data = null, err = null;
+        try {
+            const r = await supabase.functions.invoke('cabinet-token', { body: { action: 'ozon_set', cabinet_id: cabinetId, client_id: clientId, api_key: apiKey } });
+            data = r.data; err = r.error;
+        } catch (e) { err = e; }
+        restore();
+        if (err || !data) { showPremiumModal('error', 'Не получилось сохранить', 'Связь прервалась. Ключ не записан, повторите через минуту.'); return; }
+        if (!data.ok) { showPremiumModal('error', 'Ключ не сохранён', data.message || 'Проверьте Client-Id и Api-Key.'); return; }
+        const note = data.checked
+            ? (data.admin ? 'Ключ принят, полный доступ (роль «Администратор»).' : `Ключ принят, ролей у ключа: ${data.roles}.`)
+            : 'Ключ записан, но Ozon сейчас не ответил: проверим при первой загрузке.';
+        const pass = document.getElementById('ozon-key-' + cabinetId); if (pass) pass.value = '';
+        showPremiumModal('success', 'Токен Ozon сохранён', note);
+        loadOzonTokenPage();
+    }
+
+    async function saveOzonPerf(cabinetId) {
+        const clientId = document.getElementById('perf-client-' + cabinetId)?.value.trim();
+        const secret = document.getElementById('perf-secret-' + cabinetId)?.value.trim();
+        if (!clientId || !secret) { showPremiumModal('warning', 'Заполните оба поля', 'Нужны Client ID и Client Secret рекламного кабинета Ozon.'); return; }
+        const btn = document.querySelector('#edit-perf-' + cabinetId + ' .ui-btn-primary');
+        if (btn) { btn.disabled = true; btn.textContent = 'Проверяем ключ…'; }
+        let data = null, err = null;
+        try { const r = await supabase.functions.invoke('cabinet-token', { body: { action: 'ozon_perf_set', cabinet_id: cabinetId, client_id: clientId, client_secret: secret } }); data = r.data; err = r.error; } catch (e) { err = e; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; }
+        if (err || !data) { showPremiumModal('error', 'Не получилось сохранить', 'Связь прервалась. Ключ не записан, повторите через минуту.'); return; }
+        if (!data.ok) { showPremiumModal('error', 'Ключ не сохранён', data.message || 'Проверьте Client ID и Client Secret.'); return; }
+        showPremiumModal('success', 'Ключ рекламы Ozon сохранён', data.checked ? 'Ozon принял ключ.' : 'Ключ записан, но Ozon сейчас не ответил: проверим при первой загрузке.');
         loadOzonTokenPage();
     }
 
@@ -19146,7 +19087,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         updateSpaceStatusUI();
         // Без await: восстановление вкладки ниже не должно ждать сеть.
         applyModuleVisibility();
-        resolveStaffRole().then(() => resolvePaidAccess()).then(() => { if (isStaff && window.NrOrderSound) window.NrOrderSound.start(); }).catch(e => console.warn('[role] init:', e));
+        resolveStaffRole().then(() => resolvePaidAccess()).catch(e => console.warn('[role] init:', e));
 
         // Сохранённую вкладку восстанавливаем сразу, до любых await (загрузка кабинетов может идти секунды); её загрузчики дозапускаются ниже.
         let savedTab = null;

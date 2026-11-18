@@ -431,7 +431,7 @@
 
     function shellHtml(model) {
         return '<div class="pf-bar">'
-            + '<button type="button" class="pf-back" onclick="RnpPlanFact.close()" aria-label="Назад">‹ Назад</button>'
+            + '<button type="button" class="pf-back" onclick="RnpPlanFact.close()" aria-label="Назад">‹ РНП</button>'
             + '<div class="pf-bar-title" id="rnp-plan-fact-title">' + esc(model.title) + '</div>'
             + '<button type="button" class="pf-close" onclick="RnpPlanFact.close()" aria-label="Закрыть">×</button>'
             + '</div>'
@@ -446,7 +446,8 @@
         if (!sc || sc.__pfLock) return;
         sc.__pfLock = true;
         var x0 = 0, y0 = 0, px = 0, py = 0, axis = '', timer = 0, touching = false;
-        function restore() { clearTimeout(timer); sc.style.overflowX = ''; sc.style.overflowY = ''; axis = ''; }
+        var lockL = 0, lockT = 0; // вторую ось держим на месте (overflow:hidden сбрасывал позицию на iPhone)
+        function restore() { clearTimeout(timer); axis = ''; }
         function later() { clearTimeout(timer); timer = setTimeout(restore, 160); }
         sc.addEventListener('touchstart', function (e) {
             if (!isPhone() || !e.touches || e.touches.length !== 1) return;
@@ -461,7 +462,7 @@
                 var ax = Math.abs(x - x0), ay = Math.abs(y - y0);
                 if (Math.max(ax, ay) < 6) return;
                 axis = ax > ay ? 'x' : 'y';
-                if (axis === 'x') sc.style.overflowY = 'hidden'; else sc.style.overflowX = 'hidden';
+                lockL = sc.scrollLeft; lockT = sc.scrollTop;
             }
             if (!e.cancelable) return;
             var maxL = sc.scrollWidth - sc.clientWidth, maxT = sc.scrollHeight - sc.clientHeight;
@@ -470,7 +471,11 @@
         }, { passive: false });
         sc.addEventListener('touchend', function () { touching = false; later(); }, { passive: true });
         sc.addEventListener('touchcancel', function () { touching = false; restore(); }, { passive: true });
-        sc.addEventListener('scroll', function () { if (axis && !touching) later(); }, { passive: true });
+        sc.addEventListener('scroll', function () {
+            if (axis === 'y' && sc.scrollLeft !== lockL) sc.scrollLeft = lockL;
+            else if (axis === 'x' && sc.scrollTop !== lockT) sc.scrollTop = lockT;
+            if (axis && !touching) later();
+        }, { passive: true });
     }
 
     function ensureOverlay() {
@@ -491,9 +496,21 @@
         if (e.key === 'Escape') close();
     }
 
+    var pageHost = null;
     function open(opts) {
         if (typeof document === 'undefined') return build(opts);
         var model = build(opts);
+        if (opts && opts.host) {
+            // страница: лист рисуется прямо во вкладке, без окна и подложки
+            pageHost = opts.host;
+            var pg = pageHost.querySelector('.pf-scroll');
+            var px = pg ? pg.scrollLeft : 0, py = pg ? pg.scrollTop : 0;
+            pageHost.innerHTML = shellHtml(model);
+            var pc = pageHost.querySelector('.pf-scroll');
+            if (pc && (px || py)) { pc.scrollLeft = px; pc.scrollTop = py; }
+            bindAxisLock(pc);
+            return model;
+        }
         var overlay = ensureOverlay();
         var body = document.getElementById('rnp-plan-fact-body');
         // Перерисовка после догрузки данных не должна сбрасывать прокрутку.
@@ -512,6 +529,7 @@
     }
 
     function close() {
+        if (pageHost) { pageHost = null; if (typeof root.showTab === 'function') root.showTab('rnp'); return; }
         var overlay = document.getElementById('rnp-plan-fact-overlay');
         if (overlay) overlay.classList.remove('is-open');
         if (typeof document !== 'undefined') {

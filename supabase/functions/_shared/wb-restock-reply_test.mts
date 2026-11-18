@@ -97,7 +97,7 @@ assert.equal(questionCardKind('когда будет в наличии?'), 'по
 assert.equal(questionCardKind('у юбки есть подклад?'), 'вопрос');
 
 assert.equal(cabinetLegalName('Zevina 1'), 'ИП Уркунбаев К.А.');
-assert.equal(cabinetLegalName('Zevina 2'), 'ОсОО «Айлин Стиль»');
+assert.equal(cabinetLegalName('Zevina 2'), 'ОсОО Айлин Текстиль');
 assert.equal(cabinetLegalName('Elium'), 'ИП Айзада');
 assert.equal(cabinetLegalName('Baza'), 'ИП Бейшеев А.Д.');
 assert.equal(ownerMention('maraWuW'), '@maraWuW');

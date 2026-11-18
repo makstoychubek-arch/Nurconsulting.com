@@ -11,7 +11,7 @@
         var fmt = o.format || function (v) { return Math.round(v).toLocaleString('ru-RU'); };
         el.setAttribute('data-v', to);
         if (reduce || from === to) { el.textContent = fmt(to); return; }
-        var t0 = null, dur = o.duration || 900;
+        var t0 = null, dur = o.duration || 450;
         el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth;
         if (o.flash !== false && from !== to && el.__nrmSeen) el.classList.add(to > from ? 'nrm-up' : 'nrm-down');
         el.__nrmSeen = true;
@@ -25,7 +25,7 @@
         var old = el.getAttribute('data-slot'); if (old == null) old = el.textContent || '';
         el.setAttribute('data-slot', text);
         if (reduce || old === text || !el.offsetParent) { el.textContent = text; return; }
-        var a = old.split(''), b = text.split(''), n = b.length, dur = o.duration || 900, gap = 70;
+        var a = old.split(''), b = text.split(''), n = b.length, dur = o.duration || 450, gap = 35;
         el.textContent = '';
         el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth;
         if (o.flash) el.classList.add(o.flash === 'down' ? 'nrm-down' : 'nrm-up');
@@ -101,7 +101,7 @@
                 if (was == null || was === now) return;
                 var a = parseNum(was), b = parseNum(now);
                 if (!a || !b || a.pre !== b.pre || a.suf !== b.suf || a.v === b.v || el.offsetParent === null) return;
-                busy = true; var t0 = null, dur = 700;
+                busy = true; var t0 = null, dur = 400;
                 el.classList.remove('nrm-up', 'nrm-down'); void el.offsetWidth; el.classList.add(b.v > a.v ? 'nrm-up' : 'nrm-down');
                 (function step(ts) { if (t0 == null) t0 = ts; var p = Math.min(1, (ts - t0) / dur); busy = true; el.textContent = fmtNum(b, a.v + (b.v - a.v) * easeOut(p)); setTimeout(function () { busy = false; }, 0); if (p < 1) root.requestAnimationFrame(step); else { el.textContent = now; prev.set(el, now); } })(performance.now());
             });
@@ -223,12 +223,18 @@
             if (!sr || !sr.v.length) return '<div class="nmd-chart nmd-empty"></div>';
             var mx = Math.max.apply(null, sr.v.map(Math.abs)) || 1, n = sr.v.length;
             return '<div class="nmd-chart">' + sr.v.map(function (v, i) { return '<i class="' + (i >= n - 3 ? 'hl' : '') + '" style="height:' + Math.max(4, Math.round(Math.abs(v) / mx * 100)) + '%"></i>'; }).join('') + '</div>' +
-                '<div class="nmd-xl"><span>' + esc(sr.l[0] || '') + '</span><span>' + esc(sr.l[Math.floor(n / 2)] || '') + '</span><span>' + esc(sr.l[n - 1] || '') + '</span></div>';
+                '<div class="nmd-xl"><span>' + esc(dayLbl(sr.l[0])) + '</span><span>' + esc(dayLbl(sr.l[Math.floor(n / 2)])) + '</span><span>' + esc(dayLbl(sr.l[n - 1])) + '</span></div>';
         }
+        /** Подпись дня под графиком: «11-01» из графика показываем как «01.11». */
+        function dayLbl(l) { var m = String(l == null ? '' : l).match(/^(?:\d{4}-)?(\d{2})-(\d{2})$/); return m ? m[2] + '.' + m[1] : String(l == null ? '' : l); }
+        /** Доля без знака («88.8», «21») → «88,8%». */
+        function pctTxt(t) { return ok(t) && /^-?[\d\s.,]+$/.test(t) ? t.replace('.', ',') + '%' : t; }
         function tag(c, t) { return '<span class="nmd-tag nmd-' + c + '">' + esc(t) + '</span>'; }
         function trendTag(sel) {
             var t = txt(sel); if (!ok(t)) return '';
-            var n = num(t); return tag(isFinite(n) && n < 0 ? 'r' : 'g', t);
+            // Падение приходит как «↓ 12.8%» без минуса: раньше такое число считалось ростом и красилось зелёным.
+            var n = num(t), down = /[↓▼]/.test(t) || (isFinite(n) && n < 0);
+            return tag(down ? 'r' : 'g', t.replace(/(\d)\.(\d)/g, '$1,$2'));
         }
         function loadMoney() {
             var cab = cabId(), sb = root.supabase; if (!cab || !sb || viewer()) return;
@@ -262,7 +268,7 @@
             var tiles = [['rnp', 'РНП', 'chart'], ['advertising', 'РК', 'ad'], ['goods-groups', 'Остатки', 'box'], ['deductions', 'Штрафы', 'warn']].filter(function (x) { return allowed(x[0] === 'deductions' ? 'dashboard' : x[0]); });
             var pen = num(txt('#m-dash-penalty'));
             h += '<div class="nmd-sheet"><div class="nmd-tiles">' + tiles.map(function (x) { return '<div data-nmd="go:' + x[0] + '" class="nmd-tile">' + (x[0] === 'deductions' && pen > 0 ? '<em>!</em>' : '') + '<div class="nmd-sq">' + ICON[x[2]] + '</div><span>' + x[1] + '</span></div>'; }).join('') + '</div>';
-            var prof = txt('#pnl-profit'), marg = txt('#pnl-margin'), roi = txt('#m-roi');
+            var prof = txt('#pnl-profit'), marg = txt('#pnl-margin'), roi = pctTxt(txt('#m-roi'));
             h += '<div class="nmd-two"><div class="nmd-card nmd-green"><div class="nmd-lbl">Операц. прибыль</div><div class="nmd-big">' + esc(ok(prof) ? prof : '—') + '</div><div class="nmd-sm">' + (ok(marg) ? 'маржа ' + esc(marg) : '') + (ok(roi) ? ' · ROI ' + esc(roi) : '') + '</div></div>';
             if (!viewer()) {
                 var bal = M.bal ? fmt(M.bal.current) : '—', nx = M.next ? fmt(M.next.to_withdraw) : (M.bal && M.bal.for_withdraw != null ? fmt(M.bal.for_withdraw) : '—');
@@ -277,18 +283,18 @@
                     (left != null ? '<div class="nmd-sm">расход ≈ ' + fmt(perDay) + ' в день · хватит на <b class="' + (left < 3 ? 'nmd-neg' : '') + '">' + (left < 10 ? left.toFixed(1).replace('.', ',') : Math.round(left)) + ' дн.</b></div>' : '') + '</div>' +
                     '<div data-nmd="go:advertising" class="nmd-btn">+ Пополнить</div></div>';
             }
-            var k4 = [['Выкуп', txt('#m-conversion'), ''], ['ДРР', isFinite(drr) ? drr.toFixed(1).replace('.', ',') + '%' : '—', isFinite(drr) ? (drr > 12 ? tag('o', 'выше цели') : tag('g', 'норма')) : ''], ['ROI', roi, ''], ['Возвраты', txt('#m-returns'), '']];
+            var k4 = [['Выкуп', pctTxt(txt('#m-conversion')), ''], ['ДРР', isFinite(drr) ? drr.toFixed(1).replace('.', ',') + '%' : '—', isFinite(drr) ? (drr > 12 ? tag('o', 'выше цели') : tag('g', 'норма')) : ''], ['ROI', roi, ''], ['Возвраты', txt('#m-returns'), '']];
             h += '<div class="nmd-card nmd-k4">' + k4.map(function (x) { return '<div><div class="nmd-lbl">' + x[0] + '</div><b>' + esc(ok(x[1]) ? x[1] : '—') + '</b>' + x[2] + '</div>'; }).join('') + '</div>';
-            var real = num(txt('#pnl-real')), comm = Math.abs(num(txt('#tab-dashboard [data-metric="commission"]'))), lg = Math.abs(num(txt('#m-logistics'))), cs = Math.abs(num(txt('#tab-dashboard [data-metric="cost-of-sales"]'))), pr = num(prof);
+            var real = num(txt('#pnl-real')), pm = root.__pnlM, comm = pm ? Math.round((Number(pm.commissionSum) || 0) + (Number(pm.acquiringSum) || 0)) : Math.abs(num(txt('#tab-dashboard [data-metric="commission"]'))), lg = Math.abs(num(txt('#m-logistics'))), cs = Math.abs(num(txt('#tab-dashboard [data-metric="cost-of-sales"]'))), pr = num(prof);
             var parts = [['Комиссия WB', comm, '#f59e0b'], ['Логистика', lg, '#7dd3fc'], ['Реклама', ads, '#a855f7'], ['Себестоимость', cs, '#fb7185'], ['Остаётся', pr, '#22c55e']].filter(function (x) { return isFinite(x[1]) && x[1] > 0; });
             if (real > 0 && parts.length) {
                 h += '<div class="nmd-card"><div class="nmd-row"><b>Куда уходит выручка</b>' + tag('b', fmt(real)) + '</div><div class="nmd-seg">' + parts.map(function (x) { return '<i style="width:' + (x[1] / real * 100).toFixed(1) + '%;background:' + x[2] + '"></i>'; }).join('') + '</div>' +
                     parts.map(function (x) { return '<div class="nmd-leg"><u style="background:' + x[2] + '"></u>' + x[0] + '<b>' + fmt(x[1]) + '</b><em>' + Math.round(x[1] / real * 100) + '%</em></div>'; }).join('') + '</div>';
             }
             var at = [];
-            if (pen > 0) at.push(['⚠️', 'Штрафы ' + fmt(pen) + ' сом', 'удержания ' + txt('#m-dash-deduction'), tag('r', 'срочно')]);
-            if (isFinite(drr) && drr > 12) at.push(['📈', 'ДРР ' + drr.toFixed(1).replace('.', ',') + '%', 'выше цели 12%', tag('o', 'проверить')]);
-            if (M.adv != null && isFinite(ads) && d && ads / d > 0 && M.adv / (ads / d) < 3) at.push(['💸', 'Баланс рекламы заканчивается', 'пополните, чтобы РК не встали', tag('r', 'пополнить')]);
+            if (pen > 0) at.push([ICON.warn, 'Штрафы ' + fmt(pen) + ' сом', 'удержания ' + txt('#m-dash-deduction'), tag('r', 'срочно')]);
+            if (isFinite(drr) && drr > 12) at.push([ICON.chart, 'ДРР ' + drr.toFixed(1).replace('.', ',') + '%', 'выше цели 12%', tag('o', 'проверить')]);
+            if (M.adv != null && isFinite(ads) && d && ads / d > 0 && M.adv / (ads / d) < 3) at.push([ICON.ad, 'Баланс рекламы заканчивается', 'пополните, чтобы РК не встали', tag('r', 'пополнить')]);
             h += '<div class="nmd-card"><div class="nmd-row"><b>Требует внимания</b>' + (at.length ? tag('r', String(at.length)) : tag('g', 'всё хорошо')) + '</div>' +
                 at.map(function (x) { return '<div class="nmd-att"><span>' + x[0] + '</span><div><b>' + esc(x[1]) + '</b><div class="nmd-lbl">' + esc(x[2]) + '</div></div>' + x[3] + '</div>'; }).join('') + '</div>';
             return h;
@@ -320,7 +326,7 @@
         function later() { clearTimeout(tmr); tmr = setTimeout(function () { paint(); loadMoney(); loadAdBalance(); }, 160); }
         // Пока держим скелет — больше ничего в DOM может и не измениться (нет данных на этот период),
         // а наблюдатель ниже молчит без мутаций. Перепроверяем сами, чтобы таймаут выше вообще сработал.
-        setInterval(function () { if (S.emptySince != null) paint(); }, 2000);
+        setInterval(function () { if (S.emptySince != null && !document.hidden) paint(); }, 2000);
         doc.addEventListener('click', function (e) {
             var a = e.target.closest && e.target.closest('#nr-md [data-nmd]'); if (!a) return;
             var p = a.getAttribute('data-nmd').split(':');
@@ -350,6 +356,8 @@
         if (!doc || !root.matchMedia) return;
         var mq = root.matchMedia('(max-width: 768px)');
         var el = null, x0 = 0, y0 = 0, px = 0, py = 0, axis = '', saved = null, timer = 0, touching = false;
+        /* Вторую ось держим на запомненной позиции, а не отключаем через overflow:hidden: на iPhone смена overflow
+           сбрасывала горизонтальную позицию в начало (после сдвига вбок любой свайп вниз возвращал к первой колонке). */
         var SELF = { __nrmX: false, __nrmY: false };
         function scrollable(n) {
             while (n && n !== doc.body && n !== doc.documentElement) {
@@ -366,7 +374,7 @@
         }
         function restore() {
             clearTimeout(timer);
-            if (saved) { saved.n.style.overflowX = saved.x; saved.n.style.overflowY = saved.y; saved = null; }
+            saved = null;
             axis = '';
         }
         var free = false;
@@ -387,8 +395,7 @@
                 if (Math.max(ax, ay) < 6) return;
                 axis = ax > ay ? 'x' : 'y';
                 if (el && el.__nrmX && el.__nrmY) {
-                    saved = { n: el, x: el.style.overflowX, y: el.style.overflowY };
-                    if (axis === 'x') el.style.overflowY = 'hidden'; else el.style.overflowX = 'hidden';
+                    saved = { n: el, l: el.scrollLeft, t: el.scrollTop };
                 }
             }
             if (!e.cancelable || axis !== 'x') return;
@@ -398,7 +405,42 @@
         function end() { touching = false; clearTimeout(timer); timer = setTimeout(restore, 160); }
         doc.addEventListener('touchend', end, { passive: true, capture: true });
         doc.addEventListener('touchcancel', function () { touching = false; restore(); }, { passive: true, capture: true });
-        doc.addEventListener('scroll', function () { if (saved && !touching) { clearTimeout(timer); timer = setTimeout(restore, 160); } }, { passive: true, capture: true });
+        doc.addEventListener('scroll', function (e) {
+            if (saved && e.target === saved.n) {
+                if (axis === 'y' && saved.n.scrollLeft !== saved.l) saved.n.scrollLeft = saved.l;
+                else if (axis === 'x' && saved.n.scrollTop !== saved.t) saved.n.scrollTop = saved.t;
+            }
+            if (saved && !touching) { clearTimeout(timer); timer = setTimeout(restore, 160); }
+        }, { passive: true, capture: true });
+    })();
+    /* Таблица РНП: горизонтальная прокрутка колесом или тачпадом плавная и неторопливая. Даже сильный рывок вправо или влево
+       двигает таблицу не быстрее ~1700 пикс/с: цель сдвигается на долю рывка, а сама таблица догоняет её плавно. Вертикаль и телефон не трогаем. */
+    (function () {
+        var doc = root.document; if (!doc || !root.requestAnimationFrame) return;
+        var SEL = '.rnp-sheet-body', SCALE = 0.35, MAX_EVENT = 70, EASE = 0.1, MAX_FRAME = 28;
+        var el = null, target = 0, raf = 0;
+        function tick() {
+            raf = 0; if (!el) return;
+            var d = target - el.scrollLeft;
+            if (Math.abs(d) < 0.5) { el.scrollLeft = target; el = null; return; }
+            var step = d * EASE; if (step > MAX_FRAME) step = MAX_FRAME; else if (step < -MAX_FRAME) step = -MAX_FRAME;
+            if (Math.abs(step) < 0.6) step = d > 0 ? 0.6 : -0.6;
+            el.scrollLeft += step;
+            raf = root.requestAnimationFrame(tick);
+        }
+        doc.addEventListener('wheel', function (e) {
+            if (e.ctrlKey || e.defaultPrevented) return;
+            var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
+            var dx = e.deltaX, horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+            if (e.shiftKey && !horizontal) { dx = e.deltaY; horizontal = true; }
+            if (!horizontal || !dx) return;
+            if (e.deltaMode === 1) dx *= 16; else if (e.deltaMode === 2) dx *= t.clientWidth;
+            e.preventDefault();
+            if (el !== t) { el = t; target = t.scrollLeft; }
+            var inc = dx * SCALE; if (inc > MAX_EVENT) inc = MAX_EVENT; else if (inc < -MAX_EVENT) inc = -MAX_EVENT;
+            target = Math.max(0, Math.min(t.scrollWidth - t.clientWidth, target + inc));
+            if (!raf) raf = root.requestAnimationFrame(tick);
+        }, { passive: false });
     })();
     root.NrMotion = { shake: shake, count: count, slot: slot, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);

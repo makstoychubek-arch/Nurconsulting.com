@@ -16,10 +16,10 @@ const bg = html.slice(mid, end);
 assert.ok(ui.indexOf('hideNewTestForm()') > 0 && ui.indexOf('runABCreate(snap)') > ui.indexOf('hideNewTestForm()'),
     'the form closes first, then the background creation starts');
 assert.ok(!/await /.test(ui.slice(ui.indexOf('hideNewTestForm()'))), 'nothing is awaited before the form is closed');
-assert.ok(ui.includes("showPremiumModal('success', 'Тест создан'"), 'the user sees "Тест создан" immediately');
+assert.ok(ui.includes("abOk('Тест создан'"), 'the user sees "Тест создан" immediately');
 
 const variantsInsert = bg.indexOf("from('ab_test_variants').insert");
-const rotate = bg.indexOf('await rotateTestPhoto(');
+const rotate = bg.indexOf('rotateTestPhoto(test.id, 0');
 assert.ok(variantsInsert > 0 && rotate > variantsInsert, 'WB photo swap runs after the variants are saved');
 assert.ok(bg.indexOf("from('ab_tests').delete()") > rotate, 'a failed WB swap still removes the test');
 assert.ok(bg.includes("label: 'Повторить'") && bg.includes('runABCreate(snap)'), 'a failure offers a retry with the same data');

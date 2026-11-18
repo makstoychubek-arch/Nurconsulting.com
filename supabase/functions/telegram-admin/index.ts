@@ -1,7 +1,7 @@
 // Super Admin: статус Telegram-ботов, deleteWebhook, вкл/выкл, удаление.
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
     TELEGRAM_CHANNEL_LABELS,
     getTelegramChannelCards,
@@ -10,6 +10,10 @@ import {
     getTelegramToken,
     type TelegramChannel,
 } from '../_shared/telegram-routing.ts';
+
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { fetchSheetPlan, resolveActiveSheet } from '../_shared/alina-sheet-plan.ts';
+import { alinaWebhookSecret } from '../_shared/alina-webhook-secret.ts';
 
 const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
 const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
@@ -45,7 +49,7 @@ function envTokenForBot(tokenEnv: string | null, botId: string): string {
 }
 
 async function tokenForBot(
-    admin: ReturnType<typeof createClient>,
+    admin: SupabaseClient,
     tokenEnv: string | null,
     botId: string,
 ): Promise<string> {
@@ -84,15 +88,34 @@ serve(async (req) => {
         const supabaseAnon = Deno.env.get('SUPABASE_ANON_KEY')!;
         const supabaseService = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+        const body = await req.json().catch(() => ({} as Record<string, unknown>));
+        const action = String(body.action || 'list');
+        const admin = createClient(supabaseUrl, supabaseService);
+
+        if (action === 'alina_business_setup') {
+            if (!await isServiceAuthorized(req, supabaseService)) return json({ error: 'Forbidden' }, 403);
+            const botToken = await tokenForBot(admin, 'ALINA_BOT_TOKEN', 'alina');
+            if (!botToken) return json({ error: 'Alina bot token unavailable' }, 503);
+            const sheet = await resolveActiveSheet(admin);
+            if (sheet?.cabinet_key !== 'mars') return json({ error: 'MARS is not active' }, 503);
+            const plan = await fetchSheetPlan(true, sheet);
+            if (!plan.ok) return json({ error: 'MARS is unreadable' }, 503);
+            const set = await tgApi(botToken, 'setWebhook', {
+                url: `${supabaseUrl.replace(/\/$/, '')}/functions/v1/telegram-router?bot=alina`,
+                secret_token: await alinaWebhookSecret('alina'),
+                allowed_updates: ['message', 'edited_message', 'business_message', 'business_connection'],
+                max_connections: 1,
+                drop_pending_updates: false,
+            });
+            return json({ ok: set.ok, offers: plan.offers.length, sheet: sheet.cabinet_key }, set.ok ? 200 : 502);
+        }
+
         const userClient = createClient(supabaseUrl, supabaseAnon, {
             global: { headers: { Authorization: `Bearer ${token}` } },
         });
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
 
-        const admin = createClient(supabaseUrl, supabaseService);
-        const body = await req.json().catch(() => ({} as Record<string, unknown>));
-        const action = String(body.action || 'list');
 
         if (action === 'channels') {
             return json({
@@ -255,16 +278,20 @@ serve(async (req) => {
 
         if (action === 'set_webhook') {
             if (!tok) return json({ error: 'no token' }, 400);
-            const path = bot.webhook_path || `telegram-router?bot=${botId}`;
+            const alinaBot = botId === 'alina' || botId === 'alina2' ? botId : null;
+            const path = (!alinaBot && bot.webhook_path) || `telegram-router?bot=${botId}`;
             const hookUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/${path}`;
             const secret = (Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '').trim();
             const set = await tgApi(tok, 'setWebhook', {
                 url: hookUrl,
-                secret_token: secret || undefined,
-                allowed_updates: ['message', 'edited_message', 'business_message', 'edited_business_message'],
+                secret_token: (alinaBot ? await alinaWebhookSecret(alinaBot) : secret) || undefined,
+                allowed_updates: alinaBot
+                    ? ['message', 'edited_message', 'business_message', 'business_connection']
+                    : ['message', 'edited_message', 'business_message', 'edited_business_message'],
+                max_connections: alinaBot ? 1 : undefined,
                 drop_pending_updates: false,
             });
-            if (set.ok && !bot.webhook_path) {
+            if (set.ok && bot.webhook_path !== path) {
                 await admin.from('telegram_bots').update({
                     webhook_path: path,
                     updated_at: new Date().toISOString(),

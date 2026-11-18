@@ -121,8 +121,13 @@ Deno.serve(async (req) => {
                 if (Object.keys(endpointErrors).length) cabResult.endpoint_errors = endpointErrors;
 
                 // Только товары с реальным движением за день: были заказы или выкупы
-                const rows = buildArticleRows(orders, sales, stocks)
+                // Заказы берём из «динамики» WB (воронка в rnp_daily_data), как в РНП: она выходит к ~10:00 по Бишкеку
+                // и точнее статистики по заказам. Если за день её ещё нет, считаем по статистике и помечаем «предварительно».
+                const funnel = await loadFunnelOrders(admin, cabinet.id, reportDate).catch(() => null);
+                const rows = buildArticleRows(orders, sales, stocks, funnel)
                     .filter((r) => r.ordersCount > 0 || r.buyoutCount > 0);
+                const cabTitle = funnel ? cabinet.name : `${cabinet.name} · предварительно`;
+                cabResult.source = funnel ? 'funnel' : 'statistics';
                 if (!rows.length) {
                     cabResult.skipped = 'no_data';
                     results.push(cabResult);
@@ -141,11 +146,11 @@ Deno.serve(async (req) => {
                     for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
                         pages.push(rows.slice(i, i + ROWS_PER_PAGE));
                     }
-                    const caption = buildCaption(cabinet.name, reportDate, rows);
+                    const caption = buildCaption(cabTitle, reportDate, rows);
                     for (let pi = 0; pi < pages.length; pi++) {
                         if (pi > 0) await new Promise((r) => setTimeout(r, 1200));
                         const png = await renderReportImage(
-                            cabinet.name, reportDate, pages[pi],
+                            cabTitle, reportDate, pages[pi],
                             { pageNum: pi + 1, pageCount: pages.length, totalsRows: pi === pages.length - 1 ? rows : null },
                         );
                         // Повтор одной отправки при транзиентной сетевой ошибке
@@ -159,7 +164,7 @@ Deno.serve(async (req) => {
                     sent = true;
                 } catch (imgErr) {
                     cabResult.image_error = String(imgErr);
-                    const messages = formatReportMessages(cabinet.name, reportDate, rows);
+                    const messages = formatReportMessages(cabTitle, reportDate, rows);
                     sent = true;
                     for (let mi = 0; mi < messages.length; mi++) {
                         if (mi > 0) await new Promise((r) => setTimeout(r, 1200));
@@ -204,7 +209,7 @@ interface ArticleRow {
 }
 
 // deno-lint-ignore no-explicit-any
-function buildArticleRows(orders: any[], sales: any[], stocks: any[]): ArticleRow[] {
+function buildArticleRows(orders: any[], sales: any[], stocks: any[], funnel: Map<number, { count: number; sum: number }> | null = null): ArticleRow[] {
     const byArticle = new Map<string, ArticleRow>();
     const get = (article: string): ArticleRow => {
         let row = byArticle.get(article);
@@ -242,6 +247,18 @@ function buildArticleRows(orders: any[], sales: any[], stocks: any[]): ArticleRo
         const nmId = Number(r?.nmId || 0);
         const article = String(r?.supplierArticle || '').trim();
         if (nmId && article && !articleByNmId.has(nmId)) articleByNmId.set(nmId, article);
+    }
+
+    // «Динамика»: заменяем заказы по статистике на заказы воронки (по артикулу продавца через nmId)
+    if (funnel) {
+        for (const row of byArticle.values()) { row.ordersCount = 0; row.ordersSum = 0; }
+        for (const [nmId, f] of funnel) {
+            if (!(f.count > 0)) continue;
+            const article = articleByNmId.get(nmId) || String(nmId);
+            const row = get(article);
+            row.ordersCount += f.count;
+            row.ordersSum += f.sum;
+        }
     }
     const stockByArticle = new Map<string, number>();
     for (const st of stocks || []) {
@@ -621,6 +638,20 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
 
 // Вчерашний день по бишкекскому времени (UTC+6): отчёт в 15:00 Бишкека
 // должен быть за предыдущие календарные сутки.
+/** Заказы за день из «динамики» WB (rnp_daily_data.funnel_orders). null, если динамика за этот день ещё не пришла. */
+// deno-lint-ignore no-explicit-any
+async function loadFunnelOrders(admin: any, cabinetId: string, date: string): Promise<Map<number, { count: number; sum: number }> | null> {
+    const { data, error } = await admin.from('rnp_daily_data')
+        .select('nm_id, funnel_orders, funnel_orders_sum')
+        .eq('cabinet_id', cabinetId).eq('date', date).not('funnel_orders', 'is', null)
+        .range(0, 4999);
+    if (error) throw new Error(error.message);
+    if (!data || !data.length) return null;
+    const m = new Map<number, { count: number; sum: number }>();
+    for (const r of data) m.set(Number(r.nm_id), { count: Number(r.funnel_orders) || 0, sum: Number(r.funnel_orders_sum) || 0 });
+    return m;
+}
+
 function yesterdayBishkek(): string {
     const nowBishkek = new Date(Date.now() + 6 * 3600 * 1000);
     nowBishkek.setUTCDate(nowBishkek.getUTCDate() - 1);

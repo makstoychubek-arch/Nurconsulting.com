@@ -9,12 +9,10 @@
     if (!doc) return;
     var html = doc.documentElement;
     var OPTS = [
-        { id: 'light', label: 'Светлая', theme: 'ios', bg: '', sw: '#f4f5f8' },
-        { id: 'dark', label: 'Тёмная', theme: 'neon', bg: '', sw: '#1c1c1e' },
-        { id: 'live', label: 'Живая светлая', theme: 'ios', bg: 'live', sw: 'linear-gradient(135deg,#ffffff,#e4e4e7 60%,#bdbdc2)' },
-        { id: 'flow', label: 'Flow тёмная', theme: 'neon', bg: 'flow', sw: 'linear-gradient(135deg,#050506,#26262a 60%,#4a4a50)' },
-        { id: 'tabler', label: 'Tabler', theme: 'tabler', bg: '', sw: '#ffffff' },
+        { id: 'light', label: 'Белая', theme: 'ios', bg: 'live', sw: '#f4f5f8' },
+        { id: 'dark', label: 'Чёрная', theme: 'neon', bg: 'flow', sw: '#262624' },
     ];
+
     function lsGet(k) { try { return root.localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { root.localStorage.setItem(k, v); } catch (e) {} }
     function savedBg() { var b = lsGet('nr_bg'); return b === 'live' || b === 'flow' ? b : ''; }
@@ -34,13 +32,13 @@
 
     // Живой фон допустим только на своей базе: live — на светлой, flow — на тёмной.
     function syncBg() {
-        var theme = html.getAttribute('data-theme') || 'ios', want = savedBg();
-        var ok = (want === 'live' && theme === 'ios') || (want === 'flow' && theme === 'neon');
+        var theme = html.getAttribute('data-theme') === 'ios' ? 'ios' : 'neon', want = theme === 'ios' ? 'live' : 'flow';
+        var ok = true;
         if (ok) { ensureLayer(); html.setAttribute('data-bg', want); } else html.removeAttribute('data-bg');
         var label = current().label;
         Array.prototype.forEach.call(doc.querySelectorAll('.beta-theme-label'), function (el) { el.textContent = label; });
         var meta = doc.querySelector('meta[name="theme-color"]');
-        if (meta && ok) meta.setAttribute('content', want === 'flow' ? '#050506' : '#F4F5F8');
+        if (meta && ok) meta.setAttribute('content', want === 'flow' ? '#262624' : '#F4F5F8');
     }
 
     function choose(opt) {
@@ -94,11 +92,7 @@
             root.applyTheme = function (theme) { base.apply(this, arguments); syncBg(); };
             root.applyTheme._nrt = true;
         }
-        root.toggleTheme = function () {
-            var ev = root.event, a = ev && (ev.currentTarget || ev.target);
-            if (a && a.closest) a = a.closest('button,.beta-theme-row,[role="button"]') || a;
-            openMenu(a);
-        };
+        // Переключение белая/чёрная делает toggleTheme страницы (по кругу из двух тем)
         syncBg();
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install); else install();

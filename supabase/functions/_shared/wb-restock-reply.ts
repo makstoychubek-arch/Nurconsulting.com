@@ -214,7 +214,7 @@ export function resolveRestockAnswer(raw: string, questionText = ''): { when: st
 export function cabinetLegalName(name: string): string {
     const raw = String(name || '').trim();
     if (!raw) return 'Кабинет';
-    if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО «Айлин Стиль»';
+    if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО Айлин Текстиль';
     if (/zevina|зевин|ailin|уркунбаев/i.test(raw)) return 'ИП Уркунбаев К.А.';
     if (/elium|элиум|айзада/i.test(raw)) return 'ИП Айзада';
     if (/^baza$|^baz\.a$|бейшеев/i.test(raw)) return 'ИП Бейшеев А.Д.';

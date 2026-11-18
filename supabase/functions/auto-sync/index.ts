@@ -954,11 +954,13 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
     if (!cards.length) return 0;
 
     const { data: existing } = await admin.from('rnp_articles')
-        .select('nm_id,is_active,photo_url,imt_id,card_title,subject_name').eq('cabinet_id', cabinetId);
+        .select('nm_id,is_active,photo_url,imt_id,card_title,subject_name,dim_l_cm,dim_w_cm,dim_h_cm,weight_kg').eq('cabinet_id', cabinetId);
     const known = new Set((existing || []).map((r: { nm_id: number }) => Number(r.nm_id)));
     const knownCard = new Map((existing || []).map((r: { nm_id: number; imt_id: number | null; card_title: string | null; subject_name: string | null }) => [Number(r.nm_id), r]));
     // Группы как в карточке WB: imtID, название карточки и предмет.
     const cardUpdates: Array<{ nmId: number; imt_id: number; card_title: string | null; subject_name: string | null }> = [];
+    // Габариты упаковки из карточки WB (см, кг): для литража, хранения и логистики в шапке РНП.
+    const dimUpdates: Array<{ nmId: number; dim_l_cm: number; dim_w_cm: number; dim_h_cm: number; weight_kg: number | null }> = [];
     const needPhoto = new Set(
         (existing || [])
             .filter((r: { photo_url: string | null }) => !String(r.photo_url || '').trim())
@@ -976,6 +978,14 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
         const imtId = Number((card as Record<string, unknown>).imtID || (card as Record<string, unknown>).imtId || 0);
         const cardTitle = String((card as Record<string, unknown>).title || (card as Record<string, unknown>).vendorCode || '').slice(0, 200) || null;
         const subjectName = String((card as Record<string, unknown>).subjectName || (card as Record<string, unknown>).object || '').slice(0, 120) || null;
+        const dm = (card as Record<string, any>).dimensions || {};
+        const dl = Number(dm.length) || 0, dw = Number(dm.width) || 0, dh = Number(dm.height) || 0;
+        if (known.has(nmId) && dl > 0 && dw > 0 && dh > 0) {
+            const kd = knownCard.get(nmId) as Record<string, unknown> | undefined;
+            if (!kd || Number(kd.dim_l_cm) !== dl || Number(kd.dim_w_cm) !== dw || Number(kd.dim_h_cm) !== dh) {
+                dimUpdates.push({ nmId, dim_l_cm: dl, dim_w_cm: dw, dim_h_cm: dh, weight_kg: Number(dm.weightBrutto) > 0 ? Number(dm.weightBrutto) : null });
+            }
+        }
         if (known.has(nmId) && imtId) {
             const k = knownCard.get(nmId);
             if (!k || Number(k.imt_id) !== imtId || k.card_title !== cardTitle || k.subject_name !== subjectName) {
@@ -1004,6 +1014,11 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
     for (let i = 0; i < cardUpdates.length && i < 600; i += 10) {
         await Promise.all(cardUpdates.slice(i, i + 10).map((u) =>
             admin.from('rnp_articles').update({ imt_id: u.imt_id, card_title: u.card_title, subject_name: u.subject_name })
+                .eq('cabinet_id', cabinetId).eq('nm_id', u.nmId)));
+    }
+    for (let i = 0; i < dimUpdates.length && i < 600; i += 10) {
+        await Promise.all(dimUpdates.slice(i, i + 10).map((u) =>
+            admin.from('rnp_articles').update({ dim_l_cm: u.dim_l_cm, dim_w_cm: u.dim_w_cm, dim_h_cm: u.dim_h_cm, weight_kg: u.weight_kg })
                 .eq('cabinet_id', cabinetId).eq('nm_id', u.nmId)));
     }
     for (let i = 0; i < toInsert.length; i += 200) {

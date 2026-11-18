@@ -6,6 +6,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { applyRestockTelegramReply } from '../_shared/wb-restock-apply.ts';
 import { setTelegramReaction, unwrapTelegramMessage } from '../_shared/wb-restock-reply.ts';
+import { alinaWebhookSecret } from '../_shared/alina-webhook-secret.ts';
+import { processAlinaTelegramUpdate } from '../_shared/alina-telegram.ts';
+import { managerGroupId, processAlinaManagerTest } from '../_shared/alina-manager.ts';
 import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 
 const CORS = {
@@ -47,13 +50,33 @@ Deno.serve(async (req) => {
         return json({ ok: true, bot: botId, restock: true });
     }
 
-    const expectedSecret = (Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '').trim();
+    const alinaBot = botId === 'alina' || botId === 'alina2' ? botId : null;
+    const sharedSecret = (Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '').trim();
     const gotSecret = (req.headers.get('X-Telegram-Bot-Api-Secret-Token') ?? '').trim();
-    if (expectedSecret && gotSecret !== expectedSecret) {
+    const update = await req.json().catch(() => null);
+    if (alinaBot && (update?.business_message || update?.business_connection || update?.edited_business_message)) {
+        try {
+            if (gotSecret !== await alinaWebhookSecret(alinaBot)) {
+                return json({ ok: false, error: 'bad_secret' }, 401);
+            }
+            // Тест «вопрос менеджеру»: только @nurcon (7159099638) и только одна тестовая фраза. Остальные идут как раньше.
+            if (alinaBot === 'alina' && await alinaManagerTest(update)) return json({ ok: true, manager_test: true });
+            await processAlinaTelegramUpdate(alinaBot, (Deno.env.get(BOT_TOKEN_ENV[alinaBot]) || '').trim(), update);
+            return json({ ok: true });
+        } catch {
+            console.error('[telegram-router] Alina could not accept an update');
+            return json({ ok: false, error: 'alina_unavailable' }, 503);
+        }
+    }
+    // Реплай менеджера в тестовой группе. Только бот alina, только эта группа, секрет вебхука Алины обязателен.
+    if (alinaBot === 'alina' && update?.message?.reply_to_message && update.message.chat?.id === await managerGroupId()) {
+        if (gotSecret !== await alinaWebhookSecret('alina')) return json({ ok: false, error: 'bad_secret' }, 401);
+        await alinaManagerTest(update);
+        return json({ ok: true, manager_test: true });
+    }
+    if (sharedSecret && gotSecret !== sharedSecret && (!alinaBot || gotSecret !== await alinaWebhookSecret(alinaBot))) {
         return json({ ok: false, error: 'bad_secret' }, 401);
     }
-
-    const update = await req.json().catch(() => null);
     const msg = unwrapTelegramMessage(update);
     if (!msg) return json({ ok: true, ignored: true });
 
@@ -99,6 +122,16 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, ignored: 'unknown_chat' });
 });
+
+// Всегда без исключения наружу: Telegram повторяет доставку при не-200, и в группу ушёл бы второй вопрос.
+async function alinaManagerTest(update: Parameters<typeof processAlinaManagerTest>[1]): Promise<boolean> {
+    try {
+        return await processAlinaManagerTest((Deno.env.get(BOT_TOKEN_ENV.alina) || '').trim(), update);
+    } catch {
+        console.error('[telegram-router] Alina manager test failed');
+        return true;
+    }
+}
 
 async function sendTelegram(token: string, chatId: string, text: string, replyTo?: number): Promise<void> {
     if (!token || !chatId) return;

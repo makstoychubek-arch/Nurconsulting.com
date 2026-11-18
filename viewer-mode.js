@@ -166,7 +166,7 @@ html[data-viewer="1"] [onclick*="syncNow"],
 html[data-viewer="1"] [onclick*="manualSync"],
 html[data-viewer="1"] [onclick*="openAddCabinet"],
 html[data-viewer="1"] #cabinet-add-btn,
-html[data-viewer="1"] .adp2-pos, html[data-viewer="1"] .adp2-prs .adp2-addp, html[data-viewer="1"] .adp2-tg,
+html[data-viewer="1"] .adp2-body [data-ctl], html[data-viewer="1"] .adp2-pos, html[data-viewer="1"] .adp2-prs .adp2-addp, html[data-viewer="1"] .adp2-tg,
 html[data-viewer="1"] [data-pact="addp"],
 html[data-viewer="1"] [data-pact="drop"],
 html[data-viewer="1"] [data-pact="kbulk"],
@@ -262,7 +262,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         if (document.getElementById('nr-acc-css')) return;
         const s = document.createElement('style');
         s.id = 'nr-acc-css';
-        s.textContent = `#nr-acc { position: fixed; inset: 0; z-index: 9000; background: rgba(15,15,25,.45); display: grid; place-items: center; padding: 16px; }
+        s.textContent = `#nr-acc { position: fixed; inset: 0; z-index: 10100; background: rgba(15,15,25,.45); display: grid; place-items: center; padding: 16px; }
 :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-b { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--surface-solid, #fff); color: var(--text-primary); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
 :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) h3 { margin: 0; font-size: 16px; } :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-muted); }
 :is(#nr-acc, #nr-set-acc, #nr-set-mcp, .nr-mcp-c) .nr-acc-r { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; font-size: 13px; }
@@ -396,7 +396,7 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
         const fresh = mc.fresh ? '<div class="nr-mcp-new"><p><b>Ключ создан. Скопируйте адрес сейчас: позже он не покажется.</b></p><div class="nr-acc-add"><input readonly value="' + esc(mcpUrl(mc.fresh)) + '" onfocus="this.select()"><button type="button" class="nr-acc-ok" data-mcopy="1">Скопировать</button></div>' +
             '<p><b>Claude:</b> Настройки → Коннекторы → Добавить свой коннектор → вставить адрес.<br><b>ChatGPT:</b> Настройки → Приложения → режим разработчика → создать коннектор → вставить адрес, вход «без авторизации».</p></div>' : '';
         const rows = mc.keys.map((k) => '<div class="nr-acc-r"><span>' + esc(k.label || 'Ключ') + '</span><em>' + (k.last_used_at ? 'использован ' + new Date(k.last_used_at).toLocaleDateString('ru-RU') : 'ещё не использован') + '</em>' + (k.can_write === undefined ? '' : '<label class="nr-mcp-w" title="ИИ сначала покажет «было → станет» и применит только после вашего согласия"><input type="checkbox" data-mwr="' + esc(k.id) + '"' + (k.can_write ? ' checked' : '') + '> менять цены</label>') + '<button type="button" data-mrev="' + esc(k.id) + '">Отозвать</button></div>').join('');
-        host.innerHTML = '<p>Подключите свой ИИ, чтобы он отвечал по данным ваших кабинетов: остатки, заказы, финансы. По умолчанию только чтение. Галочка «менять цены» разрешает ИИ предлагать новые цены: он покажет «было → станет» и применит только после вашего «да», не больше чем на 25% за раз. Токены WB ИИ не видит.</p>' + fresh + rows +
+        host.innerHTML = '<p>Подключите свой ИИ, чтобы он отвечал по данным ваших кабинетов за любые даты (до 90 дней за раз): заказы и выкупы по дням и артикулам, остатки, финансы, штрафы, рекламные кампании (в том числе архивные) и их статистика. По умолчанию только чтение. Галочка «менять цены» разрешает ИИ предлагать новые цены: он покажет «было → станет» и применит только после вашего «да», не больше чем на 25% за раз. Токены WB ИИ не видит.</p>' + fresh + rows +
             '<div class="nr-acc-add"><input type="text" maxlength="40" placeholder="Название, например «Мой Claude»" id="nr-mcp-label"><button type="button" class="nr-acc-ok" data-mnew="1"' + (mc.busy ? ' disabled' : '') + '>' + (mc.busy ? 'Создаём…' : 'Создать ключ') + '</button></div><div class="nr-acc-err">' + esc(mc.err) + '</div>';
     }
     function mcpLoad(host) {
@@ -431,7 +431,12 @@ html[data-owner] #ab-new-btn, html[data-owner] [onclick*="showNewTestForm"], htm
             } else if (t.closest('[data-mrev]')) {
                 const id = t.closest('[data-mrev]').getAttribute('data-mrev');
                 mc.keys = mc.keys.filter((k) => k.id !== id); mcpPaint(host);
-                supabase.rpc('mcp_key_revoke', { p_id: id });
+                // Ответ сервера не игнорируем: раньше при отказе ключ молча возвращался после обновления страницы.
+                // После запроса перечитываем настоящий список, чтобы экран показывал то, что есть на самом деле.
+                Promise.resolve(supabase.rpc('mcp_key_revoke', { p_id: id })).then((r) => {
+                    if (r && r.error) mc.err = 'Не получилось отозвать ключ. Повторите.';
+                    mcpLoad(host);
+                }).catch(() => { mc.err = 'Не получилось отозвать ключ. Повторите.'; mcpLoad(host); });
             }
         });
     }

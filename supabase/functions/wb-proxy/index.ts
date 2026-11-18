@@ -1785,6 +1785,28 @@ serve(async (req) => {
                 result = { status: data?.status ?? null, errors };
                 break;
             }
+            // Перенос карточек между склейками WB: targetIMT — куда присоединить, без него карточки отделяются. До 30 артикулов за раз.
+            case 'cards_move': {
+                const nmIDs = [...new Set(((params.nmIDs as unknown[]) || []).map(Number).filter((n) => n > 0))].slice(0, 30);
+                if (!nmIDs.length) return json({ error: 'nmIDs обязательны' }, 400);
+                const targetIMT = Number(params.targetIMT || 0);
+                const res = await wbSend('https://content-api.wildberries.ru/content/v2/cards/moveNm', WB_CONTENT_TOKEN, 'POST', targetIMT ? { targetIMT, nmIDs } : { nmIDs });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                const rr = (res.data || {}) as Record<string, any>;
+                if (rr.error) return json({ error: String(rr.errorText || 'WB не принял перенос') }, 400);
+                // обновляем номера склеек у себя, чтобы страница «Цены» сразу показала новый состав
+                let synced = 0;
+                for (const nm of nmIDs) {
+                    try {
+                        const cr = await wbSend('https://content-api.wildberries.ru/content/v2/get/cards/list', WB_CONTENT_TOKEN, 'POST', { settings: { cursor: { limit: 10 }, filter: { textSearch: String(nm), withPhoto: -1 } } });
+                        const card = (((cr.data as Record<string, any>)?.cards || []) as Record<string, any>[]).find((c) => Number(c.nmID) === nm);
+                        const imt = Number(card?.imtID || 0);
+                        if (imt) { await admin.from('rnp_articles').update({ imt_id: imt }).eq('cabinet_id', cabinet_id).eq('nm_id', nm); synced++; }
+                    } catch (e) { console.warn('[wb-proxy] cards_move sync:', String(e)); }
+                }
+                result = { ok: true, moved: nmIDs.length, synced };
+                break;
+            }
             // Группы РНП как в карточке WB: imtID, название карточки и предмет по каждому артикулу.
             case 'rnp_sync_cards': {
                 const cards: Record<string, any>[] = [];
@@ -1831,6 +1853,38 @@ serve(async (req) => {
                 );
                 if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
                 result = res.data;
+                break;
+            }
+            case 'feedbacks_by_nm': {
+                // Отзывы за период (только чтение): отвеченные и без ответа. С nmId один артикул (до 1000 каждых), с all=true весь кабинет (до 10 000 каждых).
+                const all = params.all === true;
+                const nmId = Number(params.nmId) || 0;
+                if (!all && nmId <= 0) return json({ error: 'Нужен артикул WB (nmId)' }, 400);
+                const TAKE = all ? 1000 : 200, MAX_SKIP = all ? 10000 : 1000;
+                const dateFrom = Number(params.dateFrom) || 0, dateTo = Number(params.dateTo) || 0;
+                const items: Record<string, unknown>[] = [];
+                for (const answered of [false, true]) {
+                    for (let skip = 0; skip < MAX_SKIP; skip += TAKE) {
+                        const q = `isAnswered=${answered}${nmId ? `&nmId=${nmId}` : ''}&take=${TAKE}&skip=${skip}&order=dateDesc` + (dateFrom ? `&dateFrom=${dateFrom}` : '') + (dateTo ? `&dateTo=${dateTo}` : '');
+                        const res = await wbSend(`${FEEDBACKS_API}/api/v1/feedbacks?${q}`, WB_TOKEN);
+                        if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                        const list = (((res.data as Record<string, unknown>)?.data as Record<string, unknown>)?.feedbacks || []) as Record<string, unknown>[];
+                        for (const f of list) {
+                            const det = (f.productDetails || {}) as Record<string, unknown>;
+                            const ans = (f.answer || null) as Record<string, unknown> | null;
+                            const photos = ((f.photoLinks || []) as Record<string, unknown>[]).map((x) => String(x.miniSize || x.fullSize || '')).filter(Boolean);
+                            items.push({
+                                id: String(f.id || ''), nmId: Number(det.nmId || f.nmId || nmId), stars: Number(f.productValuation || 0),
+                                text: String(f.text || ''), pros: String(f.pros || ''), cons: String(f.cons || ''),
+                                at: String(f.createdDate || ''), size: String(det.size || ''), color: String(f.color || ''),
+                                photos, video: !!f.video, answered: answered || !!ans, answerText: ans ? String(ans.text || '') : '',
+                            });
+                        }
+                        if (list.length < TAKE) break;
+                        await new Promise((r) => setTimeout(r, 400));
+                    }
+                }
+                result = { feedbacks: items };
                 break;
             }
             case 'feedbacks_answer': {
