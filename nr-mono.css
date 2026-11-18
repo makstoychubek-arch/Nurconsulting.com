@@ -2857,6 +2857,11 @@ html.nr-f-give #nr-foot { display: none; }
 .as-text-pv { margin-top: 6px; padding: 8px 12px; border-radius: 16px; background: var(--accent); color: var(--on-accent, #fff); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; max-width: 92%; }
 .as-hint { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
 
+/* Цепочка над заголовком: место зарезервировано с первого кадра (html.nr-f-crumb), заголовок не прыгает при загрузке; когда цепочка нарисована, резерв снимается */
+html.nr-f-crumb body header.glass.app-header .header-page-title::before { content: ''; display: block; height: 20px; }
+html.nr-f-crumb body header.glass.app-header .header-page-title:has(.nr-crumbs.on)::before { display: none; }
+/* Дашборд: ряд «Заказы / Выкупы / Логистика / Реклама» держит высоту готовой карточки (с таблеткой динамики) уже в каркасе, ниже ничего не сдвигается */
+html body #tab-dashboard .pnl-mini-grid > .pnl-mini { min-height: 121px !important; box-sizing: border-box; }
 /* Юнит-экономика: плотная сетка как в РНП, «Σ Общее», карточки справа (макет 18 ноября 2026) */
 html body #rnp-unit-pane .ru-t2 { width: auto; border-collapse: separate; border-spacing: 0; font-size: 11px; }
 html body #rnp-unit-pane .ru-t2 th, html body #rnp-unit-pane .ru-t2 td { padding: 0 7px; height: 19px; min-width: 70px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); line-height: 1.1; }
@@ -2898,3 +2903,10 @@ html body .ru-i { width: 13px; height: 13px; margin-left: 6px; border: 1px solid
 html body .ru-i:hover, html body .ru-i.on { background: var(--text-primary); color: var(--bg-primary, #fff); border-color: var(--text-primary); }
 html body .ru-pop { position: fixed; z-index: 80; max-width: 240px; background: var(--bg-card, var(--surface-solid, #fff)); color: var(--text-primary); border: 1.5px solid var(--text-primary); border-radius: 14px; padding: 9px 12px; font-size: 11px; line-height: 1.35; }
 html body .ru-pop small { display: block; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--text-muted); margin-bottom: 3px; }
+
+/* РНП: панель действий держит высоту готовой (кнопки приходят позже), таблица ниже не сдвигается */
+html body .rnp-workspace > #rnp-action-bar-wrap { min-height: 32px; box-sizing: border-box; }
+/* Отступ сверху у страниц с цепочкой тот же с первого кадра (иначе всё содержимое съезжает на 20px, когда цепочка нарисована) */
+@media (min-width: 769px) { html.nr-f-crumb body .main-rail .main-content:not(#nr-x) { padding-top: 82px !important; } }
+/* РНП: полоса вкладок артикулов держит высоту готовой (группы приходят позже) */
+html body #rnp-sheet-tabs { min-height: 54px; box-sizing: border-box; }

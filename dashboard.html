@@ -6044,6 +6044,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             document.documentElement.id = 'nr-root';
             if (!__nrPane || __nrPane === 'dashboard') document.documentElement.classList.add('nr-f-dash');
             else if (__nrPane === 'advertising') document.documentElement.classList.add('nr-f-adv');
+            // Цепочка «Раздел › Подраздел» над заголовком: место под неё держим с первого кадра, иначе заголовок и страница прыгают вниз при загрузке
+            try {
+                var __nrCr = ['advertising', 'goods-groups', 'analytics', 'ab-testing', 'agents', 'akylai', 'tariffs'].indexOf(__nrPane) !== -1;
+                if (__nrPane === 'rnp') { var __nrRv0 = localStorage.getItem('nr_rnp_view'); __nrCr = __nrRv0 === 'prices' || __nrRv0 === 'unit'; }
+                if (__nrCr) document.documentElement.classList.add('nr-f-crumb');
+            } catch (e) { /* без памяти место не резервируем */ }
             if (__nrPane && __nrPane !== 'dashboard') {
                 document.documentElement.setAttribute('data-nr-early', __nrPane);
                 var __nrStyle = document.createElement('style');
@@ -6096,13 +6102,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } catch (e) {}
     </script>
 <link rel="stylesheet" href="/dist/content-factory.e90044b6a6.css">
-<link rel="stylesheet" href="/dist/nr-motion.11837b104a.css">
+<link rel="stylesheet" href="/dist/nr-motion.5750c3260e.css">
 <link rel="stylesheet" href="/dist/rnp-extra.a60fef2840.css">
 <link rel="stylesheet" href="/dist/ads-pulse.f9e582b861.css">
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.970ecfaa12.css">
+<link rel="stylesheet" href="/dist/nr-mono.9de2a12ea3.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8227,7 +8233,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
-<script src="/dist/nr-nav.2e01657404.min.js"></script>
+<script src="/dist/nr-nav.2d8702aae5.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.ef12b0ecce.min.js"></script>
 <script src="/dist/nr-foot.3aa9e16910.min.js"></script>
