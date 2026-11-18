@@ -76,6 +76,11 @@
         // Изменений страницы бывает десятки за кадр (карточки и таблицы дорисовываются), а пересчёт заставляет браузер заново мерить вёрстку.
         // Смена раздела пересчитывается сразу (до отрисовки, чтобы низ не мелькал), остальная дорисовка не чаще раза в 250 мс.
         function run() { raf = 0; last = Date.now(); fit(); }
+        // Высота страницы меняется (данные пришли, блоки перестроились): отступ пересчитываем в тот же кадр до отрисовки, иначе низ на мгновение выглядывает снизу.
+        if (root.ResizeObserver) {
+            var ro = new root.ResizeObserver(function () { fit(); });
+            Array.prototype.forEach.call(host.children, function (c) { if (c.id !== 'nr-foot') ro.observe(c); });
+        }
         new MutationObserver(function (list) {
             if (raf) return;
             var f = doc.getElementById('nr-foot');

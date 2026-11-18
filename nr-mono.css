@@ -2910,3 +2910,6 @@ html body .rnp-workspace > #rnp-action-bar-wrap { min-height: 32px; box-sizing: 
 @media (min-width: 769px) { html.nr-f-crumb body .main-rail .main-content:not(#nr-x) { padding-top: 82px !important; } }
 /* РНП: полоса вкладок артикулов держит высоту готовой (группы приходят позже) */
 html body #rnp-sheet-tabs { min-height: 54px; box-sizing: border-box; }
+/* Дашборд: полоса «Баланс» занимает своё место с первого кадра (скрытая карточка «Динамика заказов» не растягивает ряд до 140px, потом схлопываясь) */
+html body #tab-dashboard .pnl-grid.ff-row > #ff-chart { display: none !important; }
+html body #tab-dashboard .pnl-grid.ff-row { min-height: 60px; }
