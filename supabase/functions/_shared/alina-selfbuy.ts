@@ -32,6 +32,7 @@ import {
   fetchSheetPlan,
   resolveActiveSheet,
   getOpenProductChoices,
+  lastPlanAtMs,
   matchOfferFromText,
   razdachiRowsMode,
   resolveProductChoice,
@@ -846,6 +847,42 @@ export async function handleAlinaClientMessage(opts: {
   return r(msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)));
 }
 
+/** Ключ места: модель и ключевой запрос. */
+function slotKey(offer: SheetPlanOffer): string {
+  return `${String(offer.product_name || '').trim().toLowerCase()}|${String(offer.keyword || '').trim().toLowerCase()}`;
+}
+
+/**
+ * Защита от гонки за последнее место: строки в графике появляются после ответа клиенту, поэтому одновременные клиенты видят одно и то же
+ * число мест. Каждый записывает заявку на место в свою базу и считает, сколько заявок на эту модель легло раньше него с момента чтения графика.
+ * Раньше чтения графика заявки уже вычтены из мест самим графиком, поэтому их не считаем. Если база не отвечает, не блокируем клиента.
+ */
+export async function claimSlot(db: SupabaseClient, lead: SelfbuyLead, offer: SheetPlanOffer, planAtMs: number): Promise<boolean> {
+  const slots = offer.slots_left ?? 0;
+  const key = slotKey(offer);
+  try {
+    const { data: mine, error } = await db.from('alina_selfbuy_events')
+      .insert({ lead_id: lead.id, chat_id: lead.chat_id, event_type: 'slot_claim', payload: { key } })
+      .select('id, created_at').single();
+    if (error || !mine) return true;
+    const since = new Date(offer.read_ms ?? planAtMs).toISOString();
+    const { data: rows } = await db.from('alina_selfbuy_events').select('id, lead_id, created_at, payload')
+      .eq('event_type', 'slot_claim').gte('created_at', since).order('created_at', { ascending: true }).limit(500);
+    const seen = new Set<string>();
+    let rank = 0;
+    const me = mine as { id: string | number; created_at: string };
+    for (const r of (rows || []) as Array<{ id: string | number; lead_id: string | null; created_at: string; payload: { key?: string } | null }>) {
+      if (r.payload?.key !== key || !r.lead_id) continue;
+      const earlier = r.created_at < me.created_at || (r.created_at === me.created_at && String(r.id) < String(me.id));
+      if (r.lead_id === lead.id) { if (earlier) return rank < slots; continue; } // уже занимал место раньше: берём его очередь
+      if (earlier && !seen.has(r.lead_id)) { seen.add(r.lead_id); rank++; }
+    }
+    return rank < slots;
+  } catch (_) {
+    return true;
+  }
+}
+
 async function startDealFromOffer(
   db: SupabaseClient,
   lead: SelfbuyLead,
@@ -859,6 +896,12 @@ async function startDealFromOffer(
       offer.product_name || 'этой модели',
       open.map((o) => o.product_name || '').filter(Boolean),
     ));
+  }
+
+  if (!(await claimSlot(db, lead, offer, lastPlanAtMs()))) {
+    await updateLead(db, lead.id, { status: 'closed' });
+    await logEvent(db, lead.id, lead.chat_id, 'slot_lost', { product: offer.product_name, keyword: offer.keyword });
+    return r(MSG_CLOSED_FULL());
   }
 
   let typed = detectDealType(text) || lead.deal_type || resolveDealFromCampaign(camp);
