@@ -1846,7 +1846,26 @@ html body .rnp-pfp-host > .pf-bar { display: flex !important; align-items: cente
 html body .rnp-pfp-host .pf-close { display: none !important; }
 html body .rnp-pfp-host .pf-back { border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); border-radius: 999px; padding: 6px 14px; font-weight: 800; cursor: pointer; }
 html body .rnp-pfp-host .pf-bar-title { font-size: 20px; font-weight: 900; color: var(--text-primary); }
-html body .rnp-pfp-host .pf-scroll { flex: 1 1 auto; max-height: calc((100dvh - 135px) / var(--nr-zoom, 1)); overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
+/* План/факт: одна неделя на экране (переключатель недель), без горизонтальной прокрутки; без дубля заголовка в таблице;
+   каркас виден сразу, цифры размыты, пока идёт загрузка (если в кэше есть настоящие, показываем их без размытия) */
+html body .rnp-pfp-host .pf-pager { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 12px; overflow: visible; background: transparent; border: 0; }
+html body .rnp-pfp-host .pf-pg { height: 32px; padding: 0 14px; border: 1px solid var(--text-primary); border-radius: 999px; background: transparent; color: var(--text-primary); font-size: 13px; font-weight: 800; cursor: pointer; }
+html body .rnp-pfp-host .pf-pg.is-on { background: var(--accent); color: var(--on-accent, #fff); }
+html body .rnp-pfp-host .pf-scroll { overflow-x: hidden; }
+html body .rnp-pfp-host .pf-sheet { width: 100%; }
+html body .rnp-pfp-host .pf-sheet[data-wk="0"] [class*="pf-w"]:not(.pf-w0),
+html body .rnp-pfp-host .pf-sheet[data-wk="1"] [class*="pf-w"]:not(.pf-w1),
+html body .rnp-pfp-host .pf-sheet[data-wk="2"] [class*="pf-w"]:not(.pf-w2),
+html body .rnp-pfp-host .pf-sheet[data-wk="3"] [class*="pf-w"]:not(.pf-w3),
+html body .rnp-pfp-host .pf-sheet[data-wk="4"] [class*="pf-w"]:not(.pf-w4),
+html body .rnp-pfp-host .pf-sheet[data-wk="5"] [class*="pf-w"]:not(.pf-w5)
+{ display: none; }
+html body .rnp-pfp-host .pf-sheet .pf-title { font-size: 0; }
+html body .rnp-pfp-host .pf-sheet .pf-dow { font-size: 9.5px; letter-spacing: -.3px; padding: 0 1px; }
+html body .rnp-pfp-host .pf-sheet.is-skel :is(tbody .pf-b, tbody .pf-c) { filter: blur(5px); }
+html body .rnp-pfp-host .pf-sheet.is-loading :is(tbody .pf-day, tbody .pf-plan, tbody .pf-fact, thead .pf-coeff, thead .pf-total:not(.pf-a):not(.pf-b):not(.pf-c), thead .pf-dark) { filter: blur(5px); transition: filter .18s ease; }
+html body #rnp-pfp-host { height: calc((100dvh - 130px) / var(--nr-zoom, 1)); min-height: 0; }
+html body .rnp-pfp-host .pf-scroll { flex: 1 1 0; min-height: 0; max-height: none; overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
 html body .rnp-pfp-host .rnp-plan-panel.rnp-plan-page { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; box-shadow: none !important; border: 1px solid var(--text-primary) !important; border-radius: 26px; padding: 18px; display: flex; flex-direction: column; background: var(--surface-solid, var(--bg, #fff)); }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-scroll { max-height: calc((100dvh - 330px) / var(--nr-zoom, 1)); overflow: auto; }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { display: inline-flex; }
