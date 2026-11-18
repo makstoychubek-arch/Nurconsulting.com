@@ -230,7 +230,7 @@
         if (!label) {
             // Вернулись на основную страницу раздела (например, из «Юнит-экономики» в РНП): прежний заголовок подраздела заменяем обычным
             if (title && s && desired) { try { var d0 = typeof tabTitles !== 'undefined' && tabTitles[tab]; if (d0 && title.textContent !== d0) title.textContent = d0; } catch (e) { /* заголовок остаётся */ } }
-            desired = ''; el.innerHTML = ''; el.classList.remove('on'); doc.documentElement.classList.remove('nr-f-crumb'); return;
+            desired = ''; el.innerHTML = ''; el.classList.remove('on'); if (!root.performance || root.performance.now() > 4000) doc.documentElement.classList.remove('nr-f-crumb'); return; // при загрузке не снимаем: подраздел (Товары, Юнит-экономика) включается чуть позже первого прохода
         }
         el.classList.add('on');
         doc.documentElement.classList.add('nr-f-crumb');
