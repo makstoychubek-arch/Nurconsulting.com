@@ -1846,7 +1846,7 @@ html body .rnp-pfp-host > .pf-bar { display: flex !important; align-items: cente
 html body .rnp-pfp-host .pf-close { display: none !important; }
 html body .rnp-pfp-host .pf-back { border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); border-radius: 999px; padding: 6px 14px; font-weight: 800; cursor: pointer; }
 html body .rnp-pfp-host .pf-bar-title { font-size: 20px; font-weight: 900; color: var(--text-primary); }
-html body .rnp-pfp-host .pf-scroll { flex: 1 1 auto; max-height: calc((100dvh - 230px) / var(--nr-zoom, 1)); overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
+html body .rnp-pfp-host .pf-scroll { flex: 1 1 auto; max-height: calc((100dvh - 135px) / var(--nr-zoom, 1)); overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
 html body .rnp-pfp-host .rnp-plan-panel.rnp-plan-page { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; box-shadow: none !important; border: 1px solid var(--text-primary) !important; border-radius: 26px; padding: 18px; display: flex; flex-direction: column; background: var(--surface-solid, var(--bg, #fff)); }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-scroll { max-height: calc((100dvh - 330px) / var(--nr-zoom, 1)); overflow: auto; }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { display: inline-flex; }
@@ -1854,7 +1854,6 @@ html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { width: auto; height: au
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { white-space: nowrap; width: auto !important; min-width: 0; height: 32px !important; display: inline-flex; align-items: center; margin-left: auto; }
 html body .rnp-pfp-host .pf-back { display: inline-flex !important; align-items: center; white-space: nowrap; }
 html body .rnp-pfp-host .pf-bar-title { display: none; }
-html body .rnp-pfp-host .pf-scroll { flex: 0 1 auto; }
 
 /* Планирование: листы как в Excel (План продаж, План вывода денег). Минимализм: чёрное и белое, цвет только у чисел */
 html body .ps-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
