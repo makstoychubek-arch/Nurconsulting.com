@@ -1983,6 +1983,8 @@ const RNP = (() => {
         await _loadRnpData();
         if (seq !== _rangeSeq) return; // за это время период сменили ещё раз: рисует последняя загрузка
         await _renderActiveTable();
+        // Страница План/факт открыта: период в шапке один на РНП и План/факт, перерисовываем и её.
+        if (document.getElementById('tab-rnp-planfact')?.classList.contains('active')) await _refreshPlanFactPage();
     }
 
     async function setRefMonth(val) {
@@ -9795,6 +9797,12 @@ const RNP = (() => {
         if (!window.RnpPlanFact) return;
         closeSettings();
         if (typeof showTab === 'function') showTab('rnp-planfact');
+        await _refreshPlanFactPage();
+    }
+
+    // Рисует План/факт сразу из кэша, затем подтягивает недели выбранного месяца и дорисовывает без смены каркаса.
+    async function _refreshPlanFactPage() {
+        if (!window.RnpPlanFact) return;
         const monthKey = _viewMonthKey();
         const weeks = window.RnpPlanFact.weeksForMonth(monthKey);
         const from = weeks[0] && weeks[0].start;
