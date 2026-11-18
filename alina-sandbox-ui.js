@@ -28,6 +28,7 @@
     function save() { try { root.localStorage.setItem(KEY, JSON.stringify({ msgs: state.msgs.slice(-60), login: state.login })); } catch (e) { /* без кэша */ } }
 
     function bubble(m) {
+        if (m.from === 'note') return '<div class="asb-note">' + esc(m.text) + '</div>';
         var cls = m.from === 'me' ? 'asb-me' : 'asb-bot';
         var h = '<div class="asb-m ' + cls + '">';
         if (m.photo) h += '<img class="asb-img" alt="" src="' + esc(m.photo) + '">';
@@ -37,6 +38,7 @@
     function build() {
         state.host.innerHTML = '<h3>Песочница</h3><p class="asb-sub">Напишите Алине как клиент. В Telegram и в рабочую таблицу ничего не уходит, расходуется ключ ChatGPT.</p>' +
             '<div class="asb-bar"><label class="asb-login">Логин клиента <input type="text" data-sb="login" maxlength="32" autocomplete="off" aria-label="Логин клиента"></label>' +
+            '<label class="asb-login">Время (МСК) <input type="time" data-sb="time" aria-label="Время по Москве для проверки часов работы"></label>' +
             '<button type="button" class="as-btn" data-sb-act="reset">Начать заново</button></div>' +
             '<div class="asb-chat" data-sb="chat" role="log" aria-live="polite"></div>' +
             '<div class="asb-state" data-sb="state"></div>' +
@@ -81,9 +83,10 @@
         if (!isRetry) state.msgs.push({ from: 'me', text: text });
         var inp = q('[data-sb="text"]'); if (inp) inp.value = '';
         state.busy = true; paint(); save();
-        call({ action: 'send', text: text, username: state.login }).then(function (d) {
+        call({ action: 'send', text: text, username: state.login, now_msk: (q('[data-sb="time"]') || {}).value || '' }).then(function (d) {
             (d.photos || []).forEach(function (p) { if (p.url || p.caption) state.msgs.push({ from: 'bot', text: p.caption || '', photo: p.url || '' }); });
             (d.replies || []).forEach(function (t) { state.msgs.push({ from: 'bot', text: t }); });
+            if (d.escalate) state.msgs.push({ from: 'note', text: 'Менеджерам в группу ушло бы: ' + d.escalate.question });
             state.lead = d.lead || null; state.ms = d.ms == null ? null : d.ms; state.busy = false; paint(); save();
         }, function (err) { state.msgs.push({ from: 'bot', err: true, text: err.message }); state.busy = false; paint(); save(); });
     }

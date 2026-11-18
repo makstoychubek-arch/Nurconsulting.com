@@ -22,6 +22,10 @@ assert.deepEqual([d.admitLimit, d.admitHours, d.llmBudgetUsd], [30, 3, 0], 'ли
 const lim = lib.normalizeAlinaSettings({ admitLimit: 0, admitHours: 500, llmBudgetUsd: '12.345' });
 assert.equal(lim.admitLimit, 0, '0 = без лимита'); assert.equal(lim.admitHours, 72); assert.equal(lim.llmBudgetUsd, 12.35);
 assert.equal(lib.normalizeAlinaSettings({ admitLimit: -5 }).admitLimit, 0); assert.equal(lib.normalizeAlinaSettings({ admitLimit: 'много' }).admitLimit, 30);
+assert.deepEqual([d.hoursOn, d.hoursFrom, d.hoursTo, d.offHoursText, d.topicsOff, d.managerGroup], [false, '09:00', '22:00', '', [], 0], 'часы и темы по умолчанию выключены');
+const hh = lib.normalizeAlinaSettings({ hoursOn: true, hoursFrom: '9:5', hoursTo: '7:30', offHoursText: '  Ответим утром  ', topicsOff: ['manager', 'manager', 'Плохо!', 'receipt'], managerGroup: '-1004465341061' });
+assert.deepEqual([hh.hoursOn, hh.hoursFrom, hh.hoursTo, hh.offHoursText, hh.topicsOff, hh.managerGroup], [true, '09:00', '07:30', 'Ответим утром', ['manager', 'receipt'], -1004465341061], 'время, текст, темы и группа приводятся к допустимым');
+assert.equal(lib.normalizeAlinaSettings({ hoursFrom: '25:00' }).hoursFrom, '09:00'); assert.equal(lib.normalizeAlinaSettings({ managerGroup: 12345 }).managerGroup, 0, 'группа должна быть отрицательным номером'); assert.equal(lib.normalizeAlinaSettings({ managerGroup: 'abc' }).managerGroup, 0);
 console.log('ok   значения по умолчанию, границы, неверные типы');
 
 const a = await lib.loadAlinaSettings(1000); assert.equal(a.typing, false); assert.equal(reads, 1);

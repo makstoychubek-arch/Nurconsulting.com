@@ -12,7 +12,9 @@ const manager = 555000111; // менеджер со своего аккаунт�
 const DEFAULTS = { read: true, typing: true, pauseMaxSec: 3, useName: true, phrases: ['Минутку, уточню.', 'Секунду, сейчас уточню.', 'Сейчас спрошу и вернусь к вам.'], remindMin: 10, reactions: true, copyButton: true };
 const mgrFrom = { id: manager, first_name: 'Марлен', last_name: 'Тойчубеков' };
 
+const botEnabled = { value: false };
 function setup() {
+  botEnabled.value = false;
   const messages = [];   // sendMessage
   const calls = [];      // все вызовы Telegram по порядку: { method, body }
   const rows = [];
@@ -45,6 +47,7 @@ function setup() {
     return q;
   };
   const database = { from(table) {
+    if (table === 'telegram_bots') { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { is_enabled: botEnabled.value, deleted_at: null } }) }; return q; }
     if (table === 'telegram_bot_secrets') { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { token: 'mock' } }) }; return q; }
     if (table === 'alina_selfbuy_events') return { insert: async (r) => seen.has(r.payload.update_id) ? { error: { code: '23505' } } : (seen.add(r.payload.update_id), { error: null }) };
     assert.equal(table, 'alina_manager_questions');
@@ -234,6 +237,28 @@ for (const mode of ['timeout', 'http500']) {
   assert.equal(typ('Минутку, уточню.', 6000), 980);
   assert.equal(typ('', 1000), 800);
   console.log('ok   настройки: прочитано, «печатает», имя, фразы, реакции, кнопка, срок напоминания');
+}
+
+// 6. Ответ менеджера настоящему клиенту: только когда Алина включена; группа из настроек
+{
+  const t = setup();
+  t.rows.push({ group_id: group, group_message_id: 555, client_chat_id: 424242, business_connection_id: 'real', delivery_state: 'pending', reminded_at: null, created_at: 'x' });
+  const realReply = { chat: { id: group, type: 'group' }, from: mgrFrom, message_id: 800, reply_to_message: { message_id: 555 }, text: 'Выплата завтра.' };
+  await t.run('', { message: realReply });
+  assert.equal(t.messages.filter((m) => m.chat_id === 424242).length, 0, 'Алина выключена: настоящему клиенту ответ не уходит');
+  assert.equal(t.rows[0].delivery_state, 'pending', 'заявка остаётся ждать');
+  botEnabled.value = true;
+  await t.run('', { message: realReply });
+  const sent = t.messages.filter((m) => m.chat_id === 424242);
+  assert.equal(sent.length, 1, 'Алина включена: ответ доходит клиенту'); assert.deepEqual([sent[0].business_connection_id, sent[0].text], ['real', 'Выплата завтра.']);
+  assert.equal(t.rows[0].delivery_state, 'sent');
+  const g2 = setup(); g2.settings.managerGroup = -1007777;
+  g2.rows.push({ group_id: -1007777, group_message_id: 9, client_chat_id: owner, business_connection_id: 'b', delivery_state: 'pending', reminded_at: null, created_at: 'x' });
+  await g2.run('', { message: { chat: { id: group, type: 'group' }, from: mgrFrom, message_id: 1, reply_to_message: { message_id: 9 }, text: 'старая группа' } });
+  assert.equal(g2.messages.length, 0, 'при заданной в настройках группе старая не обслуживается');
+  await g2.run('', { message: { chat: { id: -1007777, type: 'supergroup' }, from: mgrFrom, message_id: 2, reply_to_message: { message_id: 9 }, text: 'новая группа' } });
+  assert.equal(toClient(g2.messages, 'новая группа').length, 1, 'группа из настроек обслуживается');
+  console.log('ok   ответ настоящему клиенту только при включённой Алине, группа менеджеров из настроек');
 }
 
 console.log('PASS: alina-manager: обычный путь, реакции, фразы, напоминание, отказ и таймаут');

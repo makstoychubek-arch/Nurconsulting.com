@@ -48,6 +48,9 @@ import {
 } from './alina-vision.ts';
 import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
 import { clientRowsToday, syncLeadToRazdachiRow } from './alina-razdachi-sync.ts';
+import { loadAlinaSettings } from './alina-settings.ts';
+import { gate, isWorkingTime } from './alina-gate.ts';
+import { alinaHoldPhrase, managerGroupId } from './alina-manager.ts';
 import {
   fetchWbMainPhoto,
   fetchWbSearchFilters,
@@ -112,6 +115,8 @@ export type AlinaReply = {
     filename?: string;
     caption?: string;
   }[];
+  /** Вопрос уходит менеджерам: Telegram-слой отправляет его в группу (песочница только показывает). */
+  escalate?: { topic: string; question: string; group: number };
 };
 
 export type Campaign = {
@@ -209,11 +214,41 @@ export async function handleAlinaClientMessage(opts: {
   photoFileId?: string | null;
   botToken?: string | null;
   sourceAccount?: string;
+  /** Момент для часов работы (песочница); по умолчанию сейчас. */
+  nowMs?: number;
 }): Promise<AlinaReply> {
   const db = admin();
   const source = opts.sourceAccount || 'business';
   const text = (opts.text || '').trim();
   const hasPhoto = Boolean(opts.hasPhoto);
+
+  // Входные правила: часы работы и темы для менеджера. До чтения таблицы и до ChatGPT, чтобы не тратить на них время.
+  {
+    const settings = await loadAlinaSettings();
+    const nowMs = opts.nowMs ?? Date.now();
+    const group = await managerGroupId();
+    let told = false;
+    if (settings.hoursOn && !isWorkingTime(nowMs, settings.hoursFrom, settings.hoursTo)) {
+      const { data: prev } = await getAdminClient().from('alina_selfbuy_events').select('id')
+        .eq('chat_id', opts.chatId).eq('event_type', 'offhours_sent')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      told = Boolean(prev && prev.length);
+    }
+    const firstName = (opts.fullName || '').trim().split(/\s+/)[0];
+    const verdict = gate({
+      text, nowMs, settings, alreadyToldOffHours: told, hasManagerGroup: Boolean(group),
+      holdReply: alinaHoldPhrase(firstName, text.length, settings.phrases, settings.useName),
+    });
+    if (verdict.kind === 'offhours') {
+      await logAlinaRawEvent(opts.chatId, verdict.reply ? 'offhours_sent' : 'offhours_skip', { text: text.slice(0, 200) });
+      return { replies: verdict.reply ? [verdict.reply] : [] };
+    }
+    if (verdict.kind === 'escalate') {
+      await logAlinaRawEvent(opts.chatId, 'manager_escalated', { topic: verdict.topic, text: text.slice(0, 200) });
+      return { replies: [verdict.reply], escalate: { topic: verdict.topic, question: verdict.question, group } };
+    }
+  }
+
   // «База в голове» = актуальный план из Google таблицы
   const camp = await ensureCampaignFresh();
 

@@ -14,7 +14,7 @@ function setup({ manager = async () => false } = {}) {
     applyRestockTelegramReply: async () => ({ handled: false }), setTelegramReaction: async () => {},
     unwrapTelegramMessage: () => null, alinaWebhookSecret: async () => SECRET,
     processAlinaTelegramUpdate: async () => { calls.alina++; },
-    alinaManagerTestGroup: group, processAlinaManagerTest: async (...a) => { calls.manager++; return manager(...a); },
+    managerGroupId: async () => group, processAlinaManagerTest: async (...a) => { calls.manager++; return manager(...a); },
     isTeamChatId: () => false, replyTeamChat: async () => ({}),
     Deno: { env: { get: (k) => (k === 'ALINA_BOT_TOKEN' ? 'tok' : undefined) }, serve: (h) => { handler = h; } },
   };

@@ -29,6 +29,7 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
                     if (sbxFail) return { ok: false, error: 'Алина не смогла ответить. Это сбой сценария, диалог не потерян.' };
                     await new Promise((r) => setTimeout(r, 400));
                     sbxLead = { status: 'ask_ad', deal_type: null, product_name: null };
+                    if (/менеджер/i.test(b.text)) return { ok: true, replies: ['Минутку, уточню.'], photos: [], ms: 900, lead: sbxLead, escalate: { topic: 'manager', question: 'Клиент просит подключить менеджера.' } };
                     return { ok: true, replies: ['Здравствуйте! По какому объявлению вы пишете?'], photos: [], ms: 1200, lead: sbxLead };
                 },
                 'telegram-admin': async (b) => { tg.push(b); if (b.action === 'enable') alinaOn = true; if (b.action === 'disable') alinaOn = false; return b.action === 'list' ? { bots: [{ id: 'alina', title: 'Алина', is_enabled: alinaOn }] } : { ok: true }; },
@@ -102,6 +103,19 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         assert.ok(await until(() => tg.some((c) => c.action === 'disable' && c.bot_id === 'alina')), 'выключение без подтверждения');
         console.log('ok   включатель Алины: подтверждение словом, включение и выключение');
 
+        // часы работы и вопросы менеджеру
+        assert.ok(await page.evaluate(() => !document.querySelector('input[data-k="hoursOn"]').checked && document.querySelector('input[data-k="hoursFrom"]').value === '09:00' && document.querySelector('input[data-k="hoursTo"]').value === '22:00'), 'часы по умолчанию выключены, 09:00–22:00');
+        assert.strictEqual(await page.evaluate(() => document.querySelectorAll('input[data-topic]').length), 5, 'пять тем для менеджера');
+        assert.ok(await page.evaluate(() => [...document.querySelectorAll('input[data-topic]')].every((x) => x.checked)), 'все темы включены');
+        const before = await page.evaluate(() => document.querySelector('[data-v="cnt"]').textContent);
+        await page.click('input[data-k="hoursOn"]'); await page.fill('input[data-k="hoursFrom"]', '10:00');
+        await page.fill('textarea[data-k="offHoursText"]', 'Ответим утром, с {от}.');
+        await page.click('input[data-topic="receipt"]');
+        assert.ok(await page.evaluate(() => !document.querySelector('input[data-topic="receipt"]').checked), 'тема «Чек перевода» выключена');
+        await page.fill('input[data-k="managerGroup"]', '-1001234567890');
+        assert.ok(await page.evaluate((b) => document.querySelector('[data-v="cnt"]').textContent !== b && /Изменено: [4-9]/.test(document.querySelector('[data-v="cnt"]').textContent), before), 'счётчик изменений учитывает часы, текст, тему и группу');
+        console.log('ok   часы работы (время, текст) и вопросы менеджеру (темы, группа)');
+
         // песочница: клиент пишет Алине, ответ приходит из настоящего сценария
         assert.ok(await page.evaluate(() => !document.querySelector('[data-v="sandbox"]').hidden && /Диалог пуст/.test(document.querySelector('[data-sb="chat"]').textContent)), 'администратору виден пустой чат песочницы');
         await page.click('[data-sb-chip="Здравствуйте, хочу участвовать"]');
@@ -117,6 +131,10 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         sbxFail = false; await page.click('.asb-retry');
         assert.ok(await until(() => sbx.filter((c) => c.action === 'send').length === 4), 'повтор отправляет то же сообщение ещё раз');
         await until(() => page.evaluate(() => !document.querySelector('.asb-typing') && !document.querySelector('.asb-retry')));
+        await page.fill('[data-sb="time"]', '23:30'); await page.fill('[data-sb="text"]', 'Можно поговорить с менеджером?'); await page.click('[data-sb="send"]');
+        assert.ok(await until(() => page.evaluate(() => /Менеджерам в группу ушло бы: Клиент просит подключить менеджера\./.test(document.querySelector('[data-sb="chat"]').textContent))), 'песочница показывает, что ушло бы менеджерам');
+        assert.strictEqual(sbx.filter((c) => c.action === 'send').pop().now_msk, '23:30', 'выбранное время передаётся в сценарий');
+        await until(() => page.evaluate(() => !document.querySelector('.asb-typing')));
         await page.click('[data-sb-act="reset"]');
         assert.ok(await page.evaluate(() => /Диалог пуст/.test(document.querySelector('[data-sb="chat"]').textContent)), 'начать заново очищает чат сразу');
         assert.ok(await until(() => sbx.some((c) => c.action === 'reset')), 'сброс отправлен на сервер');

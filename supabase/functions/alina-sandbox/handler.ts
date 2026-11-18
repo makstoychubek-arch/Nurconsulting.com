@@ -3,10 +3,10 @@
  * Диалог идёт под отрицательным chat_id администратора (source_account = sandbox). Все зависимости снаружи, логику можно проверять без сети.
  */
 
-export type Reply = { replies: string[]; photos?: Array<{ url?: string; bytes?: Uint8Array; mime?: string; caption?: string }> };
+export type Reply = { replies: string[]; photos?: Array<{ url?: string; bytes?: Uint8Array; mime?: string; caption?: string }>; escalate?: { topic: string; question: string; group: number } };
 
 export type Deps = {
-  handle: (opts: { chatId: number; userId: number; username: string; fullName: string; text: string; hasPhoto: boolean; botToken: null; sourceAccount: 'sandbox' }) => Promise<Reply>;
+  handle: (opts: { chatId: number; userId: number; username: string; fullName: string; text: string; hasPhoto: boolean; botToken: null; sourceAccount: 'sandbox'; nowMs?: number }) => Promise<Reply>;
   leadState: (chatId: number) => Promise<{ status: string | null; deal_type: string | null; product_name: string | null } | null>;
   reset: (chatId: number) => Promise<boolean>;
   now: () => number;
@@ -27,6 +27,14 @@ export function sandboxChatId(userId: string): number {
 function cleanLogin(raw: unknown): string {
   const s = String(raw ?? '').trim().replace(/^@+/, '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 32);
   return s || 'sandbox_client';
+}
+
+/** «14:30» → сегодняшний момент по Москве; null, если поле пустое или неверное. */
+export function mskToday(hm: string, nowMs: number): number | null {
+  const m = String(hm || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
+  const d = new Date(nowMs + 3 * 3600_000);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), Number(m[1]), Number(m[2])) - 3 * 3600_000;
 }
 
 function toDataUrl(bytes: Uint8Array, mime: string): string {
@@ -56,6 +64,7 @@ export async function handleSandbox(body: Record<string, unknown>, userId: strin
     try {
       reply = await deps.handle({
         chatId, userId: chatId, username: cleanLogin(body.username), fullName: 'Тест', text, hasPhoto: false, botToken: null, sourceAccount: 'sandbox',
+        nowMs: mskToday(String(body.now_msk || ''), started) ?? undefined,
       });
     } catch {
       return fail(500, 'Алина не смогла ответить. Это сбой сценария, диалог не потерян.');
@@ -65,7 +74,7 @@ export async function handleSandbox(body: Record<string, unknown>, userId: strin
       if (p.bytes && p.bytes.length <= MAX_PHOTO_BYTES) return { url: toDataUrl(p.bytes, p.mime || 'image/jpeg'), caption: p.caption || '' };
       return { url: '', caption: p.caption || 'Фото товара (слишком большое для предпросмотра)' };
     });
-    return { status: 200, body: { ok: true, replies: reply.replies || [], photos, ms: deps.now() - started, lead: await deps.leadState(chatId) } };
+    return { status: 200, body: { ok: true, replies: reply.replies || [], photos, ms: deps.now() - started, lead: await deps.leadState(chatId), escalate: reply.escalate ? { topic: reply.escalate.topic, question: reply.escalate.question } : null } };
   }
 
   return fail(400, 'Неизвестное действие.');
