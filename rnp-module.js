@@ -2089,6 +2089,14 @@ const RNP = (() => {
         if (!r) return;
         const first = !_extRange;
         const changed = first || _extRange.from !== r.from || _extRange.to !== r.to;
+        // До первой установки РНП рисует целый текущий месяц (и из снимка тоже). Если выбран другой период (например октябрь),
+        // первая установка тоже обязана перегрузить и перерисовать таблицу, иначе остаются колонки ноября.
+        let firstDiffers = false;
+        if (first) {
+            const n = new Date(); const mk = _monthKey(n);
+            const last = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate();
+            firstDiffers = r.from !== mk + '-01' || r.to !== mk + '-' + String(last).padStart(2, '0');
+        }
         _extRange = r;
         _cabinetColsCacheKey = '';
         _cabinetColsCacheVal = null;
@@ -2100,7 +2108,8 @@ const RNP = (() => {
             });
         }
         // Первая установка идёт до загрузки кабинета — данные подтянет сам запуск РНП.
-        if (opts?.noReload || !changed || first) return;
+        if (opts?.noReload || !changed) return;
+        if (first && !(firstDiffers && _cab && document.querySelector('#tab-rnp .rnp-workspace'))) return;
         if (_compareMonthKey && _compareMonthKey >= _viewMonthKey()) {
             _compareMonthKey = null;
             try { localStorage.setItem('rnp_compare_month', ''); } catch (e) {}
@@ -7852,7 +7861,7 @@ const RNP = (() => {
                 req.onerror = () => finish(false);
                 req.onsuccess = () => {
                     const html = req.result;
-                    if (html && String(html).indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(String(html)) && !_rnpMainRendered()) {
+                    if (html && String(html).indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(String(html)) && _shellRngOk(html) && !_rnpMainRendered()) {
                         el.innerHTML = html;
                         finish(true);
                     } else finish(!!_rnpMainRendered());
@@ -7975,6 +7984,7 @@ const RNP = (() => {
         if (window._rnpLoadedForCabinet !== _cab) return;
         if (!_rnpHasRealData(ws)) return;
         _markPaintedCab(ws);
+        try { ws.setAttribute('data-rng', _extRange ? _extRange.from + '|' + _extRange.to : ''); } catch (e) {}
         const html = _compactRnpWorkspace(ws);
         if (!html) return;
         _rnpIdbPut(_cab, html, mpOverride);
@@ -8004,6 +8014,12 @@ const RNP = (() => {
         } catch (e) { return false; }
     }
 
+    // Снимок страницы нарисован за другой период (например ноябрь, а выбран октябрь): показывать его нельзя.
+    function _shellRngOk(html) {
+        if (!_extRange) return true;
+        const m = /data-rng="([^"]*)"/.exec(String(html).slice(0, 600));
+        return !m || !m[1] || m[1] === _extRange.from + '|' + _extRange.to;
+    }
     function _restoreRnpShell(el, cab) {
         if (!el) return false;
         const want = cab || _cab || '';
@@ -8012,7 +8028,7 @@ const RNP = (() => {
             && (!want || !domCab || domCab === want)) return true;
         const html = want ? _readRnpKey(_rnpShellKey(want)) : '';
         // Старый снимок без настоящих цифр (одни нули и план) не показываем: он давал пустой экран без размытия
-        if (html && html.indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(html)) {
+        if (html && html.indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(html) && _shellRngOk(html)) {
             el.innerHTML = html;
             _stripTransientClasses(el);
             return !!el.querySelector('.rnp-workspace');
