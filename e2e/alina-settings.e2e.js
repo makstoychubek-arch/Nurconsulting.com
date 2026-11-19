@@ -52,10 +52,19 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         assert.ok(await page.evaluate(() => document.querySelector('[data-v="bar"]').hidden), 'панели «Сохранить» нет, пока ничего не менялось');
         console.log('ok   вкладка «Алина» в «Продвижении»: каркас сразу, значения по умолчанию, предпросмотр');
 
+        const tab = async (g, sec) => { await page.click('.as-win .nr-gt-g[data-g="' + g + '"]'); if (sec) await page.click('.as-win .nr-gt-s[data-s="' + sec + '"]'); };
+        // настройки разложены по группам: Запуск, Расписание, Ответы, Защита и проверка
+        assert.deepStrictEqual(await page.evaluate(() => [...document.querySelectorAll('.as-win .nr-gt-g')].map((b) => b.textContent)), ['Запуск', 'Расписание', 'Ответы', 'Защита и проверка'], 'четыре группы настроек');
+        await tab('say', 'how');
+        assert.ok(await page.evaluate(() => !!document.querySelector('.as-phone') && getComputedStyle(document.querySelector('.as-prev')).display !== 'none'), 'на вкладке «Ответы» рядом виден предпросмотр');
+        await tab('launch', 'spend');
+        assert.ok(await page.evaluate(() => getComputedStyle(document.querySelector('.as-prev')).display === 'none' && !document.querySelector('[data-as="hours"]').offsetParent), 'на других вкладках предпросмотра и чужих карточек нет');
+        await tab('say', 'how');
         await page.click('input[data-k="typing"]');
         assert.ok(await page.evaluate(() => !document.querySelector('.as-typing')), '«Печатает» выключено: индикатора в предпросмотре нет');
         await page.click('input[data-k="useName"]');
         assert.ok(await page.evaluate(() => /^Минутку, уточню\./.test(document.querySelector('.as-phone .as-bot').textContent)), 'без имени фраза без обращения');
+        await tab('time', 'mgr');
         await page.click('[data-step="5"][data-for="remindMin"]');
         assert.strictEqual(await page.evaluate(() => document.querySelector('input[data-k="remindMin"]').value), '15');
         assert.ok(await page.evaluate(() => /Без ответа 15 мин/.test(document.querySelector('[data-v="grp"]').textContent)), 'предпросмотр для менеджеров: 15 мин');
@@ -66,6 +75,7 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         await page.click('[data-step="5"][data-for="remindMin"]'); await page.click('[data-step="5"][data-for="remindMin"]');
         assert.strictEqual(await page.evaluate(() => document.querySelector('input[data-k="remindMin"]').value), '11');
         // фразы
+        await tab('say', 'how');
         await page.click('[data-act="addPhrase"]');
         assert.strictEqual(await page.evaluate(() => document.querySelectorAll('.as-chip').length), 4, 'фраза добавлена');
         await page.click('[data-del="3"]');
@@ -73,6 +83,7 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         console.log('ok   выключатели, число с границей, фразы, предпросмотр и счётчик изменений');
 
         // клиенты и расход: числа с границами
+        await tab('launch', 'spend');
         assert.strictEqual(await page.evaluate(() => document.querySelector('input[data-k="admitLimit"]').value), '30', 'лимит по умолчанию 30');
         for (let i = 0; i < 8; i++) await page.click('[data-step="-5"][data-for="admitLimit"]');
         assert.strictEqual(await page.evaluate(() => document.querySelector('input[data-k="admitLimit"]').value), '0', 'лимит до 0 («без лимита»), ниже нельзя');
@@ -91,6 +102,7 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         assert.deepStrictEqual(env.errors.filter((e) => !/404|favicon/.test(e)), [], 'в консоли нет ошибок');
 
         // включатель Алины для клиентов (только администратор): подтверждение словом
+        await tab('launch', 'power');
         assert.ok(await until(() => page.evaluate(() => !document.querySelector('[data-v="powercard"]').hidden && /Выключено/.test(document.querySelector('[data-v="powersub"]').textContent))), 'администратору виден включатель, Алина выключена');
         await page.click('input[data-power]');
         assert.ok(await page.evaluate(() => !document.querySelector('[data-v="confirm"]').hidden && !document.querySelector('input[data-power]').checked), 'включение просит подтверждение, переключатель пока выключен');
@@ -105,12 +117,14 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         console.log('ok   включатель Алины: подтверждение словом, включение и выключение');
 
         // часы работы и вопросы менеджеру
+        await tab('time', 'hours');
         assert.ok(await page.evaluate(() => !document.querySelector('input[data-k="hoursOn"]').checked && document.querySelector('input[data-k="hoursFrom"]').value === '09:00' && document.querySelector('input[data-k="hoursTo"]').value === '22:00'), 'часы по умолчанию выключены, 09:00–22:00');
         assert.strictEqual(await page.evaluate(() => document.querySelectorAll('input[data-topic]').length), 5, 'пять тем для менеджера');
         assert.ok(await page.evaluate(() => [...document.querySelectorAll('input[data-topic]')].every((x) => x.checked)), 'все темы включены');
         const before = await page.evaluate(() => document.querySelector('[data-v="cnt"]').textContent);
         await page.click('input[data-k="hoursOn"]'); await page.fill('input[data-k="hoursFrom"]', '10:00');
         await page.fill('textarea[data-k="offHoursText"]', 'Ответим утром, с {от}.');
+        await tab('time', 'mgr');
         await page.click('input[data-topic="receipt"]');
         assert.ok(await page.evaluate(() => !document.querySelector('input[data-topic="receipt"]').checked), 'тема «Чек перевода» выключена');
         await page.fill('input[data-k="managerGroup"]', '-1001234567890');
@@ -118,8 +132,10 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         console.log('ok   часы работы (время, текст) и вопросы менеджеру (темы, группа)');
 
         // чёрный список и тексты Алины
+        await tab('guard', 'bl');
         await page.fill('textarea[data-bl]', '@Bad_User\nhttps://t.me/Other_One\nbad_user');
         assert.ok(await page.evaluate(() => /В списке: 2/.test(document.querySelector('[data-v="blcount"]').textContent)), 'логины приводятся к одному виду, повторы убираются');
+        await tab('say', 'texts');
         assert.ok(await until(() => page.evaluate(() => !document.querySelector('[data-v="textscard"]').hidden && document.querySelectorAll('textarea[data-text]').length === 2)), 'администратору виден редактор текстов, стандартные тексты пришли с сервера');
         assert.ok(await page.evaluate(() => document.querySelector('textarea[data-text="closed"]').value === 'На сегодня места закончились 🙌 Напишите завтра — посмотрим' && document.querySelector('[data-reset="closed"]').hidden), 'в поле стандартный текст, «Вернуть» скрыто');
         await page.fill('textarea[data-text="open_product"]', 'Актуально: «{товар}», ключ {ключ}');
@@ -131,6 +147,7 @@ const until = async (fn, ms = 6000) => { const t = Date.now(); while (Date.now()
         console.log('ok   чёрный список и редактор текстов с предпросмотром');
 
         // песочница: клиент пишет Алине, ответ приходит из настоящего сценария
+        await tab('guard', 'sbx');
         assert.ok(await page.evaluate(() => !document.querySelector('[data-v="sandbox"]').hidden && /Диалог пуст/.test(document.querySelector('[data-sb="chat"]').textContent)), 'администратору виден пустой чат песочницы');
         await page.click('[data-sb-chip="Здравствуйте, хочу участвовать"]');
         assert.ok(await page.evaluate(() => /Здравствуйте, хочу участвовать/.test(document.querySelector('[data-sb="chat"]').textContent) && !!document.querySelector('.asb-typing')), 'сообщение клиента и «печатает» появляются сразу, не дожидаясь ответа');

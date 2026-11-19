@@ -109,33 +109,53 @@
             '<span class="as-unit">' + esc(unit) + '</span></div>';
     }
 
+    // Настройки Алины по группам (макет «Настройки по группам»): Запуск, Расписание, Ответы, Защита и проверка
+    var AS_GROUPS = [
+        { id: 'launch', n: 'Запуск', secs: [{ id: 'power', n: 'Включение' }, { id: 'spend', n: 'Клиенты и расход' }] },
+        { id: 'time', n: 'Расписание', secs: [{ id: 'hours', n: 'Часы работы' }, { id: 'mgr', n: 'Менеджеры' }] },
+        { id: 'say', n: 'Ответы', secs: [{ id: 'how', n: 'Как отвечает' }, { id: 'texts', n: 'Тексты Алины' }] },
+        { id: 'guard', n: 'Защита и проверка', secs: [{ id: 'bl', n: 'Чёрный список' }, { id: 'sbx', n: 'Песочница' }] }
+    ];
+    function applyTab(g, s) {
+        var wrap = state.host.querySelector('.as-wrap'); if (!wrap) return;
+        Array.prototype.forEach.call(wrap.querySelectorAll('[data-ag]'), function (c) { c.classList.toggle('nr-gt-off', !(c.getAttribute('data-ag') === g && c.getAttribute('data-as') === s)); });
+        wrap.classList.toggle('as-noprev', !(g === 'say' || g === 'guard')); // «как увидит клиент» и менеджеры нужны там, где настраивают ответы и проверяют
+    }
+    function mountTabs() {
+        var wrap = state.host.querySelector('.as-wrap'), head = wrap && wrap.querySelector('.as-head');
+        if (!wrap || !head || !root.NrGroupTabs) return;
+        var holder = root.document.createElement('div'); head.parentNode.insertBefore(holder, head.nextSibling);
+        state.tabs = root.NrGroupTabs.mount(holder, { key: 'nr_alina_tab', groups: AS_GROUPS, onChange: applyTab });
+        var c = state.tabs.get(); applyTab(c.g, c.s);
+    }
+
     function build() {
         var h = '<div class="as-wrap">' +
             '<div class="as-head"><p>Как Алина отвечает клиентам и менеджерам. Изменения применяются в течение полуминуты.</p></div>' +
             '<div class="as-cols"><div class="as-stack">' +
-            '<section class="as-card" data-v="powercard" hidden><h3>Кому отвечает</h3>' +
+            '<section class="as-card" data-ag="launch" data-as="power" data-v="powercard" hidden><h3>Кому отвечает</h3>' +
             '<div class="as-row"><div class="as-t"><b>Алина отвечает клиентам</b><span data-v="powersub">Проверяю состояние…</span></div>' +
             '<label class="as-sw"><input type="checkbox" data-power="1"><u></u></label></div>' +
             '<div class="as-confirm" data-v="confirm" hidden><b>Включить Алину для всех клиентов?</b><span>Она начнёт отвечать каждому, кто напишет в Business-чат. Чтобы подтвердить, введите слово «включить».</span>' +
             '<div class="as-actions"><input type="text" data-v="word" placeholder="включить" autocomplete="off" aria-label="Подтверждение"><button type="button" class="as-btn as-ink" data-act="powerok">Подтвердить</button><button type="button" class="as-btn" data-act="powerno">Отмена</button></div><p class="as-err" data-v="powererr"></p></div></section>' +
-            '<section class="as-card"><h3>Клиенты и расход</h3>' +
+            '<section class="as-card" data-ag="launch" data-as="spend"><h3>Клиенты и расход</h3>' +
             numHtml('admitLimit', 'Лимит новых клиентов', '0 значит без лимита. Остальные ждут очереди и допускаются по мере освобождения', 'клиентов', 5, 0) +
             numHtml('admitHours', 'Период лимита', 'За какое время считается лимит', 'ч', 1, 1) +
             numHtml('llmBudgetUsd', 'Бюджет ChatGPT в месяц', '0 значит без ограничения. При превышении Алина отвечает по шаблонам и пишет вам в Telegram', '$', 5, 0) + '</section>' +
-            '<section class="as-card"><h3>Часы работы</h3>' +
+            '<section class="as-card" data-ag="time" data-as="hours"><h3>Часы работы</h3>' +
             switchHtml('hoursOn', 'Отвечать только в рабочие часы', 'Вне часов клиент один раз получает сообщение о времени работы') +
             '<div class="as-row"><div class="as-t"><b>Время работы по Москве</b><span>Окно может переходить через полночь</span></div>' +
             '<input type="time" class="as-time" data-k="hoursFrom" aria-label="Начало работы"><span class="as-unit">до</span><input type="time" class="as-time" data-k="hoursTo" aria-label="Конец работы"></div>' +
             '<div class="as-t as-pt"><b>Сообщение вне часов</b><span>Подставляются {от} и {до}. Пусто: стандартный текст</span></div>' +
             '<textarea class="as-area" data-k="offHoursText" rows="3" maxlength="400" placeholder="Сейчас нерабочее время. Я на связи с {от} до {до} по Москве. Напишите мне после {от}, отвечу сразу." aria-label="Сообщение вне часов"></textarea></section>' +
-            '<section class="as-card"><h3>Вопросы менеджеру</h3><p class="as-sub">Если клиент пишет об этом, Алина отвечает «Минутку, уточню» и отправляет вопрос в группу менеджеров.</p>' +
+            '<section class="as-card" data-ag="time" data-as="mgr"><h3>Вопросы менеджеру</h3><p class="as-sub">Если клиент пишет об этом, Алина отвечает «Минутку, уточню» и отправляет вопрос в группу менеджеров.</p>' +
             TOPICS.map(function (t) { return '<div class="as-row"><div class="as-t"><b>' + esc(t.label) + '</b><span>' + esc(t.hint) + '</span></div><label class="as-sw"><input type="checkbox" data-topic="' + t.id + '"><u></u></label></div>'; }).join('') +
             '<div class="as-row"><div class="as-t"><b>Группа менеджеров</b><span>Номер группы Telegram, например -1004465341061. Пусто: группа по умолчанию</span></div>' +
             '<input type="text" class="as-group" data-k="managerGroup" inputmode="numeric" placeholder="по умолчанию" autocomplete="off" aria-label="Номер группы менеджеров"></div></section>' +
-            '<section class="as-card"><h3>Чёрный список</h3><p class="as-sub">Этим клиентам Алина не отвечает совсем: ни в рабочие часы, ни вне них, и вопросы менеджеру от них не уходят.</p>' +
+            '<section class="as-card" data-ag="guard" data-as="bl"><h3>Чёрный список</h3><p class="as-sub">Этим клиентам Алина не отвечает совсем: ни в рабочие часы, ни вне них, и вопросы менеджеру от них не уходят.</p>' +
             '<textarea class="as-area" data-bl="1" rows="4" placeholder="по одному логину в строке, например @ivan_petrov" aria-label="Чёрный список" spellcheck="false"></textarea><p class="as-hint" data-v="blcount"></p></section>' +
-            '<section class="as-card" data-v="textscard" hidden><h3>Тексты Алины</h3><p class="as-sub">Измените любой ответ. Подстановки в фигурных скобках: {товар}, {ключ}, {срок}. Пустое поле или «Вернуть» возвращают стандартный текст. Изменения применяются за полминуты, проверить можно в песочнице.</p><div data-v="texts"></div></section>' +
-            '<section class="as-card"><h3>Как отвечает</h3>' +
+            '<section class="as-card" data-ag="say" data-as="texts" data-v="textscard" hidden><h3>Тексты Алины</h3><p class="as-sub">Измените любой ответ. Подстановки в фигурных скобках: {товар}, {ключ}, {срок}. Пустое поле или «Вернуть» возвращают стандартный текст. Изменения применяются за полминуты, проверить можно в песочнице.</p><div data-v="texts"></div></section>' +
+            '<section class="as-card" data-ag="say" data-as="how"><h3>Как отвечает</h3>' +
             switchHtml('read', 'Отмечать прочитанным', 'Сообщение клиента помечается прочитанным до ответа') +
             switchHtml('typing', '«Печатает…» перед ответом', 'Индикатор виден в чате клиента') +
             '<div class="as-row"><div class="as-t"><b>Пауза «печатает»</b><span>Зависит от длины текста, но не больше выбранного</span></div>' +
@@ -143,11 +163,11 @@
             switchHtml('useName', 'Обращаться по имени', '«Мара, минутку, уточню.»') +
             '<div class="as-t as-pt"><b>Фразы «уточняю»</b><span>Алина выбирает одну из них. Меняйте и добавляйте.</span></div>' +
             '<div class="as-chips" data-v="phrases"></div><button type="button" class="as-btn" data-act="addPhrase">+ Добавить фразу</button></section>' +
-            '<section class="as-card"><h3>Менеджеры</h3>' +
+            '<section class="as-card" data-ag="time" data-as="mgr"><h3>Менеджеры</h3>' +
             numHtml('remindMin', 'Напомнить, если нет ответа', 'Один раз менеджерам и клиенту «ещё уточняю»', 'мин', 5, 1) +
             switchHtml('reactions', 'Итог реакцией', '❤ ответ доставлен, 👎 не доставлен, без лишних сообщений') +
             switchHtml('copyButton', 'Кнопка «Скопировать @логин»', 'Под обращением в группе менеджеров') + '</section>' +
-            '<section class="as-card asb" data-v="sandbox" hidden></section>' +
+            '<section class="as-card asb" data-ag="guard" data-as="sbx" data-v="sandbox" hidden></section>' +
             '<p class="as-hist" data-v="hist"></p></div>' +
             '<aside class="as-prev"><h3>Как это увидит клиент</h3><div class="as-phone" data-v="phone"></div>' +
             '<h3 style="margin-top:14px">Что увидят менеджеры</h3><div class="as-grp" data-v="grp"></div></aside></div>' +
@@ -156,6 +176,7 @@
         state.host.innerHTML = h;
         state.built = true;
         bind();
+        mountTabs();
     }
 
     function q(sel) { return state.host.querySelector(sel); }
