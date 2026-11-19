@@ -6108,7 +6108,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.9e96c51b2b.css">
+<link rel="stylesheet" href="/dist/nr-mono.742ab1d8ec.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8077,7 +8077,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.0acd7b6fbc.min.js"></script>
+<script src="/dist/rnp-module.d561a8013f.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -8233,7 +8233,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
-<script src="/dist/nr-nav.1fecd9cb83.min.js"></script>
+<script src="/dist/nr-nav.8a124c17df.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.ef12b0ecce.min.js"></script>
 <script src="/dist/nr-foot.83a6f84578.min.js"></script>
@@ -13107,6 +13107,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     let cabinetListCache = [];
     function renderCabinetDropdown(data) {
         cabinetListCache = visibleCabinets(data || []);
+        try { if (window.NrMp && NrMp.fit) NrMp.fit(); } catch (_) { /* площадки доступны по умолчанию */ }
         const menu = document.getElementById('cabinet-dropdown-menu');
         const selectHeader = document.getElementById('cabinet-select-header');
         if (!menu) return;
@@ -13168,7 +13169,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     async function loadCabinets() {
         const { data, error: cabErr } = await supabase
             .from('cabinets')
-            .select('id, name')
+            .select('id, name, wb_token_set, ozon_client_id, ozon_api_key_set')
             .order('name');
 
         if (cabErr) {
@@ -13680,6 +13681,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     // WB | Ozon | Вместе: меняются только цифры; без кэша площадки они размыты до прихода свежих
     document.addEventListener('nr-mp-change', async () => {
         if (!currentCabinetId) return;
+        window.__pnlMCab = null; window.__pnlMKey = null; // цифры прежней площадки не считаем показанными
         const tab = document.getElementById('tab-dashboard');
         const have = (await DASH_CACHE.get(dashCacheKey(currentCabinetId, getActiveDateRange()))) || (await DASH_CACHE.get(currentCabinetId + dashMpSuf() + '|last'));
         if (!have && tab) tab.classList.add('nr-dash-wait');
@@ -13799,6 +13801,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         settings.adsSum = Math.round(Number(adsWindow.spend || 0));
                     }
                     if (!rows || rows.length === 0) {
+                        // Свежий отчёт пустой, а на экране уже стоят настоящие цифры (из кэша или прошлой загрузки): их не стираем прочерками
+                        if (window.__pnlMCab === finCabinet && window.__pnlMKey === dashCacheKey(finCabinet, { from, to })) { showFinanceNote('Показаны последние сохранённые цифры: свежий отчёт Wildberries пока не получен.'); return; }
                         // Пустой отчёт — это не повод оставлять на экране оценку.
                         setFinanceMetricsPlaceholder('—');
                         showFinanceNote(window._nrWbTokenBad
@@ -13814,6 +13818,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             renderPnl(metrics);
                             window.__pnlMCab = finCabinet;
+                            window.__pnlMKey = dashCacheKey(finCabinet, { from, to });
                             try { renderPnlDaily(rows, summary.cur_daily, adsCur && adsCur.byDay, settings, from, to, metrics, Number(summary.cur?.orders_sum || 0)); } catch (e) { console.warn('[pnl daily]', e && e.message); }
                             applyExtendedMetricDisplay(metrics);
                             restyleDashNums();
@@ -13839,14 +13844,17 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
-                    if (finCabinet === currentCabinetId) {
+                    if (finCabinet === currentCabinetId && window.__pnlMCab === finCabinet && window.__pnlMKey === dashCacheKey(finCabinet, { from, to })) {
+                        // Ошибка или тайм-аут свежей загрузки, а настоящие цифры уже на экране: оставляем их
+                        showFinanceNote('Показаны последние сохранённые цифры: свежий отчёт Wildberries не получен. Нажмите «Обновить».');
+                    } else if (finCabinet === currentCabinetId) {
                         setFinanceMetricsPlaceholder('—');
                         showFinanceNote(e.message === 'timeout'
                             ? 'Wildberries не ответил на запрос финансового отчёта — прибыль и маржа не рассчитаны. Нажмите «Обновить», чтобы попробовать снова.'
                             : 'Не удалось получить финансовый отчёт Wildberries — прибыль и маржа не рассчитаны.');
                     }
                     const legendEl = document.getElementById('dashboard-top-margin-legend');
-                    if (legendEl && finCabinet === currentCabinetId) {
+                    if (legendEl && finCabinet === currentCabinetId && !(window.__pnlMCab === finCabinet && legendEl.children.length > 1)) {
                         legendEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные</div>`;
                     }
                 });

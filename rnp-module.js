@@ -865,19 +865,25 @@ const RNP = (() => {
         return all;
     }
 
-    function _saveCabinetCache(cabId) {
+    // Ключ кэша состояния: кабинет и площадка (у WB и Ozon свои артикулы, склейки, остатки и цифры).
+    const _stKey = (cabId, mp) => cabId + '|' + (mp || _mp());
+    function _saveCabinetCache(cabId, mp) {
         if (!cabId) return;
-        _cabinetStateCache.set(cabId, {
+        _cabinetStateCache.set(_stKey(cabId, mp), {
             dataCache: { ..._dataCache },
             stockCache: { ..._stockCache },
             financeCache: { key: _financeCache.key, rows: _financeCache.rows, ts: _financeCache.ts },
             metricsCache: new Map(_metricsCache),
+            articles: _articlesCab === cabId ? _articles.slice() : null,
+            cabTotals: { ..._cabTotals },
         });
     }
 
-    function _restoreCabinetCache(cabId) {
-        const snap = _cabinetStateCache.get(cabId);
+    function _restoreCabinetCache(cabId, mp) {
+        const snap = _cabinetStateCache.get(_stKey(cabId, mp));
         if (!snap) return false;
+        if (snap.articles && snap.articles.length) { _articles = snap.articles.slice(); _articlesCab = cabId; }
+        if (snap.cabTotals) _cabTotals = { ...snap.cabTotals };
         _dataCache = { ...snap.dataCache };
         _stockCache = { ...snap.stockCache };
         _financeCache = { key: snap.financeCache.key, rows: snap.financeCache.rows || [], ts: snap.financeCache.ts || 0 };
@@ -7804,11 +7810,12 @@ const RNP = (() => {
         });
     }
 
-    function _rnpIdbPut(cab, html) {
+    const _idbKey = (cab, mp) => cab + ((mp || _mp()) !== 'wb' ? '_' + (mp || _mp()) : '');
+    function _rnpIdbPut(cab, html, mp) {
         if (!cab || !html) return;
         _rnpIdbOpen().then(db => {
             const tx = db.transaction('shell', 'readwrite');
-            tx.objectStore('shell').put(html, cab);
+            tx.objectStore('shell').put(html, _idbKey(cab, mp));
             tx.objectStore('shell').put(html, 'last');
         }).catch(() => {});
     }
@@ -7822,7 +7829,7 @@ const RNP = (() => {
             _rnpIdbOpen().then(db => {
                 if (!db.objectStoreNames.contains('shell')) return finish(false);
                 const tx = db.transaction('shell', 'readonly');
-                const req = tx.objectStore('shell').get(cab);
+                const req = tx.objectStore('shell').get(_idbKey(cab));
                 req.onerror = () => finish(false);
                 req.onsuccess = () => {
                     const html = req.result;
@@ -7843,8 +7850,9 @@ const RNP = (() => {
         window.addEventListener('beforeunload', save);
     }
 
-    function _rnpShellKey(cab) {
-        return 'rnp_shell_' + (cab || '') + (_mp() !== 'wb' ? '_' + _mp() : '');
+    function _rnpShellKey(cab, mp) {
+        const m = mp || _mp();
+        return 'rnp_shell_' + (cab || '') + (m !== 'wb' ? '_' + m : '');
     }
 
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
@@ -7935,7 +7943,7 @@ const RNP = (() => {
         }, 1500);
     }
 
-    function _saveRnpShellNow() {
+    function _saveRnpShellNow(mpOverride) {
         const el = document.getElementById('tab-rnp');
         const ws = el?.querySelector('.rnp-workspace');
         if (!ws || !_cab) return;
@@ -7950,7 +7958,7 @@ const RNP = (() => {
         _markPaintedCab(ws);
         const html = _compactRnpWorkspace(ws);
         if (!html) return;
-        _rnpIdbPut(_cab, html);
+        _rnpIdbPut(_cab, html, mpOverride);
         let lsHtml = html;
         if (lsHtml.length > 900000) {
             const clone = ws.cloneNode(true);
@@ -7959,7 +7967,7 @@ const RNP = (() => {
             lsHtml = clone.outerHTML;
         }
         if (lsHtml.length > 1200000) return;
-        _storeRnpKey(_rnpShellKey(_cab), lsHtml);
+        _storeRnpKey(_rnpShellKey(_cab, mpOverride), lsHtml);
         _storeRnpKey('rnp_shell_cab', _cab);
     }
 
@@ -10599,17 +10607,36 @@ const RNP = (() => {
     let _cabinetListenerBound = false;
     let _autoRefreshBound = false;
 
+    let _prevMp = null;
     function _onMpChange() {
-        if (!_cab) return;
+        const now = _mp();
+        const prev = _prevMp || (now === 'wb' ? 'ozon' : 'wb');
+        _prevMp = now;
+        if (!_cab || prev === now) return;
+        // 1. Прежнюю площадку запоминаем целиком: цифры, артикулы, готовая страница (шапка, склейки, остатки, метрики)
+        try { _saveCabinetCache(_cab, prev); } catch (e) { /* без кэша загрузим заново */ }
+        try { _saveRnpShellNow(prev); } catch (e) { /* без снимка нарисуем заново */ }
         _initGen++; _initDoneCab = null; _abortPendingLoad(); _mainRenderGen++;
         window._rnpLastLoadedAt = 0; window._rnpLoadedForCabinet = null;
         _mainInflight = null; _mainInflightCab = null; _initInflight = null; _fetchInflight.clear();
         _clearCabinetState();
+        // 2. Новую площадку берём из кэша (артикулы и цифры сразу), если она уже открывалась
+        const cached = _restoreCabinetCache(_cab, now);
         if (document.querySelector('#tab-rnp.active')) {
             const el = document.getElementById('tab-rnp');
+            // 3. Готовая страница этой площадки показывается сразу, как после обновления страницы, без пустого каркаса и поэтапных вспышек
+            const shown = el ? _restoreRnpShell(el, _cab) : false;
             if (el && !el.querySelector('.rnp-workspace')) el.innerHTML = _workspaceChromeHtml([]);
-            _loadArticles(_cab).then(() => openMain(true)).catch(() => openMain(true));
+            // 4. Свежие данные догружаем в фоне: артикулы и цифры параллельно, подставляются на место без перерисовки каркаса
+            const fresh = _loadArticles(_cab).catch(() => {});
+            if (cached && _articlesCab === _cab && _articles.length) { openMain(true); fresh.then(() => { if (_mp() === now) _refreshActiveFromFresh(); }); }
+            else fresh.then(() => openMain(true)).catch(() => openMain(true));
+            void shown;
         }
+    }
+    // После того как артикулы пришли свежими: если список изменился, перерисовываем вкладку один раз
+    function _refreshActiveFromFresh() {
+        try { if (document.querySelector('#tab-rnp.active') && document.getElementById('rnp-sheet-body')) _renderActiveTable(); } catch (e) { /* остаётся прежняя */ }
     }
     document.addEventListener('nr-mp-change', _onMpChange);
 
