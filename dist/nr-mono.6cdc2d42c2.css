@@ -3055,3 +3055,29 @@ html body .nr-gt-off { display: none !important; }
 html body .as-wrap.as-noprev .as-cols { grid-template-columns: minmax(0, 1fr); }
 html body .as-wrap.as-noprev .as-prev { display: none; }
 html body #tab-settings .nr-gt-off { display: none !important; }
+
+/* «Кампании», главный экран по макету (от владельца, 19 ноября 2026): полоса метрик карточками в один ряд, фото крупнее, основные колонки */
+@media (min-width: 769px) {
+  html body #adv-view-ads .ads-hq-kpi-bar { display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: stretch; flex-wrap: nowrap; }
+  html body #adv-view-ads .ads-hq-kpi { padding: 11px 16px !important; border: 1px solid var(--accent) !important; border-radius: 20px; background: transparent !important; gap: 4px; min-width: 0; }
+  html body #adv-view-ads .ads-hq-kpi.main { background: var(--accent) !important; color: var(--on-accent, #fff); }
+  html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-label { color: inherit; opacity: .7; }
+  html body #adv-view-ads .ads-hq-kpi-value { font-size: 22px !important; font-weight: 900; letter-spacing: -.02em; }
+  html body #adv-view-ads .ads-hq-kpi-d { display: inline-block; margin: 5px 0 0; border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 800; }
+  html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-d { color: inherit; }
+  html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-camp-name img, html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-thumb { width: 48px !important; height: 64px !important; border-radius: 9px !important; object-fit: cover; }
+  html body #ads-hq-camps-wrap .ads-hq-table tbody td { height: 74px; }
+  html body #ads-hq-camps-wrap .ads-hq-table .ads-hq-wb-name { font-size: 14px; }
+}
+html body #adv-pulse .adp2-colmode { margin-left: auto; border: 1px solid var(--border); background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+html body #adv-pulse .adp2-colmode:hover { border-color: var(--text-primary); }
+@media (min-width: 769px) {
+  html body #adv-pulse .adp2-mph, html body #adv-pulse .adp2-ph { width: 48px; height: 64px; border-radius: 9px; }
+  html body #adv-pulse .adp2-head { height: 76px; min-height: 76px; }
+  html body #adv-pulse .adp2-nm b { font-size: 14px; }
+  html body #adv-pulse .adp2-nm { width: 330px; gap: 12px; }
+}
+html body #adv-view-ads .ads-hq-kpi.main { background: var(--accent) !important; color: var(--on-accent, #fff); }
+html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-label, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-d { color: inherit; }
+html body #adv-view-ads .ads-hq-kpi.main, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value span { color: var(--on-accent, #fff) !important; }
+@media (max-width: 768px) { html body #adv-view-ads .ads-hq-kpi.main { padding: 6px 12px !important; border-radius: 14px; } }

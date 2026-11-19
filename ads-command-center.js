@@ -100,6 +100,7 @@
     const byKey = (...keys) => keys.map((k) => WB_METRIC_COLS.find((c) => c.key === k));
 
     const COL_PRESETS = {
+        main: { id: 'main', label: 'Основные', cols: byKey('budget', 'spend', 'views', 'ctr', 'orders', 'cpo', 'drr', 'revenue') },
         all: { id: 'all', label: 'Все', cols: WB_METRIC_COLS },
         stats: { id: 'stats', label: 'Затраты', cols: byKey('budget', 'spend', 'views', 'ctr', 'orders') },
         funnel: { id: 'funnel', label: 'Воронка', cols: byKey('budget', 'drr', 'pos', 'clicks', 'atbs', 'revenue') },
@@ -950,7 +951,7 @@
         loadGen: 0,
         filterCabinetId: '',
         campFilter: 'all',
-        colPreset: 'all',
+        colPreset: 'main',
         listView: 'campaigns',
         searchQuery: '',
         recent: {},
@@ -1037,7 +1038,7 @@
     }
 
     function currentCols() {
-        return (COL_PRESETS[state.colPreset] || COL_PRESETS.all).cols;
+        return (COL_PRESETS[state.colPreset] || COL_PRESETS.main).cols;
     }
 
     function tableColspan() {
@@ -1173,7 +1174,7 @@
     }
 
     function setColPreset(id) {
-        state.colPreset = COL_PRESETS[id] ? id : 'all';
+        state.colPreset = COL_PRESETS[id] ? id : 'main';
         paintFilters();
         paintTree();
         return state.colPreset;
@@ -1284,8 +1285,8 @@
 
     /* Динамика к прошлому периоду той же длины. up: рост это хорошо (заказы, ROAS, CTR); для затрат и доли затрат наоборот. */
     const KPI_DEFS = [
+        { id: 'spend', label: 'Затраты', goodUp: false, main: true },
         { id: 'revenue', label: 'Сумма заказов', goodUp: true },
-        { id: 'spend', label: 'Затраты', goodUp: false },
         { id: 'drr', label: 'Доля затрат', goodUp: false },
         { id: 'roas', label: 'ROAS', goodUp: true },
         { id: 'ctr', label: 'CTR', goodUp: true },
