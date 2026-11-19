@@ -459,9 +459,14 @@
         var w = bidWord(camp);
         return '<div class="adp2-ty"><span class="adp2-tag2">' + (kind === 'cpc' ? 'CPC' : 'CPM') + (w ? ' · ' + w : '') + '</span>' + abToggleHtml(key, camp, kind, true) + '</div>';
     }
+    /* Колонки: «Основные» (макет от 19 ноября) или «Все»; выбор запоминается в браузере */
+    function colMode() { try { return localStorage.getItem('nr_adp2_cols') === 'all' ? 'all' : 'main'; } catch (_) { return 'main'; } }
+    function colPresetCols() {
+        var A = root.AdsHQ, P = A && A.COL_PRESETS || {};
+        return (colMode() === 'all' ? P.all : (P.main || P.all) ).cols || [];
+    }
     function tableCols() {
-        var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
-        return all.filter(function (c) { return c.key !== 'budget'; });
+        return colPresetCols().filter(function (c) { return c.key !== 'budget'; });
     }
     var SHORT = { spend: 'Затраты', views: 'Показы', ctr: 'CTR', orders: 'Заказы', drr: 'Доля', pos: 'Позиция', clicks: 'Клики', atbs: 'Корзина', revenue: 'Сумма', cpc: 'CPC', cpo: 'CPO', cr: 'CR', cpm: 'CPM', roas: 'ROAS' };
     function metricCellsHtml(camp) {
@@ -472,7 +477,7 @@
         return '<div class="adp2-mx"><div class="adp2-m5">' + cols.slice(0, 5).map(cell).join('') + '</div><div class="adp2-mmore">' + cols.slice(5).map(cell).join('') + '</div></div>';
     }
     function headerHtml() {
-        var A = root.AdsHQ, all = A && A.COL_PRESETS && A.COL_PRESETS.all ? A.COL_PRESETS.all.cols : [];
+        var all = colPresetCols();
         var tip = function (t, x) { return '<div class="' + x + ' adp2-tip" data-tip="' + esc(t || '') + '"><span>'; };
         return '<div class="adp2-hd" data-key="hd" aria-hidden="true">' +
             tip('Выключена, включена или автопилот сам ведёт ставки. Правый ползунок: автобиддер сам ведёт ставки по ключам.', 'adp2-hpos') + 'Режим · автобиддер</span></div>' +
@@ -783,7 +788,7 @@
         var items = [['all', 'Все'], ['active', 'Активные'], ['paused', 'Приостановленные'], ['archive', 'Архивные']];
         return '<div class="adp2-flt" role="tablist" aria-label="Статус кампаний" data-key="flt">' + items.map(function (it) {
             return '<button type="button" role="tab" aria-selected="' + (cur === it[0]) + '" class="' + (cur === it[0] ? 'on' : '') + '" data-pact="flt" data-f="' + it[0] + '">' + it[1] + '<em>' + (c[it[0]] || 0) + '</em></button>';
-        }).join('') + '</div>';
+        }).join('') + '<button type="button" class="adp2-colmode" data-pact="colmode" data-key="colmode">' + (colMode() === 'all' ? 'Основные колонки' : 'Все колонки') + '</button></div>';
     }
     function render() {
         var host = $('adv-pulse'); if (!host || S.view !== 'pulse') return;
@@ -1267,6 +1272,7 @@
         else if (act === 'topup') topupFlow(key);
         else if (act === 'abt') abToggle(key);
         else if (act === 'prodtgl') { if (e.target.closest('.cw-tools')) return; S.pc = S.pc || {}; S.pc[key] = !S.pc[key]; patchRow(key); }
+        else if (act === 'colmode') { try { localStorage.setItem('nr_adp2_cols', colMode() === 'all' ? 'main' : 'all'); } catch (_) {} render(); }
         else if (act === 'flt') { if (root.AdsHQ && root.AdsHQ.setCampFilter) { root.AdsHQ.setCampFilter(t.dataset.f); render(); } }
         else if (act === 'allowed') { var fa = findCamp(key); if (fa && root.AdvShelves && root.AdvShelves.openAllowed) root.AdvShelves.openAllowed(fa.cab.id, fa.camp.wbId); }
         else if (act === 'toggle') { holdOrder(); togglePause(key); }
