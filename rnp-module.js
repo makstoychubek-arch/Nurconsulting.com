@@ -8805,7 +8805,9 @@ const RNP = (() => {
         const say = (kind, title, text, opts) => { if (h && h.update && !opts) h.update(kind, title, text || ''); else if (T) window.NrUi.toast(kind, title, text || '', opts || {}); };
         (async () => {
             try {
-                const res = await _callProxy('prices_set', { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.nd })), old }, _cab);
+                const priceParams = { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.nd })), old };
+                const res = window.NrPriceSend ? await window.NrPriceSend(_cab, priceParams) : await _callProxy('prices_set', priceParams, _cab);
+                if (res && res.error) throw new Error(res.error);
                 let status = '';
                 if (res?.uploadId) {
                     for (let i = 0; i < 4 && !status; i++) {

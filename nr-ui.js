@@ -278,5 +278,37 @@
         });
     })();
 
+    /* Смена цен: если сервер просит код (крупное снижение у сотрудников), спрашиваем код, который ушёл владельцу в Telegram, и повторяем отправку. */
+    function askPriceCode(info, note) {
+        return new Promise(function (resolve) {
+            var done = false, box = el('div', 'nru-code'), inp = el('input'), msg = el('p', null, '');
+            inp.type = 'text'; inp.inputMode = 'numeric'; inp.maxLength = 6; inp.autocomplete = 'one-time-code'; inp.placeholder = '000000'; inp.setAttribute('aria-label', 'Код подтверждения');
+            inp.style.cssText = 'width:100%;font:800 28px/1.2 inherit;letter-spacing:.3em;text-align:center;padding:10px 12px;border:1.5px solid var(--text-primary);border-radius:14px;background:transparent;color:var(--text-primary);box-sizing:border-box';
+            msg.innerHTML = 'Крупное снижение цен' + (info && info.count ? ': ' + info.count + ' арт.' : '') + (info && info.maxDrop ? ', до −' + Math.round(info.maxDrop * 100) + '%' : '') + '. Код отправлен владельцу в Telegram и действует ' + ((info && info.minutes) || 10) + ' минут.' + (note ? '<br><b style="color:var(--red,#dc2626)">' + esc(note) + '</b>' : '');
+            box.appendChild(msg); box.appendChild(inp);
+            var d = dialog({ title: 'Подтвердите смену цен', size: 's', body: box, onClose: function () { if (!done) { done = true; resolve(null); } }, actions: [
+                { label: 'Отмена', onClick: function () { /* закрытие вызовет onClose */ } },
+                { label: 'Подтвердить', primary: true, keepOpen: true, onClick: function () { var v = String(inp.value || '').replace(/\D/g, ''); if (v.length !== 6) { inp.focus(); return false; } done = true; d.close(); resolve(v); return false; } }
+            ] });
+            setTimeout(function () { try { inp.focus(); } catch (_) { /* окно закрыто */ } }, 50);
+            inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { var v = String(inp.value || '').replace(/\D/g, ''); if (v.length === 6) { done = true; d.close(); resolve(v); } } });
+        });
+    }
+    root.NrPriceSend = function (cab, params) {
+        var call = function (extra) { return Promise.resolve(root.callWbProxy('prices_set', extra ? Object.assign({}, params, { confirm: extra }) : params, cab)); };
+        var restarts = 0;
+        function step(extra, note) {
+            return call(extra).then(function (res) {
+                if (!res || !res.confirmRequired) return res;
+                if (res.restart || !res.confirmId) { if (++restarts > 2) return { error: 'Не удалось подтвердить смену цен. Повторите позже.' }; return step(null, res.error || ''); }
+                return askPriceCode(res, note || res.error || '').then(function (code) {
+                    if (code == null) return { error: 'Смена цен отменена: код не введён.' };
+                    return step({ id: res.confirmId, code: code }, '');
+                });
+            });
+        }
+        return step(null, '');
+    };
+
     root.NrUi = { toast: toast, confirm: confirmDlg, dialog: dialog, alert: alertFn, ask: ask, notice: notice };
 })(typeof window !== 'undefined' ? window : globalThis);
