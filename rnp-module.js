@@ -7457,6 +7457,23 @@ const RNP = (() => {
         _refreshRnpAfterArticleToggle();
     }
 
+    // Настройки РНП по группам (макет «Настройки по группам»): Расчёт, Артикулы, Вид таблицы
+    function _mountSettingsTabs(el) {
+        const host = el.querySelector('#rnp-st-tabs');
+        if (!host || !window.NrGroupTabs) return;
+        const apply = (g) => el.querySelectorAll('[data-rst]').forEach(x => x.classList.toggle('nr-gt-off', x.getAttribute('data-rst') !== g));
+        const t = window.NrGroupTabs.mount(host, {
+            key: 'nr_rnp_st_tab',
+            groups: [
+                { id: 'calc', n: 'Расчёт', secs: [{ id: 'tax', n: 'Налог' }] },
+                { id: 'arts', n: 'Артикулы', c: _articles.length ? _articles.length : null, secs: [{ id: 'list', n: 'Группы и артикулы' }] },
+                { id: 'view', n: 'Вид таблицы', secs: [{ id: 'heat', n: 'Подсветка' }] },
+            ],
+            onChange: apply,
+        });
+        apply(t.get().g);
+    }
+
     function _renderSettings(opts = {}) {
         const el = _settingsHost();
         if (!el) return;
@@ -7480,10 +7497,12 @@ const RNP = (() => {
             </div>
           </div>
 
-          ${_settingsTaxHtml()}
-          ${_settingsHeatHtml()}
-          ${_settingsGroupsHtml()}
+          <div id="rnp-st-tabs"></div>
+          <div data-rst="calc">${_settingsTaxHtml()}</div>
+          <div data-rst="arts">${_settingsGroupsHtml()}</div>
+          <div data-rst="view">${_settingsHeatHtml()}</div>
         </div>`;
+        _mountSettingsTabs(el);
         if (scrollTop > 0) {
             const nextScroll = el.querySelector('.rnp-settings-articles-scroll');
             if (nextScroll) nextScroll.scrollTop = scrollTop;

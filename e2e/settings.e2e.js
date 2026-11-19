@@ -203,7 +203,7 @@ test('«Загрузка…» не стирает готовый блок тог
 test('Настройки: сверху нет пустого блока, «Тарифы» открываются внутри настроек', async ({ page }) => {
     const r = await page.evaluate(() => {
         showTab('settings');
-        const tabs = document.getElementById('settings-section-tabs').getBoundingClientRect();
+        const tabs = (document.getElementById('settings-groups') || document.getElementById('settings-section-tabs')).getBoundingClientRect();
         const mc = document.querySelector('.main-content').getBoundingClientRect();
         const parentOk = document.getElementById('tab-settings').parentElement.classList.contains('main-content');
         document.getElementById('settings-tab-btn-tariffs').click();
@@ -216,6 +216,24 @@ test('Настройки: сверху нет пустого блока, «Та�
     assert.ok(r.pane && r.tr > 100, 'тарифы показаны внутри настроек');
     const viaMenu = await page.evaluate(() => { showTab('dashboard'); showTab('tariffs'); return [...document.querySelectorAll('.tab-content')].filter((t) => getComputedStyle(t).display !== 'none').map((t) => t.id); });
     assert.deepStrictEqual(viaMenu, ['tab-settings'], 'showTab(tariffs) открывает настройки');
+});
+
+test('настройки по группам: Аккаунт, Подключения, Оплата; разделы выбранной группы под ними, выбор запоминается', async ({ page }) => {
+    await page.evaluate(() => { showTab('settings'); showSettingsSection('profile'); });
+    await page.waitForSelector('#settings-groups .nr-gt-g', { timeout: 5000 });
+    const groups = () => page.evaluate(() => [...document.querySelectorAll('#settings-groups .nr-gt-g')].map((b) => b.textContent + (b.classList.contains('on') ? '*' : '')));
+    const tabs = () => page.evaluate(() => [...document.querySelectorAll('.settings-section-tab')].filter((t) => t.offsetParent !== null).map((t) => t.textContent.trim()));
+    assert.deepStrictEqual(await groups(), ['Аккаунт*', 'Подключения', 'Оплата'], 'три группы, выбрана «Аккаунт»');
+    assert.deepStrictEqual(await tabs(), ['Профиль', 'Безопасность', 'Сессии'], 'в «Аккаунте» профиль, безопасность и (админу) сессии');
+    await page.click('#settings-groups [data-sg="conn"]');
+    assert.deepStrictEqual(await groups(), ['Аккаунт', 'Подключения*', 'Оплата']);
+    assert.deepStrictEqual(await tabs(), ['Интеграции', 'API Wildberries', 'Боты и ключи'], 'в «Подключениях» интеграции, API и (админу) боты и ключи');
+    assert.ok(await page.evaluate(() => !document.getElementById('settings-integrations').classList.contains('hidden')), 'открылся первый раздел группы');
+    await page.click('#settings-groups [data-sg="pay"]');
+    assert.deepStrictEqual(await tabs(), [], 'в «Оплате» один раздел, вторая ступень скрыта');
+    assert.ok(await page.evaluate(() => !document.getElementById('settings-tariffs').classList.contains('hidden')), 'тарифы показаны');
+    await page.evaluate(() => showSettingsSection('api'));
+    assert.deepStrictEqual(await groups(), ['Аккаунт', 'Подключения*', 'Оплата'], 'переход в раздел из любого места переключает и группу');
 });
 
 (async () => {

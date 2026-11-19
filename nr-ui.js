@@ -310,5 +310,58 @@
         return step(null, '');
     };
 
+    /* Группы настроек в две ступени: крупные вкладки-группы и мелкие разделы внутри (макет «Настройки по группам», 19 ноября 2026).
+       NrGroupTabs.mount(host, { key, groups: [{ id, n, c, secs: [{ id, n, admin }] }], onChange(g, s) }) -> { set(g, s), get() }. Выбор помнится в localStorage по key. */
+    root.NrGroupTabs = (function () {
+        function mount(host, spec) {
+            var groups = spec.groups || [], st = { g: groups[0] && groups[0].id, s: groups[0] && groups[0].secs[0] && groups[0].secs[0].id };
+            try { var raw = root.localStorage.getItem(spec.key || ''); if (raw) { var p = JSON.parse(raw); var gg = groups.filter(function (x) { return x.id === p.g; })[0]; if (gg) { st.g = gg.id; st.s = (gg.secs.filter(function (x) { return x.id === p.s; })[0] || gg.secs[0] || {}).id; } } } catch (_) { /* без памяти */ }
+            var box = el('div', 'nr-gt'), gb = el('div', 'nr-gt-groups'), sb = el('div', 'nr-gt-secs');
+            gb.setAttribute('role', 'tablist'); box.appendChild(gb); box.appendChild(sb); host.insertBefore(box, host.firstChild);
+            function cur() { return groups.filter(function (x) { return x.id === st.g; })[0] || groups[0]; }
+            function paint(silent) {
+                var g = cur();
+                gb.innerHTML = groups.map(function (x) { return '<button type="button" role="tab" class="nr-gt-g' + (x.id === g.id ? ' on' : '') + '" data-g="' + x.id + '" aria-selected="' + (x.id === g.id) + '">' + esc(x.n) + (x.c != null ? '<small>' + esc(x.c) + '</small>' : '') + '</button>'; }).join('');
+                sb.hidden = g.secs.length < 2;
+                sb.innerHTML = g.secs.length < 2 ? '' : g.secs.map(function (x) { return '<button type="button" class="nr-gt-s' + (x.id === st.s ? ' on' : '') + '" data-s="' + x.id + '">' + esc(x.n) + (x.admin ? ' <span class="nr-gt-adm">админ</span>' : '') + '</button>'; }).join('');
+                try { root.localStorage.setItem(spec.key || '', JSON.stringify(st)); } catch (_) { /* без памяти */ }
+                if (!silent && spec.onChange) spec.onChange(st.g, st.s);
+            }
+            box.addEventListener('click', function (e) {
+                var b = e.target.closest && e.target.closest('button'); if (!b) return;
+                if (b.hasAttribute('data-g')) { var g = groups.filter(function (x) { return x.id === b.getAttribute('data-g'); })[0]; st.g = g.id; st.s = g.secs[0] && g.secs[0].id; paint(); }
+                else if (b.hasAttribute('data-s')) { st.s = b.getAttribute('data-s'); paint(); }
+            });
+            paint();
+            return { set: function (g, s) { var gg = groups.filter(function (x) { return x.id === g; })[0]; if (!gg) return; st.g = gg.id; st.s = (gg.secs.filter(function (x) { return x.id === s; })[0] || gg.secs[0] || {}).id; paint(); }, get: function () { return { g: st.g, s: st.s }; }, el: box };
+        }
+        return { mount: mount };
+    })();
+
+    /* Общие настройки по группам (макет «Настройки по группам»): сверху группы, под ними разделы выбранной группы. Вызывается из showSettingsSection. */
+    root.syncSettingsGroups = function (section) {
+        var d = root.document, G = [
+            { id: 'acct', n: 'Аккаунт', secs: ['profile', 'security', 'devsessions'] },
+            { id: 'conn', n: 'Подключения', secs: ['integrations', 'api', 'keys'] },
+            { id: 'pay', n: 'Оплата', secs: ['tariffs'] }
+        ];
+        var first = d.getElementById('settings-tab-btn-profile'), row = first && first.parentNode; if (!row) return;
+        var visible = function (id) { var t = d.getElementById('settings-tab-btn-' + id); return !!t && !t.classList.contains('hidden-tab'); };
+        var bar = d.getElementById('settings-groups');
+        if (!bar) {
+            bar = d.createElement('div'); bar.id = 'settings-groups'; bar.className = 'nr-gt-groups nr-gt-site'; bar.setAttribute('role', 'tablist');
+            row.parentNode.insertBefore(bar, row);
+            bar.addEventListener('click', function (e) {
+                var b = e.target.closest && e.target.closest('button[data-sg]'); if (!b) return;
+                var g = G.filter(function (x) { return x.id === b.getAttribute('data-sg'); })[0], sec = g && g.secs.filter(visible)[0];
+                if (sec && root.showSettingsSection) root.showSettingsSection(sec);
+            });
+        }
+        var cur = G.filter(function (g) { return g.secs.indexOf(section) >= 0; })[0] || G[0];
+        bar.innerHTML = G.filter(function (g) { return g.secs.some(visible); }).map(function (g) { return '<button type="button" role="tab" class="nr-gt-g' + (g.id === cur.id ? ' on' : '') + '" data-sg="' + g.id + '" aria-selected="' + (g.id === cur.id) + '">' + g.n + '</button>'; }).join('');
+        G.forEach(function (g) { g.secs.forEach(function (id) { var t = d.getElementById('settings-tab-btn-' + id); if (t) t.classList.toggle('nr-gt-off', cur.secs.indexOf(id) < 0); }); });
+        row.classList.toggle('nr-gt-off', cur.secs.filter(visible).length < 2); // в группе один раздел: вторая ступень не нужна
+    };
+
     root.NrUi = { toast: toast, confirm: confirmDlg, dialog: dialog, alert: alertFn, ask: ask, notice: notice };
 })(typeof window !== 'undefined' ? window : globalThis);
