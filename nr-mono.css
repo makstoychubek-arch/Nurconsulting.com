@@ -1846,7 +1846,26 @@ html body .rnp-pfp-host > .pf-bar { display: flex !important; align-items: cente
 html body .rnp-pfp-host .pf-close { display: none !important; }
 html body .rnp-pfp-host .pf-back { border: 1px solid var(--text-primary); background: transparent; color: var(--text-primary); border-radius: 999px; padding: 6px 14px; font-weight: 800; cursor: pointer; }
 html body .rnp-pfp-host .pf-bar-title { font-size: 20px; font-weight: 900; color: var(--text-primary); }
-html body .rnp-pfp-host .pf-scroll { flex: 1 1 auto; max-height: calc((100dvh - 135px) / var(--nr-zoom, 1)); overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
+/* План/факт: одна неделя на экране (переключатель недель), без горизонтальной прокрутки; без дубля заголовка в таблице;
+   каркас виден сразу, цифры размыты, пока идёт загрузка (если в кэше есть настоящие, показываем их без размытия) */
+html body .rnp-pfp-host .pf-pager { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 12px; overflow: visible; background: transparent; border: 0; }
+html body .rnp-pfp-host .pf-pg { height: 32px; padding: 0 14px; border: 1px solid var(--text-primary); border-radius: 999px; background: transparent; color: var(--text-primary); font-size: 13px; font-weight: 800; cursor: pointer; }
+html body .rnp-pfp-host .pf-pg.is-on { background: var(--accent); color: var(--on-accent, #fff); }
+html body .rnp-pfp-host .pf-scroll { overflow-x: hidden; }
+html body .rnp-pfp-host .pf-sheet { width: 100%; }
+html body .rnp-pfp-host .pf-sheet[data-wk="0"] [class*="pf-w"]:not(.pf-w0),
+html body .rnp-pfp-host .pf-sheet[data-wk="1"] [class*="pf-w"]:not(.pf-w1),
+html body .rnp-pfp-host .pf-sheet[data-wk="2"] [class*="pf-w"]:not(.pf-w2),
+html body .rnp-pfp-host .pf-sheet[data-wk="3"] [class*="pf-w"]:not(.pf-w3),
+html body .rnp-pfp-host .pf-sheet[data-wk="4"] [class*="pf-w"]:not(.pf-w4),
+html body .rnp-pfp-host .pf-sheet[data-wk="5"] [class*="pf-w"]:not(.pf-w5)
+{ display: none; }
+html body .rnp-pfp-host .pf-sheet .pf-title { font-size: 0; }
+html body .rnp-pfp-host .pf-sheet .pf-dow { font-size: 9.5px; letter-spacing: -.3px; padding: 0 1px; }
+html body .rnp-pfp-host .pf-sheet.is-skel :is(tbody .pf-b, tbody .pf-c) { filter: blur(5px); }
+html body .rnp-pfp-host .pf-sheet.is-loading :is(tbody .pf-day, tbody .pf-plan, tbody .pf-fact, thead .pf-coeff, thead .pf-total:not(.pf-a):not(.pf-b):not(.pf-c), thead .pf-dark) { filter: blur(5px); transition: filter .18s ease; }
+html body #rnp-pfp-host { height: calc((100dvh - 130px) / var(--nr-zoom, 1)); min-height: 0; }
+html body .rnp-pfp-host .pf-scroll { flex: 1 1 0; min-height: 0; max-height: none; overflow: auto; border: 1px solid var(--text-primary); border-radius: 26px; }
 html body .rnp-pfp-host .rnp-plan-panel.rnp-plan-page { position: static !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; box-shadow: none !important; border: 1px solid var(--text-primary) !important; border-radius: 26px; padding: 18px; display: flex; flex-direction: column; background: var(--surface-solid, var(--bg, #fff)); }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-scroll { max-height: calc((100dvh - 330px) / var(--nr-zoom, 1)); overflow: auto; }
 html body .rnp-pfp-host .rnp-plan-page .rnp-plan-close { display: inline-flex; }
@@ -2920,6 +2939,94 @@ html body #tab-dashboard .pnl-grid.ff-row { min-height: 60px; }
   html body:has(.nr-crumbs.on) .main-rail .main-content:not(#nr-x), html.nr-f-crumb body .main-rail .main-content:not(#nr-x) { --nr-pt: 82px; }
 }
 
+/* ─── РНП: подсветка «хорошо / плохо» (Настройки РНП → Подсветка таблицы) ──────────────────────────────
+   Ячейка несёт атрибуты: data-hs знак (pos/neg), data-hr сильная роль (лучшее/худшее или порог), data-ht тренд, --hv сила 0…0.62.
+   Вид задаёт html[data-rnp-heat] (font, A, B, V, T, S, F, Z, P). Цвета только зелёный и красный, чёрный/белый через токены. */
+html body :is(.rnp-sheet-table, .rnp-ht-prev) td[data-hs="pos"] { --hc: var(--green, #16a34a); }
+html body :is(.rnp-sheet-table, .rnp-ht-prev) td[data-hs="neg"] { --hc: var(--red, #dc2626); }
+html body :is(.rnp-sheet-table, .rnp-ht-prev) .rnp-hvs { display: inline-block; line-height: 1.25; }
+/* font — как раньше: цвет шрифта, насыщеннее к краям */
+:is(html[data-rnp-heat="font"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="font"]) td[data-hs] { color: color-mix(in srgb, var(--hc) calc(35% + min(1, var(--hv, 0) / 0.6) * 65%), var(--text-primary)); }
+:is(html[data-rnp-heat="font"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="font"]) td[data-hb] { font-weight: 700; }
+/* A — мягкая тепловая карта */
+:is(html[data-rnp-heat="A"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="A"]) td[data-hs] .rnp-hvs { background: color-mix(in srgb, var(--hc) calc(8% + min(1, var(--hv, 0) / 0.62) * 42%), transparent); border-radius: 6px; padding: 1px 6px; }
+/* B — цветная точка */
+:is(html[data-rnp-heat="B"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="B"]) td[data-hs] .rnp-hvs::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--hc); margin-right: 5px; vertical-align: 1px; }
+/* V — таблетки-контур на крайних значениях */
+:is(html[data-rnp-heat="V"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="V"]) td[data-hr] .rnp-hvs { border: 1.4px solid var(--hc); border-radius: 999px; padding: 0 8px; font-weight: 800; }
+/* T — стрелка тренда к предыдущему дню (зелёная хорошо, красная плохо) */
+:is(html[data-rnp-heat="T"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="T"]) td[data-ht] .rnp-hvs::before { font-size: 8px; margin-right: 3px; vertical-align: 2px; }
+:is(html[data-rnp-heat="T"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="T"]) td[data-ht^="u"] .rnp-hvs::before { content: '▲'; }
+:is(html[data-rnp-heat="T"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="T"]) td[data-ht^="d"] .rnp-hvs::before { content: '▼'; }
+:is(html[data-rnp-heat="T"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="T"]) td[data-ht$="g"] .rnp-hvs::before { color: var(--green, #16a34a); }
+:is(html[data-rnp-heat="T"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="T"]) td[data-ht$="b"] .rnp-hvs::before { color: var(--red, #dc2626); }
+/* S — полоска под цифрой */
+:is(html[data-rnp-heat="S"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="S"]) td[data-hs] .rnp-hvs { border-bottom: 3px solid color-mix(in srgb, var(--hc) calc(30% + min(1, var(--hv, 0) / 0.62) * 70%), transparent); padding-bottom: 1px; }
+/* F — заливка крайних, белый текст */
+:is(html[data-rnp-heat="F"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="F"]) td[data-hr] .rnp-hvs { background: var(--hc); color: #fff; border-radius: 7px; padding: 0 7px; font-weight: 800; }
+/* Z — крупные цветные цифры на зебре */
+:is(html[data-rnp-heat="Z"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="Z"]) td[data-hs] { color: var(--hc); font-weight: 800; }
+:is(html[data-rnp-heat="Z"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="Z"]) td[data-hs] .rnp-hvs { font-size: 1.07em; }
+html[data-rnp-heat="Z"] .rnp-sheet-table tbody tr:nth-child(even) > td:not(.rnp-metric-col) { background-color: color-mix(in srgb, var(--text-primary) 4%, transparent); }
+/* P — чёрная таблетка лучшему, красная худшему (по умолчанию; в тёмной теме чёрное становится белым через --accent) */
+:is(html[data-rnp-heat="P"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="P"]) td[data-hr="pos"] .rnp-hvs { background: var(--accent, #0a0a0a); color: var(--on-accent, #fff); border-radius: 999px; padding: 0 9px; font-weight: 800; }
+:is(html[data-rnp-heat="P"] :is(.rnp-sheet-table, .rnp-ht-prev:not(.rnp-ht-mini)), .rnp-ht-mini[data-rnp-heat-demo="P"]) td[data-hr="neg"] .rnp-hvs { background: var(--red, #dc2626); color: #fff; border-radius: 999px; padding: 0 9px; font-weight: 800; }
+/* Шрифт */
+html.rnp-heat-bn .rnp-sheet-table td.rnp-metric-col { font-weight: 900; }
+html.rnp-heat-bv .rnp-sheet-table td[data-rnp-value] { font-weight: 800; }
+html.rnp-heat-cap .rnp-sheet-table td.rnp-metric-col { text-transform: uppercase; letter-spacing: .04em; font-size: .93em; }
+
+/* Раздел настроек */
+html body .rnp-ht { margin: 0 0 18px; }
+html body .rnp-ht-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+html body .rnp-ht-head h4 { font-size: 18px; font-weight: 900; color: var(--text-primary); }
+html body .rnp-ht-live { background: var(--accent, #0a0a0a); color: var(--on-accent, #fff); border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 10px; }
+html body .rnp-ht-sub { color: var(--text-muted); font-size: 12.5px; margin: 4px 0 14px; }
+html body .rnp-ht-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-bottom: 16px; align-items: start; }
+html body .rnp-ht-col { display: grid; gap: 16px; }
+html body .rnp-ht-card { border: 1px solid var(--text-primary); border-radius: 26px; padding: 16px 18px; background: transparent; }
+html body .rnp-ht-lbl { font-size: 10px; font-weight: 800; letter-spacing: .12em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+html body .rnp-ht-lbl-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+html body .rnp-ht-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+html body .rnp-ht-tile { text-align: left; border: 1px solid var(--border, #cfcfcf); border-radius: 18px; padding: 9px 9px 8px; background: transparent; color: var(--text-primary); cursor: pointer; min-width: 0; overflow: hidden; }
+html body .rnp-ht-tile.is-on { border: 2px solid var(--text-primary); padding: 8px 8px 7px; }
+html body .rnp-ht-tile b { display: block; font-size: 12px; font-weight: 900; margin-top: 4px; }
+html body .rnp-ht-tile small { display: block; color: var(--text-muted); font-size: 10.5px; }
+html body table.rnp-ht-prev { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+html body table.rnp-ht-prev th { font-size: 10px; font-weight: 800; color: var(--text-muted); padding: 0 2px 6px; text-align: center; border: 0; background: transparent; }
+html body table.rnp-ht-prev td { text-align: center; height: 30px; padding: 0 3px; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent); font-size: 12.5px; font-weight: 600; background: transparent; color: var(--text-primary); }
+html.rnp-heat-bv body table.rnp-ht-prev td, html.rnp-heat-bv table.rnp-ht-prev td { font-weight: 800; }
+html body table.rnp-ht-prev td.rnp-ht-nm { text-align: left; font-weight: 600; white-space: nowrap; padding-left: 0; width: 160px; }
+html.rnp-heat-bn table.rnp-ht-prev td.rnp-ht-nm { font-weight: 900; }
+html.rnp-heat-cap table.rnp-ht-prev td.rnp-ht-nm { text-transform: uppercase; letter-spacing: .04em; font-size: 11px; }
+html body table.rnp-ht-mini { table-layout: fixed; }
+html body table.rnp-ht-mini td { height: 26px; font-size: 10.5px; border: 0; padding: 0 1px; white-space: nowrap; }
+html body .rnp-ht-scroll { overflow-x: auto; }
+html body .rnp-ht-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent); font-size: 13px; color: var(--text-primary); }
+html body .rnp-ht-row:last-child { border: 0; }
+html body .rnp-ht-row small { display: block; color: var(--text-muted); font-size: 11px; font-weight: 500; }
+html body .rnp-ht-sw { width: 38px; height: 22px; border-radius: 999px; border: 1.4px solid var(--text-primary); background: transparent; position: relative; flex: 0 0 auto; cursor: pointer; padding: 0; }
+html body .rnp-ht-sw i { position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: var(--text-primary); transition: left .12s ease; }
+html body .rnp-ht-sw.is-on { background: var(--accent, #0a0a0a); }
+html body .rnp-ht-sw.is-on i { left: 19px; background: var(--on-accent, #fff); }
+html body .rnp-ht-link { background: none; border: 0; padding: 0; font-size: 11px; font-weight: 800; text-decoration: underline; color: var(--text-primary); cursor: pointer; letter-spacing: .06em; text-transform: uppercase; }
+html body .rnp-ht-seg { display: inline-flex; border: 1.4px solid var(--text-primary); border-radius: 999px; overflow: hidden; margin-bottom: 12px; flex-wrap: wrap; }
+html body .rnp-ht-seg button { background: transparent; border: 0; padding: 6px 14px; font-size: 12px; font-weight: 800; color: var(--text-primary); cursor: pointer; }
+html body .rnp-ht-seg button.is-on { background: var(--accent, #0a0a0a); color: var(--on-accent, #fff); }
+html body table.rnp-ht-rules { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+html body table.rnp-ht-rules th { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); text-align: left; padding: 0 6px 6px; border: 0; background: transparent; }
+html body table.rnp-ht-rules td { padding: 6px; border: 0; border-top: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent); background: transparent; color: var(--text-primary); }
+html body table.rnp-ht-rules tr.is-off .rnp-ht-rn, html body table.rnp-ht-rules tr.is-off .rnp-ht-th { opacity: .5; }
+html body .rnp-ht-rn { font-weight: 900; }
+html body .rnp-ht-dir { border: 1.2px solid var(--border, #bdbdbd); border-radius: 999px; padding: 2px 10px; font-size: 11.5px; font-weight: 700; }
+html body .rnp-ht-th { display: inline-flex; align-items: center; gap: 4px; border-radius: 8px; padding: 1px 6px; font-weight: 900; font-size: 12px; }
+html body .rnp-ht-th.pos { border: 1.4px solid var(--green, #16a34a); color: var(--green, #16a34a); }
+html body .rnp-ht-th.neg { border: 1.4px solid var(--red, #dc2626); color: var(--red, #dc2626); }
+html body .rnp-ht-th input { width: 46px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 900; text-align: left; padding: 0; outline: none; }
+html body .rnp-ht-note { color: var(--text-muted); font-size: 11.5px; margin-top: 10px; }
+@media (max-width: 768px) {
+  html body .rnp-ht-cols { grid-template-columns: 1fr; }
+  html body .rnp-ht-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* Площадка без подключения у кабинета: кнопка серая и не нажимается (подсказка: «Ozon не подключён») */
 html body .nr-mp button.is-na { opacity: .35; cursor: not-allowed; }
 html body .nr-mp button.is-na:hover { background: transparent; }
