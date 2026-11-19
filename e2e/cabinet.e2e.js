@@ -178,6 +178,7 @@ test('«Настройки РНП»: тумблер артикула/групп�
     // сети нет, но раньше DOM-патч стоял ПОСЛЕ await записи в базу, и из открытой модалки ещё
     // синхронно перерисовывал всю панель вкладок и таблицу РНП за ней — вместе давало заметный лаг).
     await page.evaluate(() => RNP.openSettings());
+    await page.locator('.nr-gt-g[data-g="arts"]').click(); // группы и артикулы на своей вкладке
     await page.locator('.rnp-settings-groups').waitFor({ state: 'visible' });
     await page.waitForTimeout(200);
     const t0 = Date.now();
@@ -199,6 +200,7 @@ test('«Настройки РНП»: тумблер артикула/групп�
 
 test('«Настройки РНП»: группу можно переименовать, она видна под новым именем; артикул виден, только если включены и группа, и он сам', async ({ page }) => {
     await page.evaluate(() => RNP.openSettings());
+    await page.locator('.nr-gt-g[data-g="arts"]').click(); // группы и артикулы на своей вкладке
     await page.locator('.rnp-st-group').first().waitFor({ state: 'visible' });
     const groupNames = () => page.evaluate(() => [...document.querySelectorAll('.rnp-st-name')].map((i) => i.value));
     const tabGroups = () => page.evaluate(() => [...document.querySelectorAll('.rnp-cat-name')].map((e) => e.textContent.trim()));
@@ -228,6 +230,7 @@ test('«Настройки РНП»: группу можно переимено�
 
 test('«Настройки РНП»: стрелки меняют порядок групп и артикулов сразу, порядок виден во вкладках и сохраняется', async ({ page }) => {
     await page.evaluate(() => RNP.openSettings());
+    await page.locator('.nr-gt-g[data-g="arts"]').click(); // группы и артикулы на своей вкладке
     await page.locator('.rnp-st-group').first().waitFor({ state: 'visible' });
     const groups = () => page.evaluate(() => [...document.querySelectorAll('.rnp-st-name')].map((i) => i.value));
     const before = await groups();
@@ -257,6 +260,7 @@ test('«Настройки РНП»: стрелки меняют порядок 
 test('«Настройки РНП»: если база отказала в записи, название группы всё равно сохраняется на устройстве и пользователь это видит', async ({ page }) => {
     await page.route(/rnp_settings/, (r) => r.request().method() === 'GET' ? r.fallback() : r.fulfill({ status: 403, contentType: 'application/json', json: { message: 'denied' } }));
     await page.evaluate(() => RNP.openSettings());
+    await page.locator('.nr-gt-g[data-g="arts"]').click(); // группы и артикулы на своей вкладке
     await page.locator('.rnp-st-name').first().waitFor({ state: 'visible' });
     await page.locator('.rnp-st-name').first().fill('Мои любимые');
     await page.keyboard.press('Enter');

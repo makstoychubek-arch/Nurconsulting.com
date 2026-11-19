@@ -6108,7 +6108,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.7c5cb97b34.css">
+<link rel="stylesheet" href="/dist/nr-mono.143528b45d.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8077,7 +8077,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.f61016df16.min.js"></script>
+<script src="/dist/rnp-module.8b1c56e728.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -8205,7 +8205,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/rnp-planning.69cadd5068.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/alina-sandbox-ui.0ca35bec6a.min.js"></script>
-<script src="/dist/alina-settings-ui.313f710c69.min.js"></script>
+<script src="/dist/alina-settings-ui.0469177581.min.js"></script>
 <script src="/dist/nr-keys-ui.b126159724.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
@@ -8225,7 +8225,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.c64e6af0d5.min.js"></script>
-<script src="/dist/nr-ui.9d454f4f2d.min.js"></script>
+<script src="/dist/nr-ui.1339f55712.min.js"></script>
 <script src="/dist/nr-goods-ui.142265b01c.min.js"></script>
 <script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
@@ -16485,8 +16485,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         if (section === 'keys') { try { window.NrKeys?.show({ host: document.getElementById('settings-keys'), supabase: supabase }); } catch (_) {} } else { try { window.NrKeys?.hide(); } catch (_) {} }
         if (section === 'devsessions') loadDevSessions();
+        try { if (window.syncSettingsGroups) window.syncSettingsGroups(section); } catch (_) { /* группы настроек не мешают разделу */ }
     }
     window.showSettingsSection = showSettingsSection;
+
+
 
     // Профиль: данные открытого кабинета и тариф. Обновляются при открытии раздела и при смене кабинета.
     async function loadSettingsProfile() {

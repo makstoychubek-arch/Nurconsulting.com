@@ -80,6 +80,7 @@ const tables = {
         });
 
         await page.evaluate(() => RNP.openSettings());
+        await page.locator('.nr-gt-g[data-g="view"]').click(); // подсветка на вкладке «Вид таблицы»
         await page.waitForSelector('#rnp-heat-sec', { timeout: 15000 });
         await run('в настройках РНП есть раздел «Подсветка таблицы»: 9 стилей, предпросмотр, правила', async () => {
             const r = await page.evaluate(() => ({ tiles: document.querySelectorAll('#rnp-heat-sec .rnp-ht-tile').length, on: document.querySelector('#rnp-heat-sec .rnp-ht-tile.is-on')?.getAttribute('data-heat-style'), prevRows: document.querySelectorAll('#rnp-heat-sec .rnp-ht-prev:not(.rnp-ht-mini) tbody tr').length, rules: document.querySelectorAll('#rnp-heat-sec .rnp-ht-rules tbody tr').length }));
