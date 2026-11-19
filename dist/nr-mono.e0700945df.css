@@ -3081,3 +3081,12 @@ html body #adv-view-ads .ads-hq-kpi.main { background: var(--accent) !important;
 html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-label, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-d { color: inherit; }
 html body #adv-view-ads .ads-hq-kpi.main, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value span { color: var(--on-accent, #fff) !important; }
 @media (max-width: 768px) { html body #adv-view-ads .ads-hq-kpi.main { padding: 6px 12px !important; border-radius: 14px; } }
+/* «Кампании»: фото в своей колонке (не наезжает на название), название шире, плашка динамики под цифрой (правка 19 ноября) */
+@media (min-width: 769px) {
+  html body #adv-pulse .adp2-tc { width: 66px; padding-left: 12px; }
+  html body #adv-pulse .adp2-nm { width: 340px; left: 182px; }
+  html body #adv-pulse .adp2-nm b { max-width: 270px; }
+  html body #adv-pulse .adp2-hd .adp2-hnm { width: 406px; padding-left: 74px; left: 116px; }
+  html body #adv-view-ads .ads-hq-kpi-value { display: flex !important; flex-direction: column; align-items: flex-start; gap: 0; }
+  html body #adv-view-ads .ads-hq-kpi-d { margin: 4px 0 0; }
+}
