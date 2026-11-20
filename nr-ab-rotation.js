@@ -82,6 +82,91 @@
             w.__nrRot = true; root.showNewTestForm = w;
         }
     }
-    root.NrAbRot = { extra: extra, setup: setup };
+
+    /* ───── Перезапуск завершённого теста ─────
+     * Кнопка «Перезапустить» у завершённого А/Б теста: окно открывается сразу, фото те же и в том же порядке,
+     * остаётся выбрать РК (прежние уже отмечены). Дальше тест создаётся в фоне как обычный новый:
+     * карточка появляется в списке сразу, фото встают на WB само. Старый тест остаётся в списке как история. */
+    var busy = {};
+    function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function findTest(id) { try { return (root.allABTests || allABTests || []).filter(function (t) { return String(t.id) === String(id); })[0]; } catch (e) { return null; } }
+    function photosOf(t) {
+        return (t.variants || []).slice().sort(function (a, b) { return String(a.variant_label).localeCompare(String(b.variant_label), 'ru', { numeric: true }); })
+            .map(function (v) { return v.photo_url; }).filter(Boolean);
+    }
+    function btn(t) {
+        if (!t || t.status !== 'finished' || String(t.id).indexOf('tmp-') === 0 || (t.settings && t.settings.ozon) || photosOf(t).length < 2) return '';
+        return '<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent)" onclick="NrAbRot.restart(\'' + esc(t.id) + '\')">Перезапустить</button>';
+    }
+    function toast(kind, title, text) { try { root.NrUi ? root.NrUi.toast(kind, title, text || '') : root.alert(title + ' ' + (text || '')); } catch (e) { /* без уведомления */ } }
+    function restart(id) {
+        var t = findTest(id);
+        if (!t || busy[id]) return;
+        var photos = photosOf(t);
+        if (photos.length < 2) { toast('error', 'Нечего перезапускать', 'У теста нет сохранённых фото.'); return; }
+        // На одном артикуле два активных теста дрались бы за обложку
+        var clash = (root.allABTests || allABTests || []).filter(function (x) { return x.status === 'active' && String(x.nm_id) === String(t.nm_id) && x.id !== t.id; })[0];
+        if (clash) { toast('error', 'У артикула уже идёт тест', 'Сначала завершите его, потом перезапускайте этот.'); return; }
+        var st = t.settings || {};
+        var names = Object.assign({}, st.campaignNames || {});
+        var picked = new Set((st.campaigns || []).map(Number));
+        var rows = {}; // id → { id, name, status }
+        (st.campaigns || []).forEach(function (cid) { rows[cid] = { id: Number(cid), name: names[String(cid)] || ('РК ' + cid), status: null }; });
+        var body = doc.createElement('div');
+        body.innerHTML = '<div style="font-size:13px;margin-bottom:10px">Фото те же: <b>' + photos.length + '</b>, в прежнем порядке. Выберите РК.</div>'
+            + '<div style="display:flex;gap:6px;overflow:hidden;margin-bottom:10px">' + photos.slice(0, 6).map(function (u) { return '<img src="' + esc(u) + '" alt="" style="width:44px;height:58px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">'; }).join('') + '</div>'
+            + '<input type="search" placeholder="Найти РК" class="ab-rs-q" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:transparent;color:inherit;font-size:13px;margin-bottom:8px">'
+            + '<div class="ab-rs-list" style="max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:2px"></div>';
+        var listEl = body.querySelector('.ab-rs-list'), qEl = body.querySelector('.ab-rs-q');
+        function paint() {
+            var q = (qEl.value || '').trim().toLowerCase();
+            var arr = Object.keys(rows).map(function (k) { return rows[k]; }).filter(function (r) { return !q || (r.name + ' ' + r.id).toLowerCase().indexOf(q) >= 0; });
+            arr.sort(function (a, b) { return (picked.has(b.id) ? 1 : 0) - (picked.has(a.id) ? 1 : 0); });
+            listEl.innerHTML = arr.length ? arr.map(function (r) {
+                var lbl = r.status === 9 ? 'идёт' : r.status === 11 ? 'на паузе' : (r.status === 'gone' ? 'не найдена' : '');
+                return '<label style="display:flex;gap:8px;align-items:center;padding:6px 4px;font-size:13px;cursor:pointer"><input type="checkbox" style="accent-color:var(--accent)" data-id="' + r.id + '"' + (picked.has(r.id) ? ' checked' : '') + '><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.name) + ' <span style="color:var(--text-muted)">· ' + r.id + '</span></span><span style="font-size:11px;color:var(--text-muted)">' + lbl + '</span></label>';
+            }).join('') : '<div style="font-size:12px;color:var(--text-muted);padding:8px 4px">Ничего не найдено</div>';
+        }
+        listEl.addEventListener('change', function (e) { var c = e.target; if (!c || !c.getAttribute) return; var cid = Number(c.getAttribute('data-id')); if (c.checked) picked.add(cid); else picked.delete(cid); });
+        qEl.addEventListener('input', paint);
+        paint();
+        // Полный список РК подтягиваем в фоне: окно уже открыто, отметки не сбрасываются
+        Promise.resolve(root.callWbProxy ? root.callWbProxy('advert_campaigns', {}) : null).then(function (data) {
+            var list = (data && data.campaigns) || [], seen = {};
+            list.forEach(function (c) {
+                var cid = Number(c.id); if (!cid || (c.status !== 9 && c.status !== 11)) return;
+                var nm = String(c.name || '').trim(), generic = !nm || /^кампания\s+\d+$/i.test(nm);
+                rows[cid] = { id: cid, name: (!generic && nm) || (rows[cid] && rows[cid].name) || ('РК ' + cid), status: c.status }; seen[cid] = 1;
+            });
+            if (list.length) Object.keys(rows).forEach(function (k) { if (!seen[k]) { rows[k].status = 'gone'; picked.delete(Number(k)); } });
+            paint();
+        }).catch(function () { /* остаются прежние РК из теста */ });
+        var dlg = root.NrUi && root.NrUi.dialog({
+            title: 'Перезапустить тест', body: body, size: 's',
+            actions: [{ label: 'Отмена' }, { label: 'Запустить', primary: true, onClick: function () { go(t, photos, picked, rows); } }],
+        });
+        if (!dlg) go(t, photos, picked, rows);
+    }
+    function go(t, photos, picked, rows) {
+        var st = Object.assign({}, t.settings || {});
+        var ids = Array.from(picked);
+        var sources = st.sources || { ads: true, funnel: true };
+        if (sources.ads && !ids.length) { toast('error', 'Выберите РК', 'Тест крутится на рекламе, нужна хотя бы одна кампания.'); return false; }
+        var byImp = st.rotateByImpressions === true;
+        if (byImp && !ids.length) { toast('error', 'Выберите РК', 'Для смены по показам нужна РК.'); return false; }
+        busy[t.id] = 1;
+        setTimeout(function () { delete busy[t.id]; }, 8000);
+        st.campaigns = ids;
+        st.campaignNames = Object.fromEntries(ids.map(function (cid) { return [String(cid), (rows[cid] && rows[cid].name) || ('РК ' + cid)]; }));
+        st.rotateByImpressions = byImp && ids.length > 0;
+        var snap = {
+            cabinetId: t.cabinet_id, nmId: String(t.nm_id), name: t.product_name,
+            interval: t.rotation_interval_min || 30, maxRot: t.max_rotations || 0,
+            abFiles: photos, rotMode: st.rotateByImpressions ? 'imp' : 'time', minImp: Number(st.minImpressions) || 1000, settings: st,
+        };
+        toast('success', 'Тест перезапущен', 'Фото встают на WB в фоне. РК запускаете в кабинете WB сами.');
+        try { root.runABCreate(snap); } catch (e) { toast('error', 'Не удалось перезапустить', String(e && e.message || e)); }
+    }
+    root.NrAbRot = { extra: extra, setup: setup, btn: btn, restart: restart };
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
 })(typeof window !== 'undefined' ? window : globalThis);

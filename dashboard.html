@@ -8231,7 +8231,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
 <script src="/dist/rnp-prices.456e0da447.min.js"></script>
-<script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
+<script src="/dist/nr-ab-rotation.a2d08c5276.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
 <script src="/dist/nr-nav.8a124c17df.min.js"></script>
@@ -15511,7 +15511,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     const abPending = {}; // тест → превью фото, пока они загружаются (каркас не пропадает)
     async function runABCreate(snap) {
         let testId = null;
-        const previews = snap.abFiles.map((f) => { try { return f && f.url ? f.url : (typeof Blob !== 'undefined' && f instanceof Blob ? URL.createObjectURL(f) : ''); } catch (_) { return ''; } });
+        const previews = snap.abFiles.map((f) => { try { return typeof f === 'string' ? f : f && f.url ? f.url : (typeof Blob !== 'undefined' && f instanceof Blob ? URL.createObjectURL(f) : ''); } catch (_) { return ''; } });
         // Сразу показываем карточку в списке, пока тест сохраняется.
         const tmp = { id: 'tmp-' + Date.now(), cabinet_id: snap.cabinetId, nm_id: snap.nmId, product_name: snap.name, status: 'active', rotation_interval_min: snap.interval, started_at: new Date().toISOString(), settings: snap.settings, variants: [] };
         abPending[tmp.id] = { previews };
@@ -15802,6 +15802,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">Редактировать</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent)" onclick="armABWinnerStop('${tid}')">${test.settings?.stopOnWinner === true ? `Ждём CTR ≥ ${minCtrGoal}%` : `Стоп от ${minCtrGoal}% CTR`}</button>` : ''}
+                    ${window.NrAbRot?.btn?.(test)||''}
                     <button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--red)" onclick="deleteABTest('${tid}')">Удалить</button>
                     </div>
                 </div>

@@ -10,7 +10,11 @@ const TESTS = [
     { id: 'ab1', cabinet_id: CAB, product_name: 'Свитер-айвори', nm_id: 1218782505, status: 'active', created_at: '2026-09-01T00:00:00Z', started_at: '2026-09-01T00:00:00Z', rotation_interval_min: 30, settings: {} },
     { id: 'ab2', cabinet_id: CAB, product_name: 'Куртка-найк', nm_id: 492027936, status: 'active', created_at: '2026-09-02T00:00:00Z', started_at: '2026-09-02T00:00:00Z', rotation_interval_min: 60, settings: {} },
 ];
+TESTS.push({ id: 'ab3', cabinet_id: CAB, product_name: 'Костюм-деловой', nm_id: 296556347, status: 'finished', created_at: '2026-10-22T00:00:00Z', started_at: '2026-10-22T09:00:00Z', finished_at: '2026-10-22T20:00:00Z', rotation_interval_min: 30, current_variant_index: 0, settings: { campaigns: [39497232], campaignNames: { '39497232': 'СРС Костюм оверсайз' }, sources: { ads: true, funnel: true }, rotateByImpressions: true, minImpressions: 1000, metric: 'ctr' } });
 const VARIANTS = [
+    { id: 'v3a', test_id: 'ab3', variant_label: '1', photo_url: 'https://example.test/k1.jpg', impressions: 900, clicks: 30, orders: 2, is_currently_on_wb: false, minutes_active: 60 },
+    { id: 'v3b', test_id: 'ab3', variant_label: '2', photo_url: 'https://example.test/k2.jpg', impressions: 900, clicks: 36, orders: 3, is_currently_on_wb: false, minutes_active: 60 },
+    { id: 'v3c', test_id: 'ab3', variant_label: '3', photo_url: 'https://example.test/k3.jpg', impressions: 900, clicks: 28, orders: 1, is_currently_on_wb: false, minutes_active: 60 },
     { id: 'v1a', test_id: 'ab1', variant_label: 'A', photo_url: 'https://example.test/a.jpg', impressions: 3000, clicks: 120, orders: 10, is_currently_on_wb: true, minutes_active: 600 },
     { id: 'v1b', test_id: 'ab1', variant_label: 'B', photo_url: 'https://example.test/b.jpg', impressions: 2800, clicks: 90, orders: 6, is_currently_on_wb: false, minutes_active: 500 },
     { id: 'v2a', test_id: 'ab2', variant_label: 'A', photo_url: 'https://example.test/c.jpg', impressions: 1500, clicks: 60, orders: 4, is_currently_on_wb: true, minutes_active: 300 },
@@ -26,7 +30,7 @@ const tables = {
 
 async function open(browser, base, latencyMs) {
     const env = await openApp(browser, base, {
-        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: latencyMs || 150, tables, rpcs: { is_super_admin: true },
+        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: latencyMs || 150, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async () => ({}) },
     });
     await env.page.evaluate(() => showTab('ab-testing'));
     await env.page.locator('.abtest-card').first().waitFor({ state: 'attached' });
@@ -90,6 +94,46 @@ test('«Завершить» при активном фильтре сразу �
     await page.waitForFunction(() => !document.getElementById('abtest-card-ab1'), null, { timeout: 300 });
     const dt = Date.now() - t0;
     assert.ok(dt < 300, 'карточка пропала из «Активных» за ' + dt + ' мс');
+});
+
+test('завершённый тест перезапускается: окно сразу, те же фото и РК, новый активный тест', async ({ page }) => {
+    await page.evaluate(() => filterTests('all'));
+    await page.waitForSelector('#abtest-card-ab3 button:has-text("Перезапустить")', { timeout: 3000 });
+    assert.strictEqual(await page.locator('#abtest-card-ab1 button:has-text("Перезапустить")').count(), 0, 'у активного теста кнопки перезапуска нет');
+    const sent = { tests: [], variants: [], settings: null };
+    await page.route(/rest\/v1\/ab_tests/, async (r) => {
+        const rq = r.request();
+        if (rq.method() === 'POST') { const b = JSON.parse(rq.postData()); sent.tests.push(b); return r.fulfill({ status: 201, json: { id: 'new1', created_at: new Date().toISOString(), ...b } }); }
+        if (rq.method() === 'PATCH') { const b = JSON.parse(rq.postData()); if (b.settings) sent.settings = b.settings; return r.fulfill({ status: 204, body: '' }); }
+        return r.fallback();
+    });
+    await page.route(/rest\/v1\/ab_test_variants/, async (r) => {
+        const rq = r.request();
+        if (rq.method() === 'POST') { const b = JSON.parse(rq.postData()); (Array.isArray(b) ? b : [b]).forEach((v) => sent.variants.push(v)); return r.fulfill({ status: 201, json: b }); }
+        return r.fallback();
+    });
+    const t0 = Date.now();
+    await page.click('#abtest-card-ab3 button:has-text("Перезапустить")');
+    await page.waitForSelector('.nru-win input[data-id="39497232"]:checked', { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'окно с прежней РК открылось сразу');
+    await page.click('.nru-win .nru-b.p');
+    await page.waitForFunction(() => allABTests.some((t) => t.nm_id == 296556347 && t.status === 'active'), null, { timeout: 2000 });
+    await page.waitForTimeout(1500);
+    assert.strictEqual(sent.tests.length, 1, 'создан один новый тест');
+    assert.strictEqual(sent.tests[0].status, 'active');
+    assert.strictEqual(String(sent.tests[0].nm_id), '296556347');
+    assert.deepStrictEqual(sent.variants.map((v) => v.photo_url), ['https://example.test/k1.jpg', 'https://example.test/k2.jpg', 'https://example.test/k3.jpg'], 'фото те же и в том же порядке');
+    assert.deepStrictEqual(sent.settings.campaigns, [39497232], 'РК та же');
+});
+
+test('перезапуск без выбранной РК не стартует', async ({ page }) => {
+    await page.evaluate(() => filterTests('all'));
+    await page.click('#abtest-card-ab3 button:has-text("Перезапустить")');
+    await page.waitForSelector('.nru-win input[data-id="39497232"]');
+    await page.uncheck('.nru-win input[data-id="39497232"]');
+    await page.click('.nru-win .nru-b.p');
+    await page.waitForTimeout(500);
+    assert.ok(!(await page.evaluate(() => allABTests.some((t) => t.nm_id == 296556347 && t.status === 'active'))), 'без РК тест не создан');
 });
 
 (async () => {
