@@ -3147,4 +3147,19 @@ html body .ab-report-card .ab-report-img-wrap { align-self: center; width: min(1
   html body .ab-report-card .ab-report-metrics-table tr:is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(9)) { display: flex; }
   html body .ab-report-card .ab-report-metrics-table td { padding: 0; font-size: 11px; }
   html body .ab-report-card .ab-report-meta { display: none; }
+
+/* ===== iPhone: окна не заходят под строку состояния (от владельца, 20 ноября 2026) =====
+   Apple размывает всё под строкой состояния. Окно начинаем ниже: env(safe-area-inset-top) + 24px,
+   а высоту уменьшаем на то же, чтобы низ не уехал за экран. */
+@media (max-width: 760px) {
+  html body :is(.rnp-settings-overlay, .rnp-plan-fact-overlay, #ab-edit-modal, #ab-report-modal, #new-test-form, #premium-modal, #add-cabinet-modal, #autobidder-modal, #supply-detail-modal) {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 24px) !important; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+  html body .nr-win.nr-win:not(.nr-win-photo):not(.nw-modal), html body .ab-new-dialog.nr-win.nr-win {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 36px) !important;
+  }
+  html body .nr-win.nr-win:not(.nr-win-photo):not(.nw-modal):is(.rnp-settings-dialog, .ab-report-dialog, .gg-settings-dialog, .cl-dialog, .nr-glass-dialog, .ab-new-dialog, .rnp-plan-fact-dialog) {
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 36px) !important;
+  }
+  html body .nru-win { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 36px); }
 }
