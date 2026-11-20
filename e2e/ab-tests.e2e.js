@@ -21,6 +21,7 @@ const VARIANTS = [
     { id: 'v2b', test_id: 'ab2', variant_label: 'B', photo_url: 'https://example.test/d.jpg', impressions: 1400, clicks: 50, orders: 3, is_currently_on_wb: false, minutes_active: 280 },
 ];
 const tables = {
+    advertising_daily_stats: [{ campaign_id: 111, stat_date: '2026-11-19', data: { apps: [{ nms: [{ nmId: 1218782505 }] }] } }, { campaign_id: 222, stat_date: '2026-11-19', data: { apps: [{ nms: [{ nmId: 1218782505 }] }] } }],
     spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }],
     cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }],
     ab_tests: TESTS,
@@ -30,7 +31,7 @@ const tables = {
 
 async function open(browser, base, latencyMs) {
     const env = await openApp(browser, base, {
-        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: latencyMs || 150, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async () => ({}) },
+        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: latencyMs || 150, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async (b) => (b && b.action === 'advert_campaigns' ? { campaigns: [{ id: 111, name: 'Первая', status: 9 }, { id: 222, name: 'Вторая', status: 9 }, { id: 333, name: 'Третья', status: 11 }] } : {}) },
     });
     await env.page.evaluate(() => showTab('ab-testing'));
     await env.page.locator('.abtest-card').first().waitFor({ state: 'attached' });
@@ -124,6 +125,21 @@ test('телефон: окна «Новый А/Б тест» и отчёт на�
         assert.ok(r.bottom <= r.h - 12 + 1, 'низ окна на экране: ' + r.bottom + ' из ' + r.h);
         await page.evaluate(() => document.querySelectorAll('.rnp-settings-overlay.is-open').forEach((e) => e.classList.remove('is-open')));
     }
+});
+
+test('РК: в карточке один ровный ряд; в мастере РК артикула не отмечаются сами; лишнюю РК можно убрать в «Редактировать»', async ({ page }) => {
+    await page.evaluate(() => {
+        const t = allABTests.find((x) => x.id === 'ab1'); t.settings = { ...(t.settings || {}), campaigns: [111, 222, 333, 444], campaignNames: { 111: 'Первая', 222: 'Вторая' } }; renderABTests();
+    });
+    const r = await page.evaluate(() => { const c = document.querySelector('#abtest-card-ab1 .abtest-camps'); const ch = [...c.children]; return { n: ch.length, tops: new Set(ch.map((e) => Math.round(e.getBoundingClientRect().top))).size, last: ch[ch.length - 1].textContent }; });
+    assert.strictEqual(r.n, 4, '3 РК и «+1»'); assert.strictEqual(r.tops, 1, 'все в одной строке'); assert.strictEqual(r.last, '+1');
+    await page.evaluate(() => editABTest('ab1'));
+    await page.waitForSelector('#ab-edit-camps [data-rm="222"]');
+    await page.click('#ab-edit-camps [data-rm="222"]');
+    const left = await page.evaluate(() => allABTests.find((x) => x.id === 'ab1').settings.campaigns);
+    assert.deepStrictEqual(left, [111, 333, 444], 'РК убрана');
+    const sel = await page.evaluate(async () => { abSelectedCard = { nmID: 1218782505, title: 'x', photos: [] }; abSelectedCampaigns = new Set(); await loadABCampaigns(); return abSelectedCampaigns.size; });
+    assert.strictEqual(sel, 0, 'сами РК не отмечаются');
 });
 
 test('«Удалить» убирает карточку сразу, не дожидаясь ответа сервера', async ({ page }) => {

@@ -15,7 +15,7 @@ assert.ok(/fetch\(fileOrUrl\.url/.test(upload) && /storage\.from\('abtest-photos
 assert.ok(!/return fileOrUrl\.url;/.test(upload), 'the live WB slot URL is never stored as the variant photo');
 
 assert.ok(html.includes("filterTests('finished', this)\">Архив</button>"), 'finished tests live in the «Архив» tab');
-assert.ok(html.includes("рк ${reportCampaigns.join(', ')}"), 'report header shows the campaign ids');
+assert.ok(html.includes('id="ab-report-camps"') && html.includes('NrAbRot?.camps?.(test, true)'), 'report header shows the campaign ids as a tidy row of chips');
 // Владелец (20 ноября 2026): вердикта и подписей «победитель», «проигрывает» в отчёте нет, остаются цифры
 assert.ok(!html.includes('verdictText') && !html.includes('явно проигрывает') && !html.includes('ab-report-verdict-box'), 'report has no verdict and no «winner/losing» remarks');
 assert.ok(html.includes('Установить на ВБ') && html.includes('Сейчас на ВБ'), 'winner can be set on WB from the report');
