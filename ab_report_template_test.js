@@ -14,11 +14,14 @@ assert.ok(png.includes("'/ АБ ТЕСТ'"), 'надпись «/ АБ ТЕСТ»
 assert.ok(png.includes('model.cabinetName'), 'справа название кабинета');
 assert.ok(png.includes('* 4 / 3'), 'фото вариантов в формате 3:4');
 assert.ok(png.includes('function textW') && !/textAlign\s*=/.test(png), 'выравнивание без textAlign (библиотека его игнорирует)');
-for (const label of ['CTR', 'CR клик→корзина', 'CR1 корзина→заказ', 'Показы', 'Клики', 'В корзину', 'Заказов', 'На сумму', 'Затраты', 'CPC', 'CPV (показ)', 'На ВБ', 'Ротаций']) {
+for (const label of ['CTR', 'CR корзина', 'CR2', 'Показы', 'Клики', 'В корзину', 'Заказов', 'На сумму', 'Затраты', 'CPC', 'CPV (показ)', 'На ВБ', 'Ротаций']) {
     assert.ok(png.includes(`['${label}'`), `в таблице есть строка «${label}»`);
 }
 assert.ok(png.includes('labelMax') && png.includes('rowFs'), 'колонка значений идёт после самой длинной подписи, строки не налезают друг на друга');
 assert.ok(/const caption = '';/.test(fn), 'подпись под картинкой пустая');
 assert.ok(fn.includes('cabinetLegalName(') && fn.includes("timeZone: 'Asia/Bishkek'"), 'юр. название кабинета и время по Бишкеку');
+
+// Владелец (20 ноября 2026): без вердикта, «явно проигрывает», вероятностей и пояснений в картинке
+for (const bad of ['явно проигрывает', 'verdictText', 'model.stars', 'слот', 'reasonText']) assert.ok(!png.includes(bad), `в картинке нет «${bad}»`);
 
 console.log('ab_report_template_test: ok');

@@ -8,7 +8,6 @@ import {
     type AbReportCardModel,
     fmtPct,
     fmtSom,
-    WB_MAIN_PHOTO_SLOT,
 } from './ab-test-report-card.ts';
 
 // Логотип NR (icons/logo-nr.svg, отрисован в PNG 216×216 с прозрачными углами).
@@ -107,8 +106,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     const metricsH = 252;
     const cardH = 40 + photoH + 78 + metricsH;
     const headerH = 124;
-    const verdictH = 58;
-    const height = pad + headerH + 12 + verdictH + 16 + cardH + 44 + pad;
+    const height = pad + headerH + 16 + cardH + 44 + pad;
 
     const canvas = createCanvas(Math.round(width * S), Math.round(height * S));
     canvas.loadFont(fontRegular!, { family: 'DejaVu' });
@@ -163,7 +161,6 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
         model.startedAtStr ? `Запуск: ${model.startedAtStr}` : '',
         model.finishedAtStr ? `Завершён: ${model.finishedAtStr}` : '',
         model.durationStr ? `Длительность: ${model.durationStr}` : '',
-        model.reasonText ? model.reasonText : '',
     ].filter(Boolean).join('  ·  ');
     ctx.fillStyle = '#4B5563';
     ctx.font = '12px DejaVu';
@@ -177,22 +174,8 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
         ctx.fillText(stamp, width - pad - tw, pad + 88);
     }
 
-    roundRect(ctx, pad, pad + headerH, width - pad * 2, verdictH, 14);
-    ctx.fillStyle = '#F3E8FF';
-    ctx.fill();
-    ctx.strokeStyle = '#D8B4FE';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = '#F59E0B';
-    ctx.font = 'bold 18px DejaVu';
-    ctx.fillText(model.stars, pad + 16, pad + headerH + 36);
-    ctx.fillStyle = '#6B21A8';
-    ctx.font = 'bold 15px DejaVu';
-    const vtxt = `${model.verdictText}${model.leaderLabel ? ' — лидирует вариант ' + model.leaderLabel : ''}`;
-    ctx.fillText(fitText(ctx, vtxt, width - pad * 2 - 90), pad + 86, pad + headerH + 36);
-
     const photos = await Promise.all(variants.map((v) => loadPhoto(v.photoUrl)));
-    const cardsTop = pad + headerH + 12 + verdictH + 16;
+    const cardsTop = pad + headerH + 16;
 
     for (let i = 0; i < n; i++) {
         const v = variants[i];
@@ -202,8 +185,8 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
         roundRect(ctx, x, y, cardW, cardH, 16);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.strokeStyle = v.isLeader ? '#7C3AED' : '#E5E7EB';
-        ctx.lineWidth = v.isLeader ? 3 : 1.2;
+        ctx.strokeStyle = '#E5E7EB';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
         ctx.fillStyle = v.isLive ? '#16A34A' : '#6B7280';
@@ -238,8 +221,8 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
 
         const rows: Array<[string, string]> = [
             ['CTR', fmtPct(v.ctr)],
-            ['CR клик→корзина', fmtPct(v.cr)],
-            ['CR1 корзина→заказ', fmtPct(v.cr1)],
+            ['CR корзина', fmtPct(v.cr)],
+            ['CR2', fmtPct(v.cr1)],
             ['Показы', String(v.impressions)],
             ['Клики', String(v.clicks)],
             ['В корзину', String(v.atbs)],
@@ -275,16 +258,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             const d = `${v.delta >= 0 ? '+' : ''}${v.delta.toFixed(2)}`;
             ctx.fillText(d, x + valX, ty);
         }
-        ctx.font = 'bold 12px DejaVu';
-        if (v.isLoser) {
-            ctx.fillStyle = '#DC2626';
-            ctx.fillText('явно проигрывает', x + 14, ty + 22);
-        } else {
-            ctx.fillStyle = v.prob >= 0.05 ? '#16A34A' : '#9CA3AF'; // почти нулевой шанс не красим в «зелёный»
-            ctx.fillText(`${Math.round(v.prob * 100)}%`, x + 14, ty + 22);
-        }
-
-        const tableY = ty + 38;
+        const tableY = ty + 24;
         rows.forEach((row, ri) => {
             const ry = tableY + ri * 20;
             ctx.fillStyle = '#6B7280';
@@ -298,7 +272,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
 
     ctx.fillStyle = '#9CA3AF';
     ctx.font = '12px DejaVu';
-    const foot = `Nurconsulting · главное фото WB = слот ${WB_MAIN_PHOTO_SLOT}`
+    const foot = 'Nurconsulting'
         + (model.finishedAtStr ? ` · ${model.finishedAtStr}` : '')
         + (model.reportUrl ? ` · ${model.reportUrl}` : '');
     ctx.fillText(fitText(ctx, foot, width - pad * 2), pad, height - 22);

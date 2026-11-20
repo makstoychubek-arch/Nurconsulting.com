@@ -185,13 +185,7 @@ export function formatAbReportCaption(model: AbReportCardModel): string {
     const title = escapeHtml(model.title);
     lines.push(`<b>${title}</b> · арт. ${escapeHtml(String(model.nmId))}`);
     if (model.campaignLabel) lines.push(`РК: ${escapeHtml(model.campaignLabel)}`);
-    const lead = model.leaderLabel
-        ? `${model.stars} ${escapeHtml(model.verdictText)} — вариант ${escapeHtml(model.leaderLabel)}`
-        : `${model.stars} ${escapeHtml(model.verdictText)}`;
-    lines.push(lead);
-    if (model.finishedAtStr) {
-        lines.push(`Завершён ${escapeHtml(model.finishedAtStr)} — ${escapeHtml(model.reasonText)}.`);
-    }
+    if (model.finishedAtStr) lines.push(`Завершён ${escapeHtml(model.finishedAtStr)}`);
     if (model.reportUrl) lines.push(model.reportUrl);
     return lines.join('\n').slice(0, 1000);
 }
@@ -212,18 +206,14 @@ export function renderAbReportCardSvg(model: AbReportCardModel): string {
         const delta = v.delta == null
             ? ''
             : `<text x="${x + 16}" y="${y + 430}" fill="${v.delta >= 0 ? '#16A34A' : '#DC2626'}" font-size="14" font-weight="700">${v.delta >= 0 ? '+' : ''}${v.delta.toFixed(2)}</text>`;
-        const badge = v.isLoser
-            ? `<text x="${x + 16}" y="${y + 452}" fill="#DC2626" font-size="12">явно проигрывает</text>`
-            : `<text x="${x + 16}" y="${y + 452}" fill="#16A34A" font-size="12">${Math.round(v.prob * 100)}%</text>`;
         return `<g>
             <rect x="${x}" y="${y}" width="${cardW}" height="500" rx="16" fill="#fff" stroke="${border}" stroke-width="${v.isLeader ? 3 : 1}"/>
             <text x="${x + 16}" y="${y + 28}" fill="${v.isLive ? '#16A34A' : '#6B7280'}" font-size="12" font-weight="700">${tag}</text>
             <rect x="${x + 12}" y="${y + 40}" width="${cardW - 24}" height="220" rx="10" fill="#EEF2FF"/>
             <text x="${x + 16}" y="${y + 406}" fill="#111827" font-size="28" font-weight="800">${fmtPct(v.ctr)}</text>
             ${delta}
-            ${badge}
             <text x="${x + 16}" y="${y + 480}" fill="#6B7280" font-size="12">Показы ${v.impressions} · Клики ${v.clicks}</text>
-            <text x="${x + 16}" y="${y + 498}" fill="#6B7280" font-size="12">CR ${fmtPct(v.cr)} · Заказов ${v.orders}</text>
+            <text x="${x + 16}" y="${y + 498}" fill="#6B7280" font-size="12">CR корзина ${fmtPct(v.cr)} · Заказов ${v.orders}</text>
         </g>`;
     }).join('\n');
 
@@ -232,10 +222,8 @@ export function renderAbReportCardSvg(model: AbReportCardModel): string {
   <rect width="100%" height="100%" fill="#F4F2EE"/>
   <text x="${pad}" y="42" fill="#111827" font-size="22" font-weight="800">${escapeHtml(model.title)}</text>
   <text x="${pad}" y="68" fill="#6B7280" font-size="13">арт. ${escapeHtml(String(model.nmId))}${model.campaignLabel ? ' · ' + escapeHtml(model.campaignLabel) : ''}</text>
-  <rect x="${pad}" y="88" width="${width - pad * 2}" height="56" rx="12" fill="#F3E8FF" stroke="#D8B4FE"/>
-  <text x="${pad + 16}" y="122" fill="#6B21A8" font-size="16" font-weight="700">${model.stars}  ${escapeHtml(model.verdictText)}${model.leaderLabel ? ' — лидирует вариант ' + escapeHtml(model.leaderLabel) : ''}</text>
   ${cards}
-  <text x="${pad}" y="${height - 24}" fill="#9CA3AF" font-size="12">Nurconsulting · главное фото WB = слот ${WB_MAIN_PHOTO_SLOT}${model.reportUrl ? ' · ' + escapeHtml(model.reportUrl) : ''}</text>
+  <text x="${pad}" y="${height - 24}" fill="#9CA3AF" font-size="12">Nurconsulting${model.reportUrl ? ' · ' + escapeHtml(model.reportUrl) : ''}</text>
 </svg>`;
 }
 
