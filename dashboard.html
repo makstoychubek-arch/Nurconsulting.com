@@ -4328,17 +4328,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .ab-report-ctr-delta { font-size: 12px; font-weight: 700; }
         .ab-report-ctr-delta.pos { color: var(--green); }
         .ab-report-ctr-delta.neg { color: var(--red); }
-        .ab-report-prob { font-size: 12px; font-weight: 700; }
-        .ab-report-prob.good { color: var(--green); }
-        .ab-report-prob.bad { background: rgba(248,113,113,0.12); color: var(--red); padding: 2px 7px; border-radius: 6px; display: inline-block; }
         .ab-report-metrics-table { width: 100%; font-size: 11px; border-top: 1px solid var(--border); padding-top: 6px; }
         .ab-report-metrics-table td { padding: 2px 0; color: var(--text-secondary); }
         .ab-report-metrics-table td.lbl { color: var(--text-muted); }
         .ab-report-metrics-table td.val { text-align: right; font-weight: 600; color: var(--text-primary); }
         .ab-report-metrics-table tr.ads-head td { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 6px; }
         .ab-report-meta { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 6px; }
-        .ab-report-verdict-box { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); font-size: 13px; }
-        .ab-report-verdict-stars { font-size: 15px; letter-spacing: 1px; color: #FFB020; }
         .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
         .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
         .segment-tabs { display: inline-flex; background: var(--sel); border: none; border-radius: 999px; padding: 3px; }
@@ -6108,7 +6103,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.ef49ef7675.css">
+<link rel="stylesheet" href="/dist/nr-mono.9fd5e972f1.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8231,7 +8226,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
 <script src="/dist/rnp-prices.456e0da447.min.js"></script>
-<script src="/dist/nr-ab-rotation.5b43a8f35d.min.js"></script>
+<script src="/dist/nr-ab-rotation.b7dbeb5e5e.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
 <script src="/dist/nr-nav.8a124c17df.min.js"></script>
@@ -15734,7 +15729,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             return `
             <div class="abtest-variant ${isWinner ? 'winner' : ''} ${isActive ? 'current-active' : ''}">
                 ${isActive ? '<div class="abtest-active-badge">сейчас</div>' : ''}
-                <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
+                <img src="${escapeHtml(window.NrAbImg?.u(v.photo_url) || v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
                 <div class="abtest-variant-meta">
                     <div class="abtest-ctr">${scoreStr}</div>
                     ${deltaHtml}
@@ -16126,12 +16121,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         const metricsByVariant = new Map(variants.map(v => [v.id, metricsFor(v)]));
 
-        const probs = computeProbabilityBestByCtr(variants.map(v => ({ variant_label: v.variant_label, ...metricsByVariant.get(v.id) })));
         const baseline = variants[0];
         const baselineM = metricsByVariant.get(baseline.id);
         const baselineCtr = baselineM.impressions > 0 ? (baselineM.clicks / baselineM.impressions * 100) : 0;
-        const maxProb = Math.max(...Array.from(probs.values()), 0);
-        const leaderLabel = Array.from(probs.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
 
         document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
         const reportCampaigns = (test.settings?.campaigns || []).map(String).filter(Boolean);
@@ -16146,26 +16138,16 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             (source === 'funnel' ? '\nВоронка: WB отдаёт историю максимум за последние 7 дней' : '') +
             (source === 'ads' && statsUpdatedAt ? `\nПоказы и клики РК: замер ${new Date(statsUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}, обновляются каждые 10 минут` : '');
 
-        const totalImpressions = variants.reduce((s, v) => s + (metricsByVariant.get(v.id)?.impressions || 0), 0);
-        let stars = '★☆☆', verdictText = 'Пока недостаточно данных для вывода';
-        if (maxProb >= 0.9) { stars = '★★★'; verdictText = `явный победитель (${Math.round(maxProb * 100)}%)`; }
-        else if (maxProb >= 0.6) { stars = '★★★'; verdictText = `скорее всего лучше (${Math.round(maxProb * 100)}%)`; }
-        else if (maxProb >= 0.4) { stars = '★★☆'; verdictText = `есть тенденция к лидеру (${Math.round(maxProb * 100)}%)`; }
-        if (maxProb < 0.6 && totalImpressions >= 1000 * variants.length) { stars = '★'; verdictText = 'разницы нет'; }
-        document.getElementById('ab-report-verdict').innerHTML = `
-            <div class="ab-report-verdict-box">
-                <span class="ab-report-verdict-stars">${stars}</span>
-                <span style="color:var(--text-primary);font-weight:600">${escapeHtml(verdictText)}</span>
-                ${maxProb > 0 && verdictText !== 'разницы нет' ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
-            </div>`;
-
+        document.getElementById('ab-report-verdict').innerHTML = '';
         const sourceLabel = source === 'funnel' ? 'Воронка (карточка)' : 'Реклама';
         const liveIdx = variants.findIndex(x => x.is_currently_on_wb);
         const nextVariant = liveIdx >= 0 ? variants[(liveIdx + 1) % variants.length] : null;
         const rotationsLeft = !(Number(test.max_rotations) > 0) || (Number(test.rotation_count) || 0) < Number(test.max_rotations);
         const testRunning = test.status === 'active'; // пока тест идёт, ручная установка фото выключена
         const timerOn = test.status === 'active' && Boolean(nextVariant) && nextVariant.id !== variants[liveIdx].id && rotationsLeft && !test.settings?.rotateByImpressions;
-        document.getElementById('ab-report-variants').innerHTML = variants.map(v => {
+        const abGrid = document.getElementById('ab-report-variants');
+        abGrid.style.setProperty('--n', Math.min(variants.length, 5));
+        abGrid.innerHTML = variants.map(v => {
             const m = metricsByVariant.get(v.id);
             const impressions = Math.round(m.impressions);
             const clicks = Math.round(m.clicks);
@@ -16178,32 +16160,27 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const cr = clicks > 0 ? (orders / clicks * 100) : 0; // CR: клик → заказ
             const cpc = clicks > 0 ? (adSpend / clicks) : 0;
             const cpv = impressions > 0 ? (adSpend / impressions) : 0;
-            const prob = probs.get(v.variant_label) || 0;
             const isBaseline = v.variant_label === baseline.variant_label;
             const delta = isBaseline ? null : ctr - baselineCtr;
-            const isLosing = prob > 0 && prob <= 0.15 && variants.length > 2;
             const isLive = Boolean(v.is_currently_on_wb);
             const isNext = timerOn && nextVariant.id === v.id;
-            const isLeading = v.variant_label === leaderLabel && maxProb >= 0.6;
             const rotations = rotationsByLabel[v.variant_label] || 0;
 
             return `
-            <div class="ab-report-card ${isLeading ? 'leading' : ''} ${isNext ? 'next' : ''}">
+            <div class="ab-report-card ${isNext ? 'next' : ''}">
                 <div class="ab-report-head">
                     ${isLive && timerOn ? `<span class="abr-timer-pill" id="abr-timer" title="Через сколько фото сменится на следующее: Вариант ${escapeHtml(String(nextVariant.variant_label))}"><span id="abr-timer-time">--:--</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>` : ''}
                     ${!isLive ? `<button class="ab-report-apply-btn" ${testRunning ? 'disabled' : ''} title="${testRunning ? 'Доступно после окончания теста: пока тест идёт, фото меняются сами' : 'Поставить это фото на WB'}" onclick="applyWinningVariant('${test.id}','${v.id}')">Установить на ВБ</button>` : ''}
                     <span class="ab-report-tag ${isLive ? 'live' : ''}">${isLive ? 'Сейчас на WB' : `${isNext ? '↳ ' : ''}Вариант ${escapeHtml(String(v.variant_label))}`}</span>
                 </div>
-                <div class="ab-report-img-wrap"><img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/200x150/888/fff?text=${escapeHtml(v.variant_label)}'"></div>
+                <div class="ab-report-img-wrap"><img src="${escapeHtml(window.NrAbImg?.u(v.photo_url) || v.photo_url)}" onerror="this.src='https://placehold.co/200x150/888/fff?text=${escapeHtml(v.variant_label)}'"></div>
                 <div class="ab-report-ctr-row">
                     <span class="ab-report-ctr-val">${ctr.toFixed(2)}%</span>
                     ${delta != null && impressions > 0 ? `<span class="ab-report-ctr-delta ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</span>` : ''}
-                    ${isLosing ? '<span class="ab-report-prob bad">явно проигрывает</span>' : prob > 0 ? `<span class="ab-report-prob good">${Math.round(prob * 100)}%</span>` : ''}
                 </div>
                 <table class="ab-report-metrics-table">
-                    <tr><td class="lbl">CTR</td><td class="val">${ctr.toFixed(2)}%</td></tr>
-                    <tr><td class="lbl" title="Из кликов в корзину">CR1 (клик→корзина)</td><td class="val">${cr1.toFixed(2)}%</td></tr>
-                    <tr><td class="lbl" title="Из кликов в заказ">CR (клик→заказ)</td><td class="val">${cr.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl" title="Из кликов в корзину">CR1</td><td class="val">${cr1.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl" title="Из кликов в заказ">CR</td><td class="val">${cr.toFixed(2)}%</td></tr>
                     <tr class="ads-head"><td colspan="2">${escapeHtml(sourceLabel)}</td></tr>
                     <tr><td class="lbl">Показы</td><td class="val">${fmt(impressions)}</td></tr>
                     <tr><td class="lbl">Клики</td><td class="val">${fmt(clicks)}</td></tr>

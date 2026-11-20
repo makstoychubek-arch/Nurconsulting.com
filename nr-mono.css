@@ -3120,6 +3120,34 @@ html body .abtest-strip .abtest-variants { max-width: 100%; flex-wrap: nowrap; o
     .ab-ring { width: 38px; height: 38px; }
 }
 
+/* ===== Отчёт А/Б теста: все варианты на одном экране, без вердикта (от владельца, 20 ноября 2026) ===== */
+html body #ab-report-verdict:empty { display: none; }
+html body .ab-report-grid { grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 10px; justify-content: stretch; }
+html body .ab-report-card { padding: 8px; gap: 5px; box-shadow: none; }
+html body .ab-report-card .ab-report-ctr-val { font-size: 17px; }
+html body .ab-report-card .ab-report-img-wrap { align-self: center; width: min(100%, calc(min(300px, 34vh) * 7 / 9)); }
+@media (max-width: 760px) {
+  html body #ab-report-modal #ab-report-title { font-size: 17px !important; line-height: 1.2 !important; letter-spacing: -.01em !important; margin: 0 40px 2px 0 !important; }
+  html body .nr-win.ab-report-dialog > .nr-win-bar { padding: 12px 14px 0 16px !important; }
+  html body .nr-win.ab-report-dialog .nr-win-title { font-size: 17px !important; line-height: 1.2 !important; }
+  html body .nr-win.ab-report-dialog > .nr-win-scroll { padding: 8px 14px 14px !important; }
+  html body #ab-report-source-toggle { gap: 6px !important; margin-bottom: 6px !important; }
+  html body #ab-report-source-toggle > span { display: none; }
+  html body #ab-report-source-toggle .ui-btn { white-space: nowrap; font-size: 11px !important; padding: 5px 12px !important; }
+  html body .ab-report-dialog #ab-report-sub { font-size: 11px; line-height: 1.4; margin-bottom: 6px !important; }
+  html body .ab-report-grid { grid-template-columns: 1fr; gap: 8px; }
+  html body .ab-report-card { display: grid; grid-template-columns: 62px minmax(0, 1fr); grid-template-areas: "img head" "img ctr" "img tbl"; column-gap: 10px; row-gap: 2px; align-items: start; padding: 8px; }
+  html body .ab-report-card .ab-report-head { grid-area: head; min-height: 0; }
+  html body .ab-report-card .ab-report-img-wrap { grid-area: img; width: auto; align-self: start; }
+  html body .ab-report-card .ab-report-ctr-row { grid-area: ctr; }
+  html body .ab-report-card .ab-report-metrics-table { grid-area: tbl; display: block; border: 0; padding: 0; }
+  html body .ab-report-card .ab-report-metrics-table tbody { display: flex; flex-wrap: wrap; gap: 1px 12px; }
+  html body .ab-report-card .ab-report-metrics-table tr { display: flex; gap: 4px; }
+  html body .ab-report-card .ab-report-metrics-table tr { display: none; }
+  html body .ab-report-card .ab-report-metrics-table tr:is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(9)) { display: flex; }
+  html body .ab-report-card .ab-report-metrics-table td { padding: 0; font-size: 11px; }
+  html body .ab-report-card .ab-report-meta { display: none; }
+
 /* ===== iPhone: окна не заходят под строку состояния (от владельца, 20 ноября 2026) =====
    Apple размывает всё под строкой состояния. Окно начинаем ниже: env(safe-area-inset-top) + 24px,
    а высоту уменьшаем на то же, чтобы низ не уехал за экран. */
