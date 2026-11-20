@@ -3163,3 +3163,13 @@ html body .ab-report-card .ab-report-img-wrap { align-self: center; width: min(1
   }
   html body .nru-win { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 36px); }
 }
+
+/* ===== РК в карточке и отчёте А/Б теста: один ровный ряд (владелец, 20 ноября 2026) ===== */
+.abtest-camps { display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 6px; overflow: hidden; }
+.abtest-camps.all { overflow-x: auto; scrollbar-width: none; margin: 0 0 8px; }
+.abtest-camps.all::-webkit-scrollbar { display: none; }
+.abtest-camps > span { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.abtest-camps > span.more { color: var(--text-muted); }
+.abtest-camps.edit { flex-wrap: wrap; overflow: visible; }
+.abtest-camps.edit button { border: 0; background: transparent; color: var(--text-muted); font-size: 14px; line-height: 1; padding: 0 0 0 2px; cursor: pointer; }
+.abtest-camps.edit button:hover { color: var(--red); }
