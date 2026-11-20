@@ -80,6 +80,22 @@ test('карточка: лента на 4 фото листается, коль�
     assert.strictEqual(r.lose, 0, 'подписей нет'); assert.ok(r.ring, 'кольцо есть'); assert.ok(!r.bar, 'полосы со временем нет');
 });
 
+test('телефон: окна «Новый А/Б тест» и отчёт начинаются ниже строки состояния и целиком на экране', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const open of ["showNewTestForm()", "document.getElementById('ab-report-modal').classList.add('is-open')"]) {
+        await page.evaluate(open);
+        await page.waitForTimeout(300);
+        const r = await page.evaluate(() => {
+            const d = [...document.querySelectorAll('.rnp-settings-overlay.is-open > .nr-win')][0];
+            if (!d) return null; const b = d.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), h: innerHeight };
+        });
+        assert.ok(r, 'окно открылось');
+        assert.ok(r.top >= 24, 'верх окна ниже зоны размытия: ' + r.top);
+        assert.ok(r.bottom <= r.h - 12 + 1, 'низ окна на экране: ' + r.bottom + ' из ' + r.h);
+        await page.evaluate(() => document.querySelectorAll('.rnp-settings-overlay.is-open').forEach((e) => e.classList.remove('is-open')));
+    }
+});
+
 test('«Удалить» убирает карточку сразу, не дожидаясь ответа сервера', async ({ page }) => {
     const t0 = Date.now();
     // Не ждём завершения всей цепочки запросов — только запускаем её, как реальный клик по кнопке.
