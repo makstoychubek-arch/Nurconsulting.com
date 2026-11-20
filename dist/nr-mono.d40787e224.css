@@ -2698,8 +2698,6 @@ html body .ru-gi.on b { text-decoration: underline; }
    лежит над прокручиваемой таблицей, размытие под ней на iPhone считалось на каждом кадре, поэтому у неё плотная заливка без размытия. */
 html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .rnp-general-topbar, .rnp-general-topbar *) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 @media (max-width: 768px) {
-  html[data-theme="neon"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(46,46,44) !important; }
-  html[data-theme="ios"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(255,255,255) !important; }
 }
 
 /* Список площадки на телефоне: на странице «Продвижение» у кнопки были правила с более высокой специфичностью (html#nr-root.nr-f-adv), и открытый список оставался в потоке и вылезал за правый край экрана. Правило для открытого списка усилено для всех страниц. */
@@ -3173,3 +3171,36 @@ html body .ab-report-card .ab-report-img-wrap { align-self: center; width: min(1
 .abtest-camps.edit { flex-wrap: wrap; overflow: visible; }
 .abtest-camps.edit button { border: 0; background: transparent; color: var(--text-muted); font-size: 14px; line-height: 1; padding: 0 0 0 2px; cursor: pointer; }
 .abtest-camps.edit button:hover { color: var(--red); }
+
+
+/* ===== Живое стекло (Liquid Glass) на плавающих элементах (от владельца, 20 ноября 2026: «делай и на ПК тоже») =====
+   Стекло у того, что реально плавает над содержимым: нижнее меню и круглые кнопки шапки (телефон), уведомления, список кабинетов, окна. Страницы и таблицы остаются плотными.
+   Материал: полупрозрачная заливка, размытие с насыщением, световая кромка и блик. В Chrome и Edge по краям ещё преломление фона (SVG-карта смещения строит nr-ui.js);
+   в Safari и на iPhone браузер преломление не умеет, остаётся стекло без искажения. Отключить: html[data-lg="off"] или localStorage nr_lg = 0. */
+html body { --lg-fill: rgba(255,255,255,.5); --lg-win: rgba(255,255,255,.8); --lg-hi: rgba(255,255,255,.95); --lg-lo: rgba(0,0,0,.10); --lg-glow: rgba(255,255,255,.5); --lg-edge: rgba(0,0,0,.10); --lg-sh: rgba(0,0,0,.14); --lg-sheen: rgba(255,255,255,.55); --lg-blur: 10px; --lg-bf: blur(14px) saturate(1.8); }
+html[data-theme="neon"] body { --lg-fill: rgba(255,255,255,.07); --lg-win: rgba(34,34,32,.74); --lg-hi: rgba(255,255,255,.38); --lg-lo: rgba(0,0,0,.4); --lg-glow: rgba(255,255,255,.07); --lg-edge: rgba(255,255,255,.16); --lg-sh: rgba(0,0,0,.5); --lg-sheen: rgba(255,255,255,.14); }
+html:not([data-lg="off"]) body :is(.nru-toast, .cabinet-dropdown-menu) {
+  background-color: var(--lg-fill) !important; background-image: linear-gradient(135deg, var(--lg-sheen), rgba(255,255,255,0) 46%) !important;
+  -webkit-backdrop-filter: var(--lg-bf) !important; backdrop-filter: var(--lg-bf) !important; border-color: var(--lg-edge) !important;
+  box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), inset 0 0 16px var(--lg-glow), 0 8px 22px var(--lg-sh) !important;
+}
+html:not([data-lg="off"]) body .nru-toast { --lg-fill: var(--lg-win); }
+html:not([data-lg="off"]) body :is(.nr-win:not(.nr-win-photo):not(.nw-modal), .nru-win) {
+  --lg-blur: 24px; --lg-bf: blur(26px) saturate(1.6);
+  background-color: var(--lg-win) !important; background-image: linear-gradient(135deg, var(--lg-sheen), rgba(255,255,255,0) 38%) !important;
+  -webkit-backdrop-filter: var(--lg-bf) !important; backdrop-filter: var(--lg-bf) !important; border-color: var(--lg-edge) !important;
+  box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), 0 24px 70px var(--lg-sh) !important;
+}
+html:not([data-lg="off"]) body .nru-win .nru-ft { background: transparent !important; border-top: 1px solid var(--lg-edge); }
+@media (max-width: 768px) {
+  html:not([data-lg="off"]) body :is(.bottom-nav, .nr-mp, #header-date-chip-wrap) {
+    background-color: var(--lg-fill) !important; background-image: linear-gradient(135deg, var(--lg-sheen), rgba(255,255,255,0) 46%) !important;
+    -webkit-backdrop-filter: var(--lg-bf) !important; backdrop-filter: var(--lg-bf) !important; border-color: var(--lg-edge) !important;
+    box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), inset 0 0 16px var(--lg-glow), 0 8px 22px var(--lg-sh) !important;
+  }
+  html:not([data-lg="off"]) body .bottom-nav-btn.active {
+    background-color: var(--lg-fill) !important; background-image: linear-gradient(160deg, var(--lg-sheen), rgba(255,255,255,0) 60%) !important;
+    box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), 0 3px 10px var(--lg-sh) !important; border-color: var(--lg-edge) !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) { html body { --lg-bf: none; --lg-fill: var(--surface-solid, #fff); --lg-win: var(--surface-solid, #fff); } html[data-theme="neon"] body { --lg-fill: rgb(46,46,44); --lg-win: rgb(34,34,32); } }
