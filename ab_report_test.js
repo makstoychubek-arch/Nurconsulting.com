@@ -16,7 +16,8 @@ assert.ok(!/return fileOrUrl\.url;/.test(upload), 'the live WB slot URL is never
 
 assert.ok(html.includes("filterTests('finished', this)\">Архив</button>"), 'finished tests live in the «Архив» tab');
 assert.ok(html.includes("рк ${reportCampaigns.join(', ')}"), 'report header shows the campaign ids');
-assert.ok(html.includes("verdictText = 'разницы нет'"), 'report says «разницы нет» when there is enough data and no leader');
+// Владелец (20 ноября 2026): вердикта и подписей «победитель», «проигрывает» в отчёте нет, остаются цифры
+assert.ok(!html.includes('verdictText') && !html.includes('явно проигрывает') && !html.includes('ab-report-verdict-box'), 'report has no verdict and no «winner/losing» remarks');
 assert.ok(html.includes('Установить на ВБ') && html.includes('Сейчас на ВБ'), 'winner can be set on WB from the report');
 
 // Окно отчёта: фото целиком и до 6 вариантов без прокрутки в ширину
@@ -36,7 +37,7 @@ assert.ok(/\.ab-report-apply-btn:disabled \{[^}]*cursor: not-allowed/.test(html)
 assert.ok(/async function applyWinningVariant[\s\S]*?if \(test\.status === 'active'\) \{\s*showPremiumModal\('warning', 'Тест ещё идёт'/.test(html), 'applying a variant is also blocked in the handler while the test runs');
 
 // Названия конверсий как в сервисе, с которым сверяемся: CR1 = клик→корзина, CR = клик→заказ
-assert.ok(html.includes('CR1 (клик→корзина)') && html.includes('CR (клик→заказ)') && !html.includes('CR1 (корзина→заказ)'), 'report conversions: CR1 = click→cart, CR = click→order');
+assert.ok(html.includes('title="Из кликов в корзину">CR1<') && html.includes('title="Из кликов в заказ">CR<') && !html.includes('CR1 (корзина→заказ)'), 'report conversions: CR1 = click→cart, CR = click→order');
 assert.ok(html.includes('const cr1 = clicks > 0 ? (atbs / clicks * 100)') && html.includes('const cr = clicks > 0 ? (orders / clicks * 100)'), 'conversion formulas');
 assert.ok(html.includes('Показы и клики РК: замер'), 'report shows when the ad numbers were last refreshed');
 

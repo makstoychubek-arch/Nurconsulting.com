@@ -211,6 +211,7 @@
             if (n > 4) { if (st.getAttribute('data-more') !== '+' + (n - 4)) st.setAttribute('data-more', '+' + (n - 4)); } else { st.removeAttribute('data-more'); st.removeAttribute('data-end'); }
         });
         tickRings();
+        if (root.NrAbImg) root.NrAbImg.warmDom();
     }
     function stripScroll(e) {
         var r = e.target;
@@ -231,6 +232,78 @@
     else watchList();
     root.setInterval(function () { if (!watchList()) return; decorate(); }, 1000);
 
+
+    /* ───── Фото А/Б тестов: лёгкие копии в памяти и IndexedDB, как в РНП ─────
+     * Оригиналы в хранилище большие, плитка 88 px тянет мегабайты. Скачиваем один раз, сжимаем до 360 px, кладём в IndexedDB
+     * и держим готовые blob-ссылки в памяти: при следующем заходе фото на месте с первого кадра. Прогрев идёт в фоне
+     * сразу после загрузки страницы по сохранённому списку тестов. Нет копии: показываем оригинал и подменяем на лету. */
+    var Img = (function () {
+        var map = {}, busy = {}, queue = [], active = 0, db = null;
+        function openDb() {
+            return new Promise(function (res) {
+                try { var r = root.indexedDB.open('nr-ab-img', 1); r.onupgradeneeded = function () { r.result.createObjectStore('t'); }; r.onsuccess = function () { res(r.result); }; r.onerror = function () { res(null); }; } catch (e) { res(null); }
+            });
+        }
+        var ready = openDb().then(function (d) {
+            db = d; if (!d) return;
+            return new Promise(function (res) {
+                try { var c = d.transaction('t').objectStore('t').openCursor(); c.onsuccess = function () { var cur = c.result; if (cur) { try { map[cur.key] = root.URL.createObjectURL(cur.value); } catch (e) { /* пропускаем */ } cur.continue(); } else res(); }; c.onerror = function () { res(); }; } catch (e) { res(); }
+            }).then(function () { swap(); });
+        });
+        function swap(url) {
+            doc.querySelectorAll('.abtest-variant img[src^="http"], .ab-report-img-wrap img[src^="http"]').forEach(function (im) {
+                var u = im.getAttribute('src');
+                if ((!url || u === url) && map[u]) im.setAttribute('src', map[u]);
+            });
+        }
+        function thumb(url) {
+            return root.fetch(url, { cache: 'force-cache' }).then(function (r) { if (!r.ok) throw new Error('http'); return r.blob(); })
+                .then(function (b) { return root.createImageBitmap(b); })
+                .then(function (bm) {
+                    var w = Math.min(360, bm.width), h = Math.max(1, Math.round(bm.height * w / bm.width)), c = doc.createElement('canvas');
+                    c.width = w; c.height = h; c.getContext('2d').drawImage(bm, 0, 0, w, h); if (bm.close) bm.close();
+                    return new Promise(function (res, rej) { c.toBlob(function (x) { x ? res(x) : rej(new Error('blob')); }, 'image/webp', 0.82); });
+                });
+        }
+        function pump() {
+            while (active < 3 && queue.length) {
+                (function (url) {
+                    active++;
+                    thumb(url).then(function (blob) {
+                        map[url] = root.URL.createObjectURL(blob);
+                        if (db) { try { db.transaction('t', 'readwrite').objectStore('t').put(blob, url); } catch (e) { /* без сохранения */ } }
+                        swap(url);
+                    }).catch(function () { /* остаётся оригинал */ }).then(function () { active--; pump(); });
+                })(queue.shift());
+            }
+        }
+        function warm(urls) {
+            ready.then(function () {
+                (urls || []).forEach(function (u) { if (typeof u === 'string' && /^https?:/.test(u) && !map[u] && !busy[u]) { busy[u] = 1; queue.push(u); } });
+                pump();
+            });
+        }
+        function u(url) { return (url && map[url]) || url; }
+        function warmDom() {
+            var urls = []; doc.querySelectorAll('.abtest-variant img[src^="http"], .ab-report-img-wrap img[src^="http"]').forEach(function (im) { urls.push(im.getAttribute('src')); });
+            if (urls.length) warm(urls);
+        }
+        function warmSaved() {
+            var urls = [];
+            try {
+                for (var i = 0; i < root.localStorage.length; i++) {
+                    var k = root.localStorage.key(i); if (!/^nr_ab_[0-9a-f-]{20,}$/i.test(k)) continue;
+                    var arr = JSON.parse(root.localStorage.getItem(k) || 'null'); if (!Array.isArray(arr)) continue;
+                    arr.forEach(function (t) { (t.variants || []).forEach(function (v) { if (v.photo_url) urls.push(v.photo_url); }); });
+                }
+            } catch (e) { /* нет сохранённого списка */ }
+            if (urls.length) warm(urls.slice(0, 160));
+        }
+        (root.requestIdleCallback || function (f) { return root.setTimeout(f, 1500); })(warmSaved);
+        return { u: u, warm: warm, warmDom: warmDom, swap: swap };
+    })();
+
+    root.NrAbImg = Img;
     root.NrAbRot = { extra: extra, setup: setup, btn: btn, restart: restart, ring: ring };
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
 })(typeof window !== 'undefined' ? window : globalThis);

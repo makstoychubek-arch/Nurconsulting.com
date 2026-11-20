@@ -80,6 +80,36 @@ test('карточка: лента на 4 фото листается, коль�
     assert.strictEqual(r.lose, 0, 'подписей нет'); assert.ok(r.ring, 'кольцо есть'); assert.ok(!r.bar, 'полосы со временем нет');
 });
 
+test('отчёт: без вердикта «явный победитель», все варианты на одном экране без прокрутки (ПК и телефон)', async ({ page }) => {
+    for (const [w, h] of [[1280, 860], [390, 844]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.evaluate(() => { document.querySelectorAll('.rnp-settings-overlay.is-open').forEach((e) => e.classList.remove('is-open')); openABReportModal('ab1'); });
+        await page.waitForTimeout(700);
+        const r = await page.evaluate(() => {
+            const grid = document.getElementById('ab-report-variants'); const cards = [...grid.querySelectorAll('.ab-report-card')];
+            const sc = [...document.querySelectorAll('#ab-report-modal .nr-win-scroll, #ab-report-modal .nr-win')].find((e) => e.scrollHeight > e.clientHeight + 2 && getComputedStyle(e).overflowY !== 'visible');
+            return { n: cards.length, verdict: document.getElementById('ab-report-verdict').textContent.trim(), prob: document.querySelectorAll('.ab-report-prob').length, scroll: sc ? sc.scrollHeight - sc.clientHeight : 0, last: cards.length ? Math.round(cards[cards.length - 1].getBoundingClientRect().bottom) : 0, vh: innerHeight };
+        });
+        assert.ok(r.n >= 2, 'варианты есть');
+        assert.strictEqual(r.verdict, '', 'вердикта нет'); assert.strictEqual(r.prob, 0, 'подписей «проигрывает» нет');
+        assert.strictEqual(r.scroll, 0, w + ': прокрутки внутри окна нет'); assert.ok(r.last <= r.vh, w + ': последний вариант виден целиком');
+    }
+});
+
+test('фото тестов: лёгкая копия сохраняется и подставляется вместо оригинала', async ({ page }) => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    await page.route('https://img.test/**', (r) => r.fulfill({ status: 200, contentType: 'image/png', body: png, headers: { 'access-control-allow-origin': '*' } }));
+    const r = await page.evaluate(async () => {
+        const url = 'https://img.test/a.png';
+        const before = NrAbImg.u(url);
+        NrAbImg.warm([url]);
+        for (let i = 0; i < 40 && NrAbImg.u(url) === url; i++) await new Promise((x) => setTimeout(x, 100));
+        return { before, after: NrAbImg.u(url) };
+    });
+    assert.strictEqual(r.before, 'https://img.test/a.png');
+    assert.ok(/^blob:/.test(r.after), 'после прогрева ссылка на лёгкую копию: ' + r.after);
+});
+
 test('«Удалить» убирает карточку сразу, не дожидаясь ответа сервера', async ({ page }) => {
     const t0 = Date.now();
     // Не ждём завершения всей цепочки запросов — только запускаем её, как реальный клик по кнопке.
