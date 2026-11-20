@@ -6103,7 +6103,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.9fd5e972f1.css">
+<link rel="stylesheet" href="/dist/nr-mono.6818f0de65.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -7509,6 +7509,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <button type="button" class="rnp-settings-close" onclick="closeABReportModal()" aria-label="Закрыть">×</button>
                 <h3 class="font-semibold text-base" style="color:var(--text-primary);margin:0 28px 4px 0" id="ab-report-title">Отчёт по А/Б тесту</h3>
                 <div class="text-xs mb-2" style="color:var(--text-muted)" id="ab-report-sub"></div>
+                <div id="ab-report-camps" class="abtest-camps all"></div>
                 <div class="flex items-center gap-2 mb-2" id="ab-report-source-toggle"></div>
                 <div id="ab-report-verdict" class="mb-3"></div>
                 <div id="ab-report-variants" class="ab-report-grid"></div>
@@ -8226,7 +8227,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
 <script src="/dist/rnp-prices.456e0da447.min.js"></script>
-<script src="/dist/nr-ab-rotation.b7dbeb5e5e.min.js"></script>
+<script src="/dist/nr-ab-rotation.cd6580524e.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
 <script src="/dist/nr-nav.8a124c17df.min.js"></script>
@@ -15172,9 +15173,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         }
                     }
                 });
-                if (abArticleCampaignIds.size && abSelectedCampaigns.size === 0) {
-                    abArticleCampaignIds.forEach(id => abSelectedCampaigns.add(id));
-                }
             } catch (e) { console.warn('[AB] active campaign detect failed:', e); }
         }
         renderABCampaignList();
@@ -15696,14 +15694,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const maxProbForCard = Math.max(...Array.from(probsForCard.values()), 0);
         const leaderLabelForCard = Array.from(probsForCard.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
         const intervalMin = test.rotation_interval_min || 30;
-        const campaignBits = [];
-        const campIds = test.settings?.campaigns || [];
-        const campNames = test.settings?.campaignNames || {};
-        campIds.slice(0, 2).forEach(id => {
-            const name = campNames[String(id)] || campNames[id];
-            campaignBits.push(name ? `${name} · ${id}` : `рк ${id}`);
-        });
-        if (campIds.length > 2) campaignBits.push(`+${campIds.length - 2}`);
         const ran = test.started_at
             ? `Работал: ${new Date(test.started_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
             + (test.finished_at ? ` — ${new Date(test.finished_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : '')
@@ -15763,7 +15753,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="abtest-strip"><div class="abtest-variants">${variantsHtml}</div></div>
                 <div class="abtest-card-info">
                     <div class="abtest-card-title">${escapeHtml(test.product_name)}</div>
-                    <div class="abtest-card-meta">Арт. ${escapeHtml(String(test.nm_id))}${campaignBits.length ? ' · ' + escapeHtml(campaignBits.join(' · ')) : ''} · ${test.settings?.rotateByImpressions ? minImpCap + ' показов' : intervalMin + ' мин'} · ${variants.length} вар.</div>
+                    <div class="abtest-card-meta">Арт. ${escapeHtml(String(test.nm_id))} · ${test.settings?.rotateByImpressions ? minImpCap + ' показов' : intervalMin + ' мин'} · ${variants.length} вар.</div>${window.NrAbRot?.camps?.(test) || ''}
                     ${ran ? `<div class="abtest-card-meta">${escapeHtml(ran)}</div>` : ''}
                     <div class="abtest-card-actions" onclick="event.stopPropagation()">
                     ${hasAdsData ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent)" onclick="openABReportModal('${tid}')">Отчёт</button>` : ''}
@@ -16126,19 +16116,19 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const baselineCtr = baselineM.impressions > 0 ? (baselineM.clicks / baselineM.impressions * 100) : 0;
 
         document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
-        const reportCampaigns = (test.settings?.campaigns || []).map(String).filter(Boolean);
         const fmtReportDate = (d) => d ? new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
         const statsUpdatedAt = (statsRows || []).filter(r => r.source === 'ads').map(r => r.updated_at).filter(Boolean).sort().pop() || null;
         const reportSubEl = document.getElementById('ab-report-sub');
         reportSubEl.style.whiteSpace = 'pre-line';
         reportSubEl.textContent =
-            `${test.nm_id}${reportCampaigns.length ? ` · рк ${reportCampaigns.join(', ')}` : ''}\n` +
+            `${test.nm_id}\n` +
             `Тест запущен: ${fmtReportDate(test.started_at)}` +
             (test.finished_at ? `\nТест завершён: ${fmtReportDate(test.finished_at)}` : '') +
             (source === 'funnel' ? '\nВоронка: WB отдаёт историю максимум за последние 7 дней' : '') +
             (source === 'ads' && statsUpdatedAt ? `\nПоказы и клики РК: замер ${new Date(statsUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}, обновляются каждые 10 минут` : '');
 
         document.getElementById('ab-report-verdict').innerHTML = '';
+        document.getElementById('ab-report-camps').innerHTML = window.NrAbRot?.camps?.(test, true) || '';
         const sourceLabel = source === 'funnel' ? 'Воронка (карточка)' : 'Реклама';
         const liveIdx = variants.findIndex(x => x.is_currently_on_wb);
         const nextVariant = liveIdx >= 0 ? variants[(liveIdx + 1) % variants.length] : null;

@@ -230,7 +230,7 @@
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', function () { watchList(); });
     else watchList();
-    root.setInterval(function () { if (!watchList()) return; decorate(); }, 1000);
+    root.setInterval(function () { wrapEdit(); if (!watchList()) return; decorate(); }, 1000);
 
 
     /* ───── Фото А/Б тестов: лёгкие копии в памяти и IndexedDB, как в РНП ─────
@@ -303,7 +303,42 @@
         return { u: u, warm: warm, warmDom: warmDom, swap: swap };
     })();
 
+    /* ───── РК теста: аккуратный ряд, убрать лишнюю можно в «Редактировать» ───── */
+    function camps(t, all) {
+        var st = (t && t.settings) || {}, ids = (st.campaigns || []).map(Number).filter(Boolean), names = st.campaignNames || {};
+        if (!ids.length) return '';
+        var show = all ? ids : ids.slice(0, 3);
+        return '<div class="abtest-camps' + (all ? ' all' : '') + '">' + show.map(function (id) { return '<span title="' + esc((names[String(id)] || 'РК') + ' · ' + id) + '">РК ' + id + '</span>'; }).join('')
+            + (!all && ids.length > show.length ? '<span class="more" title="' + esc(ids.slice(3).join(', ')) + '">+' + (ids.length - show.length) + '</span>' : '') + '</div>';
+    }
+    function editCamps(t) {
+        var host = $('ab-edit-camps'), dlg = $('ab-edit-title');
+        if (!dlg) return;
+        if (!host) { host = doc.createElement('div'); host.id = 'ab-edit-camps'; dlg.parentNode.insertBefore(host, dlg.nextSibling); }
+        var st = (t && t.settings) || {}, ids = (st.campaigns || []).map(Number).filter(Boolean), names = st.campaignNames || {};
+        host.innerHTML = ids.length ? '<div class="cap" style="font-size:11px;color:var(--text-muted);margin:0 0 6px">РК теста</div><div class="abtest-camps all edit">'
+            + ids.map(function (id) { return '<span title="' + esc((names[String(id)] || 'РК') + ' · ' + id) + '">РК ' + id + '<button type="button" data-rm="' + id + '" aria-label="Убрать РК ' + id + ' из теста" title="Убрать из теста">×</button></span>'; }).join('') + '</div>' : '';
+        host.style.marginBottom = ids.length ? '12px' : '0';
+        host.onclick = function (e) {
+            var b = e.target && e.target.getAttribute && e.target.getAttribute('data-rm'); if (!b) return;
+            var cur = findTest(t.id); if (!cur) return;
+            var s2 = Object.assign({}, cur.settings || {});
+            s2.campaigns = (s2.campaigns || []).filter(function (x) { return String(x) !== b; });
+            var nm = Object.assign({}, s2.campaignNames || {}); delete nm[b]; s2.campaignNames = nm;
+            if (!s2.campaigns.length && s2.rotateByImpressions === true) { toast('error', 'Нельзя убрать последнюю РК', 'Тест меняет фото по показам, ему нужна кампания.'); return; }
+            cur.settings = s2; root.saveABSettings(cur.id, s2); try { root.renderABTests(); } catch (x) { /* список обновится сам */ }
+            editCamps(cur); toast('success', 'РК убрана из теста', 'Статистика этой РК больше не считается в тесте.');
+        };
+    }
+    function wrapEdit() {
+        var orig = root.editABTest;
+        if (typeof orig !== 'function' || orig.__nrCamps) return;
+        root.editABTest = function (id) { var r = orig.apply(this, arguments); try { editCamps(findTest(id)); } catch (e) { /* без блока РК */ } return r; };
+        root.editABTest.__nrCamps = true;
+    }
+    wrapEdit();
+
     root.NrAbImg = Img;
-    root.NrAbRot = { extra: extra, setup: setup, btn: btn, restart: restart, ring: ring };
+    root.NrAbRot = { extra: extra, setup: setup, btn: btn, restart: restart, ring: ring, camps: camps };
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
 })(typeof window !== 'undefined' ? window : globalThis);
