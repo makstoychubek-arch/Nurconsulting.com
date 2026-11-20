@@ -42,10 +42,9 @@ assert.ok(model.verdictText.includes('уверенно лучше'));
 const svg = renderAbReportCardSvg(model);
 assert.ok(svg.includes('Свитер oversize'));
 assert.ok(svg.includes('4.50%'));
-assert.ok(svg.includes('уверенно лучше'));
+assert.ok(!svg.includes('уверенно лучше') && !svg.includes('явно проигрывает'), 'в картинке нет вердикта и «проигрывает»');
 assert.ok(svg.includes('Сейчас на ВБ'));
-assert.ok(svg.includes('явно проигрывает'));
-assert.ok(svg.includes(`слот ${WB_MAIN_PHOTO_SLOT}`));
+assert.ok(!svg.includes('слот'), 'пояснения про слот в подвале нет');
 
 const caption = formatAbReportCaption(model);
 assert.ok(caption.includes('арт. 555'));
