@@ -167,6 +167,70 @@
         toast('success', 'Тест перезапущен', 'Фото встают на WB в фоне. РК запускаете в кабинете WB сами.');
         try { root.runABCreate(snap); } catch (e) { toast('error', 'Не удалось перезапустить', String(e && e.message || e)); }
     }
-    root.NrAbRot = { extra: extra, setup: setup, btn: btn, restart: restart };
+
+    /* ───── Карточка теста: кольцо до смены фото, подсказки кнопок-иконок, метка «+N» у ленты ───── */
+    function ringVals(t) {
+        var st = t.settings || {};
+        if (st.rotateByImpressions === true) {
+            var quota = Number(st.minImpressions) || 2000;
+            var cur = (t.variants || []).filter(function (v) { return v.is_currently_on_wb; })[0];
+            var have = Math.max(0, Math.round(Number(cur && cur.impressions) || 0));
+            var pct = Math.min(100, have / quota * 100);
+            return { p: pct, text: String(Math.round(pct)), imp: true, title: 'Показов у этого фото: ' + have + ' из ' + quota };
+        }
+        var ms = (t.rotation_interval_min || 60) * 60000;
+        var since = new Date(t.last_rotated_at || t.started_at || Date.now()).getTime();
+        var left = Math.max(0, ms - (Date.now() - since));
+        var min = Math.ceil(left / 60000);
+        return { p: Math.min(100, (ms - left) / ms * 100), text: String(min), imp: false, title: min > 0 ? 'До смены фото: ' + min + ' мин' : 'Фото сменится сейчас' };
+    }
+    function ring(t) {
+        if (!t || t.status !== 'active' || String(t.id).indexOf('tmp-') === 0) return '';
+        var v = ringVals(t);
+        return '<span class="ab-ring' + (v.imp ? ' is-imp' : '') + '" data-ab-ring="' + esc(t.id) + '" style="--p:' + v.p.toFixed(1) + '" title="' + esc(v.title) + '" role="img" aria-label="' + esc(v.title) + '"><b>' + v.text + '</b></span>';
+    }
+    function tickRings() {
+        var list; try { list = allABTests || []; } catch (e) { return; }
+        doc.querySelectorAll('.ab-ring[data-ab-ring]').forEach(function (el) {
+            var t = list.filter(function (x) { return String(x.id) === el.getAttribute('data-ab-ring'); })[0];
+            if (!t) return;
+            var v = ringVals(t), b = el.firstElementChild;
+            el.style.setProperty('--p', v.p.toFixed(1));
+            if (b && b.textContent !== v.text) b.textContent = v.text;
+            if (el.title !== v.title) { el.title = v.title; el.setAttribute('aria-label', v.title); }
+        });
+    }
+    var TITLES = { openABReportModal: 'Отчёт', editABTest: 'Редактировать', finishABTest: 'Завершить', deleteABTest: 'Удалить' };
+    function decorate() {
+        doc.querySelectorAll('.abtest-card-actions button[onclick]').forEach(function (b) {
+            var m = /^(\w+)/.exec(b.getAttribute('onclick') || ''), t = m && TITLES[m[1]];
+            if (t && b.getAttribute('aria-label') !== t) { b.setAttribute('aria-label', t); b.title = t; }
+        });
+        doc.querySelectorAll('.abtest-strip').forEach(function (st) {
+            var n = st.querySelectorAll('.abtest-variant').length;
+            if (n > 4) { if (st.getAttribute('data-more') !== '+' + (n - 4)) st.setAttribute('data-more', '+' + (n - 4)); } else { st.removeAttribute('data-more'); st.removeAttribute('data-end'); }
+        });
+        tickRings();
+    }
+    function stripScroll(e) {
+        var r = e.target;
+        if (!r || !r.classList || !r.classList.contains('abtest-variants') || !r.parentNode) return;
+        var end = r.scrollLeft + r.clientWidth >= r.scrollWidth - 4;
+        if (end) r.parentNode.setAttribute('data-end', ''); else r.parentNode.removeAttribute('data-end');
+    }
+    function watchList() {
+        var host = $('abtests-list');
+        if (!host || host.__nrAbDeco) return !!host;
+        host.__nrAbDeco = true;
+        new root.MutationObserver(function () { decorate(); }).observe(host, { childList: true, subtree: true });
+        host.addEventListener('scroll', stripScroll, true);
+        decorate();
+        return true;
+    }
+    if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', function () { watchList(); });
+    else watchList();
+    root.setInterval(function () { if (!watchList()) return; decorate(); }, 1000);
+
+    root.NrAbRot = { extra: extra, setup: setup, btn: btn, restart: restart, ring: ring };
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
 })(typeof window !== 'undefined' ? window : globalThis);

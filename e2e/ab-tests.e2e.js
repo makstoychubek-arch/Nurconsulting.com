@@ -68,6 +68,18 @@ test('сразу после создания теста каркас фото н
     assert.deepStrictEqual(r, { tiles: 3, rings: 3, imgs: 2, gone: true }, JSON.stringify(r));
 });
 
+test('карточка: лента на 4 фото листается, кольцо с минутами, без подписей «проигрывает» и «лидирует»', async ({ page }) => {
+    const r = await page.evaluate(() => {
+        const c = document.getElementById('abtest-card-ab1');
+        const strip = c.querySelector('.abtest-strip'), rail = c.querySelector('.abtest-variants');
+        return { w: Math.round(strip.getBoundingClientRect().width), wrap: getComputedStyle(rail).flexWrap, ox: getComputedStyle(rail).overflowX,
+            lose: document.querySelectorAll('.abtest-lose-lbl, .abtest-conf').length, ring: !!c.querySelector('.ab-ring'), bar: !!c.querySelector('[id^="progress-"]') };
+    });
+    assert.strictEqual(r.w, 382, 'лента ровно на 4 плитки');
+    assert.strictEqual(r.wrap, 'nowrap'); assert.strictEqual(r.ox, 'auto');
+    assert.strictEqual(r.lose, 0, 'подписей нет'); assert.ok(r.ring, 'кольцо есть'); assert.ok(!r.bar, 'полосы со временем нет');
+});
+
 test('«Удалить» убирает карточку сразу, не дожидаясь ответа сервера', async ({ page }) => {
     const t0 = Date.now();
     // Не ждём завершения всей цепочки запросов — только запускаем её, как реальный клик по кнопке.
