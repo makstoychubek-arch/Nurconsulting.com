@@ -3145,6 +3145,7 @@ html body .ab-report-card .ab-report-img-wrap { align-self: center; width: min(1
   html body .ab-report-card .ab-report-metrics-table tr:is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(9)) { display: flex; }
   html body .ab-report-card .ab-report-metrics-table td { padding: 0; font-size: 11px; }
   html body .ab-report-card .ab-report-meta { display: none; }
+}
 
 /* ===== iPhone: окна не заходят под строку состояния (от владельца, 20 ноября 2026) =====
    Apple размывает всё под строкой состояния. Окно начинаем ниже: env(safe-area-inset-top) + 24px,
@@ -3204,3 +3205,8 @@ html:not([data-lg="off"]) body .nru-win .nru-ft { background: transparent !impor
   }
 }
 @media (prefers-reduced-transparency: reduce) { html body { --lg-bf: none; --lg-fill: var(--surface-solid, #fff); --lg-win: var(--surface-solid, #fff); } html[data-theme="neon"] body { --lg-fill: rgb(46,46,44); --lg-win: rgb(34,34,32); } }
+
+/* Открыт календарь или список кабинетов: белая полоса шапки (header::before) затемняется на столько же, на сколько страница.
+   Шапка в этот момент выше затемнения, и без этого она оставалась яркой при потемневшем названии «Модуль РНП» (владелец, 21 ноября 2026). */
+html#nr-root:is(.nr-f-dp, .nr-f-cab) body header.glass.app-header:not(#nr-x)::before { background: linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.28)), var(--nr-frame) !important; }
+html#nr-root[data-theme="neon"]:is(.nr-f-dp, .nr-f-cab) body header.glass.app-header:not(#nr-x)::before { background: linear-gradient(rgba(0,0,0,.5), rgba(0,0,0,.5)), var(--nr-frame) !important; }
