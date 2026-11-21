@@ -242,6 +242,11 @@ type ApiColor = { red?: number; green?: number; blue?: number } | undefined;
 type ApiCell = { effectiveFormat?: { textFormat?: { fontFamily?: string; fontSize?: number; bold?: boolean }; backgroundColor?: ApiColor } };
 type ApiGrid = { rowData?: Array<{ values?: ApiCell[] }>; rowMetadata?: Array<{ pixelSize?: number }>; columnMetadata?: Array<{ pixelSize?: number }>; startRow?: number; startColumn?: number };
 
+function medianPx(meta: Array<{ pixelSize?: number }> | undefined): number | null {
+  const v = (meta || []).map((m) => m?.pixelSize).filter((n): n is number => typeof n === 'number' && n > 0).sort((a, b) => a - b);
+  return v.length ? Math.round(v[Math.floor(v.length / 2)]) : null;
+}
+
 function hex(c: ApiColor): string | null {
   if (!c) return null;
   const h = (v?: number) => Math.round(Math.min(1, Math.max(0, v ?? 0)) * 255).toString(16).padStart(2, '0');
@@ -276,7 +281,7 @@ export function parseSheetFormat(api: { sheets?: Array<{ data?: ApiGrid[] }> } |
     headerBg: hex(hf?.backgroundColor),
     rowBg: hex(df?.backgroundColor),
     headerH: px(grid.rowMetadata?.[layout.headerRow - 1]?.pixelSize),
-    rowH: px(grid.rowMetadata?.[layout.headerRow]?.pixelSize),
+    rowH: medianPx(grid.rowMetadata?.slice(layout.headerRow)),
     cols,
   };
   return out.font || out.size || out.rowH || Object.keys(cols).length ? out : null;
