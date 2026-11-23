@@ -1,0 +1,55 @@
+/**
+ * РНП Ozon: внизу таблицы блок «Баланс Ozon» из двух строк, как «Баланс WB» (владелец, 23 ноября 2026): баланс на конец дня и на начало месяца
+ * по ozon_balance_daily, дни без снимка с прочерком. У WB блок остаётся «Баланс WB». Запуск: node e2e/rnp-ozon-balance.e2e.js
+ */
+const assert = require('assert');
+const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
+const day = (n) => new Date(Date.now() + 6 * 3600e3 - n * 86400e3).toISOString().slice(0, 10);
+const NM = 9993927562;
+const tables = {
+    spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }],
+    cabinets: [{ id: CAB, name: 'Z', wb_token_set: true, ozon_client_id: '123', ozon_api_key_set: true, user_id: ADMIN_ID }],
+    ozon_balance_daily: [{ cabinet_id: CAB, d: day(1), closing: 273600.74, opening: 135549.58 }, { cabinet_id: CAB, d: day(2), closing: 168205.61, opening: 135549.58 }, { cabinet_id: CAB, d: day(4), closing: 122939.33, opening: 135549.58 }],
+    rnp_articles: [{ id: 'a0', cabinet_id: CAB, nm_id: 1001, seller_article: 'wb', name: 'wb', category: 'К1', is_active: true, cost_price: 1000, photo_url: null, sort_order: 0 }],
+    rnp_daily_data: Array.from({ length: 8 }, (_, d) => ({ cabinet_id: CAB, nm_id: 1001, date: day(d), orders_count: 3, orders_sum: 9000, sales_count: 3, sales_sum: 15000, ad_spend: 300, impressions: 500, clicks: 20 })),
+    wb_stocks: [],
+};
+const art = { id: 'ozon-a', name: 'костюм_оверсайз_бежевый', nm_id: NM, category: 'К', is_active: true, cost_price: 100, sort_order: 0, manual_data: {}, other_costs_unit: 0, logistics_unit: 0, cabinet_id: CAB };
+const fin = Array.from({ length: 8 }, (_, d) => ({ cabinet_id: CAB, nm_id: NM, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, commission_pct: 20, to_transfer: 7800, delivery_sum: 1500, storage_sum: 10, penalty_sum: 0, deduction_sum: 300, ad_spend: 200, ad_charged: 250, transit_count: 7 }));
+(async () => {
+    const srv = await serve();
+    const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
+    let failed = 0;
+    const run = async (name, fn) => { try { await fn(); console.log('ok   ' + name); } catch (e) { failed++; console.log('FAIL ' + name + '\n     ' + String(e.message || e).split('\n')[0]); } };
+    try {
+        const env = await openApp(browser, 'http://127.0.0.1:' + srv.address().port, { userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: 20, tables, rpcs: { is_super_admin: true, ozon_rnp_articles: [art], ozon_finance_daily: fin, ozon_stock_rows: [], ozon_orders_daily: [] }, functions: { 'wb-proxy': async () => ({}) } });
+        const { page } = env;
+        await page.setViewportSize({ width: 1500, height: 1500 });
+        await page.evaluate(() => { const s = document.getElementById('nr-splash'); if (s) s.remove(); NrMp.set('ozon'); showTab('rnp'); });
+        await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Реализация/.test((r.children[0] || {}).innerText || '')), null, { timeout: 20000 });
+        await page.evaluate(() => RNP.pick('general'));
+        await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Баланс Ozon \(итого\)/.test((r.children[0] || {}).innerText || '')), null, { timeout: 20000 });
+        const read = (re) => page.evaluate((src) => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => new RegExp(src).test(((x.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim())); return r ? [...r.querySelectorAll('td.rnp-day-col')].map((t) => t.textContent.replace(/\s/g, '').trim()) : null; }, re.source);
+        await run('в режиме Ozon внизу блок «Баланс Ozon» из двух строк', async () => {
+            const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
+            const i = labels.findIndex((l) => /БАЛАНС OZON/i.test(l));
+            assert.ok(i > 0, 'нет заголовка блока: ' + labels.slice(-8));
+            assert.strictEqual(labels[i + 1], 'Баланс Ozon (итого)'); assert.strictEqual(labels[i + 2], 'На начало месяца');
+            assert.ok(!labels.some((l) => /Баланс WB|Доступно к выводу/.test(l)), 'строки WB в Ozon не показываются');
+        });
+        await run('баланс по дням из ozon_balance_daily, дни без снимка с прочерком', async () => {
+            const bal = await read(/^Баланс Ozon \(итого\)/); const op = await read(/^На начало месяца/);
+            assert.ok(bal.includes('273601') && bal.includes('168206') && bal.includes('122939'), JSON.stringify(bal));
+            assert.ok(op.filter((x) => x === '135550').length === 3, 'на начало месяца в три дня со снимком: ' + JSON.stringify(op));
+            assert.ok(bal.filter((x) => x === '—').length >= 3, 'дни без снимка с прочерком: ' + JSON.stringify(bal));
+        });
+        await page.evaluate(() => { NrMp.set('wb'); }); await page.waitForTimeout(1500);
+        await run('у WB блок остаётся «Баланс WB», строк Ozon нет', async () => {
+            const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
+            assert.ok(!labels.some((l) => /Баланс Ozon|На начало месяца/.test(l)), 'строки Ozon у WB: ' + labels.slice(-8));
+        });
+        await run('ошибок скриптов нет', async () => assert.deepStrictEqual(env.errors || [], []));
+    } finally { await browser.close(); srv.close(); }
+    if (failed) { console.log('e2e баланса Ozon: провалено ' + failed); process.exit(1); }
+    console.log('e2e баланса Ozon: все проверки прошли');
+})();
