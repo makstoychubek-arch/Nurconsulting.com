@@ -729,7 +729,7 @@ const RNP = (() => {
             });
         }
         else if (table === 'wb_stocks') rows = await _ozCall('ozon_stock_rows', {});
-        else if (table === 'rnp_daily_data') { rows = await _ozCall('ozon_finance_daily', _ozRange(filters)); if (rows.length) _ozHasComp = rows.some((r) => r && r.comp_pts !== undefined); }
+        else if (table === 'rnp_daily_data') { rows = await _ozCall('ozon_finance_daily', _ozRange(filters)); }
         else return [];
         const nm = (filters || []).find((x) => x.column === 'nm_id' && x.op === 'eq');
         if (nm) rows = rows.filter((r) => Number(r.nm_id) === Number(nm.value));
@@ -1493,7 +1493,8 @@ const RNP = (() => {
         }
     }
 
-    // База отдаёт comp_pts и comp_adj (баллы за скидки и корректировки Ozon): только тогда комиссия показывается «после баллов»
+    // Строка «Комиссия после баллов» убрана по просьбе владельца 23 ноября 2026: баллы за скидки на деньги периода не влияют (баланс Ozon сходится без них),
+    // показывается обычная «Комиссия». Флаг остаётся выключенным, код строки сохранён на случай возврата.
     let _ozHasComp = false;
     // Для Ozon нет СПП, раздач, обработки товара, логистики до ПВЗ и баланса WB по строкам
     const _OZ_HIDE = new Set(['acquiring_sum', 'ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);

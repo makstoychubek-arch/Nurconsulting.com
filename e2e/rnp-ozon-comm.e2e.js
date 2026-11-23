@@ -1,5 +1,5 @@
 /**
- * РНП Ozon: «Комиссия после баллов» (владелец, 23 ноября 2026). Баллы за скидки и корректировка вознаграждения сначала гасят комиссию,
+ * РНП Ozon: услуги по статьям и реклама по типам; строка «Комиссия после баллов» убрана (владелец, 23 ноября 2026). Баллы за скидки и корректировка вознаграждения сначала гасят комиссию,
  * остаток баллов отдельной строкой; «Прочие удержания» только списания; «К выводу» не меняется. Без comp_pts в ответе базы всё как раньше.
  * Запуск: node e2e/rnp-ozon-comm.e2e.js
  */
@@ -33,19 +33,14 @@ async function run(rowsData, check) {
 (async () => {
     let failed = 0;
     const t = async (name, fn) => { try { await fn(); console.log('ok   ' + name); } catch (e) { failed++; console.log('FAIL ' + name + '\n     ' + String(e.message || e).split('\n')[0]); } };
-    await t('база отдаёт баллы: комиссия после баллов, до баллов, баллы, корректировка, остаток', () => run(withComp, async ({ sum, labels }) => {
-        for (const l of ['Комиссия после баллов', 'Комиссия до баллов', 'Баллы за скидки', 'Корректировка вознаграждения', 'Остаток баллов']) assert.ok(labels.some((x) => x.startsWith(l)), 'нет строки «' + l + '»: ' + labels.slice(0, 40));
-        assert.ok(!labels.some((x) => /^Комиссия ▾?$|^Комиссия$/.test(x)), 'прежняя строка «Комиссия» скрыта');
-        assert.strictEqual(await sum(/^Комиссия после баллов/), 3 * 300 + 2 * 0);
-        assert.strictEqual(await sum(/^Комиссия до баллов/), 5 * 2200);
-        assert.strictEqual(Math.round(await sum(/^Баллы за скидки/)), -(3 * 1500 + 2 * 1760));
-        assert.strictEqual(Math.round(await sum(/^Корректировка вознаграждения/)), -(3 * 400 + 2 * 440));
-        assert.strictEqual(Math.round(await sum(/^Остаток баллов/)), 2 * 2800);
+    await t('база отдаёт баллы: строки «Комиссия после баллов» нет, показывается обычная «Комиссия»', () => run(withComp, async ({ sum, labels }) => {
+        assert.ok(!labels.some((x) => /^Комиссия после баллов|^Комиссия до баллов|^Баллы за скидки|^Остаток баллов/.test(x)), 'строк про баллы нет: ' + labels.slice(0, 50));
+        assert.ok(labels.some((x) => /^Комиссия( |$)/.test(x)), 'есть обычная «Комиссия»');
     }));
     await t('«Прочие удержания» только списания, «К выводу» считается без баллов', () => run(withComp, async ({ sum, labels }) => {
         const pu = Math.round(await sum(/^Прочие удержания/)); assert.strictEqual(pu, 5 * 300, 'Прочие ' + pu);
         for (const l of ['Кросс-докинг', 'Поставка: доп. услуги', 'Premium: комиссия за период', 'Прочее: реклама на сайте']) assert.ok(labels.some((x) => x.startsWith(l)), 'нет подстроки «' + l + '»: ' + labels.slice(0, 50));
-        assert.ok(labels.some((x) => /^Остаток отчёта Ozon/.test(x)), 'остаток переименован');
+        assert.ok(labels.some((x) => /^Прочее и возмещения/.test(x)), 'остаток называется «Прочее и возмещения»');
         const kv = Math.round(await sum(/^К выводу$/)); assert.strictEqual(kv, 5 * 5740, 'К выводу ' + kv);
     }));
     await t('база без comp_pts: всё как раньше (комиссия, «Прочее и возмещения»)', () => run(noComp, async ({ labels }) => {
