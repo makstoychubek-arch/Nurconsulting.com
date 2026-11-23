@@ -3726,6 +3726,7 @@ const RNP = (() => {
         })().finally(() => {
             _ghLoading = null;
             if (_activeNm === GENERAL_TAB) _renderActiveTable();
+            try { document.dispatchEvent(new Event('nr-rnp-summary-ready')); } catch (e) { /* сводка обновится при следующем открытии */ }
         });
     }
 
@@ -3944,8 +3945,9 @@ const RNP = (() => {
         return { per, st, sum, daily, next, open, payouts, health: _ghHealthModel(_ghHealth, per.days) };
     }
 
-    function _buildGeneralTopBar(active, cal) {
-        _ensureGeneralFresh(cal);
+    /** Карточки сводки (прибыль, куда уходит выручка, логистика, выкупы, остатки, топ-5, слабые товары).
+     *  Живут в Аналитике → «Сводка РНП» (владелец, 23 ноября 2026: убрать с РНП и перенести в Аналитику). grp — группа артикулов или null. */
+    function _buildSummaryCards(active, cal, grp) {
         const M = _ghModel(active, cal);
         const { st, sum } = M;
         const profit = sum('profit'), transfer = sum('transfer'), ads = sum('ads'), os = sum('ordersSum');
@@ -3953,7 +3955,7 @@ const RNP = (() => {
         const drr = os > 0 ? ads / os * 100 : 0;
         const nInc = active.length;
         const hero = `<div class="rnp-gh-hero rnp-gh-profit" onclick="RNP.ghOpen('profit')">
-            <div><div class="rnp-gh-lbl">Прибыль ${_ghInfoIcon('profit', true)}<span class="rnp-gh-chip">${_activeGroup ? _activeGroup.replace(/</g, '&lt;') + ' · ' : ''}${nInc} арт.</span></div>
+            <div><div class="rnp-gh-lbl">Прибыль ${_ghInfoIcon('profit', true)}<span class="rnp-gh-chip">${grp ? grp.replace(/</g, '&lt;') + ' · ' : ''}${nInc} арт.</span></div>
             <div class="rnp-gh-big ${profit < 0 ? 'neg' : ''}">${_ghNum(profit)}</div>
             <div class="rnp-gh-sub">заказы ${_ghNum(sum('orders'))} · продажи ${_ghNum(sum('sales'))} · маржа ${_ghPct(margin)} · ДРР ${_ghPct(drr)}</div></div>
             <div class="rnp-gh-spark">${_ghSpark(M.daily, 96, 40, '#34d399')}</div></div>`;
@@ -4041,10 +4043,26 @@ const RNP = (() => {
             <div class="rnp-gh-rings">${revCard}${logCard}${buyCard}${catCard}</div>
             <div class="rnp-gh-col">${topCard}${lossCard}</div>
           </div>`;
+        return grp ? groupBody : generalBody;
+    }
+
+    /** Верх РНП: только лента фото артикулов (карточки сводки перенесены в Аналитику → «Сводка РНП»). */
+    function _buildGeneralTopBar(active, cal) {
+        _ensureGeneralFresh(cal);
         return `<div class="rnp-general-topbar rnp-gh">
-          ${_activeGroup ? groupBody : generalBody}
           <div class="rnp-general-bar-photos rnp-gh-photos">${_buildGeneralTopGallery(active)}</div>
         </div>`;
+    }
+
+    /** Сводка для Аналитики: рисует карточки в host по данным РНП (по всему кабинету, без группы). */
+    function renderSummary(host) {
+        if (!host || !_cab || !_db) return false;
+        const active = _rnpVisibleArticles();
+        if (!active.length) { host.innerHTML = '<div class="an-note">Нет артикулов с данными за период. Откройте РНП и дождитесь загрузки.</div>'; return true; }
+        const cal = _buildCalendar();
+        _ensureGeneralFresh(cal);
+        host.innerHTML = `<div class="rnp-general-topbar rnp-gh rnp-gh--page">${_buildSummaryCards(active, cal, null)}</div>`;
+        return true;
     }
 
     function ghInfo(el, key) { _ghInfo(el, key); }
@@ -10214,6 +10232,7 @@ const RNP = (() => {
             } finally {
                 document.querySelectorAll('#tab-rnp .rnp-first-skel').forEach((n) => n.remove());
                 if (!window._rnpBusyLate) _endFirstBusy();
+                try { document.dispatchEvent(new Event('nr-rnp-summary-ready')); } catch (e) { /* без обновления сводки */ }
                 if (_mainInflightCab === cab) {
                     _mainInflight = null;
                     _mainInflightCab = null;
@@ -11026,7 +11045,7 @@ const RNP = (() => {
         return fn.apply(this, a);
     };
     const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
-    return { init, initCore, ensureReady, setDateRange, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, heatSet, heatRule, heatReset, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, renderSummary, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, heatSet, heatRule, heatReset, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen, groupsView, setGroupOrder };
 })();

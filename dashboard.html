@@ -6103,7 +6103,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.1726725a70.css">
+<link rel="stylesheet" href="/dist/nr-mono.010140fc98.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -8077,7 +8077,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.960ac6cbc8.min.js"></script>
+<script src="/dist/rnp-module.a9ce6f12d4.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -8227,13 +8227,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-motion.fedca8e607.min.js"></script>
 <script src="/dist/nr-ui.512a9107e1.min.js"></script>
 <script src="/dist/nr-goods-ui.142265b01c.min.js"></script>
-<script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
+<script src="/dist/nr-analytics.e8238dd842.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
 <script src="/dist/rnp-prices.456e0da447.min.js"></script>
 <script src="/dist/nr-ab-rotation.cd6580524e.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
-<script src="/dist/nr-nav.253e77fd38.min.js"></script>
+<script src="/dist/nr-nav.f6b315940c.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.ef12b0ecce.min.js"></script>
 <script src="/dist/nr-foot.83a6f84578.min.js"></script>
@@ -9656,6 +9656,22 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             if (getCurrentActiveTab() === name) pf ? rnp.openPlanFact() : rnp.openPlanning();
         });
     }
+
+    // Аналитика → «Сводка РНП»: данные берутся у модуля РНП. Готовим его (как для План/факт), при необходимости грузим РНП в фоне и отдаём сводку.
+    async function bootRnpSummary() {
+        for (let i = 0; i < 40; i++) {
+            const rnp = getRnp();
+            if (rnp && hasUserCabinets && currentCabinetId) {
+                rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                const r = validRange(readRangeMap().rnp) || defaultRangeForTab('rnp');
+                try { if (rnp.setDateRange) await rnp.setDateRange(r.from, r.to); } catch (_) { /* период останется прежним */ }
+                try { await rnp.openMain(false); } catch (_) { /* сводка покажет то, что есть */ }
+                return;
+            }
+            await new Promise((res) => setTimeout(res, 400));
+        }
+    }
+    window.bootRnpSummary = bootRnpSummary;
 
     function bootRnpTab(force) {
         const rnpEl = document.getElementById('tab-rnp');

@@ -148,7 +148,7 @@ async function clickOne(page, calls, c, how) {
         await run('tab/' + tab, '#tab-' + tab);
     } else {
         await page.evaluate(() => showTab('rnp'));
-        await page.waitForFunction(() => /заказы\s+\d+/.test(document.querySelector('.rnp-gh-sub')?.textContent || ''), null, { timeout: 15000 });
+        await page.waitForFunction(() => { const d = document.createElement('div'); RNP.renderSummary(d); return /заказы\s+\d+/.test(d.querySelector('.rnp-gh-sub')?.textContent || ''); }, null, { timeout: 15000 });
         await page.waitForTimeout(1500);
         await run('rnp/общий', '#tab-rnp');
         await page.evaluate(() => RNP.pick(1001));
