@@ -241,6 +241,9 @@ const RNP = (() => {
         { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
             { key: 'wb_for_withdraw',    label: 'Доступно к выводу',                type: 'som',  src: 'auto',  cabinetOnly: true },
+            // Ozon: те же две строки, что у карточки «Баланс» на дашборде (баланс на конец дня и на начало месяца); показываются только в режиме Ozon
+            { key: 'ozon_balance',       label: 'Баланс Ozon (итого)',              type: 'som',  src: 'auto',  bold: true, cabinetOnly: true, ozOnly: true },
+            { key: 'ozon_opening',       label: 'На начало месяца',                 type: 'som',  src: 'auto',  cabinetOnly: true, ozOnly: true },
         ]},
     ];
 
@@ -1490,12 +1493,15 @@ const RNP = (() => {
     const _OZ_HIDE = new Set(['acquiring_sum', 'ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
     let _ffShow = false;      // ползунок «Показывать в РНП» в разделе ФФ
     let _ffExtra = {};        // доп. услуги ФФ по дням (₽)
+    /** Название блока: «Баланс WB» в режиме Ozon читается как «Баланс Ozon». */
+    function _secLabel(sec) { return sec.id === 'balance' && _mp() === 'ozon' ? 'Баланс Ozon' : sec.label; }
     function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
             if (_mp() === 'ozon' && _OZ_HIDE.has(m.key)) return false;
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.articleOnly && art && art.nm_id === -1) return false;
             if (m.ozonOnly && _mp() === 'wb') return false;
+            if (m.ozOnly && _mp() !== 'ozon') return false;
             if (m.key === 'ff_sum' && (!_ffShow || _mp() === 'ozon')) return false;
             if (m.key === 'ff_per_unit' && (!_ffShow || _mp() === 'ozon')) return false;
             if (m.key === 'tax_sum' && _settings.taxOn !== true) return false;
@@ -3257,6 +3263,8 @@ const RNP = (() => {
         acceptance_sum: ['Обработка товара (WB)', 'Стоимость обработки товара из ежедневного отчёта реализации WB (по кабинету).'],
         wb_balance: ['Баланс WB (итого)', 'Баланс продавца WB на конец дня (виджет «Баланс» на главной странице кабинета). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи.'],
         wb_for_withdraw: ['Доступно к выводу', 'Сколько из баланса можно вывести на конец дня.'],
+        ozon_balance: ['Баланс Ozon (итого)', 'Баланс продавца Ozon на конец дня (как карточка «Баланс» на дашборде). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи, дни без снимка показаны прочерком.'],
+        ozon_opening: ['На начало месяца', 'Баланс Ozon на начало месяца по данным Ozon. Ozon не отдаёт сумму «Доступно к выводу», поэтому здесь, как и на дашборде, показан баланс на начало месяца.'],
         wb_commission: ['Комиссия WB и вычеты с продаж', 'Реализация − эквайринг − (к перечислению без компенсаций). Всё, что WB удержал с цены продажи: комиссия, скидки по программам и прочие вычеты.'],
         acquiring_sum: ['Эквайринг', 'Комиссия за приём платежей (acquiring_fee) по продажам минус возвраты. Уже вычтена в «К перечислению».'],
         compensation_sum: ['Компенсации WB (плюс)', 'Добровольные компенсации при возврате. Входят в «К перечислению».'],
@@ -4742,7 +4750,7 @@ const RNP = (() => {
         const header = ['Метрика', ...cols.map(c => c.label)];
         const lines = [header.map(_csvCell).join(sep)];
         _sectionsForView().forEach(sec => {
-            lines.push([sec.label, ...cols.map(() => '')].map(_csvCell).join(sep));
+            lines.push([_secLabel(sec), ...cols.map(() => '')].map(_csvCell).join(sep));
             _sectionRows(sec, art).forEach(m => {
                 const vals = cols.map(c => {
                     if (m.isPlan) return _planVal(art, m.key, c.dates || [c.colKey]);
@@ -6783,6 +6791,7 @@ const RNP = (() => {
         }).filter(Boolean);
         const m = _mergeDerivedMetrics(parts);
         // Ozon: итогов кабинета из финотчёта WB нет, «К выводу» и комиссия считаются из строк Ozon (к перечислению и реализации).
+        if (_mp() === 'ozon' && m) { const b = _ozBal[date]; m.ozon_balance = b ? b.c : null; m.ozon_opening = b ? b.o : null; }
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
@@ -6857,10 +6866,35 @@ const RNP = (() => {
         return `${_cab}|${dates[0] || ''}|${dates[dates.length - 1] || ''}|${ids}`;
     }
 
+    // Баланс Ozon по дням (ozon_balance_daily): сразу из кэша устройства, свежее подтягиваем и перерисовываем только если изменилось
+    let _ozBal = {};
+    let _ozBalCab = '';
+    function _ozBalKey(cab) { return 'nr_oz_bal_' + cab; }
+    async function _loadOzBalance(cal) {
+        const cab = _cab;
+        if (!cab || !_db) return;
+        if (_ozBalCab !== cab) {
+            _ozBalCab = cab; _ozBal = {};
+            try { const raw = JSON.parse(localStorage.getItem(_ozBalKey(cab)) || 'null'); if (raw && typeof raw === 'object') _ozBal = raw; } catch (e) { /* без кэша */ }
+        }
+        const dates = _calAllDates(cal);
+        if (!dates.length) return;
+        try {
+            const { data, error } = await _db.from('ozon_balance_daily').select('d,closing,opening').eq('cabinet_id', cab).gte('d', dates[0]).lte('d', dates[dates.length - 1]);
+            if (error || _cab !== cab) return;
+            const fresh = {};
+            (data || []).forEach((r) => { fresh[String(r.d).split('T')[0]] = { c: Number(r.closing) || 0, o: Number(r.opening) || 0 }; });
+            const changed = JSON.stringify(fresh) !== JSON.stringify(Object.fromEntries(Object.keys(fresh).map((k) => [k, _ozBal[k]])));
+            Object.assign(_ozBal, fresh);
+            try { localStorage.setItem(_ozBalKey(cab), JSON.stringify(_ozBal)); } catch (e) { /* места нет */ }
+            if (changed) { _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null; }
+        } catch (e) { /* остаётся кэш */ }
+    }
+
     async function _loadCabinetTotals(cal) {
         _cabTotalsKey = _generalKey(cal);
         if (!_db || !_cab) return;
-        if (_mp() === 'ozon') { Object.keys(_cabTotals).forEach((k) => delete _cabTotals[k]); return; }
+        if (_mp() === 'ozon') { Object.keys(_cabTotals).forEach((k) => delete _cabTotals[k]); await _loadOzBalance(cal); return; }
         const cab0 = _cab, fresh = {};
         const allDates = _calAllDates(cal);
         if (!allDates.length) return;
@@ -6936,6 +6970,9 @@ const RNP = (() => {
             const last = [...daily].reverse().find(x => x.wb_balance != null);
             agg.wb_balance = last ? last.wb_balance : null;
             agg.wb_for_withdraw = last ? last.wb_for_withdraw : null;
+            const lastOz = [...daily].reverse().find(x => x.ozon_balance != null);
+            agg.ozon_balance = lastOz ? lastOz.ozon_balance : null;
+            agg.ozon_opening = lastOz ? lastOz.ozon_opening : null;
         }
         return agg;
     }
@@ -9529,7 +9566,7 @@ const RNP = (() => {
         const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
         const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr" data-sec="${sec.id}" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
-          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}</td>
+          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${_secLabel(sec)}</td>
           <td class="rnp-spark-col rnp-section-stick"></td>
           <td class="rnp-section-fill" colspan="${cols.length}"></td>
         </tr>`;
@@ -9612,7 +9649,7 @@ const RNP = (() => {
                 // Будущие дни: фактов ещё нет, поэтому ни нулей, ни процентов не рисуем.
                 // Ручные поля (конкуренты, раздачи) без значения показываем пустыми, а не 0.
                 const manualEmpty = (m.competitor || m.key === 'giveaways') && !(Number(val) > 0);
-                const noBalance = (m.key === 'wb_balance' || m.key === 'wb_for_withdraw') && val == null;
+                const noBalance = (m.key === 'wb_balance' || m.key === 'wb_for_withdraw' || m.key === 'ozon_balance' || m.key === 'ozon_opening') && val == null;
                 const str = (isFuture || manualEmpty) ? '' : ((financePending || noBalance) ? '—' : _fmt(val, m.type));
                 const cc  = (m.hm && !scaleFn) ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
