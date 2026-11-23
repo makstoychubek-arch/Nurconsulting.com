@@ -44,4 +44,24 @@ assert.equal(shouldSend('a', '2026-10-23T11:45:00Z', 'a', now), false, 'то ж�
 assert.equal(shouldSend('a', '2026-10-22T10:00:00Z', 'a', now), true, 'больше суток: напоминание');
 assert.equal(shouldSend('a', '2026-10-23T11:45:00Z', 'b', now), true, 'состав изменился: шлём');
 assert.equal(shouldSend('a', '2026-10-23T11:45:00Z', '', now), false, 'проблем нет: молчим');
+// Обмен «Раздач» с Google, расход ChatGPT, вебхук Алины
+const ext = { ...base().settings, giveaway_sync: { enabled: true, threshold: 30, value: null }, llm: { enabled: true, threshold: 80, value: null }, alina_hook: { enabled: true, threshold: 20, value: null } };
+const okSheet = { name: 'ИП МАРС', error: null, last_sync: '2026-10-23T11:59:00Z' };
+assert.deepEqual(buildAlerts(base({ settings: ext, sheets: [okSheet], llm: { costUsd: 1, budgetUsd: 10, lastError: null, lastErrorAt: null }, alinaHook: { pending: 0, error: null, errorAt: null } })), [], 'всё хорошо: тишина');
+const gsErr = buildAlerts(base({ settings: ext, sheets: [{ ...okSheet, error: 'Лист не прочитался' }] }));
+assert.equal(gsErr[0].key, 'giveaway_sync'); assert.ok(gsErr[0].text.includes('ИП МАРС: Лист не прочитался'));
+const gsStale = buildAlerts(base({ settings: ext, sheets: [{ ...okSheet, last_sync: '2026-10-23T10:00:00Z' }] }));
+assert.ok(gsStale[0].text.includes('давно нет обмена'), 'обмена не было больше 30 минут');
+assert.equal(buildAlerts(base({ settings: { ...ext, giveaway_sync: { enabled: false, threshold: 30, value: null } }, sheets: [{ ...okSheet, error: 'x' }] })).length, 0, 'выключено: молчим');
+const over = buildAlerts(base({ settings: ext, llm: { costUsd: 12, budgetUsd: 10, lastError: null, lastErrorAt: null } }));
+assert.equal(over[0].fingerprint, 'over'); assert.ok(over[0].text.includes('Бюджет ChatGPT'));
+const near = buildAlerts(base({ settings: ext, llm: { costUsd: 8.5, budgetUsd: 10, lastError: null, lastErrorAt: null } }));
+assert.ok(near[0].text.includes('85%'), 'предупреждение при 80% бюджета');
+assert.equal(buildAlerts(base({ settings: ext, llm: { costUsd: 5, budgetUsd: 0, lastError: null, lastErrorAt: null } })).length, 0, 'бюджет не задан: расход не тревожит');
+const quota = buildAlerts(base({ settings: ext, llm: { costUsd: 1, budgetUsd: 0, lastError: 'insufficient_quota', lastErrorAt: '2026-10-23T11:30:00Z' } }));
+assert.ok(quota[0].text.includes('закончились деньги на счёте OpenAI'));
+assert.equal(buildAlerts(base({ settings: ext, llm: { costUsd: 1, budgetUsd: 0, lastError: 'insufficient_quota', lastErrorAt: '2026-10-20T11:30:00Z' } })).length, 0, 'старая ошибка не повторяется');
+const hook = buildAlerts(base({ settings: ext, alinaHook: { pending: 40, error: 'Connection timed out', errorAt: '2026-10-23T11:50:00Z' } }));
+assert.ok(hook[0].text.includes('в очереди 40') && hook[0].text.includes('Connection timed out'));
+assert.equal(buildAlerts(base({ settings: ext, alinaHook: { pending: 3, error: 'старая', errorAt: '2026-10-23T09:00:00Z' } })).length, 0, 'старая ошибка вебхука не тревожит');
 console.log('admin-alerts_test: ok');

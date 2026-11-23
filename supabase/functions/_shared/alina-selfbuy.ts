@@ -2,6 +2,7 @@
 // Голос = менеджер аккаунта, не «бот Алина». ТЗ + ключ + скрины → таблица.
 
 import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { secretOrEnv } from './integration-secrets.ts';
 import { getAdminClient } from './alina-db.ts';
 import { googleAccessToken } from './alina-google-auth.ts';
 import {
@@ -31,7 +32,9 @@ import {
   fetchSheetPlan,
   resolveActiveSheet,
   getOpenProductChoices,
+  lastPlanAtMs,
   matchOfferFromText,
+  razdachiRowsMode,
   resolveProductChoice,
   syncCampaignFromSheet,
   type SheetPlanOffer,
@@ -45,6 +48,11 @@ import {
   type VisionResult,
 } from './alina-vision.ts';
 import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
+import { clientRowsToday, syncLeadToRazdachiRow } from './alina-razdachi-sync.ts';
+import { loadAlinaSettings } from './alina-settings.ts';
+import { gate, isWorkingTime } from './alina-gate.ts';
+import { setTextOverrides } from './alina-templates.ts';
+import { alinaHoldPhrase, managerGroupId } from './alina-manager.ts';
 import {
   fetchWbMainPhoto,
   fetchWbSearchFilters,
@@ -109,6 +117,8 @@ export type AlinaReply = {
     filename?: string;
     caption?: string;
   }[];
+  /** Вопрос уходит менеджерам: Telegram-слой отправляет его в группу (песочница только показывает). */
+  escalate?: { topic: string; question: string; group: number };
 };
 
 export type Campaign = {
@@ -206,13 +216,58 @@ export async function handleAlinaClientMessage(opts: {
   photoFileId?: string | null;
   botToken?: string | null;
   sourceAccount?: string;
+  /** Момент для часов работы (песочница); по умолчанию сейчас. */
+  nowMs?: number;
 }): Promise<AlinaReply> {
   const db = admin();
   const source = opts.sourceAccount || 'business';
   const text = (opts.text || '').trim();
   const hasPhoto = Boolean(opts.hasPhoto);
+
+  // Входные правила: часы работы и темы для менеджера. До чтения таблицы и до ChatGPT, чтобы не тратить на них время.
+  {
+    const settings = await loadAlinaSettings();
+    setTextOverrides(settings.texts); // свои тексты Алины с сайта
+    const nowMs = opts.nowMs ?? Date.now();
+    const group = await managerGroupId();
+    let told = false;
+    if (settings.hoursOn && !isWorkingTime(nowMs, settings.hoursFrom, settings.hoursTo)) {
+      const { data: prev } = await getAdminClient().from('alina_selfbuy_events').select('id')
+        .eq('chat_id', opts.chatId).eq('event_type', 'offhours_sent')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      told = Boolean(prev && prev.length);
+    }
+    const firstName = (opts.fullName || '').trim().split(/\s+/)[0];
+    const verdict = gate({
+      text, nowMs, settings, alreadyToldOffHours: told, hasManagerGroup: Boolean(group), username: opts.username,
+      holdReply: alinaHoldPhrase(firstName, text.length, settings.phrases, settings.useName),
+    });
+    if (verdict.kind === 'blocked') {
+      await logAlinaRawEvent(opts.chatId, 'blacklist_skip', { username: opts.username || null });
+      return { replies: [] };
+    }
+    if (verdict.kind === 'offhours') {
+      await logAlinaRawEvent(opts.chatId, verdict.reply ? 'offhours_sent' : 'offhours_skip', { text: text.slice(0, 200) });
+      return { replies: verdict.reply ? [verdict.reply] : [] };
+    }
+    if (verdict.kind === 'escalate') {
+      await logAlinaRawEvent(opts.chatId, 'manager_escalated', { topic: verdict.topic, text: text.slice(0, 200) });
+      return { replies: [verdict.reply], escalate: { topic: verdict.topic, question: verdict.question, group } };
+    }
+  }
+
   // «База в голове» = актуальный план из Google таблицы
   const camp = await ensureCampaignFresh();
+
+  // Режим «Раздачи — строки»: клиента нет в размеченных строках на сегодня (другой логин, нет логина, не наняли).
+  // Не ведём процесс и в таблицу не пишем: отвечаем коротко, остальное решает менеджер.
+  if (razdachiRowsMode()) {
+    const found = clientRowsToday(opts.username);
+    if (found.state === 'unavailable' || !found.rows.length) {
+      await logAlinaRawEvent(opts.chatId, 'razdachi_unmatched', { username: opts.username || null, sheet: found.state });
+      return { replies: ['Секунду, уточню у менеджера и вернусь к вам.'] };
+    }
+  }
 
   let lead = await getOrCreateLead(db, opts, source);
 
@@ -366,7 +421,7 @@ export async function handleAlinaClientMessage(opts: {
       username: opts.username || lead.username,
     });
     await logEvent(db, lead.id, opts.chatId, 'closed_no_slots', { text });
-    return r(MSG_CLOSED);
+    return r(MSG_CLOSED());
   }
 
   // ── new / closed: приветствие → уточнить объявление ─────────────────────
@@ -381,11 +436,11 @@ export async function handleAlinaClientMessage(opts: {
 
     if (!campaignAccepting(camp)) {
       await updateLead(db, lead.id, { status: 'closed' });
-      return r(MSG_CLOSED);
+      return r(MSG_CLOSED());
     }
     if (camp && (camp.slots_left ?? 0) <= 0 && camp.is_open) {
       await updateLead(db, lead.id, { status: 'closed' });
-      return r(MSG_CLOSED_FULL);
+      return r(MSG_CLOSED_FULL());
     }
 
     const snap = await fetchSheetPlan(false);
@@ -434,7 +489,7 @@ export async function handleAlinaClientMessage(opts: {
         }
         if (brain.action === 'close') {
           await updateLead(db, lead.id, { status: 'closed' });
-          return r(brain.reply || MSG_CLOSED);
+          return r(brain.reply || MSG_CLOSED());
         }
         if (brain.reply && brain.action === 'reply_only') {
           await updateLead(db, lead.id, { status: 'ask_ad' });
@@ -455,7 +510,7 @@ export async function handleAlinaClientMessage(opts: {
     const choices = await getOpenProductChoices();
     if (!choices.length || !campaignAccepting(camp)) {
       await updateLead(db, lead.id, { status: 'closed', last_client_text: text });
-      return r(MSG_CLOSED);
+      return r(MSG_CLOSED());
     }
     const picked = await resolveClientProduct(text, hasPhoto, readScreen, snap.offers || choices);
     if (picked.unavailableColor) {
@@ -500,7 +555,7 @@ export async function handleAlinaClientMessage(opts: {
 
     await updateLead(db, lead.id, { last_client_text: text || (hasPhoto ? '[фото]' : '') });
     return r(
-      MSG_ASK_AD_AGAIN,
+      MSG_ASK_AD_AGAIN(),
       choices.map((o) => `• ${o.product_name}`).filter((s) => s.length > 2).join('\n'),
     );
   }
@@ -509,7 +564,7 @@ export async function handleAlinaClientMessage(opts: {
   if (lead.status === 'ask_type') {
     const typed = detectDealType(text);
     if (typed === 'barter' && !barterAvailable(camp)) {
-      return r(MSG_ONLY_CASHBACK);
+      return r(MSG_ONLY_CASHBACK());
     }
     return await openDeal(db, lead, camp, typed || 'cashback', text);
   }
@@ -532,7 +587,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT);
+      return r(MSG_APPROVED_PRODUCT());
     }
     return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
@@ -605,7 +660,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT);
+      return r(MSG_APPROVED_PRODUCT());
     }
     return r(
       lead.keyword
@@ -629,7 +684,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_cart', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_CART);
+      return r(MSG_APPROVED_CART());
     }
     return r('Нужен скрин корзины: наш товар + 2–3 конкурента и бренд в избранном ❤️');
   }
@@ -656,7 +711,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER : MSG_ASK_BANK_CASHBACK;
+      const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK();
       return r(bankMsg);
     }
     return r('После оформления пришлите скрин заказа: цена, город/ПВЗ, дата получения.');
@@ -682,7 +737,7 @@ export async function handleAlinaClientMessage(opts: {
     });
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
-    return r('Реквизиты приняла ✅', MSG_ASK_PICKUP);
+    return r('Реквизиты приняла ✅', MSG_ASK_PICKUP());
   }
 
   // ── wait_pickup ──────────────────────────────────────────────────────────
@@ -699,7 +754,7 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_ASK_REVIEW);
+      return r(MSG_ASK_REVIEW());
     }
     return r('Как заберёте — напишите дату/скрин с ПВЗ.');
   }
@@ -717,12 +772,12 @@ export async function handleAlinaClientMessage(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'review', { text, hasPhoto });
       await syncLeadToSheet(db, lead.id);
-      if (next === 'wait_reels') return r('Отзыв на согласовании/принят 👍', MSG_ASK_REELS);
+      if (next === 'wait_reels') return r('Отзыв на согласовании/принят 👍', MSG_ASK_REELS());
       return r(
         'Супер, зафиксировала ✅ Кэшбек — через 16 дней после получения при выполнении всех условий (отзыв, фото, разрезанные ШК).',
       );
     }
-    return r(MSG_ASK_REVIEW);
+    return r(MSG_ASK_REVIEW());
   }
 
   // ── wait_reels (бартер) ──────────────────────────────────────────────────
@@ -740,7 +795,7 @@ export async function handleAlinaClientMessage(opts: {
         'Рилс/статистику приняла ✅ Спасибо! Если нужно дополнить отзыв или сторис — напишите.',
       );
     }
-    return r(MSG_ASK_REELS);
+    return r(MSG_ASK_REELS());
   }
 
   if (lead.status === 'done') {
@@ -778,7 +833,7 @@ export async function handleAlinaClientMessage(opts: {
   }
 
   // fallback — мозг, иначе мягко в ask_ad
-  if (!campaignAccepting(camp)) return r(MSG_CLOSED);
+  if (!campaignAccepting(camp)) return r(MSG_CLOSED());
   const { brain, choices } = await runBrain();
   if (brain.action === 'pick_product') {
     const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
@@ -790,6 +845,42 @@ export async function handleAlinaClientMessage(opts: {
   }
   await updateLead(db, lead.id, { status: 'ask_ad', last_client_text: text });
   return r(msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)));
+}
+
+/** Ключ места: модель и ключевой запрос. */
+function slotKey(offer: SheetPlanOffer): string {
+  return `${String(offer.product_name || '').trim().toLowerCase()}|${String(offer.keyword || '').trim().toLowerCase()}`;
+}
+
+/**
+ * Защита от гонки за последнее место: строки в графике появляются после ответа клиенту, поэтому одновременные клиенты видят одно и то же
+ * число мест. Каждый записывает заявку на место в свою базу и считает, сколько заявок на эту модель легло раньше него с момента чтения графика.
+ * Раньше чтения графика заявки уже вычтены из мест самим графиком, поэтому их не считаем. Если база не отвечает, не блокируем клиента.
+ */
+export async function claimSlot(db: SupabaseClient, lead: SelfbuyLead, offer: SheetPlanOffer, planAtMs: number): Promise<boolean> {
+  const slots = offer.slots_left ?? 0;
+  const key = slotKey(offer);
+  try {
+    const { data: mine, error } = await db.from('alina_selfbuy_events')
+      .insert({ lead_id: lead.id, chat_id: lead.chat_id, event_type: 'slot_claim', payload: { key } })
+      .select('id, created_at').single();
+    if (error || !mine) return true;
+    const since = new Date(offer.read_ms ?? planAtMs).toISOString();
+    const { data: rows } = await db.from('alina_selfbuy_events').select('id, lead_id, created_at, payload')
+      .eq('event_type', 'slot_claim').gte('created_at', since).order('created_at', { ascending: true }).limit(500);
+    const seen = new Set<string>();
+    let rank = 0;
+    const me = mine as { id: string | number; created_at: string };
+    for (const r of (rows || []) as Array<{ id: string | number; lead_id: string | null; created_at: string; payload: { key?: string } | null }>) {
+      if (r.payload?.key !== key || !r.lead_id) continue;
+      const earlier = r.created_at < me.created_at || (r.created_at === me.created_at && String(r.id) < String(me.id));
+      if (r.lead_id === lead.id) { if (earlier) return rank < slots; continue; } // уже занимал место раньше: берём его очередь
+      if (earlier && !seen.has(r.lead_id)) { seen.add(r.lead_id); rank++; }
+    }
+    return rank < slots;
+  } catch (_) {
+    return true;
+  }
 }
 
 async function startDealFromOffer(
@@ -807,6 +898,12 @@ async function startDealFromOffer(
     ));
   }
 
+  if (!(await claimSlot(db, lead, offer, lastPlanAtMs()))) {
+    await updateLead(db, lead.id, { status: 'closed' });
+    await logEvent(db, lead.id, lead.chat_id, 'slot_lost', { product: offer.product_name, keyword: offer.keyword });
+    return r(MSG_CLOSED_FULL());
+  }
+
   let typed = detectDealType(text) || lead.deal_type || resolveDealFromCampaign(camp);
   // таблица говорит только кэш — бартер не открываем
   if (typed === 'barter' && !barterAvailable(camp) && offer.deal_type !== 'barter' &&
@@ -814,7 +911,7 @@ async function startDealFromOffer(
     typed = 'cashback';
   }
   if (typed === 'barter' && !barterAvailable(camp)) {
-    return r(MSG_ONLY_CASHBACK);
+    return r(MSG_ONLY_CASHBACK());
   }
   const mode = campaignDealMode(camp);
   const deal = (typed || (mode === 'barter' ? 'barter' : 'cashback')) as DealType;
@@ -884,11 +981,11 @@ async function openDeal(
   await syncLeadToSheet(db, lead.id);
 
   const replies: string[] = [];
-  if (ig) replies.push(MSG_GOT_IG);
+  if (ig) replies.push(MSG_GOT_IG());
   replies.push(msgOpenHuman(deal, product));
   replies.push(deal === 'barter'
     ? tzBarter(offer?.order_deadline || camp?.order_deadline)
-    : TZ_CASHBACK);
+    : TZ_CASHBACK());
 
   if (keyword) {
     await updateLead(db, lead.id, { keyword, status: 'key_sent' });
@@ -926,7 +1023,7 @@ function tzBundle(deal: DealType, camp: Campaign | null, _lead: SelfbuyLead): st
   if (deal === 'barter') {
     return ['ТЗ ещё раз 👇', tzBarter(camp?.order_deadline || null)];
   }
-  return ['ТЗ ещё раз 👇', TZ_CASHBACK];
+  return ['ТЗ ещё раз 👇', TZ_CASHBACK()];
 }
 
 function campaignAccepting(camp: Campaign | null): boolean {
@@ -972,7 +1069,7 @@ function handleBarterWhenCashOnly(
     // «бартер есть?» без явного detect — ловим вопросом
     if (!/бартер/i.test(text)) return null;
   }
-  return r(MSG_ONLY_CASHBACK);
+  return r(MSG_ONLY_CASHBACK());
 }
 
 function extractInstagram(text: string): string | null {
@@ -1106,28 +1203,28 @@ function resumeHints(
 ): string[] {
   switch (status) {
     case 'ask_ad':
-      return [MSG_ASK_AD_AGAIN];
+      return [MSG_ASK_AD_AGAIN()];
     case 'ask_type':
-      return [MSG_NEED_TYPE];
+      return [MSG_NEED_TYPE()];
     case 'ask_filters':
-      return [MSG_ASK_FILTERS];
+      return [MSG_ASK_FILTERS()];
     case 'tz_sent':
       return tzBundle((lead.deal_type || 'cashback') as DealType, camp, lead);
     case 'key_sent':
     case 'wait_product':
       return ['Продолжаем: скрин поиска с ключом и нашим товаром. Если не находите — напишите.'];
     case 'wait_cart':
-      return [MSG_APPROVED_PRODUCT];
+      return [MSG_APPROVED_PRODUCT()];
     case 'wait_order':
-      return [MSG_APPROVED_CART];
+      return [MSG_APPROVED_CART()];
     case 'wait_bank':
-      return [lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER : MSG_ASK_BANK_CASHBACK];
+      return [lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK()];
     case 'wait_pickup':
-      return [MSG_ASK_PICKUP];
+      return [MSG_ASK_PICKUP()];
     case 'wait_review':
-      return [MSG_ASK_REVIEW];
+      return [MSG_ASK_REVIEW()];
     case 'wait_reels':
-      return [MSG_ASK_REELS];
+      return [MSG_ASK_REELS()];
     default:
       return ['Продолжаем 🙌'];
   }
@@ -1164,7 +1261,20 @@ async function getOrCreateLead(
     })
     .select('*')
     .single();
-  if (error) throw new Error(`alina lead insert: ${error.message}`);
+  if (error) {
+    // Два сообщения нового клиента пришли одновременно: заявку уже создало первое. Берём её, а не падаем.
+    const dup = (error as { code?: string }).code === '23505' || /duplicate key/i.test(error.message || '');
+    if (dup) {
+      const { data: again } = await db
+        .from('alina_selfbuy_leads')
+        .select('*')
+        .eq('telegram_user_id', opts.userId)
+        .eq('chat_id', opts.chatId)
+        .maybeSingle();
+      if (again) return again as SelfbuyLead;
+    }
+    throw new Error(`alina lead insert: ${error.message}`);
+  }
   return created as SelfbuyLead;
 }
 
@@ -1362,7 +1472,7 @@ async function handleCantFindFilters(
     }
     if (!isYes(text) && !cantFindProduct(text)) {
       // ждём да/нет
-      if (lead.status === 'ask_filters') return r(MSG_ASK_FILTERS);
+      if (lead.status === 'ask_filters') return r(MSG_ASK_FILTERS());
       return null;
     }
     // yes → ниже отправим batch
@@ -1382,7 +1492,7 @@ async function handleCantFindFilters(
         last_client_text: text,
       });
       await logEvent(db, lead.id, lead.chat_id, 'ask_filters', { text });
-      return r(MSG_ASK_FILTERS);
+      return r(MSG_ASK_FILTERS());
     }
   } else {
     return null;
@@ -1458,10 +1568,25 @@ export async function logAlinaRawEvent(
 
 // ── Google Sheets ───────────────────────────────────────────────────────────
 
+/** Диалоги «песочницы» с сайта (отрицательный chat_id, source_account = sandbox) никогда не пишутся в рабочую таблицу. */
+export async function isSandboxLead(db: SupabaseClient, leadId: string): Promise<boolean> {
+  const { data } = await db.from('alina_selfbuy_leads').select('chat_id, source_account').eq('id', leadId).maybeSingle();
+  const l = data as { chat_id?: number | null; source_account?: string | null } | null;
+  return Boolean(l && (l.source_account === 'sandbox' || Number(l.chat_id) < 0));
+}
+
 async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
+  if (await isSandboxLead(db, leadId)) return;
+  if (razdachiRowsMode()) {
+    // Строки размечены заранее: заполняем свою строку в фоне, ответ клиенту не ждёт таблицу. Новые строки не добавляем.
+    const task = syncLeadToRazdachiRow(db, leadId).catch(() => console.error('[alina-selfbuy] razdachi sync'));
+    const edge = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (edge?.waitUntil) edge.waitUntil(task); else await task;
+    return;
+  }
   const targetSheet = await resolveActiveSheet(db);
   const sheetId = targetSheet?.sheet_id || '';
-  const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
+  const saJson = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
   if (!sheetId || !saJson) {
     console.log('[alina-selfbuy] sheets write skip: need GOOGLE_SERVICE_ACCOUNT_JSON / sheet_id');
     return;

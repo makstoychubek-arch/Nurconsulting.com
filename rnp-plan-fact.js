@@ -258,10 +258,10 @@
             skuHeader: skuHeader || '',
             kind: meta.kind,
             today: today,
-            today: today,
             weeks: weeks,
             rows: rows,
             totals: totals,
+            loading: !!(opts && opts.loading),
         };
     }
 
@@ -318,9 +318,7 @@
                 h5 += th('pf-day pf-total', future ? '' : scale3Style(tot.daySums && tot.daySums[i], sMin, sMid, sMax), future ? '' : showInt(tot.daySums && tot.daySums[i], true));
             }
             h1 += th('pf-plan', '', 'ПЛАН Заказов, по дням');
-            h1 += th('pf-fact-h', '', 'ФАКТ Заказов за неделю');
-            h1 += th('pf-fact-h', '', '');
-            h1 += th('pf-fact-h', '', '');
+            h1 += '<th class="pf-fact-h" colspan="3">ФАКТ Заказов за неделю</th>';
             h1 += th('pf-plan', '', 'ПЛАН ПРОДАЖ, за неделю');
             h2 += th('pf-plan', '', ddmm(week.start));
             h2 += th('pf-plan', '', '');
@@ -351,7 +349,25 @@
             + '<tr class="pf-r5">' + h5 + '</tr>';
     }
 
+    var SKEL_ROWS = 26;
+    /** Каркас до прихода артикулов: те же строки и колонки, цифры-заглушки размыты стилем (is-loading). */
+    function skeletonBodyHtml(model) {
+        var out = '', r, wi, i;
+        for (r = 0; r < SKEL_ROWS; r++) {
+            var html = td('pf-a', '', '') + td('pf-b', '', 'Артикул товара') + td('pf-c', '', '000000000') + td('pf-d', '', '');
+            for (wi = 0; wi < model.weeks.length; wi++) {
+                var from = html.length;
+                for (i = 0; i < 7; i++) html += td('pf-day', '', '00');
+                html += td('pf-plan', '', '00') + td('pf-fact', '', '') + td('pf-fact pf-ratio', '', '00%') + td('pf-fact pf-sum', '', '00') + td('pf-plan', '', '00');
+                html = tagWeek(html, from, wi);
+            }
+            out += '<tr>' + html + '</tr>';
+        }
+        return out;
+    }
+
     function bodyHtml(model) {
+        if (!model.rows.length) return skeletonBodyHtml(model);
         // Диапазон тепловой карты — по каждой неделе (как диапазон F7:L1002 в Excel).
         var ranges = model.weeks.map(function (w, wi) {
             var min = Infinity, max = 0;
@@ -423,7 +439,7 @@
             var c = ' class="pf-w' + wi + '" style="width:';
             cols += ('<col' + c + '40px">').repeat(7) + '<col' + c + '56px"><col' + c + '20px"><col' + c + '52px"><col' + c + '52px"><col' + c + '60px">';
         });
-        return '<div class="pf-scroll"><table class="pf-sheet" data-wk="' + activeWeek(model) + '"><colgroup>' + cols + '</colgroup>'
+        return '<div class="pf-scroll"><table class="pf-sheet' + (model.loading || !model.rows.length ? ' is-loading' : '') + (model.rows.length ? '' : ' is-skel') + '" data-wk="' + activeWeek(model) + '"><colgroup>' + cols + '</colgroup>'
             + '<thead>' + headerHtml(model) + '</thead>'
             + '<tbody>' + bodyHtml(model) + '</tbody>'
             + '</table></div>';

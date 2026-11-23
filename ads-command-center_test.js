@@ -480,10 +480,11 @@ global.document = {
     assert.match(els['ads-hq-tbody'].innerHTML, /4.200/);
     assert.match(els['ads-hq-thead'].innerHTML, /Заказы/);
     assert.doesNotMatch(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Позиция в поиске/);
-    assert.match(els['ads-hq-thead'].innerHTML, /Добавления в корзину/);
-    assert.match(els['ads-hq-thead'].innerHTML, /ROAS/);
-    assert.equal(AdsHQ.getColPreset(), 'all');
+    assert.match(els['ads-hq-thead'].innerHTML, /Сумма заказов/);
+    assert.match(els['ads-hq-thead'].innerHTML, /CPO/);
+    assert.doesNotMatch(els['ads-hq-thead'].innerHTML, /Позиция в поиске/, 'по умолчанию только основные колонки');
+    assert.equal(AdsHQ.getColPreset(), 'main');
+    assert.deepEqual(AdsHQ.COL_PRESETS.main.cols.map((c) => c.key), ['budget', 'spend', 'views', 'ctr', 'orders', 'cpo', 'drr', 'revenue']);
     assert.deepEqual(AdsHQ.COL_PRESETS.all.cols.map((c) => c.key), [
         'budget', 'spend', 'views', 'ctr', 'orders', 'drr', 'pos',
         'clicks', 'atbs', 'revenue', 'cpc', 'cpo', 'cr', 'cpm', 'roas',

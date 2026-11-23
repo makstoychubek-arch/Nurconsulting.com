@@ -10,9 +10,24 @@
  */
 
 import { googleAccessToken } from './alina-google-auth.ts';
+import { secretOrEnv } from './integration-secrets.ts';
 import { scoreProductMatch } from './alina-product-match.ts';
+import { parseRazdachiSheet, type RazSheet } from './alina-razdachi.ts';
+
+/** Режим «Раздачи — строки»: каждая размеченная строка с ТГ, моделью и датой это место блогера. Выключен по умолчанию. */
+export function razdachiRowsMode(): boolean {
+  return (Deno.env.get('ALINA_RAZDACHI_ROWS') || '').trim() === '1';
+}
+
+let lastRazdachi: { sheet: RazSheet; at: number; sheetId: string } | null = null;
+/** Последний разбор листа «Раздачи» (обновляется вместе с планом, лишних чтений нет). */
+export function getLastRazdachi(): { sheet: RazSheet; at: number; sheetId: string } | null {
+  return lastRazdachi;
+}
 
 export type SheetPlanOffer = {
+  /** Когда начато чтение графика, из которого взят этот оффер (мс): заявки на место, поданные позже, в нём не видны. */
+  read_ms?: number;
   date: string | null;
   deal_type: 'cashback' | 'barter' | 'both';
   product_name: string | null;
@@ -545,6 +560,11 @@ export function listOpenProductChoices(offers: SheetPlanOffer[]): SheetPlanOffer
   return out;
 }
 
+/** Момент (мс), когда прочитан последний график: места, выданные позже, в нём ещё не видны. */
+export function lastPlanAtMs(): number {
+  return planCache.at || Date.now();
+}
+
 export async function getOpenProductChoices(): Promise<SheetPlanOffer[]> {
   const snap = await fetchSheetPlan(false);
   if (!snap.ok) return [];
@@ -795,6 +815,7 @@ export async function fetchSheetPlan(
     return planCache.snap;
   }
 
+  const readStartMs = Date.now();
   const sheetId = (sheetOverride?.sheet_id || Deno.env.get('ALINA_SHEET_ID') || '').trim();
   const cabinetKey = sheetOverride?.cabinet_key ||
     (Deno.env.get('ALINA_CABINET_KEY') || '').trim() ||
@@ -812,7 +833,7 @@ export async function fetchSheetPlan(
     };
   }
 
-  const credentials = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
+  const credentials = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
   const token = credentials ? await googleAccessToken(credentials).catch(() => '') : '';
   if (!token) {
     return {
@@ -860,6 +881,10 @@ export async function fetchSheetPlan(
     ...uniqTabs.map((t) => readSheetTab(sheetId, t.gid, token)),
   ]);
   const leads = raz ? parseRazdachi(raz) : [];
+  if (raz && razdachiRowsMode()) {
+    const parsed = parseRazdachiSheet(raz);
+    if (parsed) lastRazdachi = { sheet: parsed, at: Date.now(), sheetId };
+  }
 
   const blocks: GraphBlock[] = [];
   for (let i = 0; i < uniqTabs.length; i++) {
@@ -888,6 +913,7 @@ export async function fetchSheetPlan(
 
   const dealMode = inferDealModeFromLeads(leads);
   const offers = buildOffers(blocks, leads, dealMode);
+  for (const o of offers) o.read_ms = readStartMs;
   const active = pickActive(offers);
   if (active) active.deal_type = dealMode;
   const cabLabel = sheetOverride?.cabinet_name || cabinetKey;
@@ -923,7 +949,8 @@ export async function syncCampaignFromSheet(
       activeSheet = await resolveActiveSheet(db);
     } catch { /* */ }
   }
-  const snap = await fetchSheetPlan(true, activeSheet);
+  // В режиме строк план читается не на каждое сообщение, а по кэшу (45 с): иначе ~9 чтений Google на сообщение.
+  const snap = await fetchSheetPlan(!razdachiRowsMode(), activeSheet);
   if (!snap.ok) return { ...snap, synced: false };
 
   const a = snap.active;

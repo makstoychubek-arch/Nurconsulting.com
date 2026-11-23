@@ -1,7 +1,22 @@
 // Короткие ответы как живой менеджер @Wildberries_OZON_barter.
 // ТЗ шлём целиком; устройство кэшбека/бартера клиентам не объясняем.
+// Простые тексты можно менять с сайта («Настройки раздач · Алина → Тексты»): переопределения лежат в alina_settings.texts,
+// пустое значение означает стандартный текст. Подстановки пишутся в фигурных скобках: {товар}, {ключ}, {срок}.
 
-export const TZ_CASHBACK = `ТЗ Для ОЗНАКОМЛЕНИЯ
+export type TextDef = { id: string; group: string; label: string; vars: string[]; text: string };
+
+/** Тексты, которые можно менять с сайта, со стандартным содержимым. */
+export const TEXT_DEFS: TextDef[] = [
+  { id: 'open', group: 'Начало', label: 'Ответ «актуально» без названия', vars: [], text: `Да, актуально 🙌
+Высылаю ТЗ:` },
+  { id: 'open_product', group: 'Начало', label: 'Ответ «актуально» с названием товара', vars: ['товар'], text: `Да, актуально 🙌 по «{товар}»
+Высылаю ТЗ:` },
+  { id: 'closed', group: 'Начало', label: 'Места на сегодня закончились', vars: [], text: `На сегодня места закончились 🙌 Напишите завтра — посмотрим` },
+  { id: 'closed_full', group: 'Начало', label: 'Раздача закрыта', vars: [], text: `Сейчас мест нет, раздача закрыта. Как откроем — можно писать 🙌` },
+  { id: 'need_type', group: 'Начало', label: 'Бартер или кэш', vars: [], text: `Бартер или кэш? 🙌` },
+  { id: 'only_cashback', group: 'Начало', label: 'Сейчас только кэшбек', vars: [], text: `Сейчас только кэшбек 🙌 Бартер пока не открывали. Могу провести по кэшу — напишите «да», если ок` },
+  { id: 'ask_ad_again', group: 'Начало', label: 'Просим модель и цвет', vars: [], text: `Напишите модель и цвет, который ищете — например «фонарь белый» 🙌` },
+  { id: 'tz_cashback', group: 'Задание', label: 'ТЗ для кэшбека', vars: [], text: `ТЗ Для ОЗНАКОМЛЕНИЯ
 
 1️⃣ Ключевой запрос после ознакомления
 
@@ -23,13 +38,10 @@ export const TZ_CASHBACK = `ТЗ Для ОЗНАКОМЛЕНИЯ
 
 ✅ После получения написать отзыв (согласовать!!) и прислать скрин отзыва из ЛК, фото товара, разорванные ШК (на товаре и пакете).
 
-✅ Кешбек от вашей оплаты на 16 дней после получения товара при выполнении всех условий: опубликован отзыв, фото открытого товара, разрезанные шк 🙌`;
+✅ Кешбек от вашей оплаты на 16 дней после получения товара при выполнении всех условий: опубликован отзыв, фото открытого товара, разрезанные шк 🙌` },
+  { id: 'tz_barter', group: 'Задание', label: 'ТЗ для бартера', vars: ['срок'], text: `Высылаю ТЗ для ОЗНАКОМЛЕНИЯ
 
-export function tzBarter(deadline?: string | null): string {
-  const when = (deadline || '').trim() || 'в указанную дату ДО 22:00 ПО МСК';
-  return `Высылаю ТЗ для ОЗНАКОМЛЕНИЯ
-
-ВАЖНО!!! Заказать НУЖНО ${when}, если не делаете выкуп, то ваша заявка на бартер автоматически аннулируется и отдается другому блогеру
+ВАЖНО!!! Заказать НУЖНО {срок}, если не делаете выкуп, то ваша заявка на бартер автоматически аннулируется и отдается другому блогеру
 
 1. Ключевое слово для поиска после ознакомления
 
@@ -64,38 +76,76 @@ export function tzBarter(deadline?: string | null): string {
 ✅ реклама с 11 до 16 МСК;
 ✅ перед рекламой 2–3 личные сторис;
 ✅ ссылка на артикул в сторис;
-✅ описание рилса с артикула.`;
+✅ описание рилса с артикула.` },
+  { id: 'key', group: 'Задание', label: 'Ключ для поиска', vars: ['ключ'], text: `Ключ для поиска:
+«{ключ}»
+
+Вбиваете в поиск именно этот ключ → наш товар → скрин (чтобы сверху был запрос) 🙌
+По фото / артикулу не ищем` },
+  { id: 'ask_filters', group: 'Задание', label: 'Предложение фильтров', vars: [], text: `Не находите? Могу скинуть фильтры с карточки — отправить? Напишите «да» 🙌` },
+  { id: 'approved_product', group: 'Этапы', label: 'Товар найден, корзина', vars: [], text: `Да, наш 👍 Корзина: наш + 2–3 конкурента из топа, бренд в избранное — и скрин` },
+  { id: 'approved_cart', group: 'Этапы', label: 'Корзина принята, заказ', vars: [], text: `Ок. Через 20–30 мин конкурентов убираете, наш оформляете. Потом скрин заказа (цена, ПВЗ, дата)` },
+  { id: 'ask_bank_cashback', group: 'Этапы', label: 'Реквизиты (кэшбек)', vars: [], text: `Приняла ✅ Реквизиты: телефон + ФИО + банк (СБП)` },
+  { id: 'ask_bank_barter', group: 'Этапы', label: 'Реквизиты (бартер)', vars: [], text: `Приняла ✅ Реквизиты: телефон + ФИО + банк (СБП) — перевод после заказа` },
+  { id: 'ask_pickup', group: 'Этапы', label: 'Ждём получения', vars: [], text: `Как заберёте — напишите/скиньте скрин. Отзыв сразу не публикуем, сначала согласуем` },
+  { id: 'ask_review', group: 'Этапы', label: 'Просим черновик отзыва', vars: [], text: `Черновик отзыва сюда (текст + фото). Публикуем только после ок. Потом скрин из ЛК + ШК разрезанные` },
+  { id: 'ask_reels', group: 'Этапы', label: 'Просим ссылку на рилс', vars: [], text: `Жду ссылку на рилс (описание с артикула) и потом статистику` },
+  { id: 'got_ig', group: 'Этапы', label: 'Ссылку на рилс увидела', vars: [], text: `Приняла 🙌 Ссылку увидела` },
+];
+
+let overrides: Record<string, string> = {};
+
+/** Переопределения из настроек: действуют, пока не заданы новые. Берутся только известные идентификаторы. */
+export function setTextOverrides(o: Record<string, unknown> | null | undefined): void {
+  const next: Record<string, string> = {};
+  for (const d of TEXT_DEFS) {
+    const v = o?.[d.id];
+    if (typeof v === 'string' && v.trim()) next[d.id] = v;
+  }
+  overrides = next;
 }
 
-export const MSG_CLOSED =
-  'На сегодня места закончились 🙌 Напишите завтра — посмотрим';
+export function fillText(raw: string, vars: Record<string, string> = {}): string {
+  return raw.replace(/\{([^{}]+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+}
 
-export const MSG_CLOSED_FULL =
-  'Сейчас мест нет, раздача закрыта. Как откроем — можно писать 🙌';
+/** Текст по идентификатору: переопределение из настроек или стандартный, с подстановками. */
+export function tx(id: string, vars: Record<string, string> = {}): string {
+  const def = TEXT_DEFS.find((d) => d.id === id);
+  if (!def) throw new Error('unknown text ' + id);
+  return fillText(overrides[id] ?? def.text, vars);
+}
+
+export const MSG_CLOSED = (): string => tx('closed');
+export const MSG_CLOSED_FULL = (): string => tx('closed_full');
+export const MSG_NEED_TYPE = (): string => tx('need_type');
+export const MSG_ONLY_CASHBACK = (): string => tx('only_cashback');
+export const MSG_ASK_AD_AGAIN = (): string => tx('ask_ad_again');
+export const MSG_ASK_FILTERS = (): string => tx('ask_filters');
+export const MSG_APPROVED_PRODUCT = (): string => tx('approved_product');
+export const MSG_APPROVED_CART = (): string => tx('approved_cart');
+export const MSG_ASK_BANK_CASHBACK = (): string => tx('ask_bank_cashback');
+export const MSG_ASK_BANK_BARTER = (): string => tx('ask_bank_barter');
+export const MSG_ASK_PICKUP = (): string => tx('ask_pickup');
+export const MSG_ASK_REVIEW = (): string => tx('ask_review');
+export const MSG_ASK_REELS = (): string => tx('ask_reels');
+export const MSG_GOT_IG = (): string => tx('got_ig');
+export const TZ_CASHBACK = (): string => tx('tz_cashback');
+
+export function tzBarter(deadline?: string | null): string {
+  const when = (deadline || '').trim() || 'в указанную дату ДО 22:00 ПО МСК';
+  return tx('tz_barter', { срок: when });
+}
 
 /** Коротко, без лекций. Сразу ТЗ. */
-export function msgOpenHuman(deal: 'cashback' | 'barter', product?: string | null): string {
+export function msgOpenHuman(_deal: 'cashback' | 'barter', product?: string | null): string {
   const p = (product || '').trim();
-  if (deal === 'barter') {
-    return p
-      ? `Да, актуально 🙌 по «${p}»\nВысылаю ТЗ:`
-      : `Да, актуально 🙌\nВысылаю ТЗ:`;
-  }
-  return p
-    ? `Да, актуально 🙌 по «${p}»\nВысылаю ТЗ:`
-    : `Да, актуально 🙌\nВысылаю ТЗ:`;
+  return p ? tx('open_product', { товар: p }) : tx('open');
 }
 
 export function msgKey(keyword: string): string {
-  return (
-    `Ключ для поиска:\n«${keyword}»\n\n` +
-    `Вбиваете в поиск именно этот ключ → наш товар → скрин (чтобы сверху был запрос) 🙌\n` +
-    `По фото / артикулу не ищем`
-  );
+  return tx('key', { ключ: keyword });
 }
-
-export const MSG_ASK_FILTERS =
-  'Не находите? Могу скинуть фильтры с карточки — отправить? Напишите «да» 🙌';
 
 export function msgFiltersBatch(
   filters: { name: string; value: string }[],
@@ -116,12 +166,6 @@ export function msgFiltersBatch(
   );
 }
 
-/** Если совсем непонятно — одна короткая уточнялка, без объяснений. */
-export const MSG_NEED_TYPE = 'Бартер или кэш? 🙌';
-
-export const MSG_ONLY_CASHBACK =
-  'Сейчас только кэшбек 🙌 Бартер пока не открывали. Могу провести по кэшу — напишите «да», если ок';
-
 /** Приветствие: хотим заказ + модель/цвет (без «чем могу помочь»). */
 export function msgAskAd(products: string[]): string {
   const list = products.filter(Boolean);
@@ -136,9 +180,6 @@ export function msgAskAd(products: string[]): string {
   }
   return 'Привет 🙌 Хотите заказать? Какую модель и расцветку ищете?';
 }
-
-export const MSG_ASK_AD_AGAIN =
-  'Напишите модель и цвет, который ищете — например «фонарь белый» 🙌';
 
 export function msgColorUnavailable(
   colorLabel: string,
@@ -155,27 +196,3 @@ export function msgColorUnavailable(
   }
   return `На сегодня «${colorLabel}» нет в раздаче 🙌 Напишите завтра — посмотрим`;
 }
-
-export const MSG_APPROVED_PRODUCT =
-  'Да, наш 👍 Корзина: наш + 2–3 конкурента из топа, бренд в избранное — и скрин';
-
-export const MSG_APPROVED_CART =
-  'Ок. Через 20–30 мин конкурентов убираете, наш оформляете. Потом скрин заказа (цена, ПВЗ, дата)';
-
-export const MSG_ASK_BANK_CASHBACK =
-  'Приняла ✅ Реквизиты: телефон + ФИО + банк (СБП)';
-
-export const MSG_ASK_BANK_BARTER =
-  'Приняла ✅ Реквизиты: телефон + ФИО + банк (СБП) — перевод после заказа';
-
-export const MSG_ASK_PICKUP =
-  'Как заберёте — напишите/скиньте скрин. Отзыв сразу не публикуем, сначала согласуем';
-
-export const MSG_ASK_REVIEW =
-  'Черновик отзыва сюда (текст + фото). Публикуем только после ок. Потом скрин из ЛК + ШК разрезанные';
-
-export const MSG_ASK_REELS =
-  'Жду ссылку на рилс (описание с артикула) и потом статистику';
-
-export const MSG_GOT_IG =
-  'Приняла 🙌 Ссылку увидела';

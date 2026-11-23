@@ -10,13 +10,18 @@ const TESTS = [
     { id: 'ab1', cabinet_id: CAB, product_name: 'Свитер-айвори', nm_id: 1218782505, status: 'active', created_at: '2026-09-01T00:00:00Z', started_at: '2026-09-01T00:00:00Z', rotation_interval_min: 30, settings: {} },
     { id: 'ab2', cabinet_id: CAB, product_name: 'Куртка-найк', nm_id: 492027936, status: 'active', created_at: '2026-09-02T00:00:00Z', started_at: '2026-09-02T00:00:00Z', rotation_interval_min: 60, settings: {} },
 ];
+TESTS.push({ id: 'ab3', cabinet_id: CAB, product_name: 'Костюм-деловой', nm_id: 296556347, status: 'finished', created_at: '2026-10-22T00:00:00Z', started_at: '2026-10-22T09:00:00Z', finished_at: '2026-10-22T20:00:00Z', rotation_interval_min: 30, current_variant_index: 0, settings: { campaigns: [39497232], campaignNames: { '39497232': 'СРС Костюм оверсайз' }, sources: { ads: true, funnel: true }, rotateByImpressions: true, minImpressions: 1000, metric: 'ctr' } });
 const VARIANTS = [
+    { id: 'v3a', test_id: 'ab3', variant_label: '1', photo_url: 'https://example.test/k1.jpg', impressions: 900, clicks: 30, orders: 2, is_currently_on_wb: false, minutes_active: 60 },
+    { id: 'v3b', test_id: 'ab3', variant_label: '2', photo_url: 'https://example.test/k2.jpg', impressions: 900, clicks: 36, orders: 3, is_currently_on_wb: false, minutes_active: 60 },
+    { id: 'v3c', test_id: 'ab3', variant_label: '3', photo_url: 'https://example.test/k3.jpg', impressions: 900, clicks: 28, orders: 1, is_currently_on_wb: false, minutes_active: 60 },
     { id: 'v1a', test_id: 'ab1', variant_label: 'A', photo_url: 'https://example.test/a.jpg', impressions: 3000, clicks: 120, orders: 10, is_currently_on_wb: true, minutes_active: 600 },
     { id: 'v1b', test_id: 'ab1', variant_label: 'B', photo_url: 'https://example.test/b.jpg', impressions: 2800, clicks: 90, orders: 6, is_currently_on_wb: false, minutes_active: 500 },
     { id: 'v2a', test_id: 'ab2', variant_label: 'A', photo_url: 'https://example.test/c.jpg', impressions: 1500, clicks: 60, orders: 4, is_currently_on_wb: true, minutes_active: 300 },
     { id: 'v2b', test_id: 'ab2', variant_label: 'B', photo_url: 'https://example.test/d.jpg', impressions: 1400, clicks: 50, orders: 3, is_currently_on_wb: false, minutes_active: 280 },
 ];
 const tables = {
+    advertising_daily_stats: [{ campaign_id: 111, stat_date: '2026-11-19', data: { apps: [{ nms: [{ nmId: 1218782505 }] }] } }, { campaign_id: 222, stat_date: '2026-11-19', data: { apps: [{ nms: [{ nmId: 1218782505 }] }] } }],
     spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }],
     cabinets: [{ id: CAB, name: 'Zevina 1', wb_token_set: true, user_id: ADMIN_ID }],
     ab_tests: TESTS,
@@ -26,7 +31,7 @@ const tables = {
 
 async function open(browser, base, latencyMs) {
     const env = await openApp(browser, base, {
-        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: latencyMs || 150, tables, rpcs: { is_super_admin: true },
+        userId: ADMIN_ID, email: 'makstoychubek@gmail.com', latencyMs: latencyMs || 150, tables, rpcs: { is_super_admin: true }, functions: { 'wb-proxy': async (b) => (b && b.action === 'advert_campaigns' ? { campaigns: [{ id: 111, name: 'Первая', status: 9 }, { id: 222, name: 'Вторая', status: 9 }, { id: 333, name: 'Третья', status: 11 }] } : {}) },
     });
     await env.page.evaluate(() => showTab('ab-testing'));
     await env.page.locator('.abtest-card').first().waitFor({ state: 'attached' });
@@ -64,6 +69,79 @@ test('сразу после создания теста каркас фото н
     assert.deepStrictEqual(r, { tiles: 3, rings: 3, imgs: 2, gone: true }, JSON.stringify(r));
 });
 
+test('карточка: лента на 4 фото листается, кольцо с минутами, без подписей «проигрывает» и «лидирует»', async ({ page }) => {
+    const r = await page.evaluate(() => {
+        const c = document.getElementById('abtest-card-ab1');
+        const strip = c.querySelector('.abtest-strip'), rail = c.querySelector('.abtest-variants');
+        return { w: Math.round(strip.getBoundingClientRect().width), wrap: getComputedStyle(rail).flexWrap, ox: getComputedStyle(rail).overflowX,
+            lose: document.querySelectorAll('.abtest-lose-lbl, .abtest-conf').length, ring: !!c.querySelector('.ab-ring'), bar: !!c.querySelector('[id^="progress-"]') };
+    });
+    assert.strictEqual(r.w, 382, 'лента ровно на 4 плитки');
+    assert.strictEqual(r.wrap, 'nowrap'); assert.strictEqual(r.ox, 'auto');
+    assert.strictEqual(r.lose, 0, 'подписей нет'); assert.ok(r.ring, 'кольцо есть'); assert.ok(!r.bar, 'полосы со временем нет');
+});
+
+test('отчёт: без вердикта «явный победитель», все варианты на одном экране без прокрутки (ПК и телефон)', async ({ page }) => {
+    for (const [w, h] of [[1280, 860], [390, 844]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.evaluate(() => { document.querySelectorAll('.rnp-settings-overlay.is-open').forEach((e) => e.classList.remove('is-open')); openABReportModal('ab1'); });
+        await page.waitForTimeout(700);
+        const r = await page.evaluate(() => {
+            const grid = document.getElementById('ab-report-variants'); const cards = [...grid.querySelectorAll('.ab-report-card')];
+            const sc = [...document.querySelectorAll('#ab-report-modal .nr-win-scroll, #ab-report-modal .nr-win')].find((e) => e.scrollHeight > e.clientHeight + 2 && getComputedStyle(e).overflowY !== 'visible');
+            return { n: cards.length, verdict: document.getElementById('ab-report-verdict').textContent.trim(), prob: document.querySelectorAll('.ab-report-prob').length, scroll: sc ? sc.scrollHeight - sc.clientHeight : 0, last: cards.length ? Math.round(cards[cards.length - 1].getBoundingClientRect().bottom) : 0, vh: innerHeight };
+        });
+        assert.ok(r.n >= 2, 'варианты есть');
+        assert.strictEqual(r.verdict, '', 'вердикта нет'); assert.strictEqual(r.prob, 0, 'подписей «проигрывает» нет');
+        assert.strictEqual(r.scroll, 0, w + ': прокрутки внутри окна нет'); assert.ok(r.last <= r.vh, w + ': последний вариант виден целиком');
+    }
+});
+
+test('фото тестов: лёгкая копия сохраняется и подставляется вместо оригинала', async ({ page }) => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    await page.route('https://img.test/**', (r) => r.fulfill({ status: 200, contentType: 'image/png', body: png, headers: { 'access-control-allow-origin': '*' } }));
+    const r = await page.evaluate(async () => {
+        const url = 'https://img.test/a.png';
+        const before = NrAbImg.u(url);
+        NrAbImg.warm([url]);
+        for (let i = 0; i < 40 && NrAbImg.u(url) === url; i++) await new Promise((x) => setTimeout(x, 100));
+        return { before, after: NrAbImg.u(url) };
+    });
+    assert.strictEqual(r.before, 'https://img.test/a.png');
+    assert.ok(/^blob:/.test(r.after), 'после прогрева ссылка на лёгкую копию: ' + r.after);
+});
+
+test('телефон: окна «Новый А/Б тест» и отчёт начинаются ниже строки состояния и целиком на экране', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const open of ["showNewTestForm()", "document.getElementById('ab-report-modal').classList.add('is-open')"]) {
+        await page.evaluate(open);
+        await page.waitForTimeout(300);
+        const r = await page.evaluate(() => {
+            const d = [...document.querySelectorAll('.rnp-settings-overlay.is-open > .nr-win')][0];
+            if (!d) return null; const b = d.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), h: innerHeight };
+        });
+        assert.ok(r, 'окно открылось');
+        assert.ok(r.top >= 24, 'верх окна ниже зоны размытия: ' + r.top);
+        assert.ok(r.bottom <= r.h - 12 + 1, 'низ окна на экране: ' + r.bottom + ' из ' + r.h);
+        await page.evaluate(() => document.querySelectorAll('.rnp-settings-overlay.is-open').forEach((e) => e.classList.remove('is-open')));
+    }
+});
+
+test('РК: в карточке один ровный ряд; в мастере РК артикула не отмечаются сами; лишнюю РК можно убрать в «Редактировать»', async ({ page }) => {
+    await page.evaluate(() => {
+        const t = allABTests.find((x) => x.id === 'ab1'); t.settings = { ...(t.settings || {}), campaigns: [111, 222, 333, 444], campaignNames: { 111: 'Первая', 222: 'Вторая' } }; renderABTests();
+    });
+    const r = await page.evaluate(() => { const c = document.querySelector('#abtest-card-ab1 .abtest-camps'); const ch = [...c.children]; return { n: ch.length, tops: new Set(ch.map((e) => Math.round(e.getBoundingClientRect().top))).size, last: ch[ch.length - 1].textContent }; });
+    assert.strictEqual(r.n, 4, '3 РК и «+1»'); assert.strictEqual(r.tops, 1, 'все в одной строке'); assert.strictEqual(r.last, '+1');
+    await page.evaluate(() => editABTest('ab1'));
+    await page.waitForSelector('#ab-edit-camps [data-rm="222"]');
+    await page.click('#ab-edit-camps [data-rm="222"]');
+    const left = await page.evaluate(() => allABTests.find((x) => x.id === 'ab1').settings.campaigns);
+    assert.deepStrictEqual(left, [111, 333, 444], 'РК убрана');
+    const sel = await page.evaluate(async () => { abSelectedCard = { nmID: 1218782505, title: 'x', photos: [] }; abSelectedCampaigns = new Set(); await loadABCampaigns(); return abSelectedCampaigns.size; });
+    assert.strictEqual(sel, 0, 'сами РК не отмечаются');
+});
+
 test('«Удалить» убирает карточку сразу, не дожидаясь ответа сервера', async ({ page }) => {
     const t0 = Date.now();
     // Не ждём завершения всей цепочки запросов — только запускаем её, как реальный клик по кнопке.
@@ -90,6 +168,46 @@ test('«Завершить» при активном фильтре сразу �
     await page.waitForFunction(() => !document.getElementById('abtest-card-ab1'), null, { timeout: 300 });
     const dt = Date.now() - t0;
     assert.ok(dt < 300, 'карточка пропала из «Активных» за ' + dt + ' мс');
+});
+
+test('завершённый тест перезапускается: окно сразу, те же фото и РК, новый активный тест', async ({ page }) => {
+    await page.evaluate(() => filterTests('all'));
+    await page.waitForSelector('#abtest-card-ab3 button:has-text("Перезапустить")', { timeout: 3000 });
+    assert.strictEqual(await page.locator('#abtest-card-ab1 button:has-text("Перезапустить")').count(), 0, 'у активного теста кнопки перезапуска нет');
+    const sent = { tests: [], variants: [], settings: null };
+    await page.route(/rest\/v1\/ab_tests/, async (r) => {
+        const rq = r.request();
+        if (rq.method() === 'POST') { const b = JSON.parse(rq.postData()); sent.tests.push(b); return r.fulfill({ status: 201, json: { id: 'new1', created_at: new Date().toISOString(), ...b } }); }
+        if (rq.method() === 'PATCH') { const b = JSON.parse(rq.postData()); if (b.settings) sent.settings = b.settings; return r.fulfill({ status: 204, body: '' }); }
+        return r.fallback();
+    });
+    await page.route(/rest\/v1\/ab_test_variants/, async (r) => {
+        const rq = r.request();
+        if (rq.method() === 'POST') { const b = JSON.parse(rq.postData()); (Array.isArray(b) ? b : [b]).forEach((v) => sent.variants.push(v)); return r.fulfill({ status: 201, json: b }); }
+        return r.fallback();
+    });
+    const t0 = Date.now();
+    await page.click('#abtest-card-ab3 button:has-text("Перезапустить")');
+    await page.waitForSelector('.nru-win input[data-id="39497232"]:checked', { timeout: 300 });
+    assert.ok(Date.now() - t0 < 300, 'окно с прежней РК открылось сразу');
+    await page.click('.nru-win .nru-b.p');
+    await page.waitForFunction(() => allABTests.some((t) => t.nm_id == 296556347 && t.status === 'active'), null, { timeout: 2000 });
+    await page.waitForTimeout(1500);
+    assert.strictEqual(sent.tests.length, 1, 'создан один новый тест');
+    assert.strictEqual(sent.tests[0].status, 'active');
+    assert.strictEqual(String(sent.tests[0].nm_id), '296556347');
+    assert.deepStrictEqual(sent.variants.map((v) => v.photo_url), ['https://example.test/k1.jpg', 'https://example.test/k2.jpg', 'https://example.test/k3.jpg'], 'фото те же и в том же порядке');
+    assert.deepStrictEqual(sent.settings.campaigns, [39497232], 'РК та же');
+});
+
+test('перезапуск без выбранной РК не стартует', async ({ page }) => {
+    await page.evaluate(() => filterTests('all'));
+    await page.click('#abtest-card-ab3 button:has-text("Перезапустить")');
+    await page.waitForSelector('.nru-win input[data-id="39497232"]');
+    await page.uncheck('.nru-win input[data-id="39497232"]');
+    await page.click('.nru-win .nru-b.p');
+    await page.waitForTimeout(500);
+    assert.ok(!(await page.evaluate(() => allABTests.some((t) => t.nm_id == 296556347 && t.status === 'active'))), 'без РК тест не создан');
 });
 
 (async () => {

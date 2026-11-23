@@ -7,6 +7,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildAlerts, shouldSend, type AlertSetting } from '../_shared/admin-alerts.ts';
+import { moscowDay, sumUsage } from '../_shared/llm-usage.ts';
 import { fetchWithTimeout, sendTelegramMessage } from '../_shared/notify-once.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 
@@ -70,7 +71,39 @@ Deno.serve(async () => {
     const sinceAccess = state.get('access:cursor')?.last_sent || new Date(now.getTime() - 15 * 60 * 1000).toISOString();
     const { data: acc } = await admin.from('admin_audit').select('id, action, target, detail').in('action', ['access_granted', 'access_revoked']).gt('at', sinceAccess).order('id');
 
-    const alerts = buildAlerts({ now, settings, cabinets, jobs, bots, dbBytes: Number(bytes) || 0, planBytes: PLAN_BYTES, access: acc || [] });
+    // Обмен «Раздач» с листом Google
+    let sheets: { name: string; error: string | null; last_sync: string | null }[] = [];
+    if (settings.giveaway_sync?.enabled) {
+        const { data: gs } = await admin.from('giveaway_sheets').select('cabinet_id, enabled, last_sync_at, last_error').eq('enabled', true);
+        const names = new Map((cabs || []).map((c: any) => [c.id, c.name]));
+        sheets = (gs || []).map((x: any) => ({ name: String(names.get(x.cabinet_id) || x.cabinet_id), error: x.last_error, last_sync: x.last_sync_at }));
+    }
+    // Расход ChatGPT
+    let llm: { costUsd: number; budgetUsd: number; lastError: string | null; lastErrorAt: string | null } | null = null;
+    if (settings.llm?.enabled) {
+        try {
+            const day = moscowDay();
+            const { data: rows } = await admin.from('llm_usage').select('*').gte('day', `${day.slice(0, 7)}-01`);
+            const u = sumUsage((rows || []) as never, day);
+            const { data: bs } = await admin.from('alina_settings').select('value').eq('key', 'llmBudgetUsd').maybeSingle();
+            const budget = Number((bs as { value?: unknown } | null)?.value);
+            llm = { costUsd: u.costUsd, budgetUsd: Number.isFinite(budget) ? budget : 0, lastError: u.lastError, lastErrorAt: u.lastErrorAt };
+        } catch (_) { /* таблицы может не быть */ }
+    }
+    // Вебхук Алины
+    let alinaHook: { pending: number; error: string | null; errorAt: string | null } | null = null;
+    if (settings.alina_hook?.enabled) {
+        const tok = await botToken(admin, 'alina', 'ALINA_BOT_TOKEN');
+        if (tok) {
+            try {
+                const r = await fetchWithTimeout(`https://api.telegram.org/bot${tok}/getWebhookInfo`, {}, 8000);
+                const w = (await r.json().catch(() => ({})))?.result || {};
+                alinaHook = { pending: Number(w.pending_update_count) || 0, error: w.last_error_message || null, errorAt: w.last_error_date ? new Date(Number(w.last_error_date) * 1000).toISOString() : null };
+            } catch (_) { /* Telegram не ответил: оповещение про ботов скажет */ }
+        }
+    }
+
+    const alerts = buildAlerts({ now, settings, cabinets, jobs, bots, dbBytes: Number(bytes) || 0, planBytes: PLAN_BYTES, access: acc || [], sheets, llm, alinaHook });
     const token = getTelegramToken(), chat = (Deno.env.get('TELEGRAM_CHAT_ADMIN') ?? '').trim() || getTelegramChatId('team');
     const sent: string[] = [];
     const active = new Set(alerts.map((a) => a.key));

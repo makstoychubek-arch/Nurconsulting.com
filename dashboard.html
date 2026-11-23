@@ -51,7 +51,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     <script defer src="/nr-monitor.js"></script>
     <script defer src="/nr-perf.js"></script>
     <script defer src="/nr-fox.js"></script>
-    <link rel="stylesheet" href="/dist/tailwind.0736a4a529.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.97b8da578f.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -2765,9 +2765,9 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .gv-chip { font-size: 11px; padding: 4px 9px; border-radius: 8px; background: var(--sel); color: var(--text-secondary); }
         .gv-chip.is-late { background: rgba(239,68,68,0.14); color: #dc2626; }
         .gv-scroll { overflow: auto; max-height: calc(100vh - 290px); border-radius: 10px; border: 1px solid var(--border); overscroll-behavior: contain; }
-        .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; }
-        .gv-th { position: sticky; top: 0; z-index: 3; background: #d9ead3; color: #274e13; font-weight: 700; font-size: 10px; text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
-        .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: 28px; }
+        .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: var(--gv-fs, 11px); font-family: var(--gv-font, inherit); }
+        .gv-th { position: sticky; top: 0; z-index: 3; background: var(--gv-head-bg, #d9ead3); color: #274e13; font-weight: var(--gv-hfw, 700); font-size: var(--gv-hfs, 10px); height: var(--gv-head-h, auto); text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
+        .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: var(--gv-row-h, 28px); }
         .gv-center { text-align: center; }
         .gv-pay { text-align: center; font-variant-numeric: tabular-nums; background: #f3f7f1; color: var(--text-secondary); }
         .gv-pay.is-late { background: #f4c7c3; color: #8a1c14; font-weight: 700; }
@@ -2805,7 +2805,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .gv-hint { font-size: 11px; color: var(--text-muted); }
         .gv-wrap { position: relative; }
         .gv-cb { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; padding: 0; border: 0; resize: none; pointer-events: none; }
-        .gv-table td.gv-c { position: relative; user-select: none; -webkit-user-select: none; cursor: cell; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; font-size: 11px; color: var(--text-primary); }
+        .gv-table td.gv-c { position: relative; user-select: none; -webkit-user-select: none; cursor: cell; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; font-size: var(--gv-fs, 11px); color: var(--text-primary); }
         .gv-num { text-align: right; font-variant-numeric: tabular-nums; }
         .gv-rn { position: sticky; left: 0; z-index: 2; background: #f1f5ef; color: var(--text-muted); font-size: 10px; font-weight: 600; text-align: center; border-right: 1px solid #c4dcb9; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
         .gv-rn.is-on { background: #d9ead3; color: #274e13; }
@@ -4328,17 +4328,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         .ab-report-ctr-delta { font-size: 12px; font-weight: 700; }
         .ab-report-ctr-delta.pos { color: var(--green); }
         .ab-report-ctr-delta.neg { color: var(--red); }
-        .ab-report-prob { font-size: 12px; font-weight: 700; }
-        .ab-report-prob.good { color: var(--green); }
-        .ab-report-prob.bad { background: rgba(248,113,113,0.12); color: var(--red); padding: 2px 7px; border-radius: 6px; display: inline-block; }
         .ab-report-metrics-table { width: 100%; font-size: 11px; border-top: 1px solid var(--border); padding-top: 6px; }
         .ab-report-metrics-table td { padding: 2px 0; color: var(--text-secondary); }
         .ab-report-metrics-table td.lbl { color: var(--text-muted); }
         .ab-report-metrics-table td.val { text-align: right; font-weight: 600; color: var(--text-primary); }
         .ab-report-metrics-table tr.ads-head td { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 6px; }
         .ab-report-meta { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 6px; }
-        .ab-report-verdict-box { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); font-size: 13px; }
-        .ab-report-verdict-stars { font-size: 15px; letter-spacing: 1px; color: #FFB020; }
         .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
         .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
         .segment-tabs { display: inline-flex; background: var(--sel); border: none; border-radius: 999px; padding: 3px; }
@@ -6044,6 +6039,12 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             document.documentElement.id = 'nr-root';
             if (!__nrPane || __nrPane === 'dashboard') document.documentElement.classList.add('nr-f-dash');
             else if (__nrPane === 'advertising') document.documentElement.classList.add('nr-f-adv');
+            // Цепочка «Раздел › Подраздел» над заголовком: место под неё держим с первого кадра, иначе заголовок и страница прыгают вниз при загрузке
+            try {
+                var __nrCr = ['advertising', 'content-factory', 'goods-groups', 'analytics', 'ab-testing', 'agents', 'akylai', 'tariffs'].indexOf(__nrPane) !== -1;
+                if (__nrPane === 'rnp') { var __nrRv0 = localStorage.getItem('nr_rnp_view'); __nrCr = __nrRv0 === 'prices' || __nrRv0 === 'unit'; }
+                if (__nrCr) document.documentElement.classList.add('nr-f-crumb');
+            } catch (e) { /* без памяти место не резервируем */ }
             if (__nrPane && __nrPane !== 'dashboard') {
                 document.documentElement.setAttribute('data-nr-early', __nrPane);
                 var __nrStyle = document.createElement('style');
@@ -6082,7 +6083,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 if (__nrPane === 'settings') {
                     try {
                         var __nrSec = localStorage.getItem('nr_settings_section');
-                        if (['security', 'integrations', 'api'].indexOf(__nrSec) !== -1) {
+                        if (['security', 'integrations', 'api', 'keys'].indexOf(__nrSec) !== -1) {
                             __nrCss += '#settings-profile{display:none !important}#settings-' + __nrSec + '{display:block !important}';
                             __nrCss += 'html body #tab-settings #settings-tab-btn-profile.settings-section-tab.active{color:var(--text-muted) !important;box-shadow:none !important}';
                             __nrCss += 'html body #tab-settings #settings-tab-btn-' + __nrSec + '.settings-section-tab{color:var(--text-primary) !important;box-shadow:inset 0 -2px 0 var(--text-primary) !important}';
@@ -6096,13 +6097,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         } catch (e) {}
     </script>
 <link rel="stylesheet" href="/dist/content-factory.e90044b6a6.css">
-<link rel="stylesheet" href="/dist/nr-motion.11837b104a.css">
+<link rel="stylesheet" href="/dist/nr-motion.5750c3260e.css">
 <link rel="stylesheet" href="/dist/rnp-extra.a60fef2840.css">
 <link rel="stylesheet" href="/dist/ads-pulse.f9e582b861.css">
 <link rel="stylesheet" href="/dist/adv-stats.e91901e665.css">
 <link rel="stylesheet" href="/dist/nr-admin.01adc2bc54.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.df58160909.css">
-<link rel="stylesheet" href="/dist/nr-mono.3fdea63a81.css">
+<link rel="stylesheet" href="/dist/nr-mono.c4711059f3.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-sl{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -6826,7 +6827,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                                 </svg>
                             </button>
                             <div class="ads-hq-cols-panel">
-                                <button type="button" class="ads-hq-chip on" data-col-preset="all">Все</button>
+                                <button type="button" class="ads-hq-chip on" data-col-preset="main">Основные</button>
+                                <button type="button" class="ads-hq-chip" data-col-preset="all">Все</button>
                                 <button type="button" class="ads-hq-chip" data-col-preset="stats">Затраты</button>
                                 <button type="button" class="ads-hq-chip" data-col-preset="funnel">Воронка</button>
                                 <button type="button" class="ads-hq-chip" data-col-preset="unit">Эффективность</button>
@@ -6835,7 +6837,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         <span id="ads-hq-freshness" class="ads-hq-status ads-hq-fresh" aria-live="polite"></span>
                     </div>
                 </div>
-                <div id="ads-hq-kpis" class="ads-hq-kpi-bar"><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Сумма заказов</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-revenue"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-revenue"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Затраты</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-spend"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-spend"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Доля затрат</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-drr"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-drr"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ROAS</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-roas"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-roas"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">CTR</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-ctr"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-ctr"></span></div></div></div>
+                <div id="ads-hq-kpis" class="ads-hq-kpi-bar"><div class="ads-hq-kpi main"><div class="ads-hq-kpi-label">Затраты</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-spend"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-spend"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Сумма заказов</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-revenue"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-revenue"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Доля затрат</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-drr"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-drr"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ROAS</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-roas"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-roas"></span></div></div><div class="ads-hq-kpi"><div class="ads-hq-kpi-label">CTR</div><div class="ads-hq-kpi-value"><span id="ads-hq-kpi-ctr"></span><span class="ads-hq-kpi-d" id="ads-hq-kpi-d-ctr"></span></div></div></div>
                 <div class="widget-card ads-hq-list-card">
                     <div id="adv-pulse" class="adp2"></div>
                     <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
@@ -7507,6 +7509,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <button type="button" class="rnp-settings-close" onclick="closeABReportModal()" aria-label="Закрыть">×</button>
                 <h3 class="font-semibold text-base" style="color:var(--text-primary);margin:0 28px 4px 0" id="ab-report-title">Отчёт по А/Б тесту</h3>
                 <div class="text-xs mb-2" style="color:var(--text-muted)" id="ab-report-sub"></div>
+                <div id="ab-report-camps" class="abtest-camps all"></div>
                 <div class="flex items-center gap-2 mb-2" id="ab-report-source-toggle"></div>
                 <div id="ab-report-verdict" class="mb-3"></div>
                 <div id="ab-report-variants" class="ab-report-grid"></div>
@@ -7545,6 +7548,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 <div class="settings-section-tab" id="settings-tab-btn-integrations" onclick="showSettingsSection('integrations', this)">Интеграции</div>
                 <div class="settings-section-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API Wildberries</div>
                 <div class="settings-section-tab" id="settings-tab-btn-tariffs" onclick="showSettingsSection('tariffs', this)">Тарифы</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-keys" onclick="showSettingsSection('keys', this)">Боты и ключи</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim space-y-4">
@@ -7606,6 +7610,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 </div>
             </div>
             <div id="settings-tariffs" class="settings-tab-anim hidden"><div id="nr-tr"></div></div>
+            <div id="settings-keys" class="settings-tab-anim hidden space-y-4"></div>
             <div id="settings-devsessions" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card security-sessions-card p-0">
                     <div class="p-6 pb-4">
@@ -8069,7 +8074,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/nr-snap.js"></script>
 <script src="/dist/rnp-metrics.b730968128.min.js"></script>
-<script src="/dist/rnp-module.382b4bfcf0.min.js"></script>
+<script src="/dist/rnp-module.40eb9d9e95.min.js"></script>
 
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
@@ -8182,20 +8187,23 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 </script>
 
 <script src="/dist/rnp-selection.c3f6d82ed4.min.js"></script>
-<script src="/dist/rnp-plan-fact.3b175bdb40.min.js"></script>
+<script src="/dist/rnp-plan-fact.87aeb24a04.min.js"></script>
 <script src="/dist/wb-formulas.67b6ad4046.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/adv-shelves-ui.94530b078e.min.js"></script><script src="/dist/ads-command-center.022462979e.min.js"></script>
-<script src="/dist/ads-pulse.34b6922748.min.js"></script>
+<script src="/dist/adv-shelves-ui.94530b078e.min.js"></script><script src="/dist/ads-command-center.04e57458a6.min.js"></script>
+<script src="/dist/ads-pulse.e72b555107.min.js"></script>
 <script src="/dist/adv-controls.c6f92b0845.min.js"></script>
 <script src="/dist/adv-stats.d641132d6b.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/giveaways.ed0f3c55fa.min.js"></script>
+<script src="/dist/giveaways.d0af3bfd09.min.js"></script>
 <script src="/dist/nr-xlsx.1c1fdb63a9.min.js"></script><script src="/dist/goods-fbs.389aa73deb.min.js"></script><script src="/dist/goods-supply.0691ba5e13.min.js"></script>
 <script src="/dist/viewer-mode.1d9ff5a747.min.js"></script>
 <script src="/dist/space-admin-ext.68d561b81b.min.js"></script>
 <script src="/dist/rnp-planning.69cadd5068.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
+<script src="/dist/alina-sandbox-ui.0ca35bec6a.min.js"></script>
+<script src="/dist/alina-settings-ui.0469177581.min.js"></script>
+<script src="/dist/nr-keys-ui.b126159724.min.js"></script>
 <script src="/dist/content-factory.8f60812592.min.js"></script>
 <script src="/dist/nr-wow.1b84df3630.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
@@ -8214,18 +8222,18 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-hints.6004b3f51f.min.js"></script>
 <script src="/dist/nr-costs.33a1fb1239.min.js"></script>
 <script src="/dist/nr-motion.c64e6af0d5.min.js"></script>
-<script src="/dist/nr-ui.60ee969ea1.min.js"></script>
+<script src="/dist/nr-ui.0c8036e25e.min.js"></script>
 <script src="/dist/nr-goods-ui.142265b01c.min.js"></script>
 <script src="/dist/nr-analytics.fff8579cdd.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
-<script src="/dist/rnp-prices.9f9977e1c0.min.js"></script>
-<script src="/dist/nr-ab-rotation.5f6cfdf60b.min.js"></script>
+<script src="/dist/rnp-prices.456e0da447.min.js"></script>
+<script src="/dist/nr-ab-rotation.cd6580524e.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
-<script src="/dist/nr-nav.2e01657404.min.js"></script>
+<script src="/dist/nr-nav.8a124c17df.min.js"></script>
 <script src="/dist/nr-tariffs.cbf5cb0255.min.js"></script>
 <script src="/dist/nr-dash-blocks.ef12b0ecce.min.js"></script>
-<script src="/dist/nr-foot.3aa9e16910.min.js"></script>
+<script src="/dist/nr-foot.83a6f84578.min.js"></script>
 <script src="/dist/nr-ig-window.1000029afc.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -9563,7 +9571,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (sheetOpen) document.getElementById('bn-beta')?.classList.add('active');
     }
 
-    const DATE_FILTER_TABS = new Set(['cabinets-hub', 'dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp']);
+    const DATE_FILTER_TABS = new Set(['cabinets-hub', 'dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp', 'rnp-planfact']);
 
     function updateHeaderNav(tabName, isStub) {
         const backBtn = document.getElementById('header-back-btn');
@@ -9853,7 +9861,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             return;
         }
         // Период у каждой вкладки свой: подставляем его до того, как вкладка начнёт грузить данные.
-        if (DATE_FILTER_TABS.has(name)) loadDateRangeForTab(name);
+        if (DATE_FILTER_TABS.has(name)) loadDateRangeForTab(name === 'rnp-planfact' ? 'rnp' : name);
         const apply = () => {
             window._betaStubTab = null;
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -12708,6 +12716,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     }
     function rangeTabKey() {
         const t = (typeof getCurrentActiveTab === 'function' ? getCurrentActiveTab() : '') || 'dashboard';
+        // План/факт живёт на периоде РНП (одна и та же дата в шапке), отдельного периода у него нет.
+        if (t === 'rnp-planfact') return 'rnp';
         return DATE_FILTER_TABS.has(t) ? t : 'dashboard';
     }
 
@@ -12731,6 +12741,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         activeDateFrom = r.from;
         activeDateTo = r.to;
         if (changed) {
+            // Дата в шапке сменилась: РНП и План/факт должны получить тот же период, иначе в шапке октябрь, а в таблице прежний месяц.
+            if (tab === 'rnp') { try { const rn = getRnp(); if (rn && rn.setDateRange) rn.setDateRange(r.from, r.to).catch(() => {}); } catch (_) {} }
             updateDateRangeLabel();
             const pk = document.getElementById('date-picker');
             if (pk && !pk.classList.contains('hidden')) syncPickerFromActive();
@@ -12907,7 +12919,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         else if (name === 'planning') loadPlanningTab();
         else if (name === 'cabinets-hub') window.CabinetsHub?.reload();
-        else if (name === 'rnp') { const rnp = getRnp(); if (rnp && rnp.setDateRange) { const pr = rnp.setDateRange(activeDateFrom, activeDateTo); NrBusy.run(pr); Promise.resolve(pr).catch(function (e) { console.warn('[RNP] range:', e); }); } }
+        else if (name === 'rnp' || name === 'rnp-planfact') { const rnp = getRnp(); if (rnp && rnp.setDateRange) { const pr = rnp.setDateRange(activeDateFrom, activeDateTo); NrBusy.run(pr); Promise.resolve(pr).catch(function (e) { console.warn('[RNP] range:', e); }); } }
     }
 
     function toggleModuleDatePicker(e, el) {
@@ -13094,6 +13106,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     let cabinetListCache = [];
     function renderCabinetDropdown(data) {
         cabinetListCache = visibleCabinets(data || []);
+        try { if (window.NrMp && NrMp.fit) NrMp.fit(); } catch (_) { /* площадки доступны по умолчанию */ }
         const menu = document.getElementById('cabinet-dropdown-menu');
         const selectHeader = document.getElementById('cabinet-select-header');
         if (!menu) return;
@@ -13155,7 +13168,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     async function loadCabinets() {
         const { data, error: cabErr } = await supabase
             .from('cabinets')
-            .select('id, name')
+            .select('id, name, wb_token_set, ozon_client_id, ozon_api_key_set')
             .order('name');
 
         if (cabErr) {
@@ -13667,6 +13680,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     // WB | Ozon | Вместе: меняются только цифры; без кэша площадки они размыты до прихода свежих
     document.addEventListener('nr-mp-change', async () => {
         if (!currentCabinetId) return;
+        window.__pnlMCab = null; window.__pnlMKey = null; // цифры прежней площадки не считаем показанными
         const tab = document.getElementById('tab-dashboard');
         const have = (await DASH_CACHE.get(dashCacheKey(currentCabinetId, getActiveDateRange()))) || (await DASH_CACHE.get(currentCabinetId + dashMpSuf() + '|last'));
         if (!have && tab) tab.classList.add('nr-dash-wait');
@@ -13786,6 +13800,8 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         settings.adsSum = Math.round(Number(adsWindow.spend || 0));
                     }
                     if (!rows || rows.length === 0) {
+                        // Свежий отчёт пустой, а на экране уже стоят настоящие цифры (из кэша или прошлой загрузки): их не стираем прочерками
+                        if (window.__pnlMCab === finCabinet && window.__pnlMKey === dashCacheKey(finCabinet, { from, to })) { showFinanceNote('Показаны последние сохранённые цифры: свежий отчёт Wildberries пока не получен.'); return; }
                         // Пустой отчёт — это не повод оставлять на экране оценку.
                         setFinanceMetricsPlaceholder('—');
                         showFinanceNote(window._nrWbTokenBad
@@ -13801,6 +13817,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             renderPnl(metrics);
                             window.__pnlMCab = finCabinet;
+                            window.__pnlMKey = dashCacheKey(finCabinet, { from, to });
                             try { renderPnlDaily(rows, summary.cur_daily, adsCur && adsCur.byDay, settings, from, to, metrics, Number(summary.cur?.orders_sum || 0)); } catch (e) { console.warn('[pnl daily]', e && e.message); }
                             applyExtendedMetricDisplay(metrics);
                             restyleDashNums();
@@ -13826,14 +13843,17 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                     }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
-                    if (finCabinet === currentCabinetId) {
+                    if (finCabinet === currentCabinetId && window.__pnlMCab === finCabinet && window.__pnlMKey === dashCacheKey(finCabinet, { from, to })) {
+                        // Ошибка или тайм-аут свежей загрузки, а настоящие цифры уже на экране: оставляем их
+                        showFinanceNote('Показаны последние сохранённые цифры: свежий отчёт Wildberries не получен. Нажмите «Обновить».');
+                    } else if (finCabinet === currentCabinetId) {
                         setFinanceMetricsPlaceholder('—');
                         showFinanceNote(e.message === 'timeout'
                             ? 'Wildberries не ответил на запрос финансового отчёта — прибыль и маржа не рассчитаны. Нажмите «Обновить», чтобы попробовать снова.'
                             : 'Не удалось получить финансовый отчёт Wildberries — прибыль и маржа не рассчитаны.');
                     }
                     const legendEl = document.getElementById('dashboard-top-margin-legend');
-                    if (legendEl && finCabinet === currentCabinetId) {
+                    if (legendEl && finCabinet === currentCabinetId && !(window.__pnlMCab === finCabinet && legendEl.children.length > 1)) {
                         legendEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные</div>`;
                     }
                 });
@@ -15153,9 +15173,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                         }
                     }
                 });
-                if (abArticleCampaignIds.size && abSelectedCampaigns.size === 0) {
-                    abArticleCampaignIds.forEach(id => abSelectedCampaigns.add(id));
-                }
             } catch (e) { console.warn('[AB] active campaign detect failed:', e); }
         }
         renderABCampaignList();
@@ -15487,7 +15504,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     const abPending = {}; // тест → превью фото, пока они загружаются (каркас не пропадает)
     async function runABCreate(snap) {
         let testId = null;
-        const previews = snap.abFiles.map((f) => { try { return f && f.url ? f.url : (typeof Blob !== 'undefined' && f instanceof Blob ? URL.createObjectURL(f) : ''); } catch (_) { return ''; } });
+        const previews = snap.abFiles.map((f) => { try { return typeof f === 'string' ? f : f && f.url ? f.url : (typeof Blob !== 'undefined' && f instanceof Blob ? URL.createObjectURL(f) : ''); } catch (_) { return ''; } });
         // Сразу показываем карточку в списке, пока тест сохраняется.
         const tmp = { id: 'tmp-' + Date.now(), cabinet_id: snap.cabinetId, nm_id: snap.nmId, product_name: snap.name, status: 'active', rotation_interval_min: snap.interval, started_at: new Date().toISOString(), settings: snap.settings, variants: [] };
         abPending[tmp.id] = { previews };
@@ -15677,27 +15694,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         const maxProbForCard = Math.max(...Array.from(probsForCard.values()), 0);
         const leaderLabelForCard = Array.from(probsForCard.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
         const intervalMin = test.rotation_interval_min || 30;
-        const campaignBits = [];
-        const campIds = test.settings?.campaigns || [];
-        const campNames = test.settings?.campaignNames || {};
-        campIds.slice(0, 2).forEach(id => {
-            const name = campNames[String(id)] || campNames[id];
-            campaignBits.push(name ? `${name} · ${id}` : `рк ${id}`);
-        });
-        if (campIds.length > 2) campaignBits.push(`+${campIds.length - 2}`);
         const ran = test.started_at
             ? `Работал: ${new Date(test.started_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
             + (test.finished_at ? ` — ${new Date(test.finished_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : '')
             : '';
-        const nextRotateMs = test.last_rotated_at
-            ? Math.max(0, intervalMin * 60 * 1000 - (Date.now() - new Date(test.last_rotated_at).getTime()))
-            : 0;
-        const progressPct = test.last_rotated_at
-            ? Math.min(100, ((intervalMin * 60 * 1000 - nextRotateMs) / (intervalMin * 60 * 1000)) * 100)
-            : 0;
-        const nextRotateStr = nextRotateMs > 0
-            ? `${Math.floor(nextRotateMs / 60000)}м ${Math.floor((nextRotateMs % 60000) / 1000)}с`
-            : 'сейчас';
 
         const pend = !withRate.length ? abPending[test.id] : null;
         const variantsHtml = pend ? pend.previews.map((u, i) => `
@@ -15710,8 +15710,6 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const isActive = v.is_currently_on_wb;
             const scoreStr = metric === 'ctr' ? v.ctr.toFixed(2) + '%' : metric === 'cr' ? v.cr.toFixed(2) + '%' : v.ordersPerHour.toFixed(2);
             const prob = probsForCard.get(v.variant_label) || 0;
-            const clearWin = withRate.length > 1 && v.variant_label === leaderLabelForCard && maxProbForCard >= 0.85;
-            const clearLose = withRate.length > 2 && prob > 0 && prob <= 0.15;
             const baselineScore = withRate[0]?.score || 0;
             const isBaseline = withRate[0] && v.id === withRate[0].id;
             const delta = !isBaseline ? (v.score - baselineScore) : 0;
@@ -15721,11 +15719,10 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             return `
             <div class="abtest-variant ${isWinner ? 'winner' : ''} ${isActive ? 'current-active' : ''}">
                 ${isActive ? '<div class="abtest-active-badge">сейчас</div>' : ''}
-                <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
+                <img src="${escapeHtml(window.NrAbImg?.u(v.photo_url) || v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
                 <div class="abtest-variant-meta">
                     <div class="abtest-ctr">${scoreStr}</div>
                     ${deltaHtml}
-                    ${clearLose ? '<div class="abtest-lose-lbl">проигрывает</div>' : ''}
                 </div>
             </div>`;
         }).join('');
@@ -15747,37 +15744,24 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             ? `<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">Завершён${finishReasonLabel}</span>`
             : '<span class="badge-red">На паузе</span>';
 
-        const progressHtml = test.status === 'active' ? `
-            <div class="mt-3">
-                <div class="flex justify-between text-xs mb-1" style="color:var(--text-muted)">
-                    <span>Следующая ротация</span><span id="next-rotate-${test.id}">${nextRotateStr}</span>
-                </div>
-                <div class="rotation-progress-wrap"><div class="rotation-progress-bar" id="progress-${test.id}" style="width:${progressPct}%"></div></div>
-            </div>` : '';
-
         const statusLabel = test.status === 'active' ? 'Активен' : test.status === 'finished' ? 'Завершён' : 'Отключен';
-        const starN = Math.max(1, Math.min(5, Math.round(maxProbForCard * 5)));
-        const confHtml = hasAdsData && maxProbForCard >= 0.55
-            ? `<div class="abtest-conf">${'★'.repeat(starN)}${'☆'.repeat(5 - starN)} ${maxProbForCard >= 0.85 ? 'уверенно лучше' : 'пока лидирует'} (${Math.round(maxProbForCard * 100)}%)</div>`
-            : '';
 
         const tid = String(test.id);
         return `
         <div class="abtest-card" id="abtest-card-${tid}" data-key="${tid}" ${hasAdsData ? `style="cursor:pointer" onclick="openABReportModal('${tid}')" title="Открыть подробный отчёт"` : ''}>
             <div class="abtest-card-row">
-                <div class="abtest-variants">${variantsHtml}</div>
+                <div class="abtest-strip"><div class="abtest-variants">${variantsHtml}</div></div>
                 <div class="abtest-card-info">
                     <div class="abtest-card-title">${escapeHtml(test.product_name)}</div>
-                    <div class="abtest-card-meta">Арт. ${escapeHtml(String(test.nm_id))}${campaignBits.length ? ' · ' + escapeHtml(campaignBits.join(' · ')) : ''} · ${test.settings?.rotateByImpressions ? minImpCap + ' показов' : intervalMin + ' мин'} · ${variants.length} вар.</div>
+                    <div class="abtest-card-meta">Арт. ${escapeHtml(String(test.nm_id))} · ${test.settings?.rotateByImpressions ? minImpCap + ' показов' : intervalMin + ' мин'} · ${variants.length} вар.</div>${window.NrAbRot?.camps?.(test) || ''}
                     ${ran ? `<div class="abtest-card-meta">${escapeHtml(ran)}</div>` : ''}
-                    ${confHtml}
-                    ${progressHtml}
                     <div class="abtest-card-actions" onclick="event.stopPropagation()">
                     ${hasAdsData ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent)" onclick="openABReportModal('${tid}')">Отчёт</button>` : ''}
-                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">Сменить</button>` : ''}
+                    ${test.status === 'active' ? (window.NrAbRot?.ring?.(test) || '') + `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">Сменить</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">Редактировать</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent)" onclick="armABWinnerStop('${tid}')">${test.settings?.stopOnWinner === true ? `Ждём CTR ≥ ${minCtrGoal}%` : `Стоп от ${minCtrGoal}% CTR`}</button>` : ''}
+                    ${window.NrAbRot?.btn?.(test)||''}
                     <button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--red)" onclick="deleteABTest('${tid}')">Удалить</button>
                     </div>
                 </div>
@@ -16127,46 +16111,33 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         }
         const metricsByVariant = new Map(variants.map(v => [v.id, metricsFor(v)]));
 
-        const probs = computeProbabilityBestByCtr(variants.map(v => ({ variant_label: v.variant_label, ...metricsByVariant.get(v.id) })));
         const baseline = variants[0];
         const baselineM = metricsByVariant.get(baseline.id);
         const baselineCtr = baselineM.impressions > 0 ? (baselineM.clicks / baselineM.impressions * 100) : 0;
-        const maxProb = Math.max(...Array.from(probs.values()), 0);
-        const leaderLabel = Array.from(probs.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
 
         document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
-        const reportCampaigns = (test.settings?.campaigns || []).map(String).filter(Boolean);
         const fmtReportDate = (d) => d ? new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
         const statsUpdatedAt = (statsRows || []).filter(r => r.source === 'ads').map(r => r.updated_at).filter(Boolean).sort().pop() || null;
         const reportSubEl = document.getElementById('ab-report-sub');
         reportSubEl.style.whiteSpace = 'pre-line';
         reportSubEl.textContent =
-            `${test.nm_id}${reportCampaigns.length ? ` · рк ${reportCampaigns.join(', ')}` : ''}\n` +
+            `${test.nm_id}\n` +
             `Тест запущен: ${fmtReportDate(test.started_at)}` +
             (test.finished_at ? `\nТест завершён: ${fmtReportDate(test.finished_at)}` : '') +
             (source === 'funnel' ? '\nВоронка: WB отдаёт историю максимум за последние 7 дней' : '') +
             (source === 'ads' && statsUpdatedAt ? `\nПоказы и клики РК: замер ${new Date(statsUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}, обновляются каждые 10 минут` : '');
 
-        const totalImpressions = variants.reduce((s, v) => s + (metricsByVariant.get(v.id)?.impressions || 0), 0);
-        let stars = '★☆☆', verdictText = 'Пока недостаточно данных для вывода';
-        if (maxProb >= 0.9) { stars = '★★★'; verdictText = `явный победитель (${Math.round(maxProb * 100)}%)`; }
-        else if (maxProb >= 0.6) { stars = '★★★'; verdictText = `скорее всего лучше (${Math.round(maxProb * 100)}%)`; }
-        else if (maxProb >= 0.4) { stars = '★★☆'; verdictText = `есть тенденция к лидеру (${Math.round(maxProb * 100)}%)`; }
-        if (maxProb < 0.6 && totalImpressions >= 1000 * variants.length) { stars = '★'; verdictText = 'разницы нет'; }
-        document.getElementById('ab-report-verdict').innerHTML = `
-            <div class="ab-report-verdict-box">
-                <span class="ab-report-verdict-stars">${stars}</span>
-                <span style="color:var(--text-primary);font-weight:600">${escapeHtml(verdictText)}</span>
-                ${maxProb > 0 && verdictText !== 'разницы нет' ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
-            </div>`;
-
+        document.getElementById('ab-report-verdict').innerHTML = '';
+        document.getElementById('ab-report-camps').innerHTML = window.NrAbRot?.camps?.(test, true) || '';
         const sourceLabel = source === 'funnel' ? 'Воронка (карточка)' : 'Реклама';
         const liveIdx = variants.findIndex(x => x.is_currently_on_wb);
         const nextVariant = liveIdx >= 0 ? variants[(liveIdx + 1) % variants.length] : null;
         const rotationsLeft = !(Number(test.max_rotations) > 0) || (Number(test.rotation_count) || 0) < Number(test.max_rotations);
         const testRunning = test.status === 'active'; // пока тест идёт, ручная установка фото выключена
         const timerOn = test.status === 'active' && Boolean(nextVariant) && nextVariant.id !== variants[liveIdx].id && rotationsLeft && !test.settings?.rotateByImpressions;
-        document.getElementById('ab-report-variants').innerHTML = variants.map(v => {
+        const abGrid = document.getElementById('ab-report-variants');
+        abGrid.style.setProperty('--n', Math.min(variants.length, 5));
+        abGrid.innerHTML = variants.map(v => {
             const m = metricsByVariant.get(v.id);
             const impressions = Math.round(m.impressions);
             const clicks = Math.round(m.clicks);
@@ -16179,32 +16150,27 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
             const cr = clicks > 0 ? (orders / clicks * 100) : 0; // CR: клик → заказ
             const cpc = clicks > 0 ? (adSpend / clicks) : 0;
             const cpv = impressions > 0 ? (adSpend / impressions) : 0;
-            const prob = probs.get(v.variant_label) || 0;
             const isBaseline = v.variant_label === baseline.variant_label;
             const delta = isBaseline ? null : ctr - baselineCtr;
-            const isLosing = prob > 0 && prob <= 0.15 && variants.length > 2;
             const isLive = Boolean(v.is_currently_on_wb);
             const isNext = timerOn && nextVariant.id === v.id;
-            const isLeading = v.variant_label === leaderLabel && maxProb >= 0.6;
             const rotations = rotationsByLabel[v.variant_label] || 0;
 
             return `
-            <div class="ab-report-card ${isLeading ? 'leading' : ''} ${isNext ? 'next' : ''}">
+            <div class="ab-report-card ${isNext ? 'next' : ''}">
                 <div class="ab-report-head">
                     ${isLive && timerOn ? `<span class="abr-timer-pill" id="abr-timer" title="Через сколько фото сменится на следующее: Вариант ${escapeHtml(String(nextVariant.variant_label))}"><span id="abr-timer-time">--:--</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>` : ''}
                     ${!isLive ? `<button class="ab-report-apply-btn" ${testRunning ? 'disabled' : ''} title="${testRunning ? 'Доступно после окончания теста: пока тест идёт, фото меняются сами' : 'Поставить это фото на WB'}" onclick="applyWinningVariant('${test.id}','${v.id}')">Установить на ВБ</button>` : ''}
                     <span class="ab-report-tag ${isLive ? 'live' : ''}">${isLive ? 'Сейчас на WB' : `${isNext ? '↳ ' : ''}Вариант ${escapeHtml(String(v.variant_label))}`}</span>
                 </div>
-                <div class="ab-report-img-wrap"><img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/200x150/888/fff?text=${escapeHtml(v.variant_label)}'"></div>
+                <div class="ab-report-img-wrap"><img src="${escapeHtml(window.NrAbImg?.u(v.photo_url) || v.photo_url)}" onerror="this.src='https://placehold.co/200x150/888/fff?text=${escapeHtml(v.variant_label)}'"></div>
                 <div class="ab-report-ctr-row">
                     <span class="ab-report-ctr-val">${ctr.toFixed(2)}%</span>
                     ${delta != null && impressions > 0 ? `<span class="ab-report-ctr-delta ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</span>` : ''}
-                    ${isLosing ? '<span class="ab-report-prob bad">явно проигрывает</span>' : prob > 0 ? `<span class="ab-report-prob good">${Math.round(prob * 100)}%</span>` : ''}
                 </div>
                 <table class="ab-report-metrics-table">
-                    <tr><td class="lbl">CTR</td><td class="val">${ctr.toFixed(2)}%</td></tr>
-                    <tr><td class="lbl" title="Из кликов в корзину">CR1 (клик→корзина)</td><td class="val">${cr1.toFixed(2)}%</td></tr>
-                    <tr><td class="lbl" title="Из кликов в заказ">CR (клик→заказ)</td><td class="val">${cr.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl" title="Из кликов в корзину">CR1</td><td class="val">${cr1.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl" title="Из кликов в заказ">CR</td><td class="val">${cr.toFixed(2)}%</td></tr>
                     <tr class="ads-head"><td colspan="2">${escapeHtml(sourceLabel)}</td></tr>
                     <tr><td class="lbl">Показы</td><td class="val">${fmt(impressions)}</td></tr>
                     <tr><td class="lbl">Клики</td><td class="val">${fmt(clicks)}</td></tr>
@@ -16439,7 +16405,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 
     function addVariantInput() { addVariantSlot(); }
 
-    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'tariffs', 'devsessions'];
+    const SETTINGS_PANES = ['profile', 'security', 'integrations', 'api', 'tariffs', 'keys', 'devsessions'];
     function showSettingsSection(section, el) {
         if (!SETTINGS_PANES.includes(section)) section = 'profile';
         el = el || document.getElementById('settings-tab-btn-' + section);
@@ -16462,9 +16428,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 loadSpacesAdmin();
             }
         }
+        if (section === 'keys') { try { window.NrKeys?.show({ host: document.getElementById('settings-keys'), supabase: supabase }); } catch (_) {} } else { try { window.NrKeys?.hide(); } catch (_) {} }
         if (section === 'devsessions') loadDevSessions();
+        try { if (window.syncSettingsGroups) window.syncSettingsGroups(section); } catch (_) { /* группы настроек не мешают разделу */ }
     }
     window.showSettingsSection = showSettingsSection;
+
+
 
     // Профиль: данные открытого кабинета и тариф. Обновляются при открытии раздела и при смене кабинета.
     async function loadSettingsProfile() {
@@ -16498,10 +16468,11 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
     function applySettingsTabsForRole() {
         // Профиль, Безопасность, Интеграции, API Wildberries и Тарифы видят все; «Сессии» только команда.
         document.getElementById('settings-tab-btn-devsessions')?.classList.toggle('hidden-tab', !isSuperAdmin);
+        document.getElementById('settings-tab-btn-keys')?.classList.toggle('hidden-tab', !isSuperAdmin);
         document.getElementById('admin-access-card')?.classList.toggle('hidden', !isSuperAdmin);
         let saved = '';
         try { saved = localStorage.getItem('nr_settings_section') || ''; } catch (_) {}
-        if (saved === 'devsessions' && !isSuperAdmin) saved = '';
+        if ((saved === 'devsessions' || saved === 'keys') && !isSuperAdmin) saved = '';
         const sec = SETTINGS_PANES.includes(saved) ? saved : 'profile';
         showSettingsSection(sec, document.getElementById('settings-tab-btn-' + sec));
     }

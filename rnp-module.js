@@ -90,6 +90,9 @@ const RNP = (() => {
     let _compareNm = null;
     let _sectionView = 'all';
     let _notesCache = {};
+    let _notesGenMp = null; // площадка, для которой загружены заметки «Общего» (у WB и Ozon они свои)
+    /** Заметки «Общего» хранятся в базе под -1 для WB и -2 для Ozon: у площадок они разные. */
+    const _noteDbNm = (nm) => (Number(nm) === -1 && _mp() === 'ozon' ? -2 : nm);
     let _strategyTab = 0;
     let _notesVisible = false;
     let _editMode = false;
@@ -499,6 +502,7 @@ const RNP = (() => {
         _metricsCache = new Map();
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
+        _notesGenMp = null;
         _articles = [];
         _articlesCab = null;
         _paintedCab = null;
@@ -861,19 +865,25 @@ const RNP = (() => {
         return all;
     }
 
-    function _saveCabinetCache(cabId) {
+    // Ключ кэша состояния: кабинет и площадка (у WB и Ozon свои артикулы, склейки, остатки и цифры).
+    const _stKey = (cabId, mp) => cabId + '|' + (mp || _mp());
+    function _saveCabinetCache(cabId, mp) {
         if (!cabId) return;
-        _cabinetStateCache.set(cabId, {
+        _cabinetStateCache.set(_stKey(cabId, mp), {
             dataCache: { ..._dataCache },
             stockCache: { ..._stockCache },
             financeCache: { key: _financeCache.key, rows: _financeCache.rows, ts: _financeCache.ts },
             metricsCache: new Map(_metricsCache),
+            articles: _articlesCab === cabId ? _articles.slice() : null,
+            cabTotals: { ..._cabTotals },
         });
     }
 
-    function _restoreCabinetCache(cabId) {
-        const snap = _cabinetStateCache.get(cabId);
+    function _restoreCabinetCache(cabId, mp) {
+        const snap = _cabinetStateCache.get(_stKey(cabId, mp));
         if (!snap) return false;
+        if (snap.articles && snap.articles.length) { _articles = snap.articles.slice(); _articlesCab = cabId; }
+        if (snap.cabTotals) _cabTotals = { ...snap.cabTotals };
         _dataCache = { ...snap.dataCache };
         _stockCache = { ...snap.stockCache };
         _financeCache = { key: snap.financeCache.key, rows: snap.financeCache.rows || [], ts: snap.financeCache.ts || 0 };
@@ -1209,6 +1219,122 @@ const RNP = (() => {
         try { await _saveSettings({ options: { taxPct: n } }); } catch (e) { console.warn('[RNP] налог:', e.message || e); }
         try { _renderActiveTable(); } catch (e) { /* таблица обновится при следующем открытии */ }
     }
+
+    // ─── Настройки РНП → Подсветка таблицы ───────────────────────────────────────
+    const _HEAT_SAMPLE = [
+        { key: 'organic_imp_pct',  label: 'Органика переходов %', dir: 'high', vals: [83.3, 80.6, 95.8, 99.9, 77.7, 95.4, 88.5, 94.8] },
+        { key: 'buyout_fin_pct',   label: 'Процент выкупа %',     dir: 'high', vals: [38.5, 30.4, 44.4, 45.5, 64.7, 26.7, 61.5, 62.5] },
+        { key: 'drr_pct',          label: 'ДРР %',                dir: 'low',  vals: [2.0, 2.4, 3.3, 4.8, 8.4, 1.8, 5.2, 0.8] },
+        { key: 'margin_pct',       label: 'Маржинальность %',     dir: 'high', vals: [42.7, 46.5, 41.7, 56.9, 66.5, -25.6, 48.3, 29.9] },
+    ];
+    const _HEAT_DAYS = ['01.11', '02.11', '03.11', '04.11', '05.11', '06.11', '07.11', '08.11'];
+    const _heatFmt = v => v.toFixed(1).replace('.', ',') + '%';
+
+    function _heatPreviewHtml() {
+        const rows = _HEAT_SAMPLE.map(r => {
+            const f = _heatSeriesTones(r.vals.filter(v => v > -20), r.dir); // выброс в шкалу не входит
+            const rule = _heat.mode === 'thr' ? _heatRule(r.key) : null;
+            let prev = null;
+            const tds = r.vals.map(v => {
+                let t = f ? f(v) : { k: 0, a: 0, role: '' };
+                if (v <= -20) t = { k: -1, a: 0.62, role: 'neg' };
+                if (rule) t.role = _heatByRule(rule, v);
+                const ht = _heatCellAttrs(t);
+                let tr = '';
+                if (ht.attrs && prev != null && prev !== v) { const up = v > prev; tr = ` data-ht="${up ? 'u' : 'd'}${(up === (r.dir === 'high')) ? 'g' : 'b'}"`; }
+                prev = v;
+                const txt = _heatFmt(v);
+                return `<td${ht.attrs}${tr}${ht.style ? ` style="${ht.style}"` : ''}>${ht.attrs ? `<span class="rnp-hvs">${txt}</span>` : txt}</td>`;
+            }).join('');
+            return `<tr><td class="rnp-ht-nm">${r.label}</td>${tds}</tr>`;
+        }).join('');
+        return `<table class="rnp-ht-prev"><thead><tr><th></th>${_HEAT_DAYS.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function _heatTileSample(id) {
+        const cell = (txt, k, role, tr) => {
+            const ht = _heatCellAttrs({ k, a: 0.6, role });
+            return `<td${ht.attrs}${tr ? ` data-ht="${tr}"` : ''}${ht.style ? ` style="${ht.style}"` : ''}>${ht.attrs ? `<span class="rnp-hvs">${txt}</span>` : txt}</td>`;
+        };
+        return `<table class="rnp-ht-prev rnp-ht-mini" data-rnp-heat-demo="${id}"><tr>${cell('64,7%', 0.9, 'pos', 'ug')}${cell('45,5%', 0, '')}${cell('26,7%', -0.9, 'neg', 'db')}</tr></table>`;
+    }
+
+    function _heatSwitch(key, on, label, hint) {
+        return `<div class="rnp-ht-row"><div><b>${label}</b>${hint ? `<small>${hint}</small>` : ''}</div>
+          <button type="button" class="rnp-ht-sw${on ? ' is-on' : ''}" role="switch" aria-checked="${on}" onclick="RNP.heatSet('${key}', ${!on})"><i></i></button></div>`;
+    }
+
+    function _settingsHeatHtml() {
+        const tiles = HEAT_STYLES.map(([id, name, sub]) =>
+            `<button type="button" class="rnp-ht-tile${_heat.style === id ? ' is-on' : ''}" data-heat-style="${id}" onclick="RNP.heatSet('style','${id}')">${_heatTileSample(id)}<b>${name}</b><small>${sub}</small></button>`).join('');
+        const rules = HEAT_RULES.map(def => {
+            const r = _heat.rules[def.key];
+            const g = def.dir === 'low' ? 'до' : 'от', b = def.dir === 'low' ? 'от' : 'до';
+            return `<tr class="${r.on ? '' : 'is-off'}"><td class="rnp-ht-rn">${def.label}</td><td><span class="rnp-ht-dir">${def.dir === 'low' ? 'меньше' : 'больше'}</span></td>
+              <td><label class="rnp-ht-th pos">${g}<input type="number" step="any" value="${r.good}" onchange="RNP.heatRule('${def.key}','good',this.value)" aria-label="Хорошо ${def.label}"></label></td>
+              <td><label class="rnp-ht-th neg">${b}<input type="number" step="any" value="${r.bad}" onchange="RNP.heatRule('${def.key}','bad',this.value)" aria-label="Плохо ${def.label}"></label></td>
+              <td><button type="button" class="rnp-ht-sw${r.on ? ' is-on' : ''}" role="switch" aria-checked="${r.on}" onclick="RNP.heatRule('${def.key}','on',${!r.on})"><i></i></button></td></tr>`;
+        }).join('');
+        return `<section id="rnp-heat-sec" class="rnp-ht">
+          <div class="rnp-ht-head"><h4>Подсветка таблицы</h4><span class="rnp-ht-live">меняется сразу</span></div>
+          <p class="rnp-ht-sub">Выберите стиль и правила: таблица РНП обновляется сразу, без кнопки «Сохранить». Настройка запоминается в этом браузере.</p>
+          <div class="rnp-ht-cols">
+            <div class="rnp-ht-card"><div class="rnp-ht-lbl">Стиль подсветки</div><div class="rnp-ht-grid">${tiles}</div></div>
+            <div class="rnp-ht-col">
+              <div class="rnp-ht-card"><div class="rnp-ht-lbl">Предпросмотр, 01–08.11</div><div class="rnp-ht-scroll">${_heatPreviewHtml()}</div></div>
+              <div class="rnp-ht-card"><div class="rnp-ht-lbl">Шрифт</div>
+                ${_heatSwitch('bn', _heat.bn, 'Жирные названия метрик', 'Органика переходов, ДРР, Маржинальность…')}
+                ${_heatSwitch('bv', _heat.bv, 'Жирные цифры', 'вес 800 вместо 600')}
+                ${_heatSwitch('cap', _heat.cap, 'Названия капсом', 'только подписи строк')}
+              </div>
+            </div>
+          </div>
+          <div class="rnp-ht-card"><div class="rnp-ht-lbl rnp-ht-lbl-row"><span>Условное форматирование</span><button type="button" class="rnp-ht-link" onclick="RNP.heatReset()">Сбросить к стандартным</button></div>
+            <div class="rnp-ht-seg" role="group" aria-label="Режим">
+              <button type="button" class="${_heat.mode === 'auto' ? 'is-on' : ''}" onclick="RNP.heatSet('mode','auto')">Авто: лучший и худший в строке</button>
+              <button type="button" class="${_heat.mode === 'thr' ? 'is-on' : ''}" onclick="RNP.heatSet('mode','thr')">По порогам</button>
+            </div>
+            <div class="rnp-ht-scroll"><table class="rnp-ht-rules"><thead><tr><th>Метрика</th><th>Лучше когда</th><th>Хорошо</th><th>Плохо</th><th>Вкл</th></tr></thead><tbody>${rules}</tbody></table></div>
+            <p class="rnp-ht-note">${_heat.mode === 'thr' ? 'Пороги работают для включённых метрик, остальные подсвечиваются автоматически.' : 'В режиме «Авто» пороги не используются: подсвечиваются лучший и худший день в строке.'}</p>
+          </div>
+        </section>`;
+    }
+
+    function _heatRepaintSection() {
+        const sec = document.getElementById('rnp-heat-sec');
+        if (!sec) return;
+        const sy = (sec.closest('.rnp-settings-page, .rnp-settings-scroll, #rnp-settings-host') || {}).scrollTop;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = _settingsHeatHtml();
+        sec.replaceWith(tmp.firstElementChild);
+        const sc = (document.getElementById('rnp-heat-sec') || {}).closest && document.getElementById('rnp-heat-sec').closest('.rnp-settings-page, .rnp-settings-scroll, #rnp-settings-host');
+        if (sc && sy) sc.scrollTop = sy;
+    }
+    // Пересчёт таблицы нужен только когда меняется то, что считает тона (режим, пороги); стиль и шрифт меняет CSS.
+    function _heatRerenderTable() {
+        try { if (document.querySelector('#tab-rnp .rnp-sheet-table')) Promise.resolve(_renderActiveTable()).catch(() => {}); } catch (e) {}
+    }
+    function heatSet(key, val) {
+        if (key === 'style') { if (!HEAT_STYLES.some(x => x[0] === val)) return; _heat.style = val; }
+        else if (key === 'mode') { if (val !== 'auto' && val !== 'thr') return; if (_heat.mode === val) return; _heat.mode = val; }
+        else if (key === 'bn' || key === 'bv' || key === 'cap') _heat[key] = !!val;
+        else return;
+        _heatSave(); _heatApplyRoot(); _heatRepaintSection();
+        if (key === 'mode') _heatRerenderTable();
+    }
+    function heatRule(key, field, val) {
+        const r = _heat.rules[key];
+        if (!r) return;
+        if (field === 'on') r.on = !!val;
+        else if ((field === 'good' || field === 'bad') && Number.isFinite(Number(val)) && String(val).trim() !== '') r[field] = Number(val);
+        else return;
+        _heatSave(); _heatRepaintSection();
+        if (_heat.mode === 'thr') _heatRerenderTable();
+    }
+    function heatReset() {
+        _heat = _heatDefaults(); _heatSave(); _heatApplyRoot(); _heatRepaintSection(); _heatRerenderTable();
+    }
+
     function _settingsTaxHtml() {
         return `<div class="widget-card p-5 rnp-settings-tax">
           <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -1963,6 +2089,14 @@ const RNP = (() => {
         if (!r) return;
         const first = !_extRange;
         const changed = first || _extRange.from !== r.from || _extRange.to !== r.to;
+        // До первой установки РНП рисует целый текущий месяц (и из снимка тоже). Если выбран другой период (например октябрь),
+        // первая установка тоже обязана перегрузить и перерисовать таблицу, иначе остаются колонки ноября.
+        let firstDiffers = false;
+        if (first) {
+            const n = new Date(); const mk = _monthKey(n);
+            const last = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate();
+            firstDiffers = r.from !== mk + '-01' || r.to !== mk + '-' + String(last).padStart(2, '0');
+        }
         _extRange = r;
         _cabinetColsCacheKey = '';
         _cabinetColsCacheVal = null;
@@ -1974,7 +2108,8 @@ const RNP = (() => {
             });
         }
         // Первая установка идёт до загрузки кабинета — данные подтянет сам запуск РНП.
-        if (opts?.noReload || !changed || first) return;
+        if (opts?.noReload || !changed) return;
+        if (first && !(firstDiffers && _cab && document.querySelector('#tab-rnp .rnp-workspace'))) return;
         if (_compareMonthKey && _compareMonthKey >= _viewMonthKey()) {
             _compareMonthKey = null;
             try { localStorage.setItem('rnp_compare_month', ''); } catch (e) {}
@@ -1983,6 +2118,8 @@ const RNP = (() => {
         await _loadRnpData();
         if (seq !== _rangeSeq) return; // за это время период сменили ещё раз: рисует последняя загрузка
         await _renderActiveTable();
+        // Страница План/факт открыта: период в шапке один на РНП и План/факт, перерисовываем и её.
+        if (document.getElementById('tab-rnp-planfact')?.classList.contains('active')) await _refreshPlanFactPage();
     }
 
     async function setRefMonth(val) {
@@ -2777,13 +2914,13 @@ const RNP = (() => {
             for (let i = 0; i < nmIds.length; i += CHUNK) {
                 const batch = nmIds.slice(i, i + CHUNK);
                 const { data, error } = await _db.from('rnp_date_notes')
-                    .select('*').eq('cabinet_id', cab0).in('nm_id', batch)
+                    .select('*').eq('cabinet_id', cab0).in('nm_id', batch.map(_noteDbNm))
                     .gte('note_date', from).lte('note_date', to)
                     .order('created_at', { ascending: false });
                 if (error) throw error;
                 if (cab0 !== _cab) return; // сменили кабинет: кэш заметок уже сброшен, чужие заметки не записываем
                 (data || []).forEach(row => {
-                    const nm = row.nm_id;
+                    const nm = row.nm_id === -2 ? -1 : row.nm_id;
                     const d = row.note_date;
                     if (!_notesCache[nm]) _notesCache[nm] = {};
                     if (!_notesCache[nm][d]) _notesCache[nm][d] = { text: '', history: [] };
@@ -3206,7 +3343,7 @@ const RNP = (() => {
         if (t === String(_notesCache[nmId]?.[date]?.text || '').trim() && img === String(_notesCache[nmId]?.[date]?.image || '')) return;
         try {
             const { error } = await _db.from('rnp_date_notes').insert({
-                cabinet_id: _cab, nm_id: nmId, note_date: date,
+                cabinet_id: _cab, nm_id: _noteDbNm(nmId), note_date: date,
                 note: t, author: _userEmail || 'user', image_url: img || null
             });
             if (error) throw error;
@@ -7329,6 +7466,23 @@ const RNP = (() => {
         _refreshRnpAfterArticleToggle();
     }
 
+    // Настройки РНП по группам (макет «Настройки по группам»): Расчёт, Артикулы, Вид таблицы
+    function _mountSettingsTabs(el) {
+        const host = el.querySelector('#rnp-st-tabs');
+        if (!host || !window.NrGroupTabs) return;
+        const apply = (g) => el.querySelectorAll('[data-rst]').forEach(x => x.classList.toggle('nr-gt-off', x.getAttribute('data-rst') !== g));
+        const t = window.NrGroupTabs.mount(host, {
+            key: 'nr_rnp_st_tab',
+            groups: [
+                { id: 'calc', n: 'Расчёт', secs: [{ id: 'tax', n: 'Налог' }] },
+                { id: 'arts', n: 'Артикулы', c: _articles.length ? _articles.length : null, secs: [{ id: 'list', n: 'Группы и артикулы' }] },
+                { id: 'view', n: 'Вид таблицы', secs: [{ id: 'heat', n: 'Подсветка' }] },
+            ],
+            onChange: apply,
+        });
+        apply(t.get().g);
+    }
+
     function _renderSettings(opts = {}) {
         const el = _settingsHost();
         if (!el) return;
@@ -7352,9 +7506,12 @@ const RNP = (() => {
             </div>
           </div>
 
-          ${_settingsTaxHtml()}
-          ${_settingsGroupsHtml()}
+          <div id="rnp-st-tabs"></div>
+          <div data-rst="calc">${_settingsTaxHtml()}</div>
+          <div data-rst="arts">${_settingsGroupsHtml()}</div>
+          <div data-rst="view">${_settingsHeatHtml()}</div>
         </div>`;
+        _mountSettingsTabs(el);
         if (scrollTop > 0) {
             const nextScroll = el.querySelector('.rnp-settings-articles-scroll');
             if (nextScroll) nextScroll.scrollTop = scrollTop;
@@ -7681,11 +7838,12 @@ const RNP = (() => {
         });
     }
 
-    function _rnpIdbPut(cab, html) {
+    const _idbKey = (cab, mp) => cab + ((mp || _mp()) !== 'wb' ? '_' + (mp || _mp()) : '');
+    function _rnpIdbPut(cab, html, mp) {
         if (!cab || !html) return;
         _rnpIdbOpen().then(db => {
             const tx = db.transaction('shell', 'readwrite');
-            tx.objectStore('shell').put(html, cab);
+            tx.objectStore('shell').put(html, _idbKey(cab, mp));
             tx.objectStore('shell').put(html, 'last');
         }).catch(() => {});
     }
@@ -7699,11 +7857,11 @@ const RNP = (() => {
             _rnpIdbOpen().then(db => {
                 if (!db.objectStoreNames.contains('shell')) return finish(false);
                 const tx = db.transaction('shell', 'readonly');
-                const req = tx.objectStore('shell').get(cab);
+                const req = tx.objectStore('shell').get(_idbKey(cab));
                 req.onerror = () => finish(false);
                 req.onsuccess = () => {
                     const html = req.result;
-                    if (html && String(html).indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(String(html)) && !_rnpMainRendered()) {
+                    if (html && String(html).indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(String(html)) && _shellRngOk(html) && !_rnpMainRendered()) {
                         el.innerHTML = html;
                         finish(true);
                     } else finish(!!_rnpMainRendered());
@@ -7720,8 +7878,9 @@ const RNP = (() => {
         window.addEventListener('beforeunload', save);
     }
 
-    function _rnpShellKey(cab) {
-        return 'rnp_shell_' + (cab || '') + (_mp() !== 'wb' ? '_' + _mp() : '');
+    function _rnpShellKey(cab, mp) {
+        const m = mp || _mp();
+        return 'rnp_shell_' + (cab || '') + (m !== 'wb' ? '_' + m : '');
     }
 
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
@@ -7812,7 +7971,7 @@ const RNP = (() => {
         }, 1500);
     }
 
-    function _saveRnpShellNow() {
+    function _saveRnpShellNow(mpOverride) {
         const el = document.getElementById('tab-rnp');
         const ws = el?.querySelector('.rnp-workspace');
         if (!ws || !_cab) return;
@@ -7825,9 +7984,10 @@ const RNP = (() => {
         if (window._rnpLoadedForCabinet !== _cab) return;
         if (!_rnpHasRealData(ws)) return;
         _markPaintedCab(ws);
+        try { ws.setAttribute('data-rng', _extRange ? _extRange.from + '|' + _extRange.to : ''); } catch (e) {}
         const html = _compactRnpWorkspace(ws);
         if (!html) return;
-        _rnpIdbPut(_cab, html);
+        _rnpIdbPut(_cab, html, mpOverride);
         let lsHtml = html;
         if (lsHtml.length > 900000) {
             const clone = ws.cloneNode(true);
@@ -7836,7 +7996,7 @@ const RNP = (() => {
             lsHtml = clone.outerHTML;
         }
         if (lsHtml.length > 1200000) return;
-        _storeRnpKey(_rnpShellKey(_cab), lsHtml);
+        _storeRnpKey(_rnpShellKey(_cab, mpOverride), lsHtml);
         _storeRnpKey('rnp_shell_cab', _cab);
     }
 
@@ -7854,6 +8014,12 @@ const RNP = (() => {
         } catch (e) { return false; }
     }
 
+    // Снимок страницы нарисован за другой период (например ноябрь, а выбран октябрь): показывать его нельзя.
+    function _shellRngOk(html) {
+        if (!_extRange) return true;
+        const m = /data-rng="([^"]*)"/.exec(String(html).slice(0, 600));
+        return !m || !m[1] || m[1] === _extRange.from + '|' + _extRange.to;
+    }
     function _restoreRnpShell(el, cab) {
         if (!el) return false;
         const want = cab || _cab || '';
@@ -7862,7 +8028,7 @@ const RNP = (() => {
             && (!want || !domCab || domCab === want)) return true;
         const html = want ? _readRnpKey(_rnpShellKey(want)) : '';
         // Старый снимок без настоящих цифр (одни нули и план) не показываем: он давал пустой экран без размытия
-        if (html && html.indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(html)) {
+        if (html && html.indexOf('rnp-workspace') >= 0 && _RNP_REAL_RE.test(html) && _shellRngOk(html)) {
             el.innerHTML = html;
             _stripTransientClasses(el);
             return !!el.querySelector('.rnp-workspace');
@@ -8223,6 +8389,7 @@ const RNP = (() => {
         }
 
         if (_activeNm === GENERAL_TAB) {
+            if (_notesGenMp !== _mp()) { delete _notesCache[-1]; _notesGenMp = _mp(); }
             if (_notesVisible && !_notesCache[-1]) { try { await _loadNotes([-1]); } catch (e) {} }
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
@@ -8673,7 +8840,9 @@ const RNP = (() => {
         const say = (kind, title, text, opts) => { if (h && h.update && !opts) h.update(kind, title, text || ''); else if (T) window.NrUi.toast(kind, title, text || '', opts || {}); };
         (async () => {
             try {
-                const res = await _callProxy('prices_set', { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.nd })), old }, _cab);
+                const priceParams = { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.nd })), old };
+                const res = window.NrPriceSend ? await window.NrPriceSend(_cab, priceParams) : await _callProxy('prices_set', priceParams, _cab);
+                if (res && res.error) throw new Error(res.error);
                 let status = '';
                 if (res?.uploadId) {
                     for (let i = 0; i < 4 && !status; i++) {
@@ -9055,28 +9224,125 @@ const RNP = (() => {
     const AD_MIN_SPEND = 50;
     const _isSeriesCol = c => !c.isFuture && c.data && (c.type === 'day' || c.type === 'week' || c.type === 'month');
 
-    // Оттенки «хорошо / плохо» только цветом шрифта, без заливки ячейки: чем дальше от середины, тем насыщеннее зелёный или красный.
+    // ─── Подсветка «хорошо / плохо» ───────────────────────────────────────────────
+    // Стиль выбирает пользователь (Настройки РНП → Подсветка таблицы), по умолчанию «Чёрная таблетка».
+    // Ячейка получает только атрибуты (data-hr сильная роль, data-hs знак, data-ht тренд, --hv сила), а вид задаёт CSS
+    // по html[data-rnp-heat]: смена стиля и шрифта применяется сразу, без перерисовки таблицы.
+    const HEAT_KEY = 'nr_rnp_heat_v1';
+    const HEAT_STYLES = [
+        ['font', 'Цвет шрифта', 'как раньше'], ['A', 'Тепловая карта', 'мягкая заливка'], ['B', 'Точка', 'цветной маркер'],
+        ['V', 'Таблетки-контур', 'крайние значения'], ['T', 'Стрелка тренда', '▲▼ к вчера'], ['S', 'Полоска', 'под цифрой'],
+        ['F', 'Заливка крайних', 'белый текст'], ['Z', 'Крупные цифры', 'цвет + зебра'], ['P', 'Чёрная таблетка', 'лучшее / худшее'],
+    ];
+    // Правила порогов: dir 'high' — чем больше, тем лучше (good — от, bad — до); 'low' — чем меньше, тем лучше (good — до, bad — от).
+    const HEAT_RULES = [
+        { key: 'buyout_fin_pct',  label: 'Процент выкупа %',     dir: 'high', good: 60,  bad: 40, on: true },
+        { key: 'organic_imp_pct', label: 'Органика переходов %', dir: 'high', good: 90,  bad: 70, on: true },
+        { key: 'drr_pct',         label: 'ДРР %',                dir: 'low',  good: 5,   bad: 10, on: true },
+        { key: 'margin_pct',      label: 'Маржинальность %',     dir: 'high', good: 40,  bad: 20, on: true },
+        { key: 'roi_pct',         label: 'Рентабельность %',     dir: 'high', good: 100, bad: 30, on: false },
+        { key: 'ad_ctr',          label: 'CTR',                  dir: 'high', good: 5,   bad: 2,  on: false },
+        { key: 'basket_pct',      label: 'Корзина%',             dir: 'high', good: 8,   bad: 4,  on: false },
+        { key: 'return_pct',      label: 'Процент возврата %',   dir: 'low',  good: 5,   bad: 15, on: false },
+    ];
+    function _heatDefaults() {
+        const rules = {};
+        HEAT_RULES.forEach(r => { rules[r.key] = { good: r.good, bad: r.bad, on: r.on }; });
+        return { style: 'P', mode: 'auto', bn: true, bv: true, cap: false, rules };
+    }
+    function _heatLoad() {
+        const d = _heatDefaults();
+        try {
+            const j = JSON.parse(localStorage.getItem(HEAT_KEY) || 'null');
+            if (j && typeof j === 'object') {
+                if (HEAT_STYLES.some(x => x[0] === j.style)) d.style = j.style;
+                if (j.mode === 'thr' || j.mode === 'auto') d.mode = j.mode;
+                ['bn', 'bv', 'cap'].forEach(k => { if (typeof j[k] === 'boolean') d[k] = j[k]; });
+                Object.keys(d.rules).forEach(k => {
+                    const r = j.rules && j.rules[k];
+                    if (r) {
+                        if (Number.isFinite(Number(r.good))) d.rules[k].good = Number(r.good);
+                        if (Number.isFinite(Number(r.bad))) d.rules[k].bad = Number(r.bad);
+                        if (typeof r.on === 'boolean') d.rules[k].on = r.on;
+                    }
+                });
+            }
+        } catch (e) {}
+        return d;
+    }
+    let _heat = _heatLoad();
+    function _heatSave() { try { localStorage.setItem(HEAT_KEY, JSON.stringify(_heat)); } catch (e) {} }
+    function _heatApplyRoot() {
+        const h = document.documentElement;
+        h.setAttribute('data-rnp-heat', _heat.style);
+        h.classList.toggle('rnp-heat-bn', !!_heat.bn);
+        h.classList.toggle('rnp-heat-bv', !!_heat.bv);
+        h.classList.toggle('rnp-heat-cap', !!_heat.cap);
+    }
+    if (typeof document !== 'undefined' && document.documentElement) _heatApplyRoot();
+
+    // Оттенки «хорошо / плохо»: k от −1 (плохо) до 1 (хорошо), a — сила 0…0.62.
     function _heatText(k, a) {
         const pct = Math.round(35 + Math.min(1, a / 0.6) * 65);
         return `color:color-mix(in srgb, ${k > 0 ? 'var(--green, #16a34a)' : 'var(--red, #dc2626)'} ${pct}%, var(--text-primary))${a > 0.35 ? ';font-weight:700' : ''}`;
     }
 
+    /** Тон одной ячейки: сила, знак и сильная роль (pos — лучшее/выше порога, neg — худшее/ниже порога). */
+    function _heatRule(key) {
+        const r = _heat.rules[key]; const def = HEAT_RULES.find(x => x.key === key);
+        return (r && def && r.on) ? { dir: def.dir, good: r.good, bad: r.bad } : null;
+    }
+    function _heatByRule(rule, v) {
+        if (rule.dir === 'low') return v <= rule.good ? 'pos' : (v >= rule.bad ? 'neg' : '');
+        return v >= rule.good ? 'pos' : (v <= rule.bad ? 'neg' : '');
+    }
+
     /** Доля расхода РК в прибыли до рекламы: ≤35% — зелёный, ≥90% (или прибыль до рекламы ≤ 0) — красный. */
-    function _adEffTone(d) {
+    function _adEffK(d) {
         const spend = Number(d.ad_spend) || 0;
         if (spend < AD_MIN_SPEND) return null;
         const before = (Number(d.profit) || 0) + spend;
         const r = before > 0 ? spend / before : 9;
         const k = r <= 0.35 ? 1 : r >= 0.9 ? -1 : 1 - ((r - 0.35) / 0.55) * 2;
-        const a = Math.min(1, Math.abs(k)) * 0.6;
-        if (a < 0.04) return '';
-        return _heatText(k, a);
+        return { k, a: Math.min(1, Math.abs(k)) * 0.6 };
+    }
+
+    /** Тоны для ряда значений одной группы (день / неделя / месяц): процентильная шкала 10–90, лучшее и худшее. */
+    function _heatSeriesTones(vals, dir) {
+        const sorted = vals.slice().sort((a, b) => a - b);
+        const n = sorted.length;
+        if (n < 3 || sorted[0] === sorted[n - 1]) return null;
+        const lo = n >= 6 ? sorted[Math.floor((n - 1) * 0.1)] : sorted[0];
+        const hi = n >= 6 ? sorted[Math.ceil((n - 1) * 0.9)] : sorted[n - 1];
+        const mid = sorted[Math.floor((n - 1) / 2)];
+        if (hi === lo) return null;
+        const bestV = dir === 'low' ? sorted[0] : sorted[n - 1];
+        const worstV = dir === 'low' ? sorted[n - 1] : sorted[0];
+        return (v) => {
+            const c = Math.min(hi, Math.max(lo, v));
+            let k = c >= mid ? (hi > mid ? (c - mid) / (hi - mid) : 0) : (mid > lo ? -(mid - c) / (mid - lo) : 0);
+            if (dir === 'low') k = -k;
+            return { k, a: Math.min(1, Math.abs(k)) * 0.62, role: v === bestV ? 'pos' : (v === worstV ? 'neg' : '') };
+        };
     }
 
     function _scaleFn(m, cols) {
         if (m.isPlan || m.competitor || m.cl) return null;
+        const rule = _heat.mode === 'thr' ? _heatRule(m.key) : null;
         if (AD_EFF_KEYS.has(m.key)) {
-            return (col, v) => (_isSeriesCol(col) && Number(v) ? _adEffTone(col.data) || '' : '');
+            const ks = {};
+            cols.forEach(c => { if (_isSeriesCol(c) && Number(c.data[m.key])) { const t = _adEffK(c.data); if (t) (ks[c.type] = ks[c.type] || []).push(t.k); } });
+            const ext = {};
+            Object.keys(ks).forEach(t => { const arr = ks[t]; if (arr.length >= 3 && Math.min(...arr) !== Math.max(...arr)) ext[t] = { best: Math.max(...arr), worst: Math.min(...arr) }; });
+            return (col, v) => {
+                if (!(_isSeriesCol(col) && Number(v))) return null;
+                const t = _adEffK(col.data);
+                if (!t) return null;
+                const e = ext[col.type];
+                let role = e ? (t.k === e.best ? 'pos' : (t.k === e.worst ? 'neg' : '')) : '';
+                if (rule) role = _heatByRule(rule, Number(v));
+                return { k: t.k, a: t.a, role };
+            };
         }
         const dir = SCALE_DIR[m.key] || HM_DIR[m.hm];
         if (!dir) return null;
@@ -9089,29 +9355,28 @@ const RNP = (() => {
             if (Number.isFinite(v) && v !== 0) (groups[c.type] = groups[c.type] || []).push(v);
         });
         const fns = {};
-        Object.keys(groups).forEach(t => {
-            const vals = groups[t].sort((a, b) => a - b);
-            if (vals.length < 3 || vals[0] === vals[vals.length - 1]) return;
-            const n = vals.length;
-            const lo = n >= 6 ? vals[Math.floor((n - 1) * 0.1)] : vals[0];
-            const hi = n >= 6 ? vals[Math.ceil((n - 1) * 0.9)] : vals[n - 1];
-            const mid = vals[Math.floor((n - 1) / 2)];
-            if (hi === lo) return;
-            fns[t] = (v) => {
-                v = Math.min(hi, Math.max(lo, v));
-                let k = v >= mid ? (hi > mid ? (v - mid) / (hi - mid) : 0) : (mid > lo ? -(mid - v) / (mid - lo) : 0);
-                if (dir === 'low') k = -k;
-                const a = Math.min(1, Math.abs(k)) * 0.62;
-                if (a < 0.02) return '';
-                return _heatText(k, a);
-            };
-        });
-        if (!Object.keys(fns).length) return null;
+        Object.keys(groups).forEach(t => { const f = _heatSeriesTones(groups[t], dir); if (f) fns[t] = f; });
+        if (!Object.keys(fns).length && !rule) return null;
         return (col, v) => {
-            const f = fns[col.type];
             v = Number(v);
-            return f && okCol(col) && Number.isFinite(v) && v !== 0 ? f(v) : '';
+            if (!(okCol(col) && Number.isFinite(v) && v !== 0)) return null;
+            const f = fns[col.type];
+            const t = f ? f(v) : { k: 0, a: 0, role: '' };
+            if (rule) t.role = _heatByRule(rule, v);
+            return t;
         };
+    }
+    /** Направление метрики (для стрелки тренда): 'high' / 'low' / ''. */
+    function _heatDirOf(m) { return AD_EFF_KEYS.has(m.key) ? 'low' : (SCALE_DIR[m.key] || HM_DIR[m.hm] || ''); }
+    /** Атрибуты ячейки по тону: сила --hv, знак data-hs, сильная роль data-hr, жирность data-hb. */
+    function _heatCellAttrs(t) {
+        if (!t) return { attrs: '', style: '' };
+        const sign = t.k > 0.12 ? 'pos' : (t.k < -0.12 ? 'neg' : '');
+        const role = t.role || '';
+        if (!sign && !role) return { attrs: '', style: '' };
+        // Сильная роль без знака (порог): знак берём из роли, чтобы цвет совпал.
+        const sg = role || sign;
+        return { attrs: ` data-hs="${sg}"${role ? ` data-hr="${role}"` : ''}${t.a > 0.35 || role ? ' data-hb="1"' : ''}`, style: `--hv:${(role ? Math.max(t.a, 0.62) : t.a).toFixed(2)}` };
     }
 
     // Цена не меняется каждый день: в дни без заказов берём последнюю известную цену из более ранних дней.
@@ -9301,7 +9566,29 @@ const RNP = (() => {
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
                 if (priceChanged) style += (style ? ';' : '') + 'color:var(--green, #16a34a);font-weight:800';
-                if (scaleFn && !isFuture) { const sc = scaleFn(col, val); if (sc) style += (style ? ';' : '') + sc; }
+                // Подсветка «хорошо / плохо»: только атрибуты, вид задаёт CSS по выбранному стилю (Настройки РНП → Подсветка таблицы).
+                let heatAttrs = '';
+                if (scaleFn && !isFuture) {
+                    const ht = _heatCellAttrs(scaleFn(col, val));
+                    if (ht.attrs) {
+                        heatAttrs = ht.attrs;
+                        style += (style ? ';' : '') + ht.style;
+                        // Тренд к предыдущему дню (для стиля «Стрелка тренда»): хорошо или плохо, что значение выросло или упало.
+                        const hd = _heatDirOf(m);
+                        if (hd && col.type === 'day') {
+                            let pv = null;
+                            for (let pi = ci - 1; pi >= 0; pi--) {
+                                const pc = cols[pi];
+                                if (pc && pc.type === 'day' && !pc.isFuture && pc.data) { pv = Number(pc.data[m.key]); break; }
+                            }
+                            const cv = Number(val);
+                            if (pv != null && Number.isFinite(pv) && Number.isFinite(cv) && cv !== pv) {
+                                const up = cv > pv;
+                                heatAttrs += ` data-ht="${up ? 'u' : 'd'}${(up === (hd === 'high')) ? 'g' : 'b'}"`;
+                            }
+                        }
+                    }
+                }
                 // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.
                 // No extra DOM/flex inside the td — that blew up the sheet layout.
                 let hitKind = '';
@@ -9335,7 +9622,7 @@ const RNP = (() => {
                 const cellHtml = dedKind
                     ? `<span class="rnp-ded-link" title="Показать причину" onclick="RNP.openDeductions('${dedDates[0]}','${dedDates[dedDates.length - 1]}','${dedKind}')">${_fitNum(str ?? '')}</span>`
                     : _fitNum(str ?? '');
-                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${cellHtml}</td>`;
+                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}${heatAttrs}>${heatAttrs ? `<span class="rnp-hvs">${cellHtml}</span>` : cellHtml}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
@@ -9737,7 +10024,8 @@ const RNP = (() => {
         return daily;
     }
 
-    function _paintPlanFact() {
+    // loading: цифр за период в кэше нет, каркас рисуется сразу, а числа размыты, пока идёт загрузка.
+    function _paintPlanFact(loading) {
         if (!window.RnpPlanFact) return;
         const articles = _planFactArticles();
         window.RnpPlanFact.open({
@@ -9746,6 +10034,15 @@ const RNP = (() => {
             plans: _planCache,
             monthKey: _viewMonthKey(),
             host: document.getElementById('rnp-pfp-host'),
+            loading: !!loading,
+        });
+    }
+
+    // Есть ли в кэше настоящие цифры по заказам за период (тогда показываем их сразу, без размытия).
+    function _planFactHasCache(from, to) {
+        return _planFactArticles().some((a) => {
+            const m = _dataCache[a.nm_id] || _dataCache[String(a.nm_id)] || {};
+            return Object.keys(m).some((d) => d >= from && d <= to);
         });
     }
 
@@ -9795,18 +10092,24 @@ const RNP = (() => {
         if (!window.RnpPlanFact) return;
         closeSettings();
         if (typeof showTab === 'function') showTab('rnp-planfact');
+        await _refreshPlanFactPage();
+    }
+
+    // Рисует План/факт сразу из кэша, затем подтягивает недели выбранного месяца и дорисовывает без смены каркаса.
+    async function _refreshPlanFactPage() {
+        if (!window.RnpPlanFact) return;
         const monthKey = _viewMonthKey();
         const weeks = window.RnpPlanFact.weeksForMonth(monthKey);
         const from = weeks[0] && weeks[0].start;
         const to = weeks.length ? weeks[weeks.length - 1].end : '';
-        _paintPlanFact();
+        _paintPlanFact(!!from && !!to && !_planFactHasCache(from, to));
         if (!from || !to || !_db || !_cab) return;
         try {
             await _mergePlanFactRange(from, to);
         } catch (e) {
             console.warn('[RNP] plan-fact range:', e && e.message);
         }
-        _paintPlanFact();
+        _paintPlanFact(false);
     }
 
     async function openSettings(opts) {
@@ -10341,17 +10644,36 @@ const RNP = (() => {
     let _cabinetListenerBound = false;
     let _autoRefreshBound = false;
 
+    let _prevMp = null;
     function _onMpChange() {
-        if (!_cab) return;
+        const now = _mp();
+        const prev = _prevMp || (now === 'wb' ? 'ozon' : 'wb');
+        _prevMp = now;
+        if (!_cab || prev === now) return;
+        // 1. Прежнюю площадку запоминаем целиком: цифры, артикулы, готовая страница (шапка, склейки, остатки, метрики)
+        try { _saveCabinetCache(_cab, prev); } catch (e) { /* без кэша загрузим заново */ }
+        try { _saveRnpShellNow(prev); } catch (e) { /* без снимка нарисуем заново */ }
         _initGen++; _initDoneCab = null; _abortPendingLoad(); _mainRenderGen++;
         window._rnpLastLoadedAt = 0; window._rnpLoadedForCabinet = null;
         _mainInflight = null; _mainInflightCab = null; _initInflight = null; _fetchInflight.clear();
         _clearCabinetState();
+        // 2. Новую площадку берём из кэша (артикулы и цифры сразу), если она уже открывалась
+        const cached = _restoreCabinetCache(_cab, now);
         if (document.querySelector('#tab-rnp.active')) {
             const el = document.getElementById('tab-rnp');
+            // 3. Готовая страница этой площадки показывается сразу, как после обновления страницы, без пустого каркаса и поэтапных вспышек
+            const shown = el ? _restoreRnpShell(el, _cab) : false;
             if (el && !el.querySelector('.rnp-workspace')) el.innerHTML = _workspaceChromeHtml([]);
-            _loadArticles(_cab).then(() => openMain(true)).catch(() => openMain(true));
+            // 4. Свежие данные догружаем в фоне: артикулы и цифры параллельно, подставляются на место без перерисовки каркаса
+            const fresh = _loadArticles(_cab).catch(() => {});
+            if (cached && _articlesCab === _cab && _articles.length) { openMain(true); fresh.then(() => { if (_mp() === now) _refreshActiveFromFresh(); }); }
+            else fresh.then(() => openMain(true)).catch(() => openMain(true));
+            void shown;
         }
+    }
+    // После того как артикулы пришли свежими: если список изменился, перерисовываем вкладку один раз
+    function _refreshActiveFromFresh() {
+        try { if (document.querySelector('#tab-rnp.active') && document.getElementById('rnp-sheet-body')) _renderActiveTable(); } catch (e) { /* остаётся прежняя */ }
     }
     document.addEventListener('nr-mp-change', _onMpChange);
 
@@ -10667,7 +10989,7 @@ const RNP = (() => {
         return fn.apply(this, a);
     };
     const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
-    return { init, initCore, ensureReady, setDateRange, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, heatSet, heatRule, heatReset, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen, groupsView, setGroupOrder };
 })();

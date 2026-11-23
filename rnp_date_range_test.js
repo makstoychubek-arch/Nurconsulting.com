@@ -19,8 +19,8 @@ assert.ok(js.includes("_planPeriod = 'week'") && js.includes("_sectionView = 'al
 assert.ok(js.includes('async function setDateRange(from, to, opts)') && js.includes('const RNP_MAX_RANGE_DAYS = 62;'), 'RNP takes a date range');
 assert.ok(js.includes('if (_extRange) {\n            const cur = new Date(_extRange.from'), 'calendar columns follow the chosen range');
 assert.ok(/return \{ init, initCore, ensureReady, setDateRange,/.test(js), 'setDateRange is exported');
-assert.ok(html.includes("const DATE_FILTER_TABS = new Set(['cabinets-hub', 'dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp']);"), 'the shared date chip shows on RNP too');
-assert.ok(html.includes("else if (name === 'rnp') { const rnp = getRnp(); if (rnp && rnp.setDateRange)"), 'applying a range updates RNP');
+assert.ok(html.includes("const DATE_FILTER_TABS = new Set(['cabinets-hub', 'dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp', 'rnp-planfact']);"), 'the shared date chip shows on RNP and Plan/fact');
+assert.ok(html.includes("else if (name === 'rnp' || name === 'rnp-planfact') { const rnp = getRnp(); if (rnp && rnp.setDateRange)"), 'applying a range updates RNP and Plan/fact');
 assert.ok(html.includes('rnp.setDateRange(activeDateFrom, activeDateTo)'), 'opening RNP uses the current shared range');
 
 // Выбор дат: без кнопок «Применить/Сбросить», применяется сам.
@@ -35,8 +35,12 @@ assert.ok(!html.includes('<b>Данные загружены</b> — 100%.'), 'n
 // У каждой вкладки своя память периода: выбор в Дашборде не меняет РНП.
 assert.ok(html.includes("const DATE_RANGE_BY_TAB_KEY = 'nr_date_range_by_tab_v1';") && html.includes('map[rangeTabKey()] = { from: activeDateFrom, to: activeDateTo };'),
     'the chosen period is stored per tab');
-assert.ok(html.includes('function loadDateRangeForTab(tab)') && html.includes("if (DATE_FILTER_TABS.has(name)) loadDateRangeForTab(name);"),
+assert.ok(html.includes('function loadDateRangeForTab(tab)') && html.includes("if (DATE_FILTER_TABS.has(name)) loadDateRangeForTab(name === 'rnp-planfact' ? 'rnp' : name);"),
     'switching tabs loads that tab\'s own period before it loads data');
 assert.ok(html.includes("if (tab === 'rnp') return { from: monthStartIso(), to: monthEndIso() };"), 'RNP defaults to the whole month (plan columns for future days)');
+
+// План/факт: дата в шапке общая с РНП (своего периода нет), и страница перерисовывается при смене периода.
+assert.ok(html.includes("if (t === 'rnp-planfact') return 'rnp';"), 'Plan/fact shares the RNP period');
+assert.ok(js.includes("classList.contains('active')) await _refreshPlanFactPage();"), 'Plan/fact repaints when the period changes');
 
 console.log('rnp_date_range_test: ok');

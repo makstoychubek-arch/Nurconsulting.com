@@ -1,6 +1,7 @@
 import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
+import { askAlinaManager } from './alina-manager.ts';
 
 type BotId = 'alina' | 'alina2';
 type ClientUpdate = Extract<NonNullable<ReturnType<typeof parseAlinaBusinessUpdate>>, { kind: 'client' }>;
@@ -37,12 +38,20 @@ export async function processAlinaTelegramUpdate(
     if (error) throw new Error('Alina event storage is unavailable');
 
     try {
-        const { replies, photos } = await handleAlinaClientMessage({
+        const { replies: draft, photos, escalate } = await handleAlinaClientMessage({
             ...message,
             hasPhoto: Boolean(message.photoFileId),
             botToken: token,
             sourceAccount: 'business',
         });
+        let replies = draft;
+        if (escalate) {
+          // Вопрос менеджерам. Клиент получает «уточню» только если вопрос действительно дошёл до группы.
+          const posted = await askAlinaManager(token, escalate.group, {
+            chatId: message.chatId, connectionId: message.connectionId, username: message.username,
+          }, escalate.question);
+          if (!posted) replies = ['Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.'];
+        }
         for (const photo of photos || []) {
             if (!await sendPhoto(token, message, photo)) {
                 const fallback = [photo.caption, photo.url].filter(Boolean).join('\n');

@@ -1,0 +1,182 @@
+/* NR Motion: единые анимации сайта. Цвета только из переменных темы. Свои реализации по мотивам идей kinetics.colorion.co. */
+:root{--nrm-spring:cubic-bezier(.22,1,.36,1);--nrm-out:cubic-bezier(.16,1,.3,1);--nrm-fast:.16s;--nrm-base:.2s;--nrm-slow:.3s}
+@property --nrm-a{syntax:'<angle>';inherits:false;initial-value:0deg}
+/* 1. Нажатие и подъём */
+.nrm-press{transition:transform var(--nrm-fast) var(--nrm-spring),filter var(--nrm-fast) ease}.nrm-press:active{transform:scale(.95)}
+.nrm-lift{transition:transform var(--nrm-base) var(--nrm-spring),box-shadow var(--nrm-base) ease}.nrm-lift:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(0,0,0,.14)}
+/* 2. Скелетон-волна */
+.nrm-skel{position:relative;overflow:hidden;background:color-mix(in srgb,var(--text-primary) 8%,transparent);border-radius:8px;color:transparent!important}
+.nrm-skel::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--text-primary) 12%,transparent),transparent);animation:nrm-sweep 1.3s ease-in-out infinite}
+@keyframes nrm-sweep{to{transform:translateX(100%)}}
+/* 3. Каскадное появление */
+.nrm-stagger>*{opacity:0;transform:translateY(10px);animation:nrm-in .25s var(--nrm-out) forwards;animation-delay:min(calc(var(--i,0)*20ms),120ms)}
+@keyframes nrm-in{to{opacity:1;transform:none}}
+/* 4. Тряска ошибки */
+.nrm-shake{animation:nrm-shake .45s cubic-bezier(.36,.07,.19,.97)}
+@keyframes nrm-shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-6px)}40%,60%{transform:translateX(6px)}}
+/* 5. Пульс значка */
+.nrm-pulse{position:relative}.nrm-pulse::after{content:'';position:absolute;inset:0;border-radius:inherit;background:inherit;animation:nrm-ring 1.8s ease-out infinite;z-index:-1}
+@keyframes nrm-ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.2);opacity:0}}
+/* 6. Переключатель с пружиной */
+.nrm-switch{appearance:none;width:46px;height:28px;border-radius:99px;background:color-mix(in srgb,var(--text-primary) 18%,transparent);position:relative;cursor:pointer;transition:background var(--nrm-base) ease;flex:none}
+.nrm-switch::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3);transition:transform var(--nrm-base) var(--nrm-spring),width var(--nrm-fast) ease}
+.nrm-switch:checked{background:var(--green)}.nrm-switch:checked::after{transform:translateX(18px)}.nrm-switch:active::after{width:28px}.nrm-switch:checked:active::after{transform:translateX(12px)}
+/* 7. Галочка рисуется */
+.nrm-check{display:inline-flex;width:22px;height:22px;border-radius:7px;border:2px solid var(--border-strong);align-items:center;justify-content:center;cursor:pointer;transition:background var(--nrm-base) ease,border-color var(--nrm-base) ease,transform var(--nrm-fast) var(--nrm-spring)}
+.nrm-check svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:22;stroke-dashoffset:22;transition:stroke-dashoffset var(--nrm-base) var(--nrm-out) .05s}
+.nrm-check.on{background:var(--accent);border-color:var(--accent)}.nrm-check.on svg{stroke-dashoffset:0}.nrm-check:active{transform:scale(.88)}
+/* 8. Успех: кольцо и галочка */
+.nrm-ok{width:64px;height:64px}.nrm-ok circle{fill:none;stroke:var(--green);stroke-width:4;stroke-dasharray:176;stroke-dashoffset:176;transform:rotate(-90deg);transform-origin:center}
+.nrm-ok path{fill:none;stroke:var(--green);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40}
+.nrm-ok.go circle{animation:nrm-draw .4s var(--nrm-out) forwards}.nrm-ok.go path{animation:nrm-draw .25s ease .3s forwards}
+@keyframes nrm-draw{to{stroke-dashoffset:0}}
+/* 9. Кольцо прогресса */
+.nrm-ring{width:84px;height:84px;position:relative}.nrm-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.nrm-ring circle{fill:none;stroke-width:8;stroke-linecap:round}.nrm-ring .bg{stroke:color-mix(in srgb,var(--text-primary) 10%,transparent)}
+.nrm-ring .fg{stroke:var(--accent);stroke-dasharray:226;stroke-dashoffset:226;transition:stroke-dashoffset .5s var(--nrm-out)}
+.nrm-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px}
+/* 10. Эластичная полоса */
+.nrm-bar{height:10px;border-radius:99px;background:color-mix(in srgb,var(--text-primary) 10%,transparent);overflow:hidden}
+.nrm-bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--accent);transition:width .45s var(--nrm-spring)}
+/* 11. Плашка вкладок скользит */
+.nrm-tabs{position:relative;display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--text-primary) 7%,transparent);gap:2px}
+.nrm-tabs button{position:relative;z-index:1;border:0;background:none;color:var(--text-secondary);font:600 12.5px var(--font-ui,inherit);padding:8px 11px;border-radius:10px;cursor:pointer;transition:color var(--nrm-base) ease}
+.nrm-tabs button.on{color:var(--text-primary)}.nrm-tabs .pill{position:absolute;z-index:0;top:4px;bottom:4px;left:0;border-radius:10px;background:var(--surface-solid);box-shadow:0 2px 8px rgba(0,0,0,.14);transition:transform var(--nrm-base) var(--nrm-spring),width var(--nrm-base) var(--nrm-spring)}
+/* 12. Смена содержимого вкладки */
+.nrm-pane{animation:nrm-pane .18s var(--nrm-out)}@keyframes nrm-pane{from{opacity:0}to{opacity:1}}
+/* 13. Аккордеон без скачков */
+.nrm-acc{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--nrm-base) var(--nrm-out)}.nrm-acc.open{grid-template-rows:1fr}.nrm-acc>div{overflow:hidden}
+.nrm-chev{transition:transform var(--nrm-base) var(--nrm-spring)}.open+.nrm-chev,.nrm-chev.open{transform:rotate(180deg)}
+/* 14. Мигание числа: рост и падение */
+.nrm-up{animation:nrm-up .45s ease}.nrm-down{animation:nrm-down .45s ease}
+@keyframes nrm-up{0%{color:var(--green);background:color-mix(in srgb,var(--green) 18%,transparent)}100%{background:transparent}}
+@keyframes nrm-down{0%{color:var(--red);background:color-mix(in srgb,var(--red) 18%,transparent)}100%{background:transparent}}
+/* 15. Рамка с бегущим лучом */
+.nrm-beam{position:relative;border-radius:18px;background:var(--surface-solid)}.nrm-beam::before{content:'';position:absolute;inset:-1.5px;border-radius:inherit;padding:1.5px;background:conic-gradient(from var(--nrm-a),transparent 0 45%,var(--accent) 78%,transparent);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:nrm-spin 3s linear infinite;pointer-events:none}
+@keyframes nrm-spin{to{--nrm-a:360deg}}
+/* 16. Блик по карточке */
+.nrm-shine{position:relative;overflow:hidden}.nrm-shine::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);transition:left .4s var(--nrm-out)}.nrm-shine:hover::after{left:130%}
+/* 17. Подчёркивание рисуется */
+.nrm-ul{position:relative;text-decoration:none;color:var(--text-primary)}.nrm-ul::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:right;transition:transform var(--nrm-base) var(--nrm-out)}.nrm-ul:hover::after{transform:scaleX(1);transform-origin:left}
+/* 18. Удержать для подтверждения */
+.nrm-hold{position:relative;overflow:hidden;user-select:none}.nrm-hold i{position:absolute;left:0;top:0;bottom:0;width:0;background:color-mix(in srgb,var(--red) 40%,transparent);pointer-events:none}
+.nrm-hold.holding i{width:100%;transition:width .9s linear}
+/* 19. Кнопка «скопировать» */
+.nrm-copy svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.nrm-copy .ck{display:none}.nrm-copy.done .cp{display:none}.nrm-copy.done .ck{display:inline;animation:nrm-pop .35s var(--nrm-spring)}
+@keyframes nrm-pop{from{transform:scale(.3)}to{transform:scale(1)}}
+/* 20. Линия графика рисуется */
+.nrm-spark path.l{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:400;stroke-dashoffset:400}.nrm-spark.go path.l{animation:nrm-draw .6s var(--nrm-out) forwards}
+.nrm-spark path.a{fill:color-mix(in srgb,var(--accent) 14%,transparent);opacity:0}.nrm-spark.go path.a{animation:nrm-fade .4s ease .25s forwards}@keyframes nrm-fade{to{opacity:1}}
+/* 21. Свайп-убрать */
+.nrm-drag{touch-action:pan-y;cursor:grab}.nrm-drag.dragging{cursor:grabbing;transition:none}.nrm-drag.gone{transition:transform .25s ease,opacity .25s ease;opacity:0}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+/* Авто-слой: плавная смена раздела и тряска невалидного поля */
+.tab-content.active{animation:nrm-pane .16s var(--nrm-out)}
+.nrm-bad{border-color:var(--red)!important}
+/* Переключатели сайта: пружина и растяжение при нажатии */
+.tg-switch span{transition:left .28s var(--nrm-spring),width .15s ease!important}
+.tg-switch:active span{width:22px}.tg-switch.on:active span{left:12px}
+/* Главные кнопки: блик при наведении */
+.ui-btn-primary{position:relative;overflow:hidden}
+.ui-btn-primary::after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-18deg);transition:left .4s var(--nrm-out);pointer-events:none}
+.ui-btn-primary:hover::after{left:130%}
+@media (hover:none){.ui-btn-primary::after{display:none}}
+.nru-b.d.nrm-hold{position:relative;overflow:hidden}.nru-b.d.nrm-hold i{background:rgba(0,0,0,.3)}
+
+/* Слот-машина: барабан одной цифры (высота строки = 1em) */
+.nrm-reel{display:inline-block;height:1em;line-height:1;overflow:hidden;vertical-align:bottom;text-align:center}
+.nrm-strip{display:block;will-change:transform}.nrm-strip>span{display:block;height:1em;line-height:1}
+
+/* Лисёнок в шапке: только у команды консалтинга (data-staff), на всех страницах. На широком экране по центру, на узком справа у колокольчика. */
+.nr-fox-slot.nr-hdr-fox { display: none; }
+html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; }
+@media (max-width: 1100px) {
+    html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { position: static; transform: none; }
+    html[data-staff="1"] .nr-fox-slot.nr-hdr-fox, html[data-staff="1"] .nr-hdr-fox .nr-fox { width: 40px !important; height: 40px !important; }
+}
+@media (max-width: 640px) { html[data-staff="1"] .nr-fox-slot.nr-hdr-fox { display: none; } }
+
+/* iPhone (веб-приложение): шапку чуть ниже, чтобы текст не попадал в системное размытие у верхнего края */
+@media (max-width: 900px) and (display-mode: standalone) {
+    html header.glass.app-header { padding-top: calc(28px + env(safe-area-inset-top, 0px)) !important; }
+    html .main-rail { padding-top: calc(70px + env(safe-area-inset-top, 0px)) !important; }
+}
+
+/* Телефон: кнопка меню слева в шапке, боковая панель выезжает как на сайте; низ экрана закрашен цветом панели */
+@media (max-width: 768px) {
+    html .mobile-menu-btn { display: inline-flex !important; width: 32px; height: 32px; padding: 0; margin-right: -6px; align-items: center; justify-content: center; flex: none; }
+    html .sidebar-app.mobile-open { transform: translateX(0) !important; pointer-events: auto !important; z-index: 10001 !important; }
+    html .mobile-overlay.active { z-index: 10000 !important; }
+    html .sidebar-app.mobile-open .sidebar-rail { box-shadow: 8px 0 32px rgba(0, 0, 0, .25); }
+    html, html body { background-color: var(--surface-solid) !important; }
+    /* нижнее меню на телефоне включено (по макету владельца); место под него оставляем снизу */
+    html .main-rail { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+@media (max-width: 768px) {
+    html#nr-root.nr-f-drawer body header.app-header, html#nr-root.nr-f-drawer body .bottom-nav { z-index: 1 !important; }
+}
+@media (max-width: 768px) {
+    html .sidebar-app .sidebar-rail { padding-top: calc(18px + env(safe-area-inset-top, 0px)); padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Телефон: прокрутка до самого низа, без чёрной полосы */
+@media (max-width: 768px) {
+    html .main-rail { padding-bottom: 0 !important; }
+    html .main-content { padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px)) !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+}
+@media (max-width: 768px) and (display-mode: standalone) {
+    html .dashboard-app-shell.h-screen { height: 100vh; }
+    html, html body { min-height: 100vh; }
+}
+
+/* Дашборд телефона (nr-motion.js: nmd-*) */
+@media (max-width: 768px) {
+    #tab-dashboard.nmd-on > *:not(#nr-md) { display: none !important; }
+    .nmd { padding: 0 2px 8px; color: var(--text-primary); }
+    .nmd-card { background: var(--surface-solid); border-radius: 24px; padding: 14px 16px; margin-bottom: 8px; }
+    .nmd-skel { height: 110px; background: linear-gradient(90deg, var(--sel, #eee) 25%, var(--border, rgba(0,0,0,.08)) 50%, var(--sel, #eee) 75%); background-size: 200% 100%; animation: nrSkel 1.4s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { .nmd-skel { animation: none; opacity: .6; } }
+    .nmd-empty-msg { text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.5; padding: 28px 16px; }
+    .nmd-lbl { color: var(--text-muted); font-size: 11.5px; }
+    .nmd-big { font-size: 26px; font-weight: 700; letter-spacing: -.5px; margin-top: 2px; }
+    .nmd-big small, .nmd-mid small { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+    .nmd-mid { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+    .nmd-sm { font-size: 11.5px; margin-top: 2px; }
+    .nmd-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+    .nmd-pill { padding: 7px 14px; border-radius: 99px; font-weight: 600; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+    .nmd-pill.on { background: var(--sel, rgba(120,120,128,.16)); color: var(--text-primary); }
+    .nmd-chart { display: flex; align-items: flex-end; gap: 4px; height: 78px; margin-top: 10px; }
+    .nmd-chart.nmd-empty { height: 0; margin: 0; }
+    .nmd-chart i { flex: 1; border-radius: 4px 4px 0 0; background: var(--sel, rgba(120,120,128,.2)); }
+    .nmd-chart i.hl { background: #4ade80; }
+    .nmd-xl { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 10px; margin-top: 4px; }
+    .nmd-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 2px 0 10px; }
+    .nmd-tile { text-align: center; position: relative; cursor: pointer; }
+    .nmd-sq { height: 56px; border-radius: 20px; background: var(--sel, rgba(120,120,128,.14)); display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+    .nmd-sq svg { width: 25px; height: 25px; }
+    .nmd-tile span { font-size: 11.5px; font-weight: 500; }
+    .nmd-tile em { position: absolute; top: -4px; right: 8px; background: #ef4444; color: #fff; font-style: normal; font-size: 10px; min-width: 17px; height: 17px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .nmd-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .nmd-two .nmd-card { margin: 0; min-height: 138px; }
+    .nmd-green { background: linear-gradient(135deg, #16a34a, #22c55e); color: #fff; }
+    .nmd-green .nmd-lbl { color: #dcfce7; }
+    .nmd-bal { background: linear-gradient(160deg, rgba(124,58,237,.14), rgba(124,58,237,.06)); }
+    .nmd-bal .nmd-lbl { color: #8b5cf6; }
+    .nmd-dash { border-top: 1px dashed #a78bfa; margin-top: 10px; padding-top: 8px; }
+    .nmd-adbal { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .nmd-neg { color: #ef4444; }
+    .nmd-btn { background: #111; color: #fff; font-weight: 700; font-size: 12px; padding: 8px 12px; border-radius: 99px; white-space: nowrap; cursor: pointer; }
+    [data-theme="neon"] .nmd-btn { background: #fff; color: #111; }
+    .nmd-k4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 12px; }
+    .nmd-k4 b { display: block; font-size: 15px; margin: 2px 0 3px; }
+    .nmd-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .nmd-seg { display: flex; height: 9px; border-radius: 5px; overflow: hidden; gap: 2px; margin: 10px 0 8px; }
+    .nmd-leg { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 6px 0; }
+    .nmd-leg u { width: 8px; height: 8px; border-radius: 50%; display: block; }
+    .nmd-leg b { margin-left: auto; } .nmd-leg em { font-style: normal; color: var(--text-muted); width: 34px; text-align: right; }
+    .nmd-att { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
+    .nmd-att > div { flex: 1; } .nmd-att b { font-size: 13px; }
+    .nmd-tag { display: inline-flex; padding: 3px 8px; border-radius: 99px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+    .nmd-g { background: #dcfce7; color: #15803d; } .nmd-r { background: #fee2e2; color: #dc2626; } .nmd-o { background: #ffedd5; color: #c2410c; } .nmd-b { background: #e0f2fe; color: #0369a1; }
+    [data-theme="neon"] .nmd-g { background: #14532d; color: #86efac; } [data-theme="neon"] .nmd-r { background: #7f1d1d; color: #fecaca; } [data-theme="neon"] .nmd-o { background: #7c2d12; color: #fed7aa; } [data-theme="neon"] .nmd-b { background: #0c4a6e; color: #bae6fd; }
+}

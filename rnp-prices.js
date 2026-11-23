@@ -607,7 +607,7 @@
         closeModal(); S.sel = {}; paint(); writeCache();
         toast('info', 'Цены отправлены в WB', rows.length + ' арт.');
         function revert(why) { rows.forEach(function (r) { S.prices[r.nm] = prevP[r.nm]; S.pd[r.nm] = prevD[r.nm]; }); paint(); toast('error', 'Цены не поменялись', why || 'WB не принял. Попробуйте ещё раз.'); }
-        Promise.resolve(root.callWbProxy('prices_set', { items: items, old: old }, cab)).then(function (res) {
+        Promise.resolve(root.NrPriceSend ? root.NrPriceSend(cab, { items: items, old: old }) : root.callWbProxy('prices_set', { items: items, old: old }, cab)).then(function (res) {
             if (!res || res.error) { revert(res && res.error); return; }
             var up = res.uploadId, tries = 0;
             if (!up) { toast('success', 'Цены применены в WB', ''); return; }
@@ -635,7 +635,7 @@
 
 
     /* ───── Юнит-экономика (по формулам РНП): расходы и прибыль с одной штуки по каждому артикулу, без рекламы ───── */
-    var U = { cab: '', arts: [], agg: {}, tax: 0, load: false, token: 0, raf: 0, gi: 0, nm: '', ed: {}, open: false };
+    var U = { cab: '', arts: [], agg: {}, tax: 0, load: false, token: 0, raf: 0, gi: 0, nm: '', ed: {}, open: false, all: false };
     var UDAYS = 30;
     function num(v) { return Number(v) || 0; }
     // Те же расчёты, что в РНП (wb-formulas.js): к перечислению уже без комиссии, эквайринга и возвратов; себестоимость только на выкупленные (продажи минус возвраты)
@@ -663,7 +663,7 @@
         U.load = true; paintUnit();
         var per = period();
         var wbP = mode === 'ozon' ? Promise.resolve([[], []]) : Promise.all([
-            pageAll(function () { return sb().from('rnp_articles').select('nm_id,name,photo_url,imt_id,card_title,subject_name,cost_price').eq('cabinet_id', cab).eq('is_active', true); }),
+            pageAll(function () { return sb().from('rnp_articles').select('nm_id,name,photo_url,imt_id,card_title,subject_name,cost_price,logistics_unit,other_costs_unit').eq('cabinet_id', cab).eq('is_active', true); }),
             pageAll(function () { return sb().from('rnp_daily_data').select('nm_id,sales_count,sales_sum,returns_count,to_transfer,delivery_sum,storage_sum,penalty_sum,deduction_sum,commission_pct').eq('cabinet_id', cab).gte('date', per.from).lte('date', per.to); })
         ]);
         // Ozon: артикулы без размера и их расходы из финотчёта Ozon (ozon_unit_rows считает на сервере)
@@ -671,8 +671,18 @@
             Promise.resolve(sb().rpc('ozon_rnp_articles', { p_cabinet: cab })).then(function (r) { return (r && r.data) || []; }, function () { return []; }),
             Promise.resolve(sb().rpc('ozon_unit_rows', { p_cabinet: cab, p_from: per.from, p_to: per.to })).then(function (r) { return (r && r.data) || []; }, function () { return []; })
         ]);
+        // Реклама по артикулам: РК пишутся по кампаниям, разбивка по артикулам лежит в data (как читает РНП)
+        var adP = mode === 'ozon' ? Promise.resolve({}) : Promise.resolve(pageAll(function () { return sb().from('advertising_daily_stats').select('stat_date,data').eq('cabinet_id', cab).gte('stat_date', per.from).lte('stat_date', per.to); })).then(function (rows) {
+            var out = {}, list = function (v) { return Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : []); };
+            (rows || []).forEach(function (r) {
+                var d = r.data || {}, nms = [].concat(list(d.nm), list(d.nms), list(d.nmIds));
+                (d.apps || []).forEach(function (ap) { if (ap) nms = nms.concat(list(ap.nm), list(ap.nms), list(ap.nmIds)); });
+                nms.forEach(function (n) { var id = Number(n && (n.nmId != null ? n.nmId : n.nmID != null ? n.nmID : n.nm_id != null ? n.nm_id : n.id)) || 0; if (id) out[id] = (out[id] || 0) + (num(n.sum) || num(n.spend)); });
+            });
+            return out;
+        }, function () { return {}; });
         var stP = Promise.resolve(sb().from('rnp_settings').select('options').eq('cabinet_id', cab).limit(1)).then(function (r) { return (r && r.data && r.data[0] && r.data[0].options) || {}; }, function () { return {}; });
-        Promise.all([wbP, ozP, stP]).then(function (a) {
+        Promise.all([wbP, ozP, stP, adP]).then(function (a) {
             if (my !== U.token || mpMode() !== mode) return;
             var agg = {};
             a[0][1].forEach(function (x) {
@@ -680,6 +690,7 @@
                 g.n += num(x.sales_count); g.r += num(x.returns_count); g.ss += num(x.sales_sum); g.tt += num(x.to_transfer); g.dl += num(x.delivery_sum);
                 g.st += num(x.storage_sum); g.pn += num(x.penalty_sum) + num(x.deduction_sum); g.cm += num(x.commission_pct) * num(x.sales_sum);
             });
+            Object.keys(a[3] || {}).forEach(function (id) { if (agg[id]) agg[id].ad = a[3][id]; });
             var arts = a[0][0].slice();
             a[1][1].forEach(function (x) { agg[x.nm_id] = { n: num(x.n), r: num(x.r), ss: num(x.ss), tt: num(x.tt), dl: num(x.dl), st: num(x.st), pn: num(x.pn), cm: num(x.cm) }; });
             a[1][0].forEach(function (x) { arts.push({ nm_id: x.nm_id, name: x.name, photo_url: x.photo_url, card_title: x.card_title, subject_name: x.subject_name, cost_price: x.cost_price, oz: 1 }); });
@@ -700,23 +711,41 @@
        Сверху группы как в РНП, под ними фото артикулов группы; выбрали фото, ниже таблица: «Снимок» (заморожен, как блокнот),
        «Значения» (можно менять, итоги пересчитываются сразу) и «Разница». Расходы на единицу из финотчёта (WB) или начислений (Ozon). */
     var UR = [
-        ['sec', 'Цена'], ['ed', 'price', 'Цена продажи, ₽'],
-        ['sec', 'Расходы на единицу'], ['ed', 'comm', 'Комиссия, %'], ['calc', 'commR', 'Комиссия площадки, ₽'], ['ed', 'log', 'Логистика, ₽'], ['ed', 'resid', 'Эквайринг, возвраты и прочее, ₽'], ['ed', 'sto', 'Хранение и штрафы, ₽'],
-        ['ed', 'ads', 'Реклама, % цены'], ['calc', 'adsR', 'Реклама, ₽'], ['ed', 'tax', 'Налог, % цены'], ['ed', 'cost', 'Себестоимость, ₽'],
-        ['sec', 'Итог'], ['hero', 'profit', 'Остаётся с единицы, ₽'], ['calc', 'margin', 'Маржа от цены, %'],
-        ['sec', 'За день'], ['ed', 'ord', 'Продаж в день'], ['hero', 'pday', 'Прибыль в день, ₽'], ['calc', 'be', 'Цена, при которой прибыль 0, ₽']
+        ['sec', 'Цена'], ['ed', 'price', 'Цена продажи, сом'],
+        ['sec', 'Расходы на единицу'], ['ed', 'comm', 'Комиссия, %'], ['calc', 'commR', 'Комиссия площадки, сом'], ['ed', 'log', 'Логистика WB, сом'], ['ed', 'resid', 'Прочие удержания WB, сом'], ['ed', 'sto', 'Хранение и штрафы, сом'],
+        ['ed', 'own', 'Логистика до склада, сом'], ['ed', 'other', 'Прочие расходы, сом'],
+        ['ed', 'ads', 'Реклама, % цены'], ['calc', 'adsR', 'Реклама, сом'], ['ed', 'tax', 'Налог, % цены'], ['ed', 'cost', 'Себестоимость, сом'],
+        ['sec', 'Итог'], ['hero', 'profit', 'Остаётся с единицы, сом'], ['calc', 'margin', 'Маржа от цены, %']
     ];
+    /* Откуда цифра: короткая подсказка по кнопке «i» рядом с названием строки */
+    var UINFO = {
+        price: ['Из финотчёта', 'Продажи ÷ проданные штуки.'], comm: ['Из финотчёта', 'Комиссия ÷ продажи, как в РНП.'], commR: ['Считается', 'Цена × комиссия %.'],
+        log: ['Из финотчёта', 'Доставка на 1 штуку, с возвратами и невыкупами.'], resid: ['Из финотчёта', 'Цена − «к перечислению» − комиссия: всё остальное, что удержал WB.'],
+        sto: ['Из финотчёта', 'Хранение, штрафы и удержания на 1 штуку.'], own: ['Из РНП', 'Поле «Логистика за шт» у артикула.'], other: ['Из РНП', 'Поле «Прочие расходы за шт» у артикула.'],
+        ads: ['Из рекламы', 'Расход на рекламу артикула ÷ его продажи.'], adsR: ['Считается', 'Цена × реклама %.'], tax: ['Из настроек РНП', 'Ваша ставка налога.'],
+        cost: ['Из «Товары»', 'Себестоимость на 1 выкупленную штуку.'], profit: ['Считается', 'Цена минус все расходы.'], margin: ['Считается', 'Остаётся ÷ цена.']
+    };
+    function uInfoBtn(k) { return UINFO[k] ? '<button type="button" class="ru-i" data-ui="' + k + '" aria-label="Откуда цифра">i</button>' : ''; }
+    function uPop(btn) {
+        var old = doc.getElementById('ru-pop'); if (old) old.remove();
+        Array.prototype.forEach.call(doc.querySelectorAll('.ru-i.on'), function (x) { x.classList.remove('on'); });
+        if (!btn) return; var t = UINFO[btn.getAttribute('data-ui')]; if (!t) return;
+        btn.classList.add('on');
+        var p = doc.createElement('div'); p.id = 'ru-pop'; p.className = 'ru-pop'; p.innerHTML = '<small>' + t[0] + '</small>' + t[1]; doc.body.appendChild(p);
+        var r = btn.getBoundingClientRect(); p.style.left = Math.max(8, Math.min(r.left, root.innerWidth - p.offsetWidth - 12)) + 'px'; p.style.top = (r.bottom + 6) + 'px';
+    }
     function uSnapKey() { return 'nr_ru_snap_' + (U.cab || cabId()) + '_' + mpMode(); }
     function uSnaps() { try { return JSON.parse(root.localStorage.getItem(uSnapKey()) || '{}') || {}; } catch (_) { return {}; } }
     function uSaveSnaps(m) { try { root.localStorage.setItem(uSnapKey(), JSON.stringify(m)); } catch (_) {} }
     function uVals(a) {
         var u = unitOf(U.agg[a.nm_id], a.cost_price, U.tax); if (!u) return null;
-        return { price: Math.round(u.price), comm: Math.round(u.comm * 10) / 10, log: Math.round(u.log), resid: Math.round(u.resid), sto: Math.round(u.stoPen), ads: 0, tax: Number(U.tax) > 0 ? Number(U.tax) : 0, cost: Math.round(u.cost), ord: Math.round(u.n / UDAYS * 10) / 10 };
+        var ag = U.agg[a.nm_id] || {}, adPct = num(ag.ss) > 0 ? num(ag.ad) / num(ag.ss) * 100 : 0;
+        return { price: Math.round(u.price), comm: Math.round(u.comm * 10) / 10, log: Math.round(u.log), resid: Math.round(u.resid), sto: Math.round(u.stoPen),
+            own: Math.round(num(a.logistics_unit)), other: Math.round(num(a.other_costs_unit)), ads: Math.round(adPct * 10) / 10, tax: Number(U.tax) > 0 ? Number(U.tax) : 0, cost: Math.round(u.cost) };
     }
     function uCalc(v) {
         var o = {}; o.commR = v.price * v.comm / 100; o.adsR = v.price * v.ads / 100; var tx = v.price * v.tax / 100;
-        o.profit = v.price - o.commR - v.log - v.resid - v.sto - o.adsR - tx - v.cost; o.margin = v.price ? o.profit / v.price * 100 : 0; o.pday = o.profit * v.ord;
-        var r = 1 - (v.comm + v.ads + v.tax) / 100; o.be = r > 0 ? (v.log + v.resid + v.sto + v.cost) / r : 0; return o;
+        o.profit = v.price - o.commR - v.log - v.resid - v.sto - (v.own || 0) - (v.other || 0) - o.adsR - tx - v.cost; o.margin = v.price ? o.profit / v.price * 100 : 0; return o;
     }
     function uGroups() {
         var byNm = {}; U.arts.forEach(function (a) { byNm[a.nm_id] = a; });
@@ -730,6 +759,38 @@
         return out.filter(function (g) { return g.items.some(function (a) { return !!uVals(a); }); });
     }
     function uNum(n, pct) { return pct ? String(n).replace('.', ',') : fmt(n); }
+    /* Карточки справа: чёрная главная метрика и контурная со структурой цены */
+    function uSide(c, v, all) {
+        var hero = '<div class="ru-hero2"><small>Остаётся с единицы' + (all ? ' · в среднем' : '') + '</small><b class="' + (c.profit < 0 ? 'dn' : '') + '">' + fmt(c.profit) + ' сом</b><span class="ru-pill">маржа ' + c.margin.toFixed(1).replace('.', ',') + '%</span></div>';
+        if (all) return hero + all;
+        var parts = [['Комиссия', c.commR, 'var(--text-primary)'], ['Логистика WB', v.log, 'var(--text-muted)'], ['Хранение', v.sto, 'var(--mono-3, #a8a8a8)'], ['Прочее', Math.max(0, v.resid + (v.own || 0) + (v.other || 0) + c.adsR + v.price * v.tax / 100 + v.cost), 'var(--mono-2, #6b6b6b)'], ['Остаётся', Math.max(0, c.profit), 'var(--green, #16803c)']];
+        var tot = parts.reduce(function (a, p) { return a + Math.max(0, p[1]); }, 0) || 1;
+        return hero + '<div class="ru-card2"><small>Из чего складывается цена</small><div class="ru-bar2">' + parts.map(function (p) { return '<i style="flex:' + (Math.max(0, p[1]) / tot) + ';background:' + p[2] + '"></i>'; }).join('') + '</div><div class="ru-leg2">' + parts.map(function (p) { return '<span>' + p[0] + ' ' + fmt(p[1]) + '</span>'; }).join('') + '</div></div>';
+    }
+    /* «Σ Общее»: колонка на артикул группы и колонка «В среднем» */
+    function uAllBody(items) {
+        var cols = items.map(function (a) { var v = uVals(a); return v ? { a: a, v: v, c: uCalc(v) } : null; }).filter(Boolean);
+        if (!cols.length) return '';
+        var pct = function (k) { return k === 'comm' || k === 'ads' || k === 'tax'; };
+        var head = '<thead><tr><th>На 1 штуку</th>' + cols.map(function (x) { return '<th title="' + esc(x.a.name || x.a.nm_id) + '">' + esc(String(x.a.name || x.a.nm_id).replace(/^свитер[-_ ]?/i, '')) + '</th>'; }).join('') + '<th>В среднем</th></tr></thead>';
+        var body = '<tbody>' + UR.map(function (r) {
+            if (r[0] === 'sec') return '<tr class="ru-sec"><td>▾ ' + r[1] + '</td><td colspan="' + (cols.length + 1) + '"></td></tr>';
+            var k = r[1], sum = 0;
+            var cells = cols.map(function (x) {
+                var val = k in x.v ? x.v[k] : x.c[k]; sum += val; var cls = (k === 'profit' || k === 'margin') ? (val < 0 ? ' dn' : ' up') : (k === 'commR' || k === 'adsR') && val > 0 ? ' dn' : '';
+                var txt = (k === 'commR' || k === 'adsR') ? (val > 0 ? '−' + fmt(val) : '—') : (k === 'margin' ? val.toFixed(1).replace('.', ',') + '%' : uNum(pct(k) ? Math.round(val * 10) / 10 : Math.round(val), pct(k)));
+                return '<td class="' + cls.trim() + '">' + txt + '</td>';
+            }).join('');
+            var avg = sum / cols.length, acls = (k === 'profit' || k === 'margin') ? (avg < 0 ? ' dn' : ' up') : '';
+            var atxt = (k === 'commR' || k === 'adsR') ? (avg > 0 ? '−' + fmt(avg) : '—') : (k === 'margin' ? avg.toFixed(1).replace('.', ',') + '%' : uNum(pct(k) ? Math.round(avg * 10) / 10 : Math.round(avg), pct(k)));
+            return '<tr class="' + (r[0] === 'hero' ? 'ru-hero' : 'ru-row') + '"><td>' + r[2] + uInfoBtn(k) + '</td>' + cells + '<td class="ru-c' + acls + '">' + atxt + '</td></tr>';
+        }).join('') + '</tbody>';
+        var avgV = {}, n = cols.length; Object.keys(cols[0].v).forEach(function (k) { avgV[k] = cols.reduce(function (a, x) { return a + (x.v[k] || 0); }, 0) / n; });
+        var ac = uCalc(avgV), mx = Math.max.apply(null, cols.map(function (x) { return x.c.margin; })) || 1;
+        var rank = '<div class="ru-card2"><small>Маржа по артикулам</small>' + cols.map(function (x) { return '<div class="ru-rk"><span>' + esc(String(x.a.name || x.a.nm_id).replace(/^свитер[-_ ]?/i, '')) + '</span><u><i style="width:' + Math.max(0, x.c.margin) / mx * 100 + '%"></i></u><b>' + x.c.margin.toFixed(1).replace('.', ',') + '%</b></div>'; }).join('') + '</div>';
+        return '<div class="ru-stage2"><div class="ru-wrap"><table class="ru-t2 ru-all">' + head + body + '</table></div><aside class="ru-side">' + uSide(ac, avgV, rank) + '</aside></div>' +
+            '<p class="rp-hint">В общем виде цифры только смотрим. Чтобы поменять значение, выберите один артикул. Кнопка «i» у строки объясняет, откуда цифра.</p>';
+    }
     function paintUnit() {
         var pane = doc.getElementById('rnp-unit-pane'); if (!pane || S.view !== 'unit') return;
         if (!U.arts.length) { pane.innerHTML = '<div class="rp-tools">' + subTabs('unit') + '</div><div class="rp-stage">' + (U.load ? skeleton() : '<div class="rp-empty"><b>Пока нет данных для юнит-экономики</b><p>Нужны артикулы РНП и продажи за последние ' + UDAYS + ' дней.</p></div>') + '</div>'; return; }
@@ -741,35 +802,42 @@
         var sel = items.filter(function (a) { return String(a.nm_id) === String(U.nm); })[0], base = sel ? uVals(sel) : null;
         var snaps = uSnaps(), key = String(U.nm), snap = snaps[key];
         if (base && !snap) { snap = snaps[key] = { at: Date.now(), v: base }; uSaveSnaps(snaps); }
-        U.ed = U.ed || {}; var cur = base ? Object.assign({}, snap.v, U.ed[key] || {}) : null;
+        // Заморожены цена и расходы WB; себестоимость, налог, реклама и расходы артикула из РНП всегда свежие
+        var snapV = base ? Object.assign({}, snap.v, { cost: base.cost, tax: base.tax, ads: base.ads, own: base.own, other: base.other }) : null;
+        U.ed = U.ed || {}; var cur = base ? Object.assign({}, snapV, U.ed[key] || {}) : null;
         // Как в РНП: сверху одна кнопка с текущей группой, по нажатию раскрывается список групп, рядом сразу фото артикулов выбранной группы
         var menu = U.open ? '<div class="ru-gmenu" role="listbox">' + groups.map(function (x, i) { return '<button type="button" class="ru-gi' + (i === U.gi ? ' on' : '') + '" role="option" data-ug="' + i + '"><b>' + esc(x.name) + '</b><span>' + x.items.length + '</span></button>'; }).join('') + '</div>' : '';
-        var tabs = '<div class="ru-gwrap"><button type="button" class="ru-gbtn" data-ugo="1" aria-expanded="' + (U.open ? 'true' : 'false') + '"><i>▾</i>' + esc(g.name) + '<small>' + items.length + '</small></button>' + menu + '</div>';
+        var allBtn = '<button type="button" class="ru-allb' + (U.all ? ' on' : '') + '" data-uall="1">Σ Общее</button><span class="ru-sepv"></span>';
+        var tabs = allBtn + '<div class="ru-gwrap"><button type="button" class="ru-gbtn" data-ugo="1" aria-expanded="' + (U.open ? 'true' : 'false') + '"><i>▾</i>' + esc(g.name) + '<small>' + items.length + '</small></button>' + menu + '</div>';
         var photos = '<div class="ru-ph">' + items.map(function (a) {
-            var v = uVals(a), on = String(a.nm_id) === String(U.nm);
+            var v = uVals(a), on = !U.all && String(a.nm_id) === String(U.nm);
             return '<button type="button" class="ru-pt' + (on ? ' on' : '') + (v ? '' : ' off') + '" data-un="' + a.nm_id + '" aria-label="' + esc(a.name || a.nm_id) + '"><span class="ru-pi">' + (pic(a) ? '<img src="' + esc(pic(a)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span><b>' + (v ? fmt(v.price) : '—') + '</b><em>' + esc(String(a.name || a.nm_id).slice(0, 14)) + '</em></button>';
         }).join('') + '</div>';
         var body = '';
         if (cur) {
-            var cs = uCalc(cur), cp = uCalc(snap.v), h = '';
+            var cs = uCalc(cur), cp = uCalc(snapV), h = '';
             UR.forEach(function (r) {
                 if (r[0] === 'sec') { h += '<tr class="ru-sec"><td>▾ ' + r[1] + '</td><td colspan="3"></td></tr>'; return; }
                 var k = r[1], pct = k === 'comm' || k === 'ads' || k === 'tax', vp, vc, d, dv;
-                h += '<tr class="' + (r[0] === 'hero' ? 'ru-hero' : 'ru-row') + '"><td>' + r[2] + '</td>';
+                h += '<tr class="' + (r[0] === 'hero' ? 'ru-hero' : 'ru-row') + '"><td>' + r[2] + uInfoBtn(k) + '</td>';
                 if (r[0] === 'ed') {
-                    vp = uNum(snap.v[k], pct); dv = cur[k] - snap.v[k];
+                    vp = uNum(snapV[k], pct); dv = cur[k] - snapV[k];
                     vc = '<input class="ru-ed' + (dv ? ' chg' : '') + '" data-k="' + k + '" value="' + uNum(cur[k], pct) + '" inputmode="decimal" aria-label="' + esc(r[2]) + '">';
-                    d = dv ? '<span class="' + ((k === 'price' || k === 'ord') ? (dv > 0 ? 'up' : 'dn') : (dv > 0 ? 'dn' : 'up')) + '">' + (dv > 0 ? '+' : '') + uNum(Math.round(dv * 10) / 10, pct) + '</span>' : '—';
+                    d = dv ? '<span class="' + ((k === 'price') ? (dv > 0 ? 'up' : 'dn') : (dv > 0 ? 'dn' : 'up')) + '">' + (dv > 0 ? '+' : '') + uNum(Math.round(dv * 10) / 10, pct) + '</span>' : '—';
                 } else if (k === 'commR' || k === 'adsR') { vp = cp[k] > 0 ? '−' + fmt(cp[k]) : '—'; vc = cs[k] > 0 ? '<span class="dn">−' + fmt(cs[k]) + '</span>' : '—'; dv = cs[k] - cp[k]; d = Math.round(dv) ? '<span class="' + (dv > 0 ? 'dn' : 'up') + '">' + (dv < 0 ? '+' : '−') + fmt(Math.abs(dv)) + '</span>' : '—'; }
-                else if (k === 'profit' || k === 'pday') { vp = fmt(cp[k]); vc = '<span class="' + (cs[k] < 0 ? 'dn' : 'up') + '">' + fmt(cs[k]) + '</span>'; dv = cs[k] - cp[k]; d = Math.round(dv) ? '<span class="' + (dv > 0 ? 'up' : 'dn') + '">' + (dv > 0 ? '+' : '−') + fmt(Math.abs(dv)) + '</span>' : '—'; }
+                else if (k === 'profit') { vp = fmt(cp[k]); vc = '<span class="' + (cs[k] < 0 ? 'dn' : 'up') + '">' + fmt(cs[k]) + '</span>'; dv = cs[k] - cp[k]; d = Math.round(dv) ? '<span class="' + (dv > 0 ? 'up' : 'dn') + '">' + (dv > 0 ? '+' : '−') + fmt(Math.abs(dv)) + '</span>' : '—'; }
                 else if (k === 'margin') { vp = cp.margin.toFixed(1).replace('.', ',') + '%'; vc = cs.margin.toFixed(1).replace('.', ',') + '%'; dv = cs.margin - cp.margin; d = Math.abs(dv) < 0.05 ? '—' : '<span class="' + (dv > 0 ? 'up' : 'dn') + '">' + (dv > 0 ? '+' : '−') + Math.abs(dv).toFixed(1).replace('.', ',') + ' п.п.</span>'; }
-                else if (k === 'be') { vp = fmt(cp.be); vc = fmt(cs.be); dv = cs.be - cp.be; d = Math.round(dv) ? (dv > 0 ? '+' : '−') + fmt(Math.abs(dv)) : '—'; }
                 h += '<td class="ru-s">' + vp + '</td><td class="ru-c">' + vc + '</td><td>' + d + '</td></tr>';
             });
             var ds = new Date(snap.at), dstr = ds.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + ', ' + ('0' + ds.getHours()).slice(-2) + ':' + ('0' + ds.getMinutes()).slice(-2);
             body = '<div class="ru-snap"><b>Снимок от ' + esc(dstr) + '</b><span class="ru-tag">заморожено: расходы и продажи за ' + UDAYS + ' дней</span><span class="ru-sp"></span><button type="button" class="rp-btn" data-ua="reset">Сбросить значения</button><button type="button" class="rp-btn" data-ua="snap">Сделать новый снимок</button></div>' +
                 '<div class="ru-wrap"><table class="ru-t2"><thead><tr><th>на 1 штуку · ' + esc(sel.name || sel.nm_id) + '</th><th>Снимок</th><th class="c">Значения<small>можно менять</small></th><th>Разница</th></tr></thead><tbody>' + h + '</tbody></table></div>' +
-                '<p class="rp-hint">Пунктирные значения правятся на месте. Реклама по умолчанию 0%: укажите свой процент или ДРР, и прибыль пересчитается. Налог берётся из настроек РНП.</p>';
+                '<p class="rp-hint">Пунктирные значения правятся на месте. Себестоимость, реклама, налог и расходы из РНП всегда свежие, остальное заморожено на момент снимка. Кнопка «i» у строки объясняет, откуда цифра.</p>';
+        }
+        if (U.all) body = uAllBody(items);
+        else if (cur && body) {
+            var csd = uCalc(cur), side = uSide(csd, cur, null);
+            body = body.replace('<div class="ru-wrap">', '<div class="ru-stage2"><div class="ru-wrap">').replace('<p class="rp-hint">', '<aside class="ru-side">' + side + '</aside></div><p class="rp-hint">');
         }
         var actKey = doc.activeElement && doc.activeElement.dataset && doc.activeElement.dataset.k ? doc.activeElement.dataset.k : '';
         var sc = pane.scrollTop;
@@ -779,11 +847,14 @@
     }
     function unitClick(e) {
         var b;
+        if ((b = e.target.closest('.ru-i'))) { var same = b.classList.contains('on'); uPop(same ? null : b); return; }
+        if (!e.target.closest('.ru-pop')) uPop(null);
         if ((b = e.target.closest('[data-vw]'))) { setView(b.getAttribute('data-vw')); return; }
         if ((b = e.target.closest('[data-ugo]'))) { U.open = !U.open; paintUnit(); return; }
         if ((b = e.target.closest('[data-ug]'))) { U.gi = Number(b.getAttribute('data-ug')); U.nm = ''; U.open = false; paintUnit(); return; }
         if (U.open && !e.target.closest('.ru-gwrap')) { U.open = false; paintUnit(); }
-        if ((b = e.target.closest('[data-un]'))) { U.nm = b.getAttribute('data-un'); paintUnit(); return; }
+        if ((b = e.target.closest('[data-un]'))) { U.nm = b.getAttribute('data-un'); U.all = false; paintUnit(); return; }
+        if ((b = e.target.closest('[data-uall]'))) { U.all = !U.all; paintUnit(); return; }
         if ((b = e.target.closest('[data-ua]'))) {
             var a = b.getAttribute('data-ua'); U.ed = U.ed || {};
             if (a === 'reset') { delete U.ed[String(U.nm)]; paintUnit(); return; }
@@ -858,6 +929,7 @@
     // Сайт сообщает о смене кабинета событием document «cabinet-changed» (кабинет к этому моменту уже выбран): сбрасываем чужие данные и грузим новые
     function onCabinetChanged() { OZ.cab = ''; OZ.rows = []; OZ.stock = {}; OZ.sel = {}; OZ.token++; S.cab = ''; S.arts = []; S.prices = {}; S.stock = {}; S.fbo = {}; S.fbs = {}; S.pd = {}; S.ratio = {}; S.ord = {}; S.sal = {}; S.sel = {}; S.token++; U.cab = ''; U.arts = []; U.agg = {}; U.token++; closeModal(); if (S.view === 'prices') open(); else if (S.view === 'unit') openUnit(); }
     doc.addEventListener('cabinet-changed', onCabinetChanged);
+    doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') uPop(null); });
     doc.addEventListener('nr-mp-change', function () { if (S.view === 'prices') { if (mpMode() !== 'wb') loadOz(); else paint(); } });
     doc.addEventListener('nr-mp-change', function () { if (S.view === 'unit' && doc.getElementById('tab-rnp') && doc.getElementById('tab-rnp').classList.contains('active')) openUnit(); });
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();

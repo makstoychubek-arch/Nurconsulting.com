@@ -230,9 +230,10 @@
         if (!label) {
             // Вернулись на основную страницу раздела (например, из «Юнит-экономики» в РНП): прежний заголовок подраздела заменяем обычным
             if (title && s && desired) { try { var d0 = typeof tabTitles !== 'undefined' && tabTitles[tab]; if (d0 && title.textContent !== d0) title.textContent = d0; } catch (e) { /* заголовок остаётся */ } }
-            desired = ''; el.innerHTML = ''; el.classList.remove('on'); return;
+            desired = ''; el.innerHTML = ''; el.classList.remove('on'); if (!root.performance || root.performance.now() > 4000) doc.documentElement.classList.remove('nr-f-crumb'); return; // при загрузке не снимаем: подраздел (Товары, Юнит-экономика) включается чуть позже первого прохода
         }
         el.classList.add('on');
+        doc.documentElement.classList.add('nr-f-crumb');
         el.innerHTML = '<button type="button" class="nr-crumb" data-nrc="' + (go1 ? (go1.charAt(0) === '*' ? go1 : tab + ':' + go1) : '') + '">' + esc(secTitle) + '</button><span class="nr-crumb-sep">›</span><span class="nr-crumb-cur">' + esc(label) + '</span>';
         desired = (s && label !== secTitle) ? label : '';
         if (title && desired && title.textContent !== desired) title.textContent = desired;
@@ -405,18 +406,43 @@
         function paint() {
             var bar = doc.getElementById('nr-mp'); if (!bar) return;
             Array.prototype.forEach.call(bar.querySelectorAll('button'), function (b) {
-                var on = b.getAttribute('data-mp') === cur; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                var m = b.getAttribute('data-mp'), on = m === cur, ok = avail()[m] !== false;
+                b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                b.classList.toggle('is-na', !ok); b.setAttribute('aria-disabled', ok ? 'false' : 'true');
+                if (!ok) b.title = (m === 'all' ? 'Нужны обе площадки' : LBL[m] + ' не подключён: подключите в Настройки → Интеграции'); else if (b.title && /не подключён|Нужны обе/.test(b.title)) b.removeAttribute('title');
             });
             doc.documentElement.setAttribute('data-mp', cur);
         }
+        // Что подключено у выбранного кабинета: WB по токену, Ozon по Client-Id и ключу. Неизвестно (нет данных о кабинете): считаем доступным.
+        function avail() {
+            var a = { wb: true, ozon: true, all: true };
+            try {
+                var id = root.currentCabinetId, list = root.nrCabinetList ? root.nrCabinetList() : [];
+                var c = list.filter(function (x) { return String(x.id) === String(id); })[0];
+                if (c) {
+                    if ('wb_token_set' in c) a.wb = !!c.wb_token_set;
+                    if ('ozon_api_key_set' in c || 'ozon_client_id' in c) a.ozon = !!(c.ozon_client_id && c.ozon_api_key_set);
+                    a.all = a.wb && a.ozon;
+                }
+            } catch (_) { /* считаем доступным */ }
+            return a;
+        }
+        var pref = cur; // выбор человека; если на этом кабинете он недоступен, показываем доступную, а выбор не теряем
+        function fit() {
+            var a = avail(), want = a[pref] ? pref : (a.wb ? 'wb' : (a.ozon ? 'ozon' : cur));
+            if (want !== cur) { cur = want; paint(); subs.slice().forEach(function (f) { try { f(want); } catch (e) { /* ок */ } }); try { doc.dispatchEvent(new CustomEvent('nr-mp-change', { detail: { mp: want } })); } catch (_) { /* старый браузер */ } }
+            else paint();
+        }
         function set(m) {
             if (MODES.indexOf(m) < 0 || m === cur) return;
-            cur = m; try { localStorage.setItem(KEY, m); } catch (_) { /* без памяти */ }
+            if (!avail()[m]) return; // площадка не подключена: кнопка не нажимается
+            pref = m; cur = m; try { localStorage.setItem(KEY, m); } catch (_) { /* без памяти */ }
             paint();
             subs.slice().forEach(function (f) { try { f(m); } catch (e) { if (root.console) console.error('[NrMp]', e); } });
             try { doc.dispatchEvent(new CustomEvent('nr-mp-change', { detail: { mp: m } })); } catch (_) { /* старый браузер */ }
         }
-        root.NrMp = { get: function () { return cur; }, set: set, onChange: function (f) { subs.push(f); }, label: function (m) { return LBL[m || cur]; } };
+        doc.addEventListener('cabinet-changed', function () { setTimeout(fit, 0); });
+        root.NrMp = { get: function () { return cur; }, set: set, fit: fit, avail: avail, onChange: function (f) { subs.push(f); }, label: function (m) { return LBL[m || cur]; } };
         // ПК: в шапке сразу справа от даты. Телефон: шапка тесная, поэтому отдельной строкой над содержимым.
         function place(bar) {
             var phone = root.matchMedia && root.matchMedia('(max-width: 768px)').matches;
