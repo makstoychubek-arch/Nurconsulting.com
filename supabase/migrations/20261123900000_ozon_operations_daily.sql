@@ -19,5 +19,5 @@ begin
     select command into base from cron.job where jobname = 'ozon-night-finance' limit 1;
     if base is null then raise notice 'ozon-night-finance не найдена, задача не добавлена'; return; end if;
     perform cron.unschedule(jobname) from cron.job where jobname = 'ozon-night-operations';
-    perform cron.schedule('ozon-night-operations', '55 22 * * *', replace(base, '{"parts":["finance"],"days":60}', '{"parts":["operations"],"days":60}'));
+    perform cron.schedule('ozon-night-operations', '55 22 * * *', replace(base, '{"parts":["finance"],"days":60}', '{"parts":["operations"],"days":14}'));
 end $$;

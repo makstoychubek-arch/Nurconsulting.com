@@ -155,38 +155,39 @@ async function syncFinance(admin: Admin, cabinetId: string, c: OzonCreds, days: 
     return total;
 }
 
-/** Операции Ozon по дням и видам (транзакции продавца: хранение, услуги, начисления и др.). Нужны, чтобы видеть, откуда списано, и сверять РНП с балансом. Окна по календарному месяцу (лимит Ozon). */
+/** Начисления Ozon по дням и видам (/v1/finance/accrual/by-day, замена отключённого /v3/finance/transaction/list): все начисления дня, в том числе без отправления
+ *  (кросс-докинг, размещение на складе, услуги). Сводка (дата, категория, вид) в ozon_operations_daily; суммы в валюте кабинета Ozon (рубли). */
 async function syncOperations(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
-    const now = new Date();
-    const wins: { from: string; to: string }[] = [];
-    const lim = Math.min(120, Math.max(days, 35));
-    const start = new Date(now.getTime() - lim * 86400_000);
-    let y = start.getUTCFullYear(), m = start.getUTCMonth();
-    while (y < now.getUTCFullYear() || (y === now.getUTCFullYear() && m <= now.getUTCMonth())) {
-        const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-        const f = new Date(Math.max(Date.UTC(y, m, 1), start.getTime()));
-        wins.push({ from: f.toISOString().slice(0, 10) + 'T00:00:00.000Z', to: `${y}-${String(m + 1).padStart(2, '0')}-${String(last).padStart(2, '0')}T23:59:59.000Z` });
-        m++; if (m > 11) { m = 0; y++; }
-    }
+    const n = Math.min(90, Math.max(2, days));
+    const { data: tp } = await admin.from('ozon_accrual_types').select('id, name');
+    const names = new Map<number, string>(((tp || []) as { id: number; name: string }[]).map((x) => [Number(x.id), String(x.name)]));
+    // обходим вложенный объект: любая запись с type_id и accrued.amount считается начислением этого вида
+    const walk = (o: unknown, cb: (t: number, amount: number) => void) => {
+        if (!o || typeof o !== 'object') return;
+        if (Array.isArray(o)) { for (const x of o) walk(x, cb); return; }
+        const r = o as Record<string, any>;
+        if (r.type_id != null && r.accrued && r.accrued.amount != null) { cb(Number(r.type_id), Number(r.accrued.amount) || 0); return; }
+        for (const k of Object.keys(r)) if (k !== 'total_amount') walk(r[k], cb);
+    };
     let total = 0;
-    for (const w of wins) {
-        const agg = new Map<string, { d: string; t: string; n: string; amount: number; cnt: number }>();
-        let page = 1;
-        for (let i = 0; i < 60; i++) {
-            const r = await ozonCall(c, '/v3/finance/transaction/list', { filter: { date: { from: w.from, to: w.to }, operation_type: [], posting_number: '', transaction_type: 'all' }, page, page_size: 1000 }, fetchFn);
-            const res = (r.result || {}) as { operations?: Record<string, any>[]; page_count?: number };
-            for (const o of res.operations || []) {
-                const d = String(o.operation_date || '').slice(0, 10), t = String(o.operation_type || ''), key = d + '|' + t;
-                if (!d || !t) continue;
-                const a = agg.get(key) || { d, t, n: String(o.operation_type_name || ''), amount: 0, cnt: 0 };
-                a.amount += Number(o.amount) || 0; a.cnt++; agg.set(key, a);
+    for (let i = 1; i <= n; i++) {
+        const d = new Date(Date.now() - i * 86400_000).toISOString().slice(0, 10);
+        const agg = new Map<string, { t: string; name: string; amount: number; cnt: number }>();
+        let last = '';
+        for (let page = 0; page < 40; page++) {
+            const r = await ozonCall(c, '/v1/finance/accrual/by-day', last ? { date: d, last_id: last } : { date: d }, fetchFn) as { accruals?: Record<string, any>[]; last_id?: string };
+            for (const a of r.accruals || []) {
+                const cat = String(a.accrued_category || '');
+                const src = a.posting || a.item_fees || a.non_item_fee || a.container_fees;
+                walk(src, (t, amount) => { const key = cat + ':' + t; const e = agg.get(key) || { t: key, name: names.get(t) || '', amount: 0, cnt: 0 }; e.amount += amount; e.cnt++; agg.set(key, e); });
             }
-            if (page >= (res.page_count || 1)) break;
-            page++;
-            await sleep(250);
+            last = String(r.last_id || '');
+            if (!last || !(r.accruals || []).length) break;
+            await sleep(150);
         }
-        const rows = [...agg.values()].map((a) => ({ cabinet_id: cabinetId, d: a.d, op_type: a.t, op_name: a.n, amount: Math.round(a.amount * 100) / 100, cnt: a.cnt, synced_at: new Date().toISOString() }));
-        total += await upsert(admin, 'ozon_operations_daily', rows as unknown as Record<string, unknown>[], 'cabinet_id,d,op_type');
+        const rows = [...agg.values()].map((a) => ({ cabinet_id: cabinetId, d, op_type: a.t, op_name: a.name, amount: Math.round(a.amount * 100) / 100, cnt: a.cnt, synced_at: new Date().toISOString() }));
+        if (rows.length) total += await upsert(admin, 'ozon_operations_daily', rows as unknown as Record<string, unknown>[], 'cabinet_id,d,op_type');
+        await sleep(150);
     }
     return total;
 }
