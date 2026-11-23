@@ -116,8 +116,8 @@ const RNP = (() => {
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
-    const FROZEN_COL_W = 48;
-    const DAY_COL_W = 48;
+    const FROZEN_COL_W = 52; // как колонка дня
+    const DAY_COL_W = 52; // под шестизначное число с таблеткой; растёт вместе с выбранным шрифтом и размером цифр (_dayColW)
     const PHONE_METRIC_W = 118;
     const PHONE_SPARK_W = 0;
     const PHONE_COL_W = 28;
@@ -132,8 +132,12 @@ const RNP = (() => {
     }
     function _metricW() { return _isPhone() ? PHONE_METRIC_W : FROZEN_METRIC_W; }
     function _sparkW() { return _isPhone() ? PHONE_SPARK_W : FROZEN_SPARK_W; }
-    function _frozenWeekW() { return _isPhone() ? PHONE_COL_W : FROZEN_COL_W; }
-    function _dayColW() { return _isPhone() ? PHONE_COL_W : DAY_COL_W; }
+    function _frozenWeekW() { return _isPhone() ? PHONE_COL_W : _dayColW(); }
+    function _dayColW() {
+        if (_isPhone()) return PHONE_COL_W;
+        const h = (typeof _heat !== 'undefined' && _heat) || {};
+        return DAY_COL_W + ({ sheet: 3, wide: 9, mono: 4 }[h.font] || 0) + ([0, 6, 12][h.fs || 0] || 0);
+    }
     const MARQUEE_CARD_MAX_H = 110;
     const MARQUEE_CARD_MIN_H = 96;
     const MARQUEE_PINNED_H = 72;
@@ -683,7 +687,14 @@ const RNP = (() => {
         };
         if (cached !== undefined) {
             _ozMem.set(key, cached);
-            fresh().then((r) => { if (r.changed && cab === _cab && _mp() !== 'wb') _mpRefreshSoon(); }).catch(() => { /* старое остаётся на экране */ });
+            // Свежее тянем в фоне. Не получилось (таймаут базы, сеть): повторяем с паузой, а если и это не вышло, коротко говорим, что на экране прежние цифры,
+            // а не молчим (владелец, 23 ноября 2026: Ozon показал картину двухдневной давности, последние дни были нулями).
+            const tryFresh = (n) => fresh().then((r) => { if (r.changed && cab === _cab && _mp() !== 'wb') _mpRefreshSoon(); }).catch(() => {
+                if (cab !== _cab) return;
+                if (n < 3) { setTimeout(() => tryFresh(n + 1), (window.__ozRetryMs || [2000, 6000, 15000])[n]); return; }
+                try { if (window.NrUi && NrUi.toast && !window.__ozStaleToast) { window.__ozStaleToast = true; setTimeout(() => { window.__ozStaleToast = false; }, 120000); NrUi.toast('warning', 'Ozon: свежие данные не загрузились', 'Показаны прежние цифры. Попробуйте обновить страницу чуть позже.'); } } catch (e) { /* без подсказки */ }
+            });
+            tryFresh(0);
             return cached.slice();
         }
         return (await fresh()).rows.slice();
@@ -1325,6 +1336,7 @@ const RNP = (() => {
         else return;
         _heatSave(); _heatApplyRoot(); _heatRepaintSection();
         if (key === 'mode') _heatRerenderTable();
+        else if (key === 'font' || key === 'fs') _applyDayColW(); // шрифт и размер меняют ширину колонок дня
     }
     function heatRule(key, field, val) {
         const r = _heat.rules[key];
@@ -3519,6 +3531,20 @@ const RNP = (() => {
         if (el.style.left !== next) el.style.left = next;
     }
 
+    /** Ширина колонок дня под выбранный шрифт и размер (на месте, без пересборки таблицы; для телефона и «месяцев» не трогаем). */
+    function _applyDayColW() {
+        if (_isPhone()) return;
+        const w = _dayColW();
+        document.querySelectorAll('.rnp-sheet-table:not(.rnp-sheet-table--months)').forEach(t => {
+            const cols = [...t.querySelectorAll(':scope > colgroup > col')];
+            if (cols.length < 3) return;
+            const total = (parseFloat(cols[0].style.width) || 0) + (parseFloat(cols[1].style.width) || 0) + (cols.length - 2) * w;
+            for (let i = 2; i < cols.length; i++) { if (cols[i].style.width !== w + 'px') cols[i].style.width = w + 'px'; }
+            if (t.style.width !== total + 'px') { t.style.width = total + 'px'; t.style.minWidth = total + 'px'; }
+            _setCssVar(t, '--rnp-day-w', w + 'px');
+        });
+    }
+
     /** Липкие недели/ИТОГ только по константам. Нельзя писать offsetWidth/Height
      *  шапки обратно в CSS — KPI и фотолента тогда растут сами по себе. */
     function _syncFrozenPane(root) {
@@ -3531,6 +3557,7 @@ const RNP = (() => {
             _setCssVar(table, '--rnp-metric-w', metricW + 'px');
             _setCssVar(table, '--rnp-spark-w', sparkW + 'px');
             _setCssVar(table, '--rnp-day-w', _dayColW() + 'px');
+            _applyDayColW();
 
             if (phone) {
                 const frozen = metricW + sparkW;
@@ -4286,9 +4313,9 @@ const RNP = (() => {
     function _leftFrozenPx(cal) {
         const base = _metricW() + _sparkW();
         if (_isNarrow()) return base;
-        if (cal.mode === 'month') return base + FROZEN_COL_W;
+        if (cal.mode === 'month') return base + _frozenWeekW();
         const weeks = cal.weeks.length;
-        if (weeks) return base + weeks * FROZEN_COL_W + FROZEN_COL_W;
+        if (weeks) return base + weeks * _frozenWeekW() + _frozenWeekW();
         return base;
     }
 

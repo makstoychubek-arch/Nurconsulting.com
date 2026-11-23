@@ -3301,3 +3301,11 @@ html[data-rnp-fs="2"] .rnp-sheet-table { --fs-label: 13px; --fs-micro: 12px; --f
 .nr-dz-p2 b:nth-of-type(1) { left: 12px; width: 90px; top: 46px; height: 40px; border-radius: 12px; background: linear-gradient(140deg, #a66bff, #5a2fb0); }
 .nr-dz-p2 b:nth-of-type(2) { left: 12px; right: 12px; top: 96px; bottom: 10px; border-radius: 12px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); }
 @media (max-width: 768px) { .nr-dz-grid { grid-template-columns: 1fr; } }
+
+/* РНП: числа не наезжают друг на друга (владелец, 23 ноября 2026: «числа в РНП выходят криво»).
+   Колонка дня 48px была уже, чем шестизначное число с таблеткой (825 844 + поля 2×9px), поэтому соседние цифры слипались.
+   Теперь колонка 52px (ширину считает _dayColW в rnp-module.js) и растёт вместе с выбранным шрифтом и размером (Настройки РНП → Подсветка таблицы → Шрифт), таблетка уже.
+   Заодно «Крупнее» и «Ещё крупнее» действительно увеличивают цифры в ячейках (раньше менялся только шрифт таблицы целиком). */
+html[data-rnp-fs="1"] body .rnp-sheet-table :is(td.rnp-day-col, td.rnp-data-col) { font-size: 11px; }
+html[data-rnp-fs="2"] body .rnp-sheet-table :is(td.rnp-day-col, td.rnp-data-col) { font-size: 12px; }
+html body .rnp-sheet-table td[data-hr] .rnp-hvs { padding-left: 5px !important; padding-right: 5px !important; }
