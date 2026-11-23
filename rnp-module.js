@@ -2246,6 +2246,10 @@ const RNP = (() => {
         } else {
             for (let d = 1; d <= currDaysInMonth; d++) dayList.push(_dateStr(Y, M + 1, d));
         }
+        // Ночной пакет (владелец, 23 ноября 2026): сервер считает день ночью, поэтому сегодняшний (неполный) день и будущие дни в таблице не показываем,
+        // последний день вчерашний. Если период целиком сегодня или позже, оставляем как есть, чтобы таблица не осталась пустой.
+        const doneDays = dayList.filter((d) => d < realTodayStr);
+        if (doneDays.length) dayList.splice(0, dayList.length, ...doneDays);
         for (const date of dayList) {
             const [dy, dm, dd0] = date.split('-').map(Number);
             const dt = new Date(dy, dm - 1, dd0);
@@ -10972,7 +10976,7 @@ const RNP = (() => {
         const today = _wbTodayStr(), add = (s0, n) => new Date(Date.parse(s0) + n * 864e5).toISOString().slice(0, 10);
         let rec = null; try { rec = JSON.parse(localStorage.getItem(_PW_KEY + '_' + cab) || 'null'); } catch (e) { rec = null; }
         // период как в РНП: последний открытый, а на новом устройстве календарный месяц (так РНП открывается по умолчанию)
-        const mStart = today.slice(0, 8) + '01', mEnd = add(new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7), 1)).toISOString().slice(0, 10), -1);
+        const mStart = today.slice(0, 8) + '01', mEnd0 = add(new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7), 1)).toISOString().slice(0, 10), -1), yday = add(today, -1), mEnd = mEnd0 < yday ? mEnd0 : yday; // последний день в таблице вчерашний
         const from = rec && isFinite(rec.from) ? add(today, rec.from) : mStart, to = rec && isFinite(rec.to) ? add(today, rec.to) : mEnd;
         // прошлый период такой же длины (колонка сравнения месяца) тоже нужен для первой отрисовки
         const len = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1, pTo = add(from, -1), pFrom = add(pTo, -(len - 1));
