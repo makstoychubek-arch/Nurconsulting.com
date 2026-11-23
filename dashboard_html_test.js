@@ -795,11 +795,12 @@ assert.ok(rnpSrc.includes('function _syncSettingsGroups') && rnpSrc.includes('rn
     const pxStart = rnpSrc.indexOf('function _leftFrozenPx');
     const pxEnd = rnpSrc.indexOf('function _monthStickLabel');
     const fns = new Function(`
-        const FROZEN_METRIC_W = 132, FROZEN_SPARK_W = 40, FROZEN_COL_W = 48, DAY_COL_W = 48;
+        const FROZEN_METRIC_W = 132, FROZEN_SPARK_W = 40, FROZEN_COL_W = 52, DAY_COL_W = 52;
         function _isNarrow() { return false; }
         function _metricW() { return 132; }
         function _sparkW() { return 40; }
-        function _dayColW() { return 48; }
+        function _dayColW() { return 52; }
+        function _frozenWeekW() { return _dayColW(); }
         ${rnpSrc.slice(spanStart, spanEnd)}
         ${rnpSrc.slice(pxStart, pxEnd)}
         return { _leftFrozenPx, _leftFrozenSpan, _needsWideHead };
@@ -810,7 +811,7 @@ assert.ok(rnpSrc.includes('function _syncSettingsGroups') && rnpSrc.includes('rn
     assert.strictEqual(fns._leftFrozenSpan(noWeeks), 2);
     const withWeeks = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30).fill({}) };
     assert.strictEqual(fns._needsWideHead(withWeeks), false);
-    assert.strictEqual(fns._leftFrozenPx(withWeeks), 460);
+    assert.strictEqual(fns._leftFrozenPx(withWeeks), 484); // 172 + (5 недель + ИТОГ) × 52
 }
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
 assert.ok(rnpSrc.includes('photoCol') && rnpSrc.includes('layoutH'), 'photo cards follow the fixed photos column');
@@ -862,8 +863,8 @@ assert.ok(html.includes('.rnp-cat-group.collapsed .rnp-cat-tabs') && /\.rnp-cat-
     'collapsed groups hide their article tabs via CSS');
 assert.ok(!rnpSrc.includes('function _isCatCollapsed(cat) {\n        return false;'), 'category groups must be able to collapse');
 assert.ok(!rnpSrc.includes('lite ? true'), 'lite mode must not force-collapse every article group');
-assert.ok(rnpSrc.includes('const DAY_COL_W = 48'), 'day cells fit 6-digit sums and 4-digit percents');
-assert.ok(rnpSrc.includes('const FROZEN_COL_W = 48'), 'week/ИТОГ cells must match the day grid');
+assert.ok(rnpSrc.includes('const DAY_COL_W = 52'), 'day cells fit 6-digit sums and 4-digit percents');
+assert.ok(rnpSrc.includes('const FROZEN_COL_W = 52'), 'week/ИТОГ cells must match the day grid');
 assert.ok(rnpSrc.includes('function _fitNum') && rnpSrc.includes('rnp-num--m'),
     'million-scale numbers shrink inside the cell');
 assert.ok(!rnpSrc.includes('function _ruClothingToLetter'), 'do not guess RU/EU numbers onto XXS–5XL');
@@ -1033,7 +1034,7 @@ assert.ok(
     assert.strictEqual(phone._sparkW(), 0);
     assert.strictEqual(phone._dayColW(), 28);
     assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 118);
-    assert.strictEqual(desk._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 412);
+    assert.strictEqual(desk._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 432); // 172 + (4 недели + ИТОГ) × 52
     assert.strictEqual(phone._frozenLeft(0, [{ type: 'week' }]), null);
     assert.strictEqual(desk._frozenLeft(0, [{ type: 'week' }]), 172);
     const cal = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30) };

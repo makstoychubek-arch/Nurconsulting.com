@@ -469,7 +469,7 @@
         splash(v === 'glass' ? 'Переходим на новый дизайн…' : 'Возвращаем классический дизайн…', function () {
             try { root.localStorage.setItem(KEY, v); } catch (e) { /* только на эту загрузку */ }
             apply(v); paint(host || doc.getElementById('settings-design'));
-            try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast(v === 'glass' ? 'Включён новый дизайн' : 'Включён классический дизайн'); } catch (e) { /* без подсказки */ }
+            try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast('success', v === 'glass' ? 'Включён новый дизайн' : 'Включён классический дизайн'); } catch (e) { /* без подсказки */ }
         });
     }
     root.NrDesign = { get: get, set: set, render: paint };
