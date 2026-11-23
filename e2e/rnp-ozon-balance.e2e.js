@@ -13,6 +13,8 @@ const tables = {
     rnp_articles: [{ id: 'a0', cabinet_id: CAB, nm_id: 1001, seller_article: 'wb', name: 'wb', category: 'К1', is_active: true, cost_price: 1000, photo_url: null, sort_order: 0 }],
     rnp_daily_data: Array.from({ length: 8 }, (_, d) => ({ cabinet_id: CAB, nm_id: 1001, date: day(d), orders_count: 3, orders_sum: 9000, sales_count: 3, sales_sum: 15000, ad_spend: 300, impressions: 500, clicks: 20 })),
     wb_stocks: [],
+    exchange_rates: [{ pair: 'RUB_KGS', date: day(20), rate: 1.1, source: 'manual' }],
+    ozon_payouts: [],
 };
 const art = { id: 'ozon-a', name: 'костюм_оверсайз_бежевый', nm_id: NM, category: 'К', is_active: true, cost_price: 100, sort_order: 0, manual_data: {}, other_costs_unit: 0, logistics_unit: 0, cabinet_id: CAB };
 const fin = Array.from({ length: 8 }, (_, d) => ({ cabinet_id: CAB, nm_id: NM, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, commission_pct: 20, to_transfer: 7800, delivery_sum: 1500, storage_sum: 10, penalty_sum: 0, deduction_sum: 300, ad_spend: 200, ad_charged: 250, transit_count: 7 }));
@@ -39,14 +41,23 @@ const fin = Array.from({ length: 8 }, (_, d) => ({ cabinet_id: CAB, nm_id: NM, d
         });
         await run('баланс по дням из ozon_balance_daily, дни без снимка с прочерком', async () => {
             const bal = await read(/^Баланс Ozon \(итого\)/); const op = await read(/^На начало месяца/);
-            assert.ok(bal.includes('273601') && bal.includes('168206') && bal.includes('122939'), JSON.stringify(bal));
-            assert.ok(op.filter((x) => x === '135550').length === 3, 'на начало месяца в три дня со снимком: ' + JSON.stringify(op));
+            // баланс Ozon приходит в рублях, в таблице в сомах по курсу дня (здесь 1,1)
+            assert.ok(bal.includes('300961') && bal.includes('185026') && bal.includes('135233'), JSON.stringify(bal));
+            assert.ok(op.filter((x) => x === '149105').length === 3, 'на начало месяца в три дня со снимком: ' + JSON.stringify(op));
             assert.ok(bal.filter((x) => x === '—').length >= 3, 'дни без снимка с прочерком: ' + JSON.stringify(bal));
+        });
+        await run('строка «Выплата Ozon»: сумму вносят вручную в ячейку дня, видна в таблице и в итоге', async () => {
+            const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
+            assert.ok(labels.includes('Выплата Ozon'), 'нет строки выплаты: ' + labels.slice(-6));
+            await page.evaluate(() => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => /^Выплата Ozon/.test(((x.children[0] || {}).innerText || '').trim())); const el = r.querySelectorAll('input.rnp-plan-input')[4]; el.value = '137953'; el.dispatchEvent(new Event('change', { bubbles: true })); });
+            await page.waitForTimeout(800);
+            const vals = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].find((x) => /^Выплата Ozon/.test(((x.children[0] || {}).innerText || '').trim())).querySelectorAll('input.rnp-plan-input').length && [...[...document.querySelectorAll('#tab-rnp table tr')].find((x) => /^Выплата Ozon/.test(((x.children[0] || {}).innerText || '').trim())).querySelectorAll('input.rnp-plan-input')].map((i) => i.value));
+            assert.ok(vals.includes('137953'), 'значение осталось в ячейке: ' + JSON.stringify(vals));
         });
         await page.evaluate(() => { NrMp.set('wb'); }); await page.waitForTimeout(1500);
         await run('у WB блок остаётся «Баланс WB», строк Ozon нет', async () => {
             const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
-            assert.ok(!labels.some((l) => /Баланс Ozon|На начало месяца/.test(l)), 'строки Ozon у WB: ' + labels.slice(-8));
+            assert.ok(!labels.some((l) => /Баланс Ozon|На начало месяца|Выплата Ozon/.test(l)), 'строки Ozon у WB: ' + labels.slice(-8));
         });
         await run('ошибок скриптов нет', async () => assert.deepStrictEqual(env.errors || [], []));
     } finally { await browser.close(); srv.close(); }
