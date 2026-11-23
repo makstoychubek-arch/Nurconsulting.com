@@ -822,6 +822,7 @@ const RNP = (() => {
     async function _fetchAllRowsRaw(table, filters, columns = '*') {
         const mp = _mp();
         if (mp === 'wb' || !_MP_TABLES[table]) return _fetchAllRowsWb(table, filters, columns);
+        _pwRecord(table, filters); // период запоминается и для Ozon: прогрев берёт тот же
         const oz = await _ozRows(table, filters).catch((e) => { console.warn('[RNP] Ozon ' + table + ':', e.message); return []; });
         if (mp === 'ozon') return oz;
         return (await _fetchAllRowsWb(table, filters, columns)).concat(oz);
@@ -10889,9 +10890,40 @@ const RNP = (() => {
             await new Promise((r) => setTimeout(r, 300));
         }
     }
+    // Другая площадка: пока человек на дашборде или в WB, Ozon-цифры и фото артикулов тоже прогреваются в кэш устройства (ключи те же, что у _ozCall),
+    // поэтому первое переключение на Ozon рисуется сразу, а не ждёт базу 3–4 секунды (владелец, 23 ноября 2026: «долгая загрузка фото и значений»).
+    const _pwOzAt = {};
+    function _pwCab() { try { return window.currentCabinetId || (typeof currentCabinetId !== 'undefined' && currentCabinetId) || localStorage.getItem('selected_cabinet_id') || ''; } catch (e) { return ''; } }
+    async function _prewarmOzon() {
+        const cab = _pwCab(), db = window.supabase || _db;
+        if (!cab || !db || _mp() === 'ozon' || document.hidden) return;
+        try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) { /* ок */ }
+        if (!document.querySelector('#nr-mp [data-mp="ozon"]:not(.is-na)')) return; // у кабинета нет Ozon
+        if (Date.now() - (_pwOzAt[cab] || 0) < 10 * 60e3) return;
+        _pwOzAt[cab] = Date.now();
+        const today = _wbTodayStr(), add = (s0, n) => new Date(Date.parse(s0) + n * 864e5).toISOString().slice(0, 10);
+        let rec = null; try { rec = JSON.parse(localStorage.getItem(_PW_KEY + '_' + cab) || 'null'); } catch (e) { rec = null; }
+        // период как в РНП: последний открытый, а на новом устройстве календарный месяц (так РНП открывается по умолчанию)
+        const mStart = today.slice(0, 8) + '01', mEnd = add(new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7), 1)).toISOString().slice(0, 10), -1);
+        const from = rec && isFinite(rec.from) ? add(today, rec.from) : mStart, to = rec && isFinite(rec.to) ? add(today, rec.to) : mEnd;
+        // прошлый период такой же длины (колонка сравнения месяца) тоже нужен для первой отрисовки
+        const len = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1, pTo = add(from, -1), pFrom = add(pTo, -(len - 1));
+        const jobs = [['ozon_rnp_articles', {}], ['ozon_stock_rows', {}], ['ozon_finance_daily', { p_from: from, p_to: to }], ['ozon_orders_daily', { p_from: from, p_to: to }], ['ozon_finance_daily', { p_from: pFrom, p_to: pTo }]];
+        for (const [fn, args] of jobs) {
+            if (document.hidden || _pwCab() !== cab || _mp() === 'ozon') return;
+            try {
+                const { data, error } = await db.rpc(fn, Object.assign({ p_cabinet: cab }, args));
+                if (error || !Array.isArray(data)) continue;
+                try { localStorage.setItem(_ozCacheKey(fn, args, cab), JSON.stringify(data)); } catch (e) { /* места нет: прогрев пропускаем */ }
+                if (fn === 'ozon_rnp_articles') data.slice(0, 80).forEach((r) => { if (r && r.photo_url) { const im = new Image(); im.decoding = 'async'; im.src = r.photo_url; } });
+            } catch (e) { /* прогрев не должен ничего ломать */ }
+            await new Promise((r) => setTimeout(r, 400));
+        }
+    }
+    window.RNP_prewarmOzon = _prewarmOzon;
     function _pwSoon(ms) {
         clearTimeout(_pwTimer);
-        _pwTimer = setTimeout(() => { const run = () => { _prewarm().catch(() => {}); }; if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 5000 }); else run(); }, ms);
+        _pwTimer = setTimeout(() => { const run = () => { _prewarm().catch(() => {}).then(() => _prewarmOzon()).catch(() => {}); }; if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 5000 }); else run(); }, ms);
     }
     window.addEventListener('load', () => _pwSoon(5000));
     document.addEventListener('cabinet-changed', () => _pwSoon(3000));
