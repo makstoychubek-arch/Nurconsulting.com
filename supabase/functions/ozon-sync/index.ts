@@ -118,23 +118,40 @@ async function syncPostings(admin: Admin, cabinetId: string, c: OzonCreds, days:
 
 /** Финотчёт Ozon по полумесяцам (cash-flow) с расшифровкой: комиссия, логистика, возвраты, услуги. Нужен для точной юнит-экономики. */
 async function syncFinance(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
-    const from = new Date(Date.now() - Math.max(days, 60) * 86400_000).toISOString();
-    const to = new Date(Date.now() + 86400_000).toISOString();
-    let page = 1, total = 0;
-    for (let i = 0; i < 20; i++) {
-        const r = await ozonCall(c, '/v1/finance/cash-flow-statement/list', { date: { from, to }, with_details: true, page, page_size: 50 }, fetchFn);
-        const res = (r.result || {}) as { cash_flows?: Record<string, any>[]; details?: Record<string, any>[]; page_count?: number };
-        const flows = res.cash_flows || [], det = res.details || [];
-        const rows = flows.map((f, k) => {
-            const { period, ...summary } = f;
-            const d = det.find((x) => String(x.period?.begin) === String(period?.begin)) || det[k] || {};
-            return { cabinet_id: cabinetId, period_begin: String(period.begin).slice(0, 10), period_end: String(period.end).slice(0, 10), summary, detail: d, synced_at: new Date().toISOString() };
-        });
-        total += await upsert(admin, 'ozon_cashflow', rows as unknown as Record<string, unknown>[], 'cabinet_id,period_begin');
-        if (page >= (res.page_count || 1)) break;
-        page++;
+    // Окно в 60 дней с расшифровкой Ozon не успевает отдать (504 с 19 ноября 2026), поэтому тянем по одному полумесяцу:
+    // текущий и два предыдущих. Сбой одного окна не останавливает остальные; ошибка (если все окна упали) поднимается наружу.
+    const now = new Date();
+    const halves: { from: string; to: string }[] = [];
+    let y = now.getUTCFullYear(), m = now.getUTCMonth(), second = now.getUTCDate() > 15;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    for (let k = 0; k < 3; k++) {
+        const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+        halves.push(second ? { from: `${y}-${pad(m + 1)}-16T00:00:00.000Z`, to: `${y}-${pad(m + 1)}-${pad(lastDay)}T23:59:59.000Z` } : { from: `${y}-${pad(m + 1)}-01T00:00:00.000Z`, to: `${y}-${pad(m + 1)}-15T23:59:59.000Z` });
+        if (second) second = false; else { second = true; m--; if (m < 0) { m = 11; y--; } }
+    }
+    let total = 0, lastErr: unknown = null, ok = 0;
+    for (const w of halves) {
+        try {
+            let page = 1;
+            for (let i = 0; i < 20; i++) {
+                const r = await ozonCall(c, '/v1/finance/cash-flow-statement/list', { date: { from: w.from, to: w.to }, with_details: true, page, page_size: 50 }, fetchFn);
+                const res = (r.result || {}) as { cash_flows?: Record<string, any>[]; details?: Record<string, any>[]; page_count?: number };
+                const flows = res.cash_flows || [], det = res.details || [];
+                const rows = flows.map((f, k) => {
+                    const { period, ...summary } = f;
+                    const d = det.find((x) => String(x.period?.begin) === String(period?.begin)) || det[k] || {};
+                    return { cabinet_id: cabinetId, period_begin: String(period.begin).slice(0, 10), period_end: String(period.end).slice(0, 10), summary, detail: d, synced_at: new Date().toISOString() };
+                });
+                total += await upsert(admin, 'ozon_cashflow', rows as unknown as Record<string, unknown>[], 'cabinet_id,period_begin');
+                if (page >= (res.page_count || 1)) break;
+                page++;
+                await sleep(250);
+            }
+            ok++;
+        } catch (e) { lastErr = e; }
         await sleep(250);
     }
+    if (!ok && lastErr) throw lastErr;
     return total;
 }
 
