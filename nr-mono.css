@@ -3210,3 +3210,24 @@ html:not([data-lg="off"]) body .nru-win .nru-ft { background: transparent !impor
    Шапка в этот момент выше затемнения, и без этого она оставалась яркой при потемневшем названии «Модуль РНП» (владелец, 21 ноября 2026). */
 html#nr-root:is(.nr-f-dp, .nr-f-cab) body header.glass.app-header:not(#nr-x)::before { background: linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.28)), var(--nr-frame) !important; }
 html#nr-root[data-theme="neon"]:is(.nr-f-dp, .nr-f-cab) body header.glass.app-header:not(#nr-x)::before { background: linear-gradient(rgba(0,0,0,.5), rgba(0,0,0,.5)), var(--nr-frame) !important; }
+
+/* РНП: выбор шрифта таблицы (Настройки РНП → Вид таблицы → Подсветка → Шрифт). «Как в таблице Google»: Arial, широкий и жирный.
+   Применяется сразу через html[data-rnp-font] и html[data-rnp-fs] (владелец, 22 ноября 2026: цифры в таблице не читались). */
+html[data-rnp-font="sheet"] :is(.rnp-sheet-table, .rnp-ht-prev) :is(td, th), html[data-rnp-font="sheet"] .rnp-ht-fs.f-sheet { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; letter-spacing: .01em; }
+html[data-rnp-font="sheet"] .rnp-sheet-table td[data-rnp-value], html[data-rnp-font="sheet"] .rnp-sheet-table td[data-rnp-value] * { font-weight: 800; }
+html[data-rnp-font="sheet"] .rnp-sheet-table td.rnp-metric-col { font-weight: 900; }
+html[data-rnp-font="wide"] :is(.rnp-sheet-table, .rnp-ht-prev) :is(td, th) { font-family: Verdana, "DejaVu Sans", Geneva, sans-serif; letter-spacing: .02em; }
+html[data-rnp-font="wide"] .rnp-sheet-table td[data-rnp-value], html[data-rnp-font="wide"] .rnp-sheet-table td[data-rnp-value] * { font-weight: 700; }
+html[data-rnp-font="mono"] :is(.rnp-sheet-table, .rnp-ht-prev) :is(td, th) { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+html[data-rnp-fs="1"] .rnp-sheet-table { --fs-label: 12px; --fs-micro: 11px; --fs-compact: 10px; font-size: 13px; }
+html[data-rnp-fs="2"] .rnp-sheet-table { --fs-label: 13px; --fs-micro: 12px; --fs-compact: 11px; font-size: 14px; }
+.rnp-ht-fonts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.rnp-ht-font { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 16px; background: transparent; color: var(--text-primary); cursor: pointer; }
+.rnp-ht-font.is-on { border-color: var(--text-primary); box-shadow: 0 0 0 1px var(--text-primary); }
+.rnp-ht-font .rnp-ht-fs { font-size: 16px; font-weight: 800; }
+.rnp-ht-font[data-heat-font="site"] .rnp-ht-fs { font-family: inherit; }
+.rnp-ht-font[data-heat-font="sheet"] .rnp-ht-fs { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.rnp-ht-font[data-heat-font="wide"] .rnp-ht-fs { font-family: Verdana, "DejaVu Sans", sans-serif; }
+.rnp-ht-font[data-heat-font="mono"] .rnp-ht-fs { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.rnp-ht-font b { font-size: 12px; }
+.rnp-ht-card .rnp-ht-seg { margin-bottom: 8px; }
