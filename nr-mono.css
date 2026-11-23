@@ -3309,3 +3309,8 @@ html[data-rnp-fs="2"] .rnp-sheet-table { --fs-label: 13px; --fs-micro: 12px; --f
 html[data-rnp-fs="1"] body .rnp-sheet-table :is(td.rnp-day-col, td.rnp-data-col) { font-size: 11px; }
 html[data-rnp-fs="2"] body .rnp-sheet-table :is(td.rnp-day-col, td.rnp-data-col) { font-size: 12px; }
 html body .rnp-sheet-table td[data-hr] .rnp-hvs { padding-left: 5px !important; padding-right: 5px !important; }
+
+/* Аналитика → «Сводка РНП» (карточки перенесены из РНП, владелец, 23 ноября 2026) */
+html body .an-rnp-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font-size: 14px; font-weight: 800; color: var(--text-primary); }
+html body .an-rnp-head small { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+html body .an-rnp .rnp-general-topbar.rnp-gh { position: static !important; padding: 0 !important; }

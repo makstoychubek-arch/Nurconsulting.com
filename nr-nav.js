@@ -52,7 +52,8 @@
         analytics: {
             fly: 'fly-analytics', title: 'Аналитика', staffOnly: true,
             items: [
-                { id: 'niches', label: 'Подбор ниш', ico: 'srch', sel: '#an-tabs [data-an="niches"]', on: '#an-tabs [data-an="niches"].on', dflt: true },
+                { id: 'rnp', label: 'Сводка РНП', ico: 'tbl', sel: '#an-tabs [data-an="rnp"]', on: '#an-tabs [data-an="rnp"].on', dflt: true },
+                { id: 'niches', label: 'Подбор ниш', ico: 'srch', sel: '#an-tabs [data-an="niches"]', on: '#an-tabs [data-an="niches"].on' },
                 { id: 'content', label: 'Сравнение контента', ico: 'cont', hidden: true, crumb: 'Инструменты', sel: '#an-tabs [data-an="content"]', on: '#an-tabs [data-an="content"].on' },
                 { id: 'card', label: 'Сравнение карточки', ico: 'cmp', sel: '#an-tabs [data-an="card"]', on: '#an-tabs [data-an="card"].on' },
                 { id: 'reviews', label: 'Отзывы', ico: 'rev', sel: '#an-tabs [data-an="reviews"]', on: '#an-tabs [data-an="reviews"].on' }

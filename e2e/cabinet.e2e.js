@@ -93,15 +93,17 @@ async function newCabinetPage(browser, base) {
     await page.waitForFunction(() => typeof showTab === 'function');
     await page.evaluate(() => showTab('rnp'));
     await page.locator('.rnp-cat-name', { hasText: 'Укороченные' }).first().waitFor({ state: 'visible' });
-    await page.waitForFunction(() => /заказы\s+\d+/.test(document.querySelector('.rnp-gh-sub')?.textContent || ''));
+    // карточки сводки теперь в Аналитике → «Сводка РНП»; данные те же, берём их тем же построителем
+    await page.waitForFunction(() => { const d = document.createElement('div'); RNP.renderSummary(d); return /заказы\s+\d+/.test(d.querySelector('.rnp-gh-sub')?.textContent || ''); });
     return { ctx, page, errors };
 }
 
 const heroOrders = (page) => page.evaluate(() => {
-    const m = (document.querySelector('.rnp-gh-profit .rnp-gh-sub')?.textContent || '').match(/заказы\s+([\d\s ]+)/);
+    const d = document.createElement('div'); RNP.renderSummary(d);
+    const m = (d.querySelector('.rnp-gh-profit .rnp-gh-sub')?.textContent || '').match(/заказы\s+([\d\s ]+)/);
     return m ? Number(m[1].replace(/\D/g, '')) : null;
 });
-const heroChip = (page) => page.evaluate(() => document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || '');
+const heroChip = (page) => page.evaluate(() => { const d = document.createElement('div'); RNP.renderSummary(d); return d.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || ''; });
 // В «Σ Общее» по группе карточка «Прибыль» (а с ней и её чип) скрыта — какая группа активна,
 // теперь видно по кнопке Σ Общее в списке категорий, не по шапке.
 const activeGroupName = (page) => page.evaluate(() => document.querySelector('.rnp-cat-sigma.active')?.closest('.rnp-cat-group')?.querySelector('.rnp-cat-name')?.textContent || '');
@@ -121,8 +123,8 @@ test('«Σ Общее» у группы: заказы только по её а�
     await sigma('Укороченные').click();
     await page.waitForFunction(() => /Укороченные/.test(document.querySelector('.rnp-cat-sigma.active')?.closest('.rnp-cat-group')?.querySelector('.rnp-cat-name')?.textContent || ''));
     assert.strictEqual(await activeGroupCount(page), '2');
-    assert.strictEqual(await page.locator('.rnp-gh-profit').count(), 0, 'в «Σ Общее» по группе карточки прибыль/баланс/здоровье кабинета скрыты');
-    assert.strictEqual(await page.locator('.rnp-gh-runway').count(), 1, 'вместо них — остатки с «хватит на N дней» и хранением в день');
+    assert.strictEqual(await page.locator('#tab-rnp .rnp-gh-card').count(), 0, 'карточек сводки на странице РНП больше нет: они в Аналитике → «Сводка РНП»');
+    assert.ok(await page.locator('#tab-rnp .rnp-gh-photos').count() >= 1, 'лента фото артикулов в РНП осталась');
     const todayOrders = await page.evaluate(() => {
         const row = [...document.querySelectorAll('tr')].find((r) => /ЗАКАЗЫ/.test(r.textContent));
         const cells = row ? [...row.querySelectorAll('td:not(.rnp-cell-period)')].map((t) => t.textContent.trim()) : [];
@@ -139,7 +141,7 @@ test('«Общий» возвращает все артикулы после п�
     await page.locator('.rnp-cat-sigma').first().click();
     await page.waitForFunction(() => !!document.querySelector('.rnp-cat-sigma.active'));
     await page.locator('.rnp-tab-general').click();
-    await page.waitForFunction(() => /4 арт\./.test(document.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || ''));
+    await page.waitForFunction(() => { const d = document.createElement('div'); RNP.renderSummary(d); return /4 арт\./.test(d.querySelector('.rnp-gh-profit .rnp-gh-chip')?.textContent || ''); });
     assert.strictEqual(await heroOrders(page), DAYS * ORDERS_PER_DAY.reduce((a, b) => a + b, 0));
 });
 
