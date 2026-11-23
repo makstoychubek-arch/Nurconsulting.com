@@ -6617,7 +6617,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_cross','ded_supply','ded_pcom','ded_misc','ded_rest','comp_pts','comp_adj'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_cross','ded_supply','ded_pcom','ded_misc','ded_rest','ad_spend_order','ad_spend_click','ad_spend_site','comp_pts','comp_adj'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6715,6 +6715,13 @@ const RNP = (() => {
     const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg' && x.type !== 'ff').map(x => x.key)))];
 
     FIN_SPLITS.comm_after = FIN_SPLITS_OZ_COMM;
+    // Реклама Ozon по типам списаний (за заказ, за клик, на сайте): только у Ozon
+    const FIN_SPLITS_OZ_AD = { cls: 'ded', hint: 'Расход рекламы по типам списаний Ozon', subs: [
+        { key: 'ad_spend_order', label: 'Оплата за заказ', type: 'ff' },
+        { key: 'ad_spend_click', label: 'Оплата за клик', type: 'ff' },
+        { key: 'ad_spend_site',  label: 'Реклама на сайте (баннер)', type: 'ff' },
+    ] };
+    const _finDef = (key) => (key === 'ad_spend' ? (_mp() === 'ozon' ? FIN_SPLITS_OZ_AD : null) : FIN_SPLITS[key]);
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','transit_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
@@ -6722,7 +6729,7 @@ const RNP = (() => {
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
-        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_cross', 'ded_supply', 'ded_pcom', 'ded_misc', 'ded_rest', 'comp_pts', 'comp_adj', 'comm_after', 'comm_gross', 'comm_pts_neg', 'comm_adj_neg', 'comm_left',
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_cross', 'ded_supply', 'ded_pcom', 'ded_misc', 'ded_rest', 'ad_spend_order', 'ad_spend_click', 'ad_spend_site', 'comp_pts', 'comp_adj', 'comm_after', 'comm_gross', 'comm_pts_neg', 'comm_adj_neg', 'comm_left',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -6834,8 +6841,7 @@ const RNP = (() => {
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
             _ozCommAfter(m);
             const comp = (Number(m.comp_pts) || 0) + (Number(m.comp_adj) || 0);
-            m.other_net_sum = (Number(m.deduction_sum) || 0) + (_ozHasComp ? comp : 0); // только списания, возмещения Ozon ушли в комиссию
-            if (_ozHasComp) m.ded_rest = (Number(m.ded_rest) || 0) + comp;
+            m.other_net_sum = Number(m.deduction_sum) || 0; // удержания по позициям отчёта Ozon: баллы и комиссионные пары сюда не входят
             m.ded_other = m.other_net_sum;
         }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
@@ -9280,7 +9286,7 @@ const RNP = (() => {
 
     // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
     function _finSubRows(m, cols, firstDayIdx) {
-        let def = (m.key === 'other_net_sum' && _mp() === 'ozon') ? FIN_SPLITS_OZ_DED : FIN_SPLITS[m.key];
+        let def = (m.key === 'other_net_sum' && _mp() === 'ozon') ? FIN_SPLITS_OZ_DED : _finDef(m.key);
         if (def === FIN_SPLITS_OZ_DED && _ozHasComp) def = { ...def, subs: def.subs.map((x) => x.key === 'ded_rest' ? { ...x, label: 'Остаток отчёта Ozon (после баллов)' } : x) };
         const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '128,128,128' : def.cls === 'com' ? '34,197,94' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
@@ -9321,7 +9327,7 @@ const RNP = (() => {
     }
 
     function _splitSubRows(m, cols, firstDayIdx) {
-        if (FIN_SPLITS[m.key]) return _finSubRows(m, cols, firstDayIdx);
+        if (_finDef(m.key)) return _finSubRows(m, cols, firstDayIdx);
         const isOrders = m.key === 'orders_count';
         const isStorage = m.key === 'storage_sum';
         const fbsKey = isStorage ? 'storage_fbs' : (isOrders ? 'orders_fbs' : 'sales_fbs');
@@ -9809,7 +9815,7 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? FIN_SPLITS[m.key] : (art.nm_id > 0 && (m.key === 'delivery_sum' || m.key === 'penalty_sum') && _mp() !== 'ozon' ? FIN_SPLITS[m.key] : null);
+            const finSplit = art.nm_id === -1 && !(m.key === 'delivery_sum' && _mp() === 'ozon') ? _finDef(m.key) : (art.nm_id > 0 && (m.key === 'delivery_sum' || m.key === 'penalty_sum') && _mp() !== 'ozon' ? FIN_SPLITS[m.key] : null);
             const splittable = m.key === 'orders_count' || m.key === 'sales_count' || !!finSplit;
             const splitOpen = splittable && _splitOpen.has(m.key);
             const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';

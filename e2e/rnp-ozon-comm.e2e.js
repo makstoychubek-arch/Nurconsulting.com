@@ -11,7 +11,7 @@ const tables = { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@g
 const art = { id: 'ozon-a', name: 'костюм_оверсайз_бежевый', nm_id: NM, category: 'К', is_active: true, cost_price: 100, sort_order: 0, manual_data: {}, other_costs_unit: 0, logistics_unit: 0, cabinet_id: CAB };
 const base = (d) => ({ cabinet_id: CAB, nm_id: NM, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, commission_pct: 20, to_transfer: 7800, delivery_sum: 1500, storage_sum: 10, penalty_sum: 0, ad_spend: 200, ad_charged: 250, transit_count: 7, ded_prem: 100, ded_bonus: 0, ded_move: 0 });
 // дни 0-2: баллов меньше комиссии (2200); дни 3-4: баллов больше комиссии
-const withComp = Array.from({ length: 5 }, (_, d) => d < 3 ? Object.assign(base(d), { comp_pts: 1500, comp_adj: 400, deduction_sum: 300 - 1900, ded_rest: 200 - 1900, ded_cross: 60, ded_supply: 30, ded_pcom: 20, ded_misc: 10 }) : Object.assign(base(d), { comp_pts: 4000, comp_adj: 1000, deduction_sum: 300 - 5000, ded_rest: 200 - 5000 }));
+const withComp = Array.from({ length: 5 }, (_, d) => d < 3 ? Object.assign(base(d), { comp_pts: 1500, comp_adj: 400, deduction_sum: 300, ded_rest: 200 - 120, ded_cross: 60, ded_supply: 30, ded_pcom: 20, ded_misc: 10 }) : Object.assign(base(d), { comp_pts: 4000, comp_adj: 1000, deduction_sum: 300, ded_rest: 200 - 120, ded_cross: 60, ded_supply: 30, ded_pcom: 20, ded_misc: 10 }));
 const noComp = Array.from({ length: 5 }, (_, d) => Object.assign(base(d), { deduction_sum: 300, ded_rest: 200 }));
 async function run(rowsData, check) {
     const srv = await serve();
@@ -26,7 +26,7 @@ async function run(rowsData, check) {
         await page.evaluate(() => { RNP.toggleSplit('comm_after'); RNP.toggleSplit('other_net_sum'); }); await page.waitForTimeout(1200);
         const sum = (label) => page.evaluate((src) => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => new RegExp(src).test(((x.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim())); if (!r) return null; return [...r.querySelectorAll('td.rnp-day-col')].map((t) => Number(t.textContent.replace(/\s/g, '').replace('−', '-').replace(',', '.'))).filter((v) => isFinite(v)).reduce((a, b) => a + b, 0); }, label.source);
         const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
-        await check({ sum, labels });
+        await check({ sum, labels, page });
         assert.deepStrictEqual(env.errors || [], [], 'ошибки скриптов');
     } finally { await browser.close(); srv.close(); }
 }
@@ -42,15 +42,21 @@ async function run(rowsData, check) {
         assert.strictEqual(Math.round(await sum(/^Корректировка вознаграждения/)), -(3 * 400 + 2 * 440));
         assert.strictEqual(Math.round(await sum(/^Остаток баллов/)), 2 * 2800);
     }));
-    await t('«Прочие удержания» только списания, «К выводу» не меняется', () => run(withComp, async ({ sum, labels }) => {
-        assert.strictEqual(Math.round(await sum(/^Прочие удержания/)), 5 * 300);
+    await t('«Прочие удержания» только списания, «К выводу» считается без баллов', () => run(withComp, async ({ sum, labels }) => {
+        const pu = Math.round(await sum(/^Прочие удержания/)); assert.strictEqual(pu, 5 * 300, 'Прочие ' + pu);
         for (const l of ['Кросс-докинг', 'Поставка: доп. услуги', 'Premium: комиссия за период', 'Прочее: реклама на сайте']) assert.ok(labels.some((x) => x.startsWith(l)), 'нет подстроки «' + l + '»: ' + labels.slice(0, 50));
         assert.ok(labels.some((x) => /^Остаток отчёта Ozon/.test(x)), 'остаток переименован');
-        assert.strictEqual(Math.round(await sum(/^К выводу$/)), 3 * 7640 + 2 * 10740);
+        const kv = Math.round(await sum(/^К выводу$/)); assert.strictEqual(kv, 5 * 5740, 'К выводу ' + kv);
     }));
     await t('база без comp_pts: всё как раньше (комиссия, «Прочее и возмещения»)', () => run(noComp, async ({ labels }) => {
         assert.ok(labels.some((x) => /^Комиссия( |$)/.test(x)) && !labels.some((x) => /^Комиссия после баллов/.test(x)), 'прежняя «Комиссия»: ' + labels.slice(0, 30));
         assert.ok(labels.some((x) => /^Прочее и возмещения/.test(x)), 'прежняя подстрока');
+    }));
+    await t('реклама Ozon по типам: раскрытие «Расход» показывает три типа списаний', () => run(withComp.map((r) => Object.assign({}, r, { ad_spend: 200, ad_spend_order: 140, ad_spend_click: 50, ad_spend_site: 10 })), async ({ sum, labels, page }) => {
+        await page.evaluate(() => RNP.toggleSplit('ad_spend')); await page.waitForTimeout(800);
+        const l2 = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
+        for (const x of ['Оплата за заказ', 'Оплата за клик', 'Реклама на сайте']) assert.ok(l2.some((y) => y.startsWith(x)), 'нет «' + x + '»: ' + l2.slice(0, 40));
+        assert.strictEqual(Math.round(await sum(/^Оплата за заказ/)), 5 * 140);
     }));
     if (failed) { console.log('e2e комиссии после баллов: провалено ' + failed); process.exit(1); }
     console.log('e2e комиссии после баллов: все проверки прошли');
