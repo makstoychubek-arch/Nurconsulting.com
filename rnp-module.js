@@ -246,6 +246,8 @@ const RNP = (() => {
             // Ozon: те же две строки, что у карточки «Баланс» на дашборде (баланс на конец дня и на начало месяца); показываются только в режиме Ozon
             { key: 'ozon_balance',       label: 'Баланс Ozon (итого)',              type: 'som',  src: 'auto',  bold: true, cabinetOnly: true, ozOnly: true },
             { key: 'ozon_opening',       label: 'На начало месяца',                 type: 'som',  src: 'auto',  cabinetOnly: true, ozOnly: true },
+            // Выплаты Ozon вносятся вручную по дням (дату и сумму берут в кабинете Ozon → Финансы → Выплаты), сумма в сомах
+            { key: 'ozon_payout',        label: 'Выплата Ozon',                     type: 'som',  src: 'manual', cabinetOnly: true, ozOnly: true },
         ]},
     ];
 
@@ -3274,6 +3276,7 @@ const RNP = (() => {
         wb_balance: ['Баланс WB (итого)', 'Баланс продавца WB на конец дня (виджет «Баланс» на главной странице кабинета). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи.'],
         wb_for_withdraw: ['Доступно к выводу', 'Сколько из баланса можно вывести на конец дня.'],
         comm_after: ['Комиссия после баллов', 'Комиссия Ozon за вычетом баллов за скидки и корректировки вознаграждения: Ozon сначала зачитывает их в комиссию. Если баллов больше комиссии, остаток идёт в доставку и услуги (строка «Остаток баллов»). «К выводу» от этого не меняется. Баллы появляются в отчёте Ozon после закрытия периода, поэтому за свежие дни пока 0.'],
+        ozon_payout: ['Выплата Ozon', 'Выплаты вносятся вручную: дата отправки выплаты и сумма в сомах из кабинета Ozon (Финансы → Выплаты). Впишите сумму в ячейку нужного дня. Баланс в этой же таблице пересчитан в сомы по курсу дня.'],
         ozon_balance: ['Баланс Ozon (итого)', 'Баланс продавца Ozon на конец дня (как карточка «Баланс» на дашборде). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи, дни без снимка показаны прочерком.'],
         ozon_opening: ['На начало месяца', 'Баланс Ozon на начало месяца по данным Ozon. Ozon не отдаёт сумму «Доступно к выводу», поэтому здесь, как и на дашборде, показан баланс на начало месяца.'],
         wb_commission: ['Комиссия WB и вычеты с продаж', 'Реализация − эквайринг − (к перечислению без компенсаций). Всё, что WB удержал с цены продажи: комиссия, скидки по программам и прочие вычеты.'],
@@ -6821,7 +6824,7 @@ const RNP = (() => {
         }).filter(Boolean);
         const m = _mergeDerivedMetrics(parts);
         // Ozon: итогов кабинета из финотчёта WB нет, «К выводу» и комиссия считаются из строк Ozon (к перечислению и реализации).
-        if (_mp() === 'ozon' && m) { const b = _ozBal[date]; m.ozon_balance = b ? b.c : null; m.ozon_opening = b ? b.o : null; }
+        if (_mp() === 'ozon' && m) { const b = _ozBal[date]; m.ozon_balance = b ? b.c : null; m.ozon_opening = b ? b.o : null; m.ozon_payout = _ozPay[date] != null ? _ozPay[date] : null; }
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
@@ -6901,27 +6904,63 @@ const RNP = (() => {
 
     // Баланс Ozon по дням (ozon_balance_daily): сразу из кэша устройства, свежее подтягиваем и перерисовываем только если изменилось
     let _ozBal = {};
-    let _ozBalCab = '';
-    function _ozBalKey(cab) { return 'nr_oz_bal_' + cab; }
+    let _ozPay = {};
+    let _ozBalCab = null;
+    const _ozBalKey = (cab) => 'nr_oz_bal_v2_' + cab;
+    const _ozPayKey = (cab) => 'nr_oz_pay_v1_' + cab;
+    // Баланс и выплаты Ozon: баланс приходит в рублях, пересчитываем в сомы по курсу дня (как реклама); выплаты вносятся вручную в сомах
     async function _loadOzBalance(cal) {
         const cab = _cab;
         if (!cab || !_db) return;
         if (_ozBalCab !== cab) {
-            _ozBalCab = cab; _ozBal = {};
+            _ozBalCab = cab; _ozBal = {}; _ozPay = {};
             try { const raw = JSON.parse(localStorage.getItem(_ozBalKey(cab)) || 'null'); if (raw && typeof raw === 'object') _ozBal = raw; } catch (e) { /* без кэша */ }
+            try { const raw = JSON.parse(localStorage.getItem(_ozPayKey(cab)) || 'null'); if (raw && typeof raw === 'object') _ozPay = raw; } catch (e) { /* без кэша */ }
         }
         const dates = _calAllDates(cal);
         if (!dates.length) return;
         try {
-            const { data, error } = await _db.from('ozon_balance_daily').select('d,closing,opening').eq('cabinet_id', cab).gte('d', dates[0]).lte('d', dates[dates.length - 1]);
-            if (error || _cab !== cab) return;
+            const [balRes, payRes, rateRes] = await Promise.all([
+                _db.from('ozon_balance_daily').select('d,closing,opening').eq('cabinet_id', cab).gte('d', dates[0]).lte('d', dates[dates.length - 1]),
+                Promise.resolve(_db.from('ozon_payouts').select('d,amount').eq('cabinet_id', cab).gte('d', dates[0]).lte('d', dates[dates.length - 1])).catch(() => null),
+                Promise.resolve(_db.from('exchange_rates').select('date,rate').eq('pair', 'RUB_KGS').order('date', { ascending: true }).range(0, 400)).catch(() => null),
+            ]);
+            if (balRes.error || _cab !== cab) return;
+            const rates = ((rateRes && rateRes.data) || []).map((x) => [String(x.date).split('T')[0], Number(x.rate)]).filter((x) => x[1] > 0);
+            const rateOn = (d) => { let r = rates.length ? rates[0][1] : 1; for (const [dd, rr] of rates) { if (dd <= d) r = rr; else break; } return r; };
             const fresh = {};
-            (data || []).forEach((r) => { fresh[String(r.d).split('T')[0]] = { c: Number(r.closing) || 0, o: Number(r.opening) || 0 }; });
+            (balRes.data || []).forEach((r) => { const d = String(r.d).split('T')[0]; const k = rateOn(d); fresh[d] = { c: Math.round((Number(r.closing) || 0) * k * 100) / 100, o: Math.round((Number(r.opening) || 0) * k * 100) / 100 }; });
             const changed = JSON.stringify(fresh) !== JSON.stringify(Object.fromEntries(Object.keys(fresh).map((k) => [k, _ozBal[k]])));
             Object.assign(_ozBal, fresh);
             try { localStorage.setItem(_ozBalKey(cab), JSON.stringify(_ozBal)); } catch (e) { /* места нет */ }
-            if (changed) { _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null; }
+            let payChanged = false;
+            if (payRes && !payRes.error && Array.isArray(payRes.data)) {
+                const fp = {}; payRes.data.forEach((r) => { fp[String(r.d).split('T')[0]] = Number(r.amount) || 0; });
+                dates.forEach((d) => { const nv = fp[d] != null ? fp[d] : null; if ((_ozPay[d] != null ? _ozPay[d] : null) !== nv) { payChanged = true; if (nv == null) delete _ozPay[d]; else _ozPay[d] = nv; } });
+                try { localStorage.setItem(_ozPayKey(cab), JSON.stringify(_ozPay)); } catch (e) { /* места нет */ }
+            }
+            if (changed || payChanged) { _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null; }
         } catch (e) { /* остаётся кэш */ }
+    }
+
+    /** Ручной ввод выплаты Ozon за день (сом). Пусто или 0 убирает запись. Сразу видно в таблице, запись уходит в фоне. */
+    async function saveOzPayout(date, val) {
+        if (!_cab || !_db || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return;
+        const cab = _cab;
+        const num = parseFloat(String(val).replace(/\s/g, '').replace(',', '.'));
+        const has = isFinite(num) && num !== 0;
+        if (has) _ozPay[date] = num; else delete _ozPay[date];
+        try { localStorage.setItem(_ozPayKey(cab), JSON.stringify(_ozPay)); } catch (e) { /* места нет */ }
+        _cabinetColsCacheKey = ''; _cabinetColsCacheVal = null;
+        _renderActiveTable().catch(() => {});
+        try {
+            const q = has
+                ? await _db.from('ozon_payouts').upsert({ cabinet_id: cab, d: date, amount: num, updated_at: new Date().toISOString() }, { onConflict: 'cabinet_id,d' })
+                : await _db.from('ozon_payouts').delete().eq('cabinet_id', cab).eq('d', date);
+            if (q && q.error) throw new Error(q.error.message);
+        } catch (e) {
+            if (window.NrUi && NrUi.toast) NrUi.toast('error', 'Выплата не сохранилась', 'Нажмите ещё раз, цифра пока только на этом устройстве.');
+        }
     }
 
     async function _loadCabinetTotals(cal) {
@@ -7006,6 +7045,7 @@ const RNP = (() => {
             const lastOz = [...daily].reverse().find(x => x.ozon_balance != null);
             agg.ozon_balance = lastOz ? lastOz.ozon_balance : null;
             agg.ozon_opening = lastOz ? lastOz.ozon_opening : null;
+            { const ps = daily.filter((x) => x.ozon_payout != null); agg.ozon_payout = ps.length ? ps.reduce((t, x) => t + (Number(x.ozon_payout) || 0), 0) : null; }
         }
         return agg;
     }
@@ -9665,6 +9705,13 @@ const RNP = (() => {
                     return `<td class="${cls} rnp-cell-plan${setCls} ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>${_fitNum(aggStr)}</td>`;
                 }
 
+                if (m.key === 'ozon_payout' && isDay && art.nm_id === -1) {
+                    const pv = _ozPay[col.colKey];
+                    return `<td class="${cls} rnp-cell-plan${pv ? ' rnp-cell-plan--set' : ''} ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
+                      <input type="text" inputmode="decimal"${pv != null ? ` value="${pv}"` : ''} class="rnp-plan-input" placeholder="" aria-label="Выплата Ozon ${col.colKey}"
+                        onchange="RNP.saveOzPayout('${col.colKey}',this.value)">
+                    </td>`;
+                }
                 let val = d ? d[m.key] : null;
                 let priceChanged = false;
                 if (m.carry && !isFuture && !col.byArt) {
@@ -9684,7 +9731,7 @@ const RNP = (() => {
                 // Будущие дни: фактов ещё нет, поэтому ни нулей, ни процентов не рисуем.
                 // Ручные поля (конкуренты, раздачи) без значения показываем пустыми, а не 0.
                 const manualEmpty = (m.competitor || m.key === 'giveaways') && !(Number(val) > 0);
-                const noBalance = (m.key === 'wb_balance' || m.key === 'wb_for_withdraw' || m.key === 'ozon_balance' || m.key === 'ozon_opening') && val == null;
+                const noBalance = (m.key === 'wb_balance' || m.key === 'wb_for_withdraw' || m.key === 'ozon_balance' || m.key === 'ozon_opening' || m.key === 'ozon_payout') && val == null;
                 const str = (isFuture || manualEmpty) ? '' : ((financePending || noBalance) ? '—' : _fmt(val, m.type));
                 const cc  = (m.hm && !scaleFn) ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
@@ -11149,7 +11196,7 @@ const RNP = (() => {
         return fn.apply(this, a);
     };
     const _tA = _ozGuard(toggleArt), _tC = _ozGuard(setCost), _tL = _ozGuard(setLogisticsUnit), _tO = _ozGuard(setOtherCosts), _tG = _ozGuard(setCategory), _tM = _ozGuard(saveMeta), _tS = _ozGuard(saveManual), _tP = _ozGuard(openPrice);
-    return { init, initCore, ensureReady, setDateRange, renderSummary, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, heatSet, heatRule, heatReset, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, renderSummary, setTaxPct, setTaxOn, openSettings, closeSettings, openPlanFact, openPlanning, getWeekFacts, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, pickGroup, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt: _tA, enableAll, setCost: _tC, setLogisticsUnit: _tL, setOtherCosts: _tO, setCategory: _tG, toggleCategory, toggleGroupVisible, openPrice: _tP, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual: _tS, savePlan, saveOzPayout, saveNote, savePhotoComment, saveMeta: _tM, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, heatSet, heatRule, heatReset, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats, editResponsibles, wbPhotoUrl: _wbPhotoUrl, copyNmId, copySellerArticle, phoneAllDays, togglePhoneHead, copyArtIds, renameGroup, resetGroupName, moveGroup, moveArt, toggleSettingsGroupOpen, groupsView, setGroupOrder };
 })();
