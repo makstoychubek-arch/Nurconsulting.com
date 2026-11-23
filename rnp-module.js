@@ -213,6 +213,8 @@ const RNP = (() => {
         ]},
         { id: 'expenses', label: 'Все расходы', color: '#0ea5e9', rows: [
             { key: 'realization',        label: 'Реализация',                       type: 'som',  src: 'auto',  bold: true },
+            // Ozon: баллы за скидки и корректировки вознаграждения зачитываются в комиссию (показывается, когда база отдаёт comp_pts)
+            { key: 'comm_after',         label: 'Комиссия после баллов',            type: 'som',  src: 'auto',  hm: 'cost', ozOnly: true },
             { key: 'wb_commission',      label: 'Комиссия',                         type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'comm_pct_real',      label: 'Комиссия %',                       type: 'pct',  src: 'calc' },
             { key: 'acquiring_sum',      label: 'Эквайринг',                        type: 'som',  src: 'auto',  hm: 'cost' },
@@ -725,7 +727,7 @@ const RNP = (() => {
             });
         }
         else if (table === 'wb_stocks') rows = await _ozCall('ozon_stock_rows', {});
-        else if (table === 'rnp_daily_data') rows = await _ozCall('ozon_finance_daily', _ozRange(filters));
+        else if (table === 'rnp_daily_data') { rows = await _ozCall('ozon_finance_daily', _ozRange(filters)); if (rows.length) _ozHasComp = rows.some((r) => r && r.comp_pts !== undefined); }
         else return [];
         const nm = (filters || []).find((x) => x.column === 'nm_id' && x.op === 'eq');
         if (nm) rows = rows.filter((r) => Number(r.nm_id) === Number(nm.value));
@@ -1489,6 +1491,8 @@ const RNP = (() => {
         }
     }
 
+    // База отдаёт comp_pts и comp_adj (баллы за скидки и корректировки Ozon): только тогда комиссия показывается «после баллов»
+    let _ozHasComp = false;
     // Для Ozon нет СПП, раздач, обработки товара, логистики до ПВЗ и баланса WB по строкам
     const _OZ_HIDE = new Set(['acquiring_sum', 'ad_basket', 'spp_pct', 'giveaways', 'acceptance_sum', 'log_to_pvz_avg', 'logistics_pct', 'wb_balance', 'wb_for_withdraw']);
     let _ffShow = false;      // ползунок «Показывать в РНП» в разделе ФФ
@@ -1502,6 +1506,8 @@ const RNP = (() => {
             if (m.articleOnly && art && art.nm_id === -1) return false;
             if (m.ozonOnly && _mp() === 'wb') return false;
             if (m.ozOnly && _mp() !== 'ozon') return false;
+            if (m.key === 'comm_after' && !(_mp() === 'ozon' && _ozHasComp)) return false;
+            if (m.key === 'wb_commission' && _mp() === 'ozon' && _ozHasComp) return false;
             if (m.key === 'ff_sum' && (!_ffShow || _mp() === 'ozon')) return false;
             if (m.key === 'ff_per_unit' && (!_ffShow || _mp() === 'ozon')) return false;
             if (m.key === 'tax_sum' && _settings.taxOn !== true) return false;
@@ -3263,6 +3269,7 @@ const RNP = (() => {
         acceptance_sum: ['Обработка товара (WB)', 'Стоимость обработки товара из ежедневного отчёта реализации WB (по кабинету).'],
         wb_balance: ['Баланс WB (итого)', 'Баланс продавца WB на конец дня (виджет «Баланс» на главной странице кабинета). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи.'],
         wb_for_withdraw: ['Доступно к выводу', 'Сколько из баланса можно вывести на конец дня.'],
+        comm_after: ['Комиссия после баллов', 'Комиссия Ozon за вычетом баллов за скидки и корректировки вознаграждения: Ozon сначала зачитывает их в комиссию. Если баллов больше комиссии, остаток идёт в доставку и услуги (строка «Остаток баллов»). «К выводу» от этого не меняется. Баллы появляются в отчёте Ozon после закрытия периода, поэтому за свежие дни пока 0.'],
         ozon_balance: ['Баланс Ozon (итого)', 'Баланс продавца Ozon на конец дня (как карточка «Баланс» на дашборде). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи, дни без снимка показаны прочерком.'],
         ozon_opening: ['На начало месяца', 'Баланс Ozon на начало месяца по данным Ozon. Ozon не отдаёт сумму «Доступно к выводу», поэтому здесь, как и на дашборде, показан баланс на начало месяца.'],
         wb_commission: ['Комиссия WB и вычеты с продаж', 'Реализация − эквайринг − (к перечислению без компенсаций). Всё, что WB удержал с цены продажи: комиссия, скидки по программам и прочие вычеты.'],
@@ -6603,7 +6610,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_rest'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_rest','comp_pts','comp_adj'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6688,8 +6695,15 @@ const RNP = (() => {
         m.log_cancel_pct = dl > 0 ? ((Number(m.log_cancel_to) || 0) + (Number(m.log_cancel_from) || 0)) / dl * 100 : 0;
         m.log_per_unit = (Number(m.sales_count) || 0) > 0 ? dl / m.sales_count : 0;
     }
+    const FIN_SPLITS_OZ_COMM = { cls: 'com', hint: 'Комиссия до и после баллов за скидки', subs: [
+        { key: 'comm_gross',   label: 'Комиссия до баллов',                    type: 'ff' },
+        { key: 'comm_pts_neg', label: 'Баллы за скидки',                       type: 'ff' },
+        { key: 'comm_adj_neg', label: 'Корректировка вознаграждения',          type: 'ff' },
+        { key: 'comm_left',    label: 'Остаток баллов (в доставку и услуги)',  type: 'ff' },
+    ] };
     const FIN_SPLIT_KEYS = [...new Set(Object.values(FIN_SPLITS).flatMap(g => g.subs.filter(x => x.type !== 'pct' && x.type !== 'avg' && x.type !== 'ff').map(x => x.key)))];
 
+    FIN_SPLITS.comm_after = FIN_SPLITS_OZ_COMM;
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','transit_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
@@ -6697,7 +6711,7 @@ const RNP = (() => {
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
-        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_rest',
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_rest', 'comp_pts', 'comp_adj', 'comm_after', 'comm_gross', 'comm_pts_neg', 'comm_adj_neg', 'comm_left',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -6780,6 +6794,18 @@ const RNP = (() => {
         return a;
     }
 
+    /** Ozon: баллы за скидки и корректировка вознаграждения сначала гасят комиссию, остаток баллов идёт в доставку и услуги (владелец, 23 ноября 2026).
+     *  «К выводу» и прибыль не меняются: это другое разложение тех же денег. */
+    function _ozCommAfter(d) {
+        const pts = Number(d.comp_pts) || 0, adj = Number(d.comp_adj) || 0, comp = pts + adj, k = Number(d.wb_commission) || 0;
+        const used = Math.min(k, comp);
+        d.comm_gross = k;
+        d.comm_pts_neg = comp > 0 ? -pts * used / comp : 0;
+        d.comm_adj_neg = comp > 0 ? -adj * used / comp : 0;
+        d.comm_after = k - used;
+        d.comm_left = comp - used;
+    }
+
     function _cabinetDayDerived(active, date) {
         const today = new Date().toISOString().split('T')[0];
         const parts = active.map(a => {
@@ -6795,7 +6821,10 @@ const RNP = (() => {
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
-            m.other_net_sum = Number(m.deduction_sum) || 0;
+            _ozCommAfter(m);
+            const comp = (Number(m.comp_pts) || 0) + (Number(m.comp_adj) || 0);
+            m.other_net_sum = (Number(m.deduction_sum) || 0) + (_ozHasComp ? comp : 0); // только списания, возмещения Ozon ушли в комиссию
+            if (_ozHasComp) m.ded_rest = (Number(m.ded_rest) || 0) + comp;
             m.ded_other = m.other_net_sum;
         }
         return _activeGroup ? m : _applyCabinetTotals(m, _cabTotals[date], date);
@@ -7186,6 +7215,7 @@ const RNP = (() => {
         d.acquiring_sum   = Number(d.acquiring_sum) || 0;
         d.wb_commission   = Math.max(0, (d.realization || 0) - d.acquiring_sum - ((d.to_transfer || 0) - (Number(d.compensation_sum) || 0)));
         d.comm_pct_real   = _commPct(d);
+        _ozCommAfter(d);
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
         d.ad_charged      = d.ad_charged != null ? Number(d.ad_charged) || 0 : (d.ad_spend || 0); // WB-артикул: статистика кампаний; Ozon: списания Ozon, разложенные по дням
@@ -9202,8 +9232,9 @@ const RNP = (() => {
 
     // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
     function _finSubRows(m, cols, firstDayIdx) {
-        const def = (m.key === 'other_net_sum' && _mp() === 'ozon') ? FIN_SPLITS_OZ_DED : FIN_SPLITS[m.key];
-        const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '128,128,128' : '245,158,11';
+        let def = (m.key === 'other_net_sum' && _mp() === 'ozon') ? FIN_SPLITS_OZ_DED : FIN_SPLITS[m.key];
+        if (def === FIN_SPLITS_OZ_DED && _ozHasComp) def = { ...def, subs: def.subs.map((x) => x.key === 'ded_rest' ? { ...x, label: 'Кроссдокинг и допуслуги' } : x) };
+        const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '128,128,128' : def.cls === 'com' ? '34,197,94' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
         return def.subs.map(sub => {
             const pctSub = sub.type === 'pct';
