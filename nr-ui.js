@@ -343,7 +343,8 @@
         var d = root.document, G = [
             { id: 'acct', n: 'Аккаунт', secs: ['profile', 'security', 'devsessions'] },
             { id: 'conn', n: 'Подключения', secs: ['integrations', 'api', 'keys'] },
-            { id: 'pay', n: 'Оплата', secs: ['tariffs'] }
+            { id: 'pay', n: 'Оплата', secs: ['tariffs'] },
+            { id: 'look', n: 'Вид сайта', secs: ['design'] }
         ];
         var first = d.getElementById('settings-tab-btn-profile'), row = first && first.parentNode; if (!row) return;
         var visible = function (id) { var t = d.getElementById('settings-tab-btn-' + id); return !!t && !t.classList.contains('hidden-tab'); };
@@ -432,3 +433,44 @@
     new root.MutationObserver(function () { scan(); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true });
     root.NrGlass = { set: function (on) { try { root.localStorage.setItem('nr_lg', on ? '1' : '0'); } catch (e) { /* без памяти */ } root.location.reload(); } };
 })(window);
+
+
+/* ───── Вид сайта: «Классический» (меню слева) или «Стекло» (меню сверху, окна из живого стекла) ─────
+ * Выбор в Настройки → Вид сайта, хранится в nr_design на устройстве. При переключении сайт на секунду закрывается экраном с логотипом.
+ * Новый вид только на компьютере (от 769px), телефон остаётся как есть. По умолчанию классический (владелец, 23 ноября 2026). */
+(function (root) {
+    'use strict';
+    var doc = root.document; if (!doc) return;
+    var KEY = 'nr_design';
+    function get() { try { return root.localStorage.getItem(KEY) === 'glass' ? 'glass' : 'classic'; } catch (e) { return 'classic'; } }
+    function apply(v) {
+        doc.documentElement.setAttribute('data-design', v === 'glass' ? 'glass' : 'classic');
+        try { root.dispatchEvent(new Event('resize')); } catch (e) { /* без пересчёта */ }
+    }
+    function splash(text, done) {
+        var s = doc.createElement('div'); s.className = 'nr-ds'; s.setAttribute('data-nr-blur', '');
+        s.innerHTML = '<div class="nr-ds-lg"><img src="/icons/logo-nr.svg" alt="NR" width="64" height="64"></div><div class="nr-ds-t"></div><div class="nr-ds-bar"><i></i></div>';
+        s.querySelector('.nr-ds-t').textContent = text;
+        doc.body.appendChild(s);
+        setTimeout(function () { try { done(); } catch (e) { /* вид применится при следующей загрузке */ } s.classList.add('out'); setTimeout(function () { s.remove(); }, 380); }, 1400);
+    }
+    function paint(host) {
+        if (!host) return;
+        var cur = get();
+        host.innerHTML = '<section class="nr-dz"><h4>Вид сайта</h4><p class="nr-dz-sub">Выберите, как выглядит сайт. Переключение сразу, вернуться можно в любой момент. Новый вид работает на компьютере, на телефоне сайт остаётся прежним.</p><div class="nr-dz-grid">'
+            + '<button type="button" class="nr-dz-card' + (cur === 'classic' ? ' on' : '') + '" data-design="classic"><span class="nr-dz-prev nr-dz-p1"><i></i><b></b><b></b></span><strong>Классический</strong><small>Меню слева, как сейчас.</small></button>'
+            + '<button type="button" class="nr-dz-card' + (cur === 'glass' ? ' on' : '') + '" data-design="glass"><span class="nr-dz-prev nr-dz-p2"><i></i><b></b><b></b></span><strong>Стекло <em>новый</em></strong><small>Разделы кнопками сверху, окна из живого стекла.</small></button>'
+            + '</div></section>';
+        host.querySelectorAll('[data-design]').forEach(function (b) { b.addEventListener('click', function () { set(b.getAttribute('data-design'), host); }); });
+    }
+    function set(v, host) {
+        v = v === 'glass' ? 'glass' : 'classic';
+        if (v === get() || doc.querySelector('.nr-ds')) return;
+        splash(v === 'glass' ? 'Переходим на новый дизайн…' : 'Возвращаем классический дизайн…', function () {
+            try { root.localStorage.setItem(KEY, v); } catch (e) { /* только на эту загрузку */ }
+            apply(v); paint(host || doc.getElementById('settings-design'));
+            try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast(v === 'glass' ? 'Включён новый дизайн' : 'Включён классический дизайн'); } catch (e) { /* без подсказки */ }
+        });
+    }
+    root.NrDesign = { get: get, set: set, render: paint };
+})(typeof window !== 'undefined' ? window : globalThis);
