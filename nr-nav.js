@@ -120,6 +120,11 @@
             if (!root.matchMedia || !root.matchMedia('(min-width: 769px)').matches) return;
             var fly = doc.getElementById(btn.getAttribute('data-flyout'));
             if (!fly || !fly.offsetParent) return;
+            if (doc.documentElement.getAttribute('data-design') === 'glass') { // меню сверху: список подразделов под своей кнопкой
+                var op = fly.offsetParent.getBoundingClientRect(), br = btn.getBoundingClientRect();
+                fly.style.top = Math.round(br.bottom - op.top + 6) + 'px'; fly.style.left = Math.max(0, Math.round(br.left - op.left)) + 'px'; return;
+            }
+            fly.style.left = '';
             fly.style.top = Math.max(0, Math.round(btn.getBoundingClientRect().top - fly.offsetParent.getBoundingClientRect().top - 6)) + 'px';
         } catch (_) {}
     }
