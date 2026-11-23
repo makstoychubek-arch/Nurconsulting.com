@@ -155,6 +155,43 @@ async function syncFinance(admin: Admin, cabinetId: string, c: OzonCreds, days: 
     return total;
 }
 
+/** Начисления Ozon по дням и видам (/v1/finance/accrual/by-day, замена отключённого /v3/finance/transaction/list): все начисления дня, в том числе без отправления
+ *  (кросс-докинг, размещение на складе, услуги). Сводка (дата, категория, вид) в ozon_operations_daily; суммы в валюте кабинета Ozon (рубли). */
+async function syncOperations(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
+    const n = Math.min(90, Math.max(2, days));
+    const { data: tp } = await admin.from('ozon_accrual_types').select('id, name');
+    const names = new Map<number, string>(((tp || []) as { id: number; name: string }[]).map((x) => [Number(x.id), String(x.name)]));
+    // обходим вложенный объект: любая запись с type_id и accrued.amount считается начислением этого вида
+    const walk = (o: unknown, cb: (t: number, amount: number) => void) => {
+        if (!o || typeof o !== 'object') return;
+        if (Array.isArray(o)) { for (const x of o) walk(x, cb); return; }
+        const r = o as Record<string, any>;
+        if (r.type_id != null && r.accrued && r.accrued.amount != null) { cb(Number(r.type_id), Number(r.accrued.amount) || 0); return; }
+        for (const k of Object.keys(r)) if (k !== 'total_amount') walk(r[k], cb);
+    };
+    let total = 0;
+    for (let i = 1; i <= n; i++) {
+        const d = new Date(Date.now() - i * 86400_000).toISOString().slice(0, 10);
+        const agg = new Map<string, { t: string; name: string; amount: number; cnt: number }>();
+        let last = '';
+        for (let page = 0; page < 40; page++) {
+            const r = await ozonCall(c, '/v1/finance/accrual/by-day', last ? { date: d, last_id: last } : { date: d }, fetchFn) as { accruals?: Record<string, any>[]; last_id?: string };
+            for (const a of r.accruals || []) {
+                const cat = String(a.accrued_category || '');
+                const src = a.posting || a.item_fees || a.non_item_fee || a.container_fees;
+                walk(src, (t, amount) => { const key = cat + ':' + t; const e = agg.get(key) || { t: key, name: names.get(t) || '', amount: 0, cnt: 0 }; e.amount += amount; e.cnt++; agg.set(key, e); });
+            }
+            last = String(r.last_id || '');
+            if (!last || !(r.accruals || []).length) break;
+            await sleep(150);
+        }
+        const rows = [...agg.values()].map((a) => ({ cabinet_id: cabinetId, d, op_type: a.t, op_name: a.name, amount: Math.round(a.amount * 100) / 100, cnt: a.cnt, synced_at: new Date().toISOString() }));
+        if (rows.length) total += await upsert(admin, 'ozon_operations_daily', rows as unknown as Record<string, unknown>[], 'cabinet_id,d,op_type');
+        await sleep(150);
+    }
+    return total;
+}
+
 /** Начисления Ozon по отправлениям (новый метод /v1/finance/accrual/postings, 200 отправлений за запрос): точные комиссия, логистика, эквайринг, подписка по каждому заказу. */
 async function syncAccruals(admin: Admin, cabinetId: string, c: OzonCreds, days: number): Promise<number> {
     // Начисления появляются по мере доставки и возвратов (иногда через несколько недель после создания отправления),
@@ -293,6 +330,7 @@ Deno.serve(async (req) => {
             funnel: () => syncFunnel(admin, cab.id, creds, days),
             returns: () => syncReturns(admin, cab.id, creds, days),
             accruals: () => syncAccruals(admin, cab.id, creds, days),
+            operations: () => syncOperations(admin, cab.id, creds, days),
             balance: () => syncBalance(admin, cab.id, creds),
             ads: () => syncAds(admin, cab.id, { id: String(cab.ozon_perf_client_id || '').trim(), secret: String(cab.ozon_perf_secret || '').trim() }, days),
         };
