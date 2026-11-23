@@ -5,7 +5,7 @@
 const assert = require('assert');
 const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
 
-const day = (n) => new Date(Date.now() + 6 * 3600e3 - n * 86400e3).toISOString().slice(0, 10);
+const day = (n) => new Date(Date.now() + 6 * 3600e3 - (n + 1) * 86400e3).toISOString().slice(0, 10);
 const NM = 9993927562;
 const tables = {
     spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@gmail.com', status: 'active', tariff_plan: 'vip', is_super_admin: true, first_name: 'M', last_name: 'T', full_name: 'M T' }],
