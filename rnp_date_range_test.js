@@ -37,7 +37,7 @@ assert.ok(html.includes("const DATE_RANGE_BY_TAB_KEY = 'nr_date_range_by_tab_v1'
     'the chosen period is stored per tab');
 assert.ok(html.includes('function loadDateRangeForTab(tab)') && html.includes("if (DATE_FILTER_TABS.has(name)) loadDateRangeForTab(name === 'rnp-planfact' ? 'rnp' : name);"),
     'switching tabs loads that tab\'s own period before it loads data');
-assert.ok(html.includes("if (tab === 'rnp') return { from: monthStartIso(), to: monthEndIso() };"), 'RNP defaults to the whole month (plan columns for future days)');
+assert.ok(html.includes("if (tab === 'rnp') return clampRangeToDone({ from: monthStartIso(), to: monthEndIso() });"), 'RNP defaults to the month up to yesterday (night batch: today and future days are not shown)');
 
 // План/факт: дата в шапке общая с РНП (своего периода нет), и страница перерисовывается при смене периода.
 assert.ok(html.includes("if (t === 'rnp-planfact') return 'rnp';"), 'Plan/fact shares the RNP period');
