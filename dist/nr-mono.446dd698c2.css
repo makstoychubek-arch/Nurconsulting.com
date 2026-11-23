@@ -3231,3 +3231,16 @@ html[data-rnp-fs="2"] .rnp-sheet-table { --fs-label: 13px; --fs-micro: 12px; --f
 .rnp-ht-font[data-heat-font="mono"] .rnp-ht-fs { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 .rnp-ht-font b { font-size: 12px; }
 .rnp-ht-card .rnp-ht-seg { margin-bottom: 8px; }
+
+/* Тёмная тема: белых и светло-сиреневых блоков нет (владелец, 23 ноября 2026, скрины РНП «Общее по артикулам» и План/факт).
+   «Итог за период» РНП теперь на тёмной подложке (rnp-extra.css), а лист План/факт, нарисованный под светлую таблицу Google, перекрашен в тёмные тона. */
+[data-theme="neon"] :is(.pf-bar, .pf-pager, .pf-scroll, .pf-sheet, .pf-sheet .pf-a, .pf-sheet .pf-b, .pf-sheet .pf-c, .pf-sheet thead .pf-a, .pf-sheet thead .pf-b, .pf-sheet thead .pf-c, .pf-sheet tbody .pf-day) { background: var(--surface-solid) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet th, [data-theme="neon"] .pf-sheet td { color: var(--text-primary); border-color: rgba(255,255,255,.12); }
+[data-theme="neon"] .pf-sheet .pf-c { box-shadow: 2px 0 0 rgba(255,255,255,.18); }
+[data-theme="neon"] .pf-sheet thead :is(.pf-day, .pf-date, .pf-dow, .pf-fact-h) { background: color-mix(in srgb, #4caf50 26%, var(--surface-solid)) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet :is(.pf-plan, .pf-fact) { background: color-mix(in srgb, #4caf50 20%, var(--surface-solid)) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet .pf-total, [data-theme="neon"] .pf-sheet thead .pf-total { background: color-mix(in srgb, #4caf50 12%, var(--surface-solid)) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet .pf-dark { background: color-mix(in srgb, #4caf50 40%, #0b1a07) !important; color: #fff !important; }
+[data-theme="neon"] .pf-sheet .pf-nm { color: var(--text-muted); }
+[data-theme="neon"] .pf-bar-title { color: var(--text-primary); }
+[data-theme="neon"] .pf-pg { background: transparent; color: var(--text-primary); border-color: rgba(255,255,255,.35); }
