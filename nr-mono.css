@@ -3254,7 +3254,8 @@ html[data-rnp-fs="2"] .rnp-sheet-table { --fs-label: 13px; --fs-micro: 12px; --f
   html[data-design="glass"] { background: var(--bg); }
   html[data-design="glass"]::before { content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
     background: radial-gradient(900px 620px at 8% -6%, color-mix(in srgb, var(--wb, #8b3dff) 30%, transparent), transparent 70%), radial-gradient(900px 640px at 96% 104%, color-mix(in srgb, var(--oz, #005bff) 26%, transparent), transparent 70%); }
-  html[data-design="glass"] body .sidebar-app { position: fixed !important; left: var(--nr-gl) !important; right: var(--nr-gl) !important; top: 12px !important; bottom: auto !important; width: auto !important; height: var(--nr-topbar) !important; z-index: 60; }
+  html[data-design="glass"] body #dashboard-app-shell { z-index: auto !important; }  /* без своего слоя: выпадающие подразделы поверх шапки страницы */
+  html[data-design="glass"] body .sidebar-app { position: fixed !important; left: var(--nr-gl) !important; right: var(--nr-gl) !important; top: 12px !important; bottom: auto !important; width: auto !important; height: var(--nr-topbar) !important; z-index: 10001; }
   html[data-design="glass"] body .sidebar-rail { flex-direction: row !important; align-items: center !important; width: 100% !important; min-width: 0 !important; max-width: none !important; height: var(--nr-topbar) !important; margin: 0 !important; padding: 0 14px !important; gap: 10px !important; border-radius: 30px !important; overflow: visible !important; }
   html[data-design="glass"] body .sidebar-rail .rail-logo { margin: 0 !important; padding: 0 !important; flex: none; }
   html[data-design="glass"] body .sidebar-rail .rail-nav { display: flex !important; flex-direction: row !important; align-items: center; gap: 4px !important; flex: 1; margin: 0 0 0 18px !important; padding: 0 !important; overflow: visible !important; height: auto !important; }
