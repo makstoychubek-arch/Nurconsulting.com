@@ -6617,7 +6617,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt',
-                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_rest','comp_pts','comp_adj'];
+                     'log_sale','log_cancel_to','log_cancel_from','log_return','log_other','ff_ship','ff_storage','acquiring_sum','compensation_sum','comm_base','comm_true','acceptance_sum','pen_dims','pen_accept','pen_sub','pen_cancel','pen_pvz','pen_supply','pen_other','ad_charged','ded_prem','ded_bonus','ded_move','ded_cross','ded_supply','ded_pcom','ded_misc','ded_rest','comp_pts','comp_adj'];
         const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','drr_sales_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -6686,6 +6686,10 @@ const RNP = (() => {
         { key: 'ded_prem',  label: 'Premium Pro и отзывы', type: 'ff' },
         { key: 'ded_bonus', label: 'Бонусы продавца', type: 'ff' },
         { key: 'ded_move',  label: 'Перемещение и вывоз', type: 'ff' },
+        { key: 'ded_cross', label: 'Кросс-докинг', type: 'ff' },
+        { key: 'ded_supply', label: 'Поставка: доп. услуги, недостача, излишки', type: 'ff' },
+        { key: 'ded_pcom',  label: 'Premium: комиссия за период', type: 'ff' },
+        { key: 'ded_misc',  label: 'Прочее: реклама на сайте, отзывы, брак', type: 'ff' },
         { key: 'ded_rest',  label: 'Прочее и возмещения', type: 'ff' },
     ] };
     // Суммируются только денежные подстроки (проценты считаются заново после суммирования)
@@ -6718,7 +6722,7 @@ const RNP = (() => {
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission','other_net_sum',
         ...FIN_SPLIT_KEYS,
-        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_rest', 'comp_pts', 'comp_adj', 'comm_after', 'comm_gross', 'comm_pts_neg', 'comm_adj_neg', 'comm_left',
+        'ff_ship', 'ff_storage', 'ff_extra', 'ff_sum', 'comm_base', 'comm_true', 'ad_charged', 'ded_prem', 'ded_bonus', 'ded_move', 'ded_cross', 'ded_supply', 'ded_pcom', 'ded_misc', 'ded_rest', 'comp_pts', 'comp_adj', 'comm_after', 'comm_gross', 'comm_pts_neg', 'comm_adj_neg', 'comm_left',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -9277,7 +9281,7 @@ const RNP = (() => {
     // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
     function _finSubRows(m, cols, firstDayIdx) {
         let def = (m.key === 'other_net_sum' && _mp() === 'ozon') ? FIN_SPLITS_OZ_DED : FIN_SPLITS[m.key];
-        if (def === FIN_SPLITS_OZ_DED && _ozHasComp) def = { ...def, subs: def.subs.map((x) => x.key === 'ded_rest' ? { ...x, label: 'Кроссдокинг и допуслуги' } : x) };
+        if (def === FIN_SPLITS_OZ_DED && _ozHasComp) def = { ...def, subs: def.subs.map((x) => x.key === 'ded_rest' ? { ...x, label: 'Остаток отчёта Ozon (после баллов)' } : x) };
         const rgb = def.cls === 'pen' ? '239,68,68' : def.cls === 'log' ? '128,128,128' : def.cls === 'com' ? '34,197,94' : '245,158,11';
         const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
         return def.subs.map(sub => {

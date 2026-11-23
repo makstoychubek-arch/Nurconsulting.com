@@ -11,7 +11,7 @@ const tables = { spaces: [{ id: 's0', user_id: ADMIN_ID, email: 'makstoychubek@g
 const art = { id: 'ozon-a', name: 'костюм_оверсайз_бежевый', nm_id: NM, category: 'К', is_active: true, cost_price: 100, sort_order: 0, manual_data: {}, other_costs_unit: 0, logistics_unit: 0, cabinet_id: CAB };
 const base = (d) => ({ cabinet_id: CAB, nm_id: NM, date: day(d), orders_count: 10, orders_sum: 10000, sales_count: 10, sales_sum: 10000, realization: 10000, commission_pct: 20, to_transfer: 7800, delivery_sum: 1500, storage_sum: 10, penalty_sum: 0, ad_spend: 200, ad_charged: 250, transit_count: 7, ded_prem: 100, ded_bonus: 0, ded_move: 0 });
 // дни 0-2: баллов меньше комиссии (2200); дни 3-4: баллов больше комиссии
-const withComp = Array.from({ length: 5 }, (_, d) => d < 3 ? Object.assign(base(d), { comp_pts: 1500, comp_adj: 400, deduction_sum: 300 - 1900, ded_rest: 200 - 1900 }) : Object.assign(base(d), { comp_pts: 4000, comp_adj: 1000, deduction_sum: 300 - 5000, ded_rest: 200 - 5000 }));
+const withComp = Array.from({ length: 5 }, (_, d) => d < 3 ? Object.assign(base(d), { comp_pts: 1500, comp_adj: 400, deduction_sum: 300 - 1900, ded_rest: 200 - 1900, ded_cross: 60, ded_supply: 30, ded_pcom: 20, ded_misc: 10 }) : Object.assign(base(d), { comp_pts: 4000, comp_adj: 1000, deduction_sum: 300 - 5000, ded_rest: 200 - 5000 }));
 const noComp = Array.from({ length: 5 }, (_, d) => Object.assign(base(d), { deduction_sum: 300, ded_rest: 200 }));
 async function run(rowsData, check) {
     const srv = await serve();
@@ -44,7 +44,8 @@ async function run(rowsData, check) {
     }));
     await t('«Прочие удержания» только списания, «К выводу» не меняется', () => run(withComp, async ({ sum, labels }) => {
         assert.strictEqual(Math.round(await sum(/^Прочие удержания/)), 5 * 300);
-        assert.ok(labels.some((x) => /^Кроссдокинг и допуслуги/.test(x)), 'подстрока переименована');
+        for (const l of ['Кросс-докинг', 'Поставка: доп. услуги', 'Premium: комиссия за период', 'Прочее: реклама на сайте']) assert.ok(labels.some((x) => x.startsWith(l)), 'нет подстроки «' + l + '»: ' + labels.slice(0, 50));
+        assert.ok(labels.some((x) => /^Остаток отчёта Ozon/.test(x)), 'остаток переименован');
         assert.strictEqual(Math.round(await sum(/^К выводу$/)), 3 * 7640 + 2 * 10740);
     }));
     await t('база без comp_pts: всё как раньше (комиссия, «Прочее и возмещения»)', () => run(noComp, async ({ labels }) => {
