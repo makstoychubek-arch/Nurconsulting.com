@@ -154,14 +154,25 @@
         if (!it.act) { try { localStorage.setItem('nr_sub_' + tab, id); } catch (_) { /* без памяти */ } }
         try { if (tab === 'advertising' && root._advView === 'detail' && typeof headerGoBack === 'function') headerGoBack(); } catch (e) {}
         var already = curTab() === tab;
+        // РНП помнит прошлый вид («Товары» / «Юнит-экономика»): открываем нужный вид ДО показа вкладки, иначе на долю секунды мелькает прошлый
+        if (!already && tab === 'rnp' && root.NrRnpPrices && typeof root.NrRnpPrices.setView === 'function') {
+            try { root.NrRnpPrices.setView(id === 'prices' || id === 'unit' ? id : 'rnp'); } catch (e) { /* откроется как обычно */ }
+        }
+        // Нужный подраздел включаем ДО показа вкладки: иначе на долю секунды мелькает прошлый (Раздачи вместо Кампаний, FBS вместо Остатков и т. д.)
+        var applyItem = function () {
+            if (tab === 'advertising' && root.NrGoodsUi && root.NrGoodsUi.openAdsView) { try { root.NrGoodsUi.openAdsView(id); return true; } catch (e) { return false; } }
+            var el = doc.querySelector(it.sel); if (el) { el.click(); return true; }
+            return false;
+        };
+        var pre = false;
+        if (!already && !it.act && tab !== 'rnp') { try { pre = applyItem(); } catch (e) { pre = false; } }
         if (!already && typeof root.showTab === 'function') root.showTab(tab, null);
         var press = function () {
             if (it.act) { try { if (root.RNP && typeof root.RNP[it.act] === 'function') root.RNP[it.act](); } catch (e) { /* окно не открылось */ } refresh(); return; }
-            if (tab === 'advertising' && root.NrGoodsUi && root.NrGoodsUi.openAdsView) { try { root.NrGoodsUi.openAdsView(id); } catch (e) {} }
-            else { var el = doc.querySelector(it.sel); if (el) el.click(); }
+            applyItem();
             refresh();
         };
-        if (already) press(); else setTimeout(press, 60);
+        if (already) press(); else if (pre) { refresh(); setTimeout(function () { if (!currentItem(tab) || currentItem(tab) !== id) press(); else refresh(); }, 80); } else setTimeout(press, 60);
         if (root.closeSidebarMenus) root.closeSidebarMenus(false);
     }
 
