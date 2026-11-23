@@ -1,6 +1,6 @@
 /**
- * РНП: блоки таблицы разделены серой плашкой с линией сверху (владелец, 23 ноября 2026), в светлой и тёмной темах.
- * Плашка серая (не белая и не розовая), линия сверху 3px цветом текста темы. Запуск: node e2e/rnp-dividers.e2e.js
+ * РНП: блоки таблицы разделены серой плашкой с отступом сверху, без чёрных полос (владелец, 23 ноября 2026), в светлой и тёмной темах.
+ * Плашка серая (не белая и не розовая), сверху отступ цветом фона, чёрной линии нет. Запуск: node e2e/rnp-dividers.e2e.js
  */
 const assert = require('assert');
 const { serve, openApp, chromium, ADMIN_ID, CAB } = require('./harness.js');
@@ -38,11 +38,11 @@ const tables = {
             try {
                 const surf = r.pop().surf; assert.ok(r.length >= 3, 'блоков мало: ' + r.length);
                 r.forEach((cells) => cells.forEach((c) => {
-                    assert.strictEqual(c.top, '3px', 'линия сверху 3px: ' + JSON.stringify(c));
+                    assert.strictEqual(c.top, '10px', 'отступ сверху 10px: ' + JSON.stringify(c)); assert.notStrictEqual(c.topc, c.text, 'чёрной линии сверху нет: ' + JSON.stringify(c));
                     assert.ok(Math.abs(c.lum - surf) > 0.03 && Math.abs(c.lum - surf) < 0.3, 'плашка серая, отличается от фона слегка: ' + JSON.stringify(c) + ' фон ' + surf);
                     const m = c.rgb; assert.ok(Math.abs(m[0] - m[1]) < 6 && Math.abs(m[1] - m[2]) < 8, 'плашка без розового оттенка: ' + c.bg);
                 }));
-                console.log('ok   тема ' + theme + ': ' + r.length + ' блоков, плашка серая с линией сверху');
+                console.log('ok   тема ' + theme + ': ' + r.length + ' блоков, плашка серая с отступом сверху, без чёрной полосы');
             } catch (e) { failed++; console.log('FAIL тема ' + theme + ': ' + e.message.slice(0, 400)); }
         }
         try { assert.deepStrictEqual(env.errors || [], []); console.log('ok   ошибок скриптов нет'); } catch (e) { failed++; console.log('FAIL ошибки скриптов'); }

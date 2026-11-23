@@ -3315,10 +3315,12 @@ html body .an-rnp-head { display: flex; align-items: baseline; gap: 10px; margin
 html body .an-rnp-head small { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 html body .an-rnp .rnp-general-topbar.rnp-gh { position: static !important; padding: 0 !important; }
 
-/* РНП: блоки таблицы (Касса, Воронка, Выкупы, Реклама, Все расходы…) разделены серой плашкой с названием и линией сверху, как в таблице Google
-   (владелец, 23 ноября 2026: «добавь разделители»). Цвет плашки от темы, поэтому в светлой и тёмной одинаково читается;
+/* РНП: блоки таблицы (Касса, Воронка, Выкупы, Реклама, Все расходы…) разделены серой плашкой с названием и отступом сверху, без чёрных полос
+   (владелец, 23 ноября 2026: «добавь разделители», затем «в макете не было чёрных полос»). Цвет плашки от темы, поэтому в светлой и тёмной одинаково читается;
    розовые и красные полосы на заголовках блоков (подсветка строки) перекрываются серым. */
 html body .rnp-sheet-table tr.rnp-section-hdr > td,
 html body .rnp-sheet-table tr.rnp-section-hdr > td.rnp-section-stick,
-html body .rnp-sheet-table tr.rnp-section-hdr > td.rnp-section-fill { background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-solid)) !important; color: var(--text-primary) !important; height: 22px; border-top: 3px solid var(--text-primary) !important; border-bottom: 0 !important; box-shadow: none !important; }
+html body .rnp-sheet-table tr.rnp-section-hdr > td.rnp-section-fill { background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-solid)) !important; color: var(--text-primary) !important; height: 24px; border-top: 10px solid var(--surface-solid) !important; border-bottom: 0 !important; box-shadow: none !important; }
+html body .rnp-sheet-table tr.rnp-section-hdr > td:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+html body .rnp-sheet-table tr.rnp-section-hdr > td:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
 html body .rnp-sheet-table tr.rnp-section-hdr .rnp-gs-section-title { font-weight: 900; letter-spacing: .06em; font-size: 11px; }
