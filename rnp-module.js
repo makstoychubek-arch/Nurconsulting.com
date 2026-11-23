@@ -1283,6 +1283,8 @@ const RNP = (() => {
             <div class="rnp-ht-col">
               <div class="rnp-ht-card"><div class="rnp-ht-lbl">Предпросмотр, 01–08.11</div><div class="rnp-ht-scroll">${_heatPreviewHtml()}</div></div>
               <div class="rnp-ht-card"><div class="rnp-ht-lbl">Шрифт</div>
+                <div class="rnp-ht-fonts" role="group" aria-label="Шрифт таблицы">${HEAT_FONTS.map(([id, name, smp]) => `<button type="button" class="rnp-ht-font${_heat.font === id ? ' is-on' : ''}" data-heat-font="${id}" onclick="RNP.heatSet('font','${id}')"><span class="rnp-ht-fs">${smp}</span><b>${name}</b></button>`).join('')}</div>
+                <div class="rnp-ht-seg" role="group" aria-label="Размер цифр">${[[0, 'Обычный'], [1, 'Крупнее'], [2, 'Ещё крупнее']].map(([v, n]) => `<button type="button" class="${(_heat.fs || 0) === v ? 'is-on' : ''}" data-heat-fs="${v}" onclick="RNP.heatSet('fs',${v})">${n}</button>`).join('')}</div>
                 ${_heatSwitch('bn', _heat.bn, 'Жирные названия метрик', 'Органика переходов, ДРР, Маржинальность…')}
                 ${_heatSwitch('bv', _heat.bv, 'Жирные цифры', 'вес 800 вместо 600')}
                 ${_heatSwitch('cap', _heat.cap, 'Названия капсом', 'только подписи строк')}
@@ -1317,6 +1319,8 @@ const RNP = (() => {
     function heatSet(key, val) {
         if (key === 'style') { if (!HEAT_STYLES.some(x => x[0] === val)) return; _heat.style = val; }
         else if (key === 'mode') { if (val !== 'auto' && val !== 'thr') return; if (_heat.mode === val) return; _heat.mode = val; }
+        else if (key === 'font') { if (!HEAT_FONTS.some(x => x[0] === val)) return; _heat.font = val; }
+        else if (key === 'fs') { if (![0, 1, 2].includes(Number(val))) return; _heat.fs = Number(val); }
         else if (key === 'bn' || key === 'bv' || key === 'cap') _heat[key] = !!val;
         else return;
         _heatSave(); _heatApplyRoot(); _heatRepaintSection();
@@ -9245,10 +9249,12 @@ const RNP = (() => {
         { key: 'basket_pct',      label: 'Корзина%',             dir: 'high', good: 8,   bad: 4,  on: false },
         { key: 'return_pct',      label: 'Процент возврата %',   dir: 'low',  good: 5,   bad: 15, on: false },
     ];
+    // Шрифт таблицы: «Как в таблице Google» — Arial, широкий и жирный (владелец, 22 ноября 2026: мелкие цифры не читались).
+    const HEAT_FONTS = [['site', 'Как на сайте', 'Aa 12 345'], ['sheet', 'Как в таблице Google', 'Aa 12 345'], ['wide', 'Широкий', 'Aa 12 345'], ['mono', 'Моноширинный', 'Aa 12 345']];
     function _heatDefaults() {
         const rules = {};
         HEAT_RULES.forEach(r => { rules[r.key] = { good: r.good, bad: r.bad, on: r.on }; });
-        return { style: 'P', mode: 'auto', bn: true, bv: true, cap: false, rules };
+        return { style: 'P', mode: 'auto', bn: true, bv: true, cap: false, font: 'site', fs: 0, rules };
     }
     function _heatLoad() {
         const d = _heatDefaults();
@@ -9258,6 +9264,8 @@ const RNP = (() => {
                 if (HEAT_STYLES.some(x => x[0] === j.style)) d.style = j.style;
                 if (j.mode === 'thr' || j.mode === 'auto') d.mode = j.mode;
                 ['bn', 'bv', 'cap'].forEach(k => { if (typeof j[k] === 'boolean') d[k] = j[k]; });
+                if (HEAT_FONTS.some(x => x[0] === j.font)) d.font = j.font;
+                if ([0, 1, 2].includes(Number(j.fs))) d.fs = Number(j.fs);
                 Object.keys(d.rules).forEach(k => {
                     const r = j.rules && j.rules[k];
                     if (r) {
@@ -9278,6 +9286,8 @@ const RNP = (() => {
         h.classList.toggle('rnp-heat-bn', !!_heat.bn);
         h.classList.toggle('rnp-heat-bv', !!_heat.bv);
         h.classList.toggle('rnp-heat-cap', !!_heat.cap);
+        h.setAttribute('data-rnp-font', _heat.font || 'site');
+        h.setAttribute('data-rnp-fs', String(_heat.fs || 0));
     }
     if (typeof document !== 'undefined' && document.documentElement) _heatApplyRoot();
 
