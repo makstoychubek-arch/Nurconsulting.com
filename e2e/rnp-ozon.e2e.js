@@ -34,7 +34,7 @@ const RPCS = { is_super_admin: true, ozon_rnp_articles: [art], ozon_finance_dail
         for (const need of ['Premium Pro и отзывы', 'Бонусы продавца', 'Перемещение и вывоз', 'Прочее и возмещения']) assert.ok(labels.includes(need), 'у Ozon есть вид «' + need + '»: ' + labels.slice(0, 40).join(' | '));
         assert.ok(!labels.includes('Подписка «Джем»') && !labels.includes('Утилизация товара'), 'WB-шных видов у Ozon нет');
         const tr = await readRow('В доставке');
-        assert.strictEqual(tr, 35, 'у Ozon есть строка «В доставке» (7 × 5 дней): ' + tr);
+        assert.strictEqual(tr, null, 'у Ozon строки «В доставке» нет (убрана: отправления в пути ещё не решены): ' + tr);
         console.log('ok   РНП Ozon: свои виды удержаний, реклама по списаниям, К выводу сходится');
         assert.deepStrictEqual(env.errors, [], 'ошибок скриптов нет: ' + env.errors.join('; '));
     } catch (e) { console.error('FAIL', e.message); process.exitCode = 1; } finally { await browser.close(); srv.close(); }

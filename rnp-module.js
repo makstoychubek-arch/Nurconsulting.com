@@ -165,7 +165,7 @@ const RNP = (() => {
             { key: 'plan_orders',        label: 'План заказ',                       type: 'int', src: 'manual', isPlan: true },
             { key: 'spp_pct',            label: 'СПП %',                            type: 'pct', src: 'auto' },
             { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true, hero: true },
-            { key: 'transit_count',      label: 'В доставке',                       type: 'int', src: 'auto', ozonOnly: true },
+            // «В доставке» (Ozon) убрана по просьбе владельца 23 ноября 2026: отправления в пути ещё не решены (купят или отменят), строка только путала. Данные transit_count остаются в расчёте.
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
             { key: 'plan_fulfillment_pct', label: 'Выполнение плана %', type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
