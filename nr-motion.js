@@ -208,11 +208,11 @@
         function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
         function range() { try { return [activeDateFrom, activeDateTo]; } catch (e) { return ['', '']; } }
         function chipNow() {
-            var r = range(), t = new Date(), y = new Date(t.getTime() - 864e5), w = new Date(t.getTime() - 7 * 864e5), m1 = new Date(t.getFullYear(), t.getMonth(), 1);
-            if (r[0] === iso(t) && r[1] === iso(t)) return 'today';
+            // Ночной пакет: последний день периода вчерашний, «сегодня» на сайте нет
+            var r = range(), t = new Date(), y = new Date(t.getTime() - 864e5), w = new Date(y.getTime() - 6 * 864e5), m1 = new Date(y.getFullYear(), y.getMonth(), 1);
             if (r[0] === iso(y) && r[1] === iso(y)) return 'yday';
-            if (r[0] === iso(w) && r[1] === iso(t)) return 'week';
-            if (r[0] === iso(m1) && r[1] === iso(t)) return 'month';
+            if (r[0] === iso(w) && r[1] === iso(y)) return 'week';
+            if (r[0] === iso(m1) && r[1] === iso(y)) return 'month';
             return 'own';
         }
         function days() { var r = range(); if (!r[0] || !r[1]) return 0; return Math.max(1, Math.round((new Date(r[1]) - new Date(r[0])) / 864e5) + 1); }
