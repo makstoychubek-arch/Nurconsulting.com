@@ -9,6 +9,13 @@ Deno.serve(async (req) => {
     if (!await isServiceAuthorized(req, serviceKey)) return json({ ok: false, error: 'Unauthorized' }, 401);
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const chatId = Number(body.chat_id);
+    // Диагностика вебхука Telegram: сколько обновлений ждёт и какая последняя ошибка доставки (без токена и адреса)
+    if (body.webhook_info) {
+        const tk = (Deno.env.get('ALINA_BOT_TOKEN') || '').trim();
+        const wi = await fetch(`https://api.telegram.org/bot${tk}/getWebhookInfo`, { signal: AbortSignal.timeout(10_000) }).then((r) => r.json()).catch(() => null);
+        const r0 = wi?.result || {};
+        return json({ ok: wi?.ok === true, pending: r0.pending_update_count, last_error_date: r0.last_error_date ? new Date(r0.last_error_date * 1000).toISOString() : null, last_error: String(r0.last_error_message || '').slice(0, 160), has_url: Boolean(r0.url), allowed: r0.allowed_updates });
+    }
     const say = String(body.say || '').trim().slice(0, 1500);
     const delLast = Math.min(10, Math.max(0, Number(body.delete_last_alina) || 0));
     if (!Number.isSafeInteger(chatId) || (!say && !delLast)) return json({ ok: false, error: 'chat_id и say (или delete_last_alina) обязательны' }, 400);

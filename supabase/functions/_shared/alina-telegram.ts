@@ -55,11 +55,12 @@ export async function processAlinaTelegramUpdate(
 
     // Несколько сообщений подряд: ждём, пока человек допишет, и отвечаем один раз на всё (владелец, 24 ноября 2026).
     let text = message.text;
-    if (!message.photoFileId && (message.text || '').trim() && claimed?.created_at) {
+    const useBurst = !message.photoFileId && (message.text || '').trim() && claimed?.created_at;
+    if (useBurst) {
         await pacing.sleep(pacing.burstMs);
         const hasNewer = async () => {
             const { data } = await admin.from('alina_selfbuy_events').select('id')
-                .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', claimed.created_at).limit(1);
+                .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', claimed!.created_at).limit(1);
             return Boolean(data && data.length);
         };
         let newer = await hasNewer();
@@ -71,13 +72,25 @@ export async function processAlinaTelegramUpdate(
             }
         }
         if (newer) return; // дописал ещё: ответит последнее сообщение, сведя всё в один ответ
+    }
+
+    // Один разговор обрабатывается строго по очереди: пока идёт ответ на прошлое сообщение этого чата, следующее ждёт (иначе два ответа расходятся и дублируются).
+    const releaseLock = await acquireChatLock(admin, message.chatId, message.updateId);
+    try {
+    if (useBurst) {
         const { data: mark } = await admin.from('alina_selfbuy_events').select('created_at')
             .eq('chat_id', message.chatId).eq('event_type', 'burst_handled').order('created_at', { ascending: false }).limit(1).maybeSingle();
         const since = mark?.created_at ?? new Date(Date.now() - 120_000).toISOString();
         const { data: burst } = await admin.from('alina_selfbuy_events').select('payload, created_at')
             .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', since).order('created_at', { ascending: true }).limit(20);
-        text = joinBurst((burst || []).map((r: { payload: { text?: string; photo?: boolean } }) => r.payload), message.text || '');
-        await admin.from('alina_selfbuy_events').insert({ event_type: 'burst_handled', chat_id: message.chatId, payload: { update_id: message.updateId, parts: (burst || []).length } });
+        const rows = (burst || []) as Array<{ payload: { text?: string; photo?: boolean; update_id?: number } }>;
+        // Это сообщение уже вошло в ответ на предыдущую пачку (его разобрал предыдущий обработчик): второй раз не отвечаем.
+        if (rows.length && !rows.some((x) => x.payload?.update_id === message.updateId)) {
+            await logAlinaRawEvent(message.chatId, 'burst_already_handled', { update_id: message.updateId });
+            return;
+        }
+        text = joinBurst(rows.map((r) => r.payload), message.text || '');
+        await admin.from('alina_selfbuy_events').insert({ event_type: 'burst_handled', chat_id: message.chatId, payload: { update_id: message.updateId, parts: rows.length } });
     }
 
     if (message.kind === 'client' && message.replyText) text = withReplyContext(text || '', message.replyText);
@@ -138,12 +151,13 @@ export async function processAlinaTelegramUpdate(
           }, escalate.question);
           if (!posted) replies = ['Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.'];
         }
-        // Ответ про наличие моделей: один раз в 5 минут на чат (чтобы точно не было дублей), повтор тихо не отправляем.
-        if (tag === 'models') {
+        // Ответ про наличие моделей (5 минут) и повторный вопрос в том же шаге (3 минуты): второй раз не отправляем, чтобы не было дублей.
+        if (tag === 'models' || (tag && tag.startsWith('ask:'))) {
+            const windowMs = tag === 'models' ? 5 * 60_000 : 3 * 60_000;
             const { data: shown } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log')
-                .eq('payload->>dir', 'alina').eq('payload->>kind', 'models').gt('created_at', new Date(Date.now() - 5 * 60_000).toISOString()).limit(1);
+                .eq('payload->>dir', 'alina').eq('payload->>kind', tag).gt('created_at', new Date(Date.now() - windowMs).toISOString()).limit(1);
             if (shown && shown.length) {
-                await logAlinaRawEvent(message.chatId, 'models_suppressed', { update_id: message.updateId });
+                await logAlinaRawEvent(message.chatId, 'prompt_suppressed', { update_id: message.updateId, tag });
                 return;
             }
         }
@@ -186,7 +200,7 @@ export async function processAlinaTelegramUpdate(
         for (const reply of replies) {
             const mid = await sendTextId(token, message, reply, firstReply, budget, replyMid || undefined);
             if (mid === null) throw new Error('text_delivery');
-            const kind = (tag === 'models' && reply === replies[0]) ? 'models' : kindOf(reply);
+            const kind = (tag && reply === replies[0]) ? tag : kindOf(reply);
             await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), mid, ...(kind ? { kind } : {}) });
             firstReply = false;
         }
@@ -200,6 +214,35 @@ export async function processAlinaTelegramUpdate(
         await logAlinaRawEvent(message.chatId, 'business_error', { ...delivery, error: String((e as Error)?.message || e).slice(0, 200) });
         console.error('[alina] Telegram update failed after being claimed');
     }
+    } finally {
+        await releaseLock();
+    }
+}
+
+/** Очередь обработки в одном чате: вперёд пропускаем самое раннее незавершённое сообщение; зависшие (старше 90 секунд) не ждём. */
+async function acquireChatLock(admin: ReturnType<typeof getAdminClient>, chatId: number, uid: number): Promise<() => Promise<void>> {
+    const key = String(uid);
+    try {
+        const { data: mine } = await admin.from('alina_selfbuy_events').insert({ event_type: 'proc_start', chat_id: chatId, payload: { uid: key } })
+            .select('id, created_at').maybeSingle();
+        const deadline = Date.now() + pacing.lockWaitMs;
+        while (mine && Date.now() < deadline) {
+            const since = new Date(Date.now() - 90_000).toISOString();
+            const [{ data: starts }, { data: ends }] = await Promise.all([
+                admin.from('alina_selfbuy_events').select('id, created_at, payload').eq('chat_id', chatId).eq('event_type', 'proc_start').gt('created_at', since).order('created_at', { ascending: true }).limit(30),
+                admin.from('alina_selfbuy_events').select('payload').eq('chat_id', chatId).eq('event_type', 'proc_end').gt('created_at', since).limit(60),
+            ]);
+            const ended = new Set(((ends || []) as Array<{ payload: { uid?: string } }>).map((e) => String(e.payload?.uid)));
+            const earlier = ((starts || []) as Array<{ id: number | string; created_at: string; payload: { uid?: string } }>).filter((x) =>
+                String(x.payload?.uid) !== key && !ended.has(String(x.payload?.uid)) &&
+                (x.created_at < mine.created_at || (x.created_at === mine.created_at && String(x.id) < String(mine.id))));
+            if (!earlier.length) break;
+            await pacing.sleep(2000);
+        }
+    } catch { /* очередь best-effort: при сбое базы отвечаем как раньше */ }
+    return async () => {
+        try { await admin.from('alina_selfbuy_events').insert({ event_type: 'proc_end', chat_id: chatId, payload: { uid: key } }); } catch { /* не критично */ }
+    };
 }
 
 // Живой темп: перед ответом «читает» и «печатает». Пауза зависит от длины текста, на все ответы одного сообщения не больше 25 секунд.
@@ -207,6 +250,7 @@ export const pacing = {
     sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
     burstMs: 7000, // сколько ждём, не допишет ли человек ещё
     promiseMs: 70_000, // если клиент пообещал прислать ещё
+    lockWaitMs: 60_000, // сколько ждём очередь предыдущего сообщения в этом чате
 };
 
 /** Склеивает сообщения подряд в один текст (фото-сообщения не берём: у них свой путь). Если ничего не нашли, остаётся текст этого сообщения. */

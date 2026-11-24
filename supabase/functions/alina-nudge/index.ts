@@ -59,6 +59,10 @@ Deno.serve(async (req) => {
         const { data: owner } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', l.chat_id).eq('event_type', 'chat_log')
             .eq('payload->>dir', 'owner').gt('created_at', since30).limit(1);
         if (owner && owner.length) continue;
+        // Клиент отказался или предлагает другие условия («не готова», «не буду», «не подходит»): не напоминаем, решает менеджер
+        const { data: lastTexts } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', l.chat_id).eq('event_type', 'chat_log')
+            .eq('payload->>dir', 'client').order('created_at', { ascending: false }).limit(4);
+        if (((lastTexts || []) as Array<{ payload: { text?: string } }>).some((x) => /не\s+готов\S*|не\s+буд\S+|не\s+хочу|откаж\S*|не\s+подходит|не\s+согласн\S*|к\s+сожалению\s+я\s+не/i.test(String(x.payload?.text || '')))) continue;
         const { data: lastClient } = await admin.from('alina_selfbuy_events').select('created_at').eq('chat_id', l.chat_id).eq('event_type', 'chat_log')
             .eq('payload->>dir', 'client').order('created_at', { ascending: false }).limit(1).maybeSingle();
         const idleMs = now - Date.parse(String((lastClient as { created_at?: string } | null)?.created_at || l.updated_at));
