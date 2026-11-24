@@ -39,7 +39,7 @@ import {
   syncCampaignFromSheet,
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
-import { bookPlace, takePlaceToday } from './alina-razdachi-sync.ts';
+import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
@@ -77,6 +77,7 @@ export type SelfbuyStatus =
   | 'wait_cart'
   | 'wait_order'
   | 'wait_size'
+  | 'wait_integration'
   | 'wait_bank'
   | 'wait_pickup'
   | 'wait_review'
@@ -308,6 +309,16 @@ async function handleAlinaClientMessageInner(opts: {
     const early = parseSize(text);
     if (early) {
       const notes = withSize(lead.notes, early);
+      await updateLead(db, lead.id, { notes });
+      lead = { ...lead, notes };
+    }
+  }
+
+  // Дата интеграции названа в любой момент («выйду 28-го»): запоминаем, потом не переспрашиваем.
+  if (!hasPhoto && lead.status !== 'wait_integration' && !intOf(lead)) {
+    const d = parseIntegrationDate(text);
+    if (d) {
+      const notes = withInt(lead.notes, d);
       await updateLead(db, lead.id, { notes });
       lead = { ...lead, notes };
     }
@@ -816,14 +827,27 @@ async function handleAlinaClientMessageInner(opts: {
       }
       return r('Нужны реквизиты одной строкой: телефон + ФИО + банк (СБП) 🙌');
     }
+    // Дату интеграции спрашиваем только если клиент её ещё не называл.
+    const haveInt = Boolean(intOf(lead));
     await updateLead(db, lead.id, {
       bank_details: text.slice(0, 1000),
-      status: 'wait_pickup',
+      status: haveInt ? 'wait_pickup' : 'wait_integration',
       last_client_text: '[реквизиты]',
     });
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
+    if (!haveInt) return r('Реквизиты приняла ✅', 'Когда планируете выход интеграции? Напишите дату 🙌');
     return r('Реквизиты приняла ✅', MSG_ASK_PICKUP());
+  }
+
+  // ── wait_integration: ждём дату выхода интеграции ────────────────────────
+  if (lead.status === 'wait_integration') {
+    const d = parseIntegrationDate(text, true);
+    if (!d) return r('Напишите дату выхода интеграции, например 28.11 или «завтра» 🙌');
+    await updateLead(db, lead.id, { status: 'wait_pickup', notes: withInt(lead.notes, d), last_client_text: text });
+    await logEvent(db, lead.id, opts.chatId, 'integration_done', { date: d });
+    await syncLeadToSheet(db, lead.id);
+    return r(MSG_ASK_PICKUP());
   }
 
   // ── wait_pickup ──────────────────────────────────────────────────────────
@@ -1032,6 +1056,10 @@ export function parseSize(text: string, loose = false): string {
 const sizeOf = (lead: SelfbuyLead): string => (lead.notes || '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '';
 const withSize = (notes: string | null | undefined, size: string): string =>
   `${(notes || '').replace(/\s*размер:\S+/g, '').trim()} размер:${size.replace(/\s+/g, '_')}`.trim();
+
+const intOf = (lead: SelfbuyLead): string => (lead.notes || '').match(/интеграция:(\S+)/)?.[1] ?? '';
+const withInt = (notes: string | null | undefined, date: string): string =>
+  `${(notes || '').replace(/\s*интеграция:\S+/g, '').trim()} интеграция:${date}`.trim();
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
