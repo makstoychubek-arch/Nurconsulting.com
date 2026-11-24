@@ -137,3 +137,17 @@ export const BRAND_REPLIES = [
   'Бренд называть не нужно 🙌 Вы вбиваете ключ и присылаете скрин с выдачей, а мы сами по фото определим, наш это товар или нет.',
   'Бренд знать не нужно: просто пришлите скрин поиска по ключу, мы сами сверим по фото и подтвердим, что это наш товар 🙌',
 ];
+
+/** Длинный текст (например, ТЗ) делим на несколько сообщений по абзацам, как отправил бы человек: каждое примерно до 700 знаков. */
+export function splitLong(text: string, max = 700): string[] {
+  const t = String(text || '');
+  if (t.length <= max * 1.3 || !t.includes('\n\n')) return [t];
+  const out: string[] = [];
+  let cur = '';
+  for (const para of t.split('\n\n')) {
+    if (cur && (cur.length + para.length + 2 > max)) { out.push(cur.trim()); cur = para; }
+    else cur = cur ? cur + '\n\n' + para : para;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
