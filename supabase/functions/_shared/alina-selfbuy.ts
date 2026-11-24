@@ -814,6 +814,8 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_cart') {
     if (hasPhoto || /корзин|конкурент|избранн/i.test(text)) {
       const vision = hasPhoto ? await readScreen('cart') : null;
+      // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
+      if (vision && vision.via === 'ai' && ['product'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
@@ -846,6 +848,8 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_order') {
     if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
       const vision = hasPhoto ? await readScreen('order') : null;
+      // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
+      if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
