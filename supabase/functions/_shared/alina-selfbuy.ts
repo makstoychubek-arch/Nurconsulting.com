@@ -926,6 +926,10 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_pickup') {
     if (hasPhoto || /забрал|получил|пвз|сегодня|завтра|\d{1,2}[./]/i.test(text)) {
       const vision = hasPhoto ? await readScreen('pickup') : null;
+      // Скрин поиска/корзины/заказа здесь не «получение»: не двигаем этап, решает менеджер
+      if (vision && ['product', 'cart', 'order'].includes(String(vision.kind)) && !text.trim().replace(/^скрин$/i, '')) {
+        return await visionToManager(lead, vision);
+      }
       await updateLead(db, lead.id, {
         pickup_at: text.slice(0, 200) || vision?.delivery_date ||
           new Date().toISOString().slice(0, 10),
@@ -1385,7 +1389,20 @@ async function sendKeyFlow(
   text: string,
 ): Promise<AlinaReply> {
   // Ключ берём из заявки (он взят из строки графика этой модели); ключ кампании по умолчанию может быть от другой модели.
-  const keyword = (lead.keyword || camp?.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
+  let planKey = '';
+  if (razdachiRowsMode() && lead.product_name) {
+    // Ключ берём заново из графика по модели заявки: поле заявки могло остаться от другой модели (так Карине ушёл ключ «со штанами» вместо «с шортами»).
+    try {
+      const snap = await fetchSheetPlan(false);
+      const want = String(lead.product_name).trim().toLowerCase();
+      const art = (lead.notes || '').match(/\[арт\s*(\d+)\]/)?.[1];
+      const hit = snap.ok
+        ? snap.offers.find((o) => (art && String(o.article || '') === art && o.keyword) || (String(o.product_name || '').trim().toLowerCase() === want && o.keyword))
+        : null;
+      if (hit?.keyword) planKey = String(hit.keyword).trim();
+    } catch { /* ключ заявки как запасной */ }
+  }
+  const keyword = (planKey || lead.keyword || camp?.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
   if (!keyword) {
     return r('Секунду, ключ уточню и пришлю 🙌');
   }

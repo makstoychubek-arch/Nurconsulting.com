@@ -129,6 +129,8 @@ export async function fetchWbSearchFilters(nmId: number | string): Promise<WbFil
       const value = String(o.value || '').trim();
       if (!name || !value) continue;
       if (BRAND_NAME_RE.test(name)) continue;
+      // Цвет в карточке — слова продавца («шоколадный»), такого фильтра в поиске WB нет (есть «коричневый»): цвет клиенту не даём.
+      if (/^(основной\s+)?цвет|расцветка/i.test(name)) continue;
       if (brand && value.toLowerCase() === brand) continue;
       if (/\d{6,}/.test(value)) continue; // не светим артикулы
       const key = name.toLowerCase();
