@@ -501,13 +501,9 @@ async function handleAlinaClientMessageInner(opts: {
       // Режим строк: вместо «напишите завтра» называем ближайшие свободные даты и предлагаем бронь.
       const sheet = getLastRazdachi()?.sheet;
       const today = todayMskKey();
-      const nearest = new Map<string, { model: string; date: string }>();
-      for (const x of sheet ? freeSlots(sheet, today, 14) : []) if (!nearest.has(x.model)) nearest.set(x.model, x);
-      if (nearest.size) {
-        return r(
-          'На сегодня места закончились 😔',
-          `Ближайшие: ${[...nearest.values()].map((x) => `${x.model} — ${ruDay(x.date, today)}`).join('; ')}. Какую забронировать?`,
-        );
+      const first = sheet ? freeSlots(sheet, today, 14)[0] : null; // только ближайшая дата, весь план не перечисляем
+      if (first) {
+        return r(`На сегодня всё занято 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`);
       }
     }
     return r(MSG_CLOSED());
@@ -1151,10 +1147,7 @@ const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена
 async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, date: string): Promise<AlinaReply> {
   await logEvent(db, lead.id, lead.chat_id, 'slot_offer', { model, date });
   const day = ruDay(date, todayMskKey());
-  return r(
-    `На сегодня «${model}» уже нет 😔`,
-    `Ближайшее место: ${day}. Забронировать?`,
-  );
+  return r(`На сегодня «${model}» уже нет 😔\nБлижайшее место: ${day}. Забронировать?`);
 }
 
 async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
