@@ -15,7 +15,10 @@ export async function processAlinaTelegramUpdate(
     update: Parameters<typeof parseAlinaBusinessUpdate>[0],
 ): Promise<void> {
     const message = parseAlinaBusinessUpdate(update);
-    if (!message) return;
+    if (!message) {
+        await notifyMedia(botId, envToken, update);
+        return;
+    }
     const admin = getAdminClient();
     // Журнал переписки для обучения Алины (режим наблюдения): что пишет клиент и что отвечает владелец вручную, с временем. Работает и при выключенной Алине.
     try {
@@ -187,7 +190,7 @@ export async function processAlinaTelegramUpdate(
             .eq('event_type', 'chat_log').in('payload->>dir', ['owner', 'alina']).gt('created_at', since12h).limit(40);
         const greeted = (hist || []).some((x: { payload: { text?: string } }) => startsWithGreeting(String(x.payload?.text || '')));
         replies = applyGreeting(replies, greeted);
-        replies = replies.flatMap((x) => splitLong(x)); // длинные тексты (ТЗ) отправляем несколькими сообщениями
+        replies = replies.flatMap((x) => splitLong(x, 3800)); // длинные тексты (ТЗ) отправляем несколькими сообщениями
         // «Отправила выше»: отвечаем реплаем на своё прежнее сообщение (условия, ключ, фото), чтобы не отправлять его второй раз.
         let replyMid = 0;
         if (replyToKind) {
@@ -217,6 +220,33 @@ export async function processAlinaTelegramUpdate(
     } finally {
         await releaseLock();
     }
+}
+
+/** Клиент прислал видео, голосовое или файл без текста: Алина это не разбирает, один раз за 10 минут говорим менеджерам (клиенту не отвечаем). */
+async function notifyMedia(botId: BotId, envToken: string, update: Parameters<typeof parseAlinaBusinessUpdate>[0]): Promise<void> {
+    try {
+        const bm = (update as { business_message?: Record<string, unknown> } | null)?.business_message as {
+            business_connection_id?: string; chat?: { id?: number; type?: string }; from?: { id?: number; username?: string; is_bot?: boolean };
+            video?: unknown; video_note?: unknown; voice?: unknown; animation?: unknown; document?: unknown; text?: string; caption?: string; sender_business_bot?: unknown;
+        } | undefined;
+        if (!bm || bm.chat?.type !== 'private' || !bm.chat.id || bm.from?.id !== bm.chat.id || bm.from?.is_bot || bm.sender_business_bot) return;
+        if (!(bm.video || bm.video_note || bm.voice || bm.animation || bm.document) || bm.text || bm.caption) return;
+        const admin = getAdminClient();
+        const { data: bot } = await admin.from('telegram_bots').select('is_enabled, deleted_at').eq('id', botId).maybeSingle();
+        if (!bot?.is_enabled || bot.deleted_at) return;
+        const only = (await loadAlinaSettings()).onlyLogins;
+        if (only.length && !only.includes(normLogin(bm.from?.username))) return;
+        const { data: recent } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', bm.chat.id).eq('event_type', 'media_notice')
+            .gt('created_at', new Date(Date.now() - 10 * 60_000).toISOString()).limit(1);
+        if (recent && recent.length) return;
+        const group = await managerGroupId();
+        const { data: credentials } = await admin.from('telegram_bot_secrets').select('token').eq('bot_id', botId).maybeSingle();
+        const token = String(credentials?.token || envToken).trim();
+        if (!group || !token || !bm.business_connection_id) return;
+        await admin.from('alina_selfbuy_events').insert({ event_type: 'media_notice', chat_id: bm.chat.id, payload: { kind: bm.video ? 'video' : bm.voice ? 'voice' : 'file' } });
+        await askAlinaManager(token, group, { chatId: bm.chat.id, connectionId: bm.business_connection_id, username: bm.from?.username },
+            'Клиент прислал видео, голосовое или файл без текста. Алина такое не разбирает и клиенту не отвечала. Посмотрите в чате.');
+    } catch { /* уведомление не критично */ }
 }
 
 /** Очередь обработки в одном чате: вперёд пропускаем самое раннее незавершённое сообщение; зависшие (старше 90 секунд) не ждём. */

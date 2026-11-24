@@ -43,7 +43,7 @@ import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdach
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -503,9 +503,10 @@ async function handleAlinaClientMessageInner(opts: {
       // Режим строк: вместо «напишите завтра» называем ближайшие свободные даты и предлагаем бронь.
       const sheet = getLastRazdachi()?.sheet;
       const today = todayMskKey();
-      const first = sheet ? freeSlots(sheet, today, 14)[0] : null; // только ближайшая дата, весь план не перечисляем
+      const late = tooLateForToday();
+      const first = sheet ? freeSlots(sheet, today, 14).find((x) => !late || x.date !== today) : null; // только ближайшая дата, весь план не перечисляем
       if (first) {
-        return { ...r(`На сегодня всё занято 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
+        return { ...r(`${late ? 'На сегодня уже не успеть: заказ до 22:00 МСК' : 'На сегодня всё занято'} 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
       }
     }
     return r(MSG_CLOSED());
@@ -706,7 +707,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────
   if (lead.status === 'tz_sent') {
-    if (wantsKey(text) || /готов|ознаком|прочитал|понял|(?:^|[\s,.:;!?/\\|])ок(?=$|[\s,.:;!?/\\|])|хорошо|давай|дальше/i.test(text)) {
+    if (wantsKey(text) || /готов|ознаком|прочитал|понял|согласн|принима|понятно|ясно|конечно|(?:^|[\s,.:;!?/\\|])(?:да|даа+|ага|угу|окей|ок)(?=$|[\s,.:;!?/\\|])|хорошо|давай|дальше/i.test(text)) {
       return await sendKeyFlow(db, lead, camp, text);
     }
     if (hasPhoto) {
@@ -813,6 +814,8 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_cart') {
     if (hasPhoto || /корзин|конкурент|избранн/i.test(text)) {
       const vision = hasPhoto ? await readScreen('cart') : null;
+      // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
+      if (vision && vision.via === 'ai' && ['product'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
@@ -845,6 +848,8 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_order') {
     if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
       const vision = hasPhoto ? await readScreen('order') : null;
+      // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
+      if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
@@ -1072,7 +1077,7 @@ function placesFactFor(username?: string | null): string | null {
     : ['свободных мест в ближайшие 14 дней нет'];
   const tg = (username || '').replace(/^@/, '').toLowerCase();
   const mine = sheet.rows.filter((x) => tg && x.tg === tg && x.date >= '' && x.date.length === 10).map((x) => `${x.model} ${ruDay(x.date, today)}`);
-  return [`свободные места: ${lines.join('; ')}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
+  return [`свободные места: ${lines.join('; ')}${tooLateForToday() ? ' (после 20:30 МСК на сегодня уже не берём: заказ нужно сделать до 22:00 МСК)' : ''}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
 }
 
 /** Клиент назвал другую модель после скрина заказа: заводим отдельную заявку (одна на клиента и модель). */
@@ -1350,10 +1355,16 @@ async function openDeal(
 
   const replies: string[] = [];
   if (ig) replies.push(MSG_GOT_IG());
-  replies.push(msgOpenHuman(deal, product));
-  replies.push(deal === 'barter'
+  const tzText = deal === 'barter'
     ? tzBarter(offer?.order_deadline || camp?.order_deadline)
-    : TZ_CASHBACK());
+    : TZ_CASHBACK();
+  if (razdachiRowsMode()) {
+    // Владелец (24 ноября 2026): условия одним сообщением, ключ отправляем после согласия клиента.
+    replies.push(`${tzText}\n\nЕсли согласны с условиями, отправлю ключ 🙌`);
+    return r(...replies);
+  }
+  replies.push(msgOpenHuman(deal, product));
+  replies.push(tzText);
 
   if (keyword) {
     await updateLead(db, lead.id, { keyword, status: 'key_sent' });
@@ -1877,15 +1888,25 @@ async function handleCantFindFilters(
     }
     if (!isYes(text) && !cantFindProduct(text)) {
       // ждём да/нет
-      if (lead.status === 'ask_filters') return r(MSG_ASK_FILTERS());
+      if (lead.status === 'ask_filters') return rAsk('ask_filters', MSG_ASK_FILTERS());
       return null;
     }
     // yes → ниже отправим batch
   } else if (cantFindProduct(text)) {
     if (round >= 2) {
-      return r(
-        'Попробуйте сортировку «Популярные» и без лишних фильтров кроме тех, что скидывала. Потом скрин поиска с ключом сверху 🙌',
-      );
+      // Обе пачки фильтров отправлены, а клиент всё равно не находит (регион, недоступная карточка): не крутим одно и то же, передаём менеджеру один раз.
+      const { data: done } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'filters_escalated')
+        .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(1);
+      if (done && done.length) return { replies: [] };
+      const group = await managerGroupId();
+      await logEvent(db, lead.id, lead.chat_id, 'filters_escalated', { text });
+      if (group) {
+        return {
+          replies: ['Передала менеджеру, он посмотрит и подскажет.'],
+          escalate: { topic: 'не находит товар', question: `Клиент не находит товар даже с фильтрами: «${text.slice(0, 200)}». Модель: ${lead.product_name || '—'}, ключ: ${lead.keyword || '—'}. Посмотрите регион и доступность карточки.`, group },
+        };
+      }
+      return r('Попробуйте сортировку «Популярные» и без лишних фильтров кроме тех, что скидывала. Потом скрин поиска с ключом сверху 🙌');
     }
     if (round === 1) {
       // сразу вторая пачка без повторного «хотите?»
@@ -1897,7 +1918,7 @@ async function handleCantFindFilters(
         last_client_text: text,
       });
       await logEvent(db, lead.id, lead.chat_id, 'ask_filters', { text });
-      return r(MSG_ASK_FILTERS());
+      return rAsk('ask_filters', MSG_ASK_FILTERS());
     }
   } else {
     return null;

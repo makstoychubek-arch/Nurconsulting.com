@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 const code = readFileSync(new URL('./alina-razdachi.ts', import.meta.url), 'utf8').replace(/^export /gm, '');
 const lib = new Function(stripTypeScriptTypes(code) + `
-return { normTg, normModel, normDate, todayMskKey, colLetter, parseRazdachiSheet, findClientRows, modelStats, writeClientRow, createCachedLoader, daysBetween, ruDay, isFreeRow, freeSlots, nearestFree, matchModels, claimFreeRow }`)();
+return { normTg, normModel, normDate, todayMskKey, colLetter, parseRazdachiSheet, findClientRows, modelStats, writeClientRow, createCachedLoader, daysBetween, ruDay, isFreeRow, freeSlots, nearestFree, matchModels, claimFreeRow, mskMinutes, tooLateForToday }`)();
 
 const HEAD = ['ТОВАР', 'ВИД РАЗДАЧИ', 'Ссылка ТГ', 'Дата заказа', 'Цена в заказе', 'Размер кэша', 'Кэш выплачен', 'Примерная Дата забора',
   'фактическая дата забора', 'Разрезанный ШК', 'Дата публикации отзыва ', 'Вид отзыва', 'Реквизиты', 'Реквизиты', 'Фактическая дата выплаты',
@@ -205,4 +205,8 @@ const rowsCount = (g) => g.length;
   assert.deepEqual(lib.matchModels(models, 'Интересует модель со штанами').sort(), ['Пижама 3в1 молочный', 'Пижама 3в1 шоколадный']);
   console.log('ok   «со штанами» это 3в1');
 }
+assert.equal(lib.mskMinutes(Date.parse('2026-11-24T17:30:00Z')), 20 * 60 + 30);
+assert.equal(lib.tooLateForToday(Date.parse('2026-11-24T17:29:00Z')), false);
+assert.equal(lib.tooLateForToday(Date.parse('2026-11-24T17:30:00Z')), true);
+console.log('ok   после 20:30 МСК на сегодня не берём');
 console.log('PASS: alina-razdachi');

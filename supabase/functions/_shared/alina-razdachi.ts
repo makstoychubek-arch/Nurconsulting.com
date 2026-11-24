@@ -348,3 +348,11 @@ export async function claimFreeRow(
   if (!after) return { status: 'unverified', row: target.row };
   return { status: normTg(after[sheet.col.tg]) === normTg(tg) ? 'claimed' : 'taken', row: target.row };
 }
+
+// После 20:30 МСК на сегодняшний день уже не берём (заказ нужно сделать до 22:00): предлагаем ближайшую следующую дату.
+export const TODAY_CUTOFF_MIN = 20 * 60 + 30;
+export function mskMinutes(now = Date.now()): number {
+  const d = new Date(now + 3 * 3600_000);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+export const tooLateForToday = (now = Date.now()): boolean => mskMinutes(now) >= TODAY_CUTOFF_MIN;

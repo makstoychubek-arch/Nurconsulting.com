@@ -12,7 +12,7 @@
 import { googleAccessToken } from './alina-google-auth.ts';
 import { secretOrEnv } from './integration-secrets.ts';
 import { scoreProductMatch } from './alina-product-match.ts';
-import { parseRazdachiSheet, normModel, isFreeRow, todayMskKey, type RazSheet } from './alina-razdachi.ts';
+import { parseRazdachiSheet, normModel, isFreeRow, todayMskKey, tooLateForToday, type RazSheet } from './alina-razdachi.ts';
 
 /** Режим «Раздачи — строки»: каждая размеченная строка с ТГ, моделью и датой это место блогера. Выключен по умолчанию. */
 export function razdachiRowsMode(): boolean {
@@ -604,6 +604,7 @@ export function applyRowsToOffers(offers: SheetPlanOffer[], sheet: RazSheet, tod
     o.slots_left = free;
     o.is_open = free > 0;
     o.status_raw = free > 0 ? 'открыто' : (mine.length ? 'места закончились' : 'нет плана на сегодня');
+    if (tooLateForToday()) { o.is_open = false; o.slots_left = 0; o.status_raw = 'уже поздно (после 20:30 МСК)'; }
   }
 }
 
