@@ -18,6 +18,8 @@ import {
   type SheetIO,
   todayMskKey,
   tooLateForToday,
+  lateExceptionOn,
+  setLateException,
   writeClientRow,
 } from './alina-razdachi.ts';
 
@@ -248,6 +250,17 @@ export async function takePlaceToday(db: SupabaseClient, lead: Lead, model: stri
   const r = await claimOn(db, lead, model, today, today);
   if (typeof r === 'object') return { kind: 'have', row: r.row, date: today };
   if (r === 'claimed') {
+    if (lateExceptionOn()) {
+      // Исключение разовое: место взято, выключаем его и не трогаем этого клиента автосбросом и напоминаниями.
+      await db.from('alina_settings').delete().eq('key', 'lateException').then(() => undefined, () => undefined);
+      const { data: sk } = await db.from('alina_settings').select('value').eq('key', 'nudgeSkip').maybeSingle();
+      const list = Array.isArray(sk?.value) ? (sk!.value as string[]) : [];
+      const me = String(lead.username || '').replace(/^@/, '').toLowerCase();
+      if (me && !list.map((x) => String(x).toLowerCase()).includes(me)) {
+        await db.from('alina_settings').upsert({ key: 'nudgeSkip', value: [...list, me] }).then(() => undefined, () => undefined);
+      }
+      setLateException(false);
+    }
     const row = getLastRazdachi()?.sheet.rows.find((x) => x.tg === normTg(lead.username) && x.date === today && normModel(x.model) === normModel(model));
     return { kind: 'claimed', row: row?.row ?? 0, date: today };
   }

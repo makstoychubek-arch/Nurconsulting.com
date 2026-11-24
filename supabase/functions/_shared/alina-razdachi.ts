@@ -355,4 +355,8 @@ export function mskMinutes(now = Date.now()): number {
   const d = new Date(now + 3 * 3600_000);
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
-export const tooLateForToday = (now = Date.now()): boolean => mskMinutes(now) >= TODAY_CUTOFF_MIN;
+/** Разовое исключение владельца (alina_settings.lateException): до указанного времени места на сегодня берём и после 20:30 МСК. */
+let lateException = false;
+export const setLateException = (v: boolean): void => { lateException = v; };
+export const lateExceptionOn = (): boolean => lateException;
+export const tooLateForToday = (now = Date.now()): boolean => !lateException && mskMinutes(now) >= TODAY_CUTOFF_MIN;
