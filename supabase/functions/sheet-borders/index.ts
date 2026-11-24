@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
         const vr2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(q(tab) + '!A1:AX')}`, { headers: H, signal: AbortSignal.timeout(30000) });
         if (vr2.ok) vals = ((await vr2.json()).values || []) as unknown[][];
     }
-    // разделители групп: по смене даты (колонка date_col) толстая чёрная линия, по смене товара в пределах даты (колонка product_col) средняя серая; нумерация колонок с 0
+    // разделители групп: по смене даты (колонка date_col) толстая чёрная линия, по смене товара в пределах даты (колонка product_col) тонкая чёрная; нумерация колонок с 0
     const productCol = body.product_col == null ? -1 : Number(body.product_col), dateCol = body.date_col == null ? -1 : Number(body.date_col);
     const cell = (r: number, c: number) => String((vals[r] || [])[c] ?? '').trim();
     const groups: { row: number; kind: 'product' | 'date' }[] = [];
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const reqs: Record<string, unknown>[] = [{ updateBorders: { range, top: line, bottom: line, left: line, right: line, innerHorizontal: line, innerVertical: line } }];
     if (body.reset_grid === false) reqs.length = 0;
     const heavy = { style: 'SOLID_THICK', colorStyle: { rgbColor: { red: 0, green: 0, blue: 0 } } };
-    const medium = { style: 'SOLID_MEDIUM', colorStyle: { rgbColor: { red: 0.2, green: 0.2, blue: 0.2 } } };
+    const medium = { style: 'SOLID', colorStyle: { rgbColor: { red: 0, green: 0, blue: 0 } } }; // между моделями внутри даты: тонкая чёрная линия
     for (const g of groups) reqs.push({ updateBorders: { range: { sheetId: sh.properties.sheetId, startRowIndex: g.row, endRowIndex: g.row + 1, startColumnIndex: 0, endColumnIndex: columns }, top: g.kind === 'date' ? heavy : medium } });
     const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', headers: H, signal: AbortSignal.timeout(30000), body: JSON.stringify({ requests: reqs }) });
     if (!res.ok) return json({ ok: false, step: 'batchUpdate', status: res.status, error: (await res.text()).slice(0, 300) }, 502);
