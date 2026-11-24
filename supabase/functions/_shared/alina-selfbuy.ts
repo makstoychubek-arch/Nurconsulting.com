@@ -1389,7 +1389,20 @@ async function sendKeyFlow(
   text: string,
 ): Promise<AlinaReply> {
   // Ключ берём из заявки (он взят из строки графика этой модели); ключ кампании по умолчанию может быть от другой модели.
-  const keyword = (lead.keyword || camp?.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
+  let planKey = '';
+  if (razdachiRowsMode() && lead.product_name) {
+    // Ключ берём заново из графика по модели заявки: поле заявки могло остаться от другой модели (так Карине ушёл ключ «со штанами» вместо «с шортами»).
+    try {
+      const snap = await fetchSheetPlan(false);
+      const want = String(lead.product_name).trim().toLowerCase();
+      const art = (lead.notes || '').match(/\[арт\s*(\d+)\]/)?.[1];
+      const hit = snap.ok
+        ? snap.offers.find((o) => (art && String(o.article || '') === art && o.keyword) || (String(o.product_name || '').trim().toLowerCase() === want && o.keyword))
+        : null;
+      if (hit?.keyword) planKey = String(hit.keyword).trim();
+    } catch { /* ключ заявки как запасной */ }
+  }
+  const keyword = (planKey || lead.keyword || camp?.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
   if (!keyword) {
     return r('Секунду, ключ уточню и пришлю 🙌');
   }
