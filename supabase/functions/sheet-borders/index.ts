@@ -28,13 +28,36 @@ Deno.serve(async (req) => {
     // последняя строка с данными: смотрим колонки A:AX целиком, лишнего не пишем
     const vr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(q(tab) + '!A1:AX')}`, { headers: H, signal: AbortSignal.timeout(30000) });
     if (!vr.ok) return json({ ok: false, step: 'values', status: vr.status, error: (await vr.text()).slice(0, 300) }, 502);
-    const vals = ((await vr.json()).values || []) as unknown[][];
+    let vals = ((await vr.json()).values || []) as unknown[][];
     let last = 0;
     vals.forEach((r, i) => { if (r.some((c) => String(c ?? '').trim() !== '')) last = i + 1; });
-    if (dry) return json({ ok: true, dry_run: true, sheetId: sh.properties.sheetId, last_row: last, columns, rows_total: sh.properties.gridProperties?.rowCount ?? null });
+    // сортировка строк данных (без шапки) по перечисленным колонкам, например [3, 0]: по дате заказа, затем по товару; строки переносятся целиком, данные не меняются
+    const sortCols = Array.isArray(body.sort_cols) ? (body.sort_cols as number[]).map(Number) : [];
+    if (sortCols.length && !dry) {
+        const sr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', headers: H, signal: AbortSignal.timeout(30000), body: JSON.stringify({ requests: [{ sortRange: { range: { sheetId: sh.properties.sheetId, startRowIndex: 1, endRowIndex: last, startColumnIndex: 0, endColumnIndex: columns }, sortSpecs: sortCols.map((c) => ({ dimensionIndex: c, sortOrder: 'ASCENDING' })) } }] }) });
+        if (!sr.ok) return json({ ok: false, step: 'sort', status: sr.status, error: (await sr.text()).slice(0, 300) }, 502);
+        const vr2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(q(tab) + '!A1:AX')}`, { headers: H, signal: AbortSignal.timeout(30000) });
+        if (vr2.ok) vals = ((await vr2.json()).values || []) as unknown[][];
+    }
+    // разделители групп: по смене товара (колонка product_col) толстая линия, по смене даты (колонка date_col) средняя; нумерация колонок с 0
+    const productCol = body.product_col == null ? -1 : Number(body.product_col), dateCol = body.date_col == null ? -1 : Number(body.date_col);
+    const cell = (r: number, c: number) => String((vals[r] || [])[c] ?? '').trim();
+    const groups: { row: number; kind: 'product' | 'date' }[] = [];
+    if (productCol >= 0 || dateCol >= 0) {
+        for (let r = 2; r < last; r++) {
+            if (productCol >= 0 && cell(r, productCol) !== cell(r - 1, productCol)) groups.push({ row: r, kind: 'product' });
+            else if (dateCol >= 0 && cell(r, dateCol) !== cell(r - 1, dateCol)) groups.push({ row: r, kind: 'date' });
+        }
+    }
+    if (dry) return json({ ok: true, dry_run: true, sheetId: sh.properties.sheetId, last_row: last, columns, rows_total: sh.properties.gridProperties?.rowCount ?? null, group_lines: groups.length, by_product: groups.filter((g) => g.kind === 'product').length, by_date: groups.filter((g) => g.kind === 'date').length });
     const line = { style: 'SOLID', width: 1, colorStyle: { rgbColor: { red: 0.6, green: 0.6, blue: 0.6 } } };
     const range = { sheetId: sh.properties.sheetId, startRowIndex: 0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: columns };
-    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', headers: H, signal: AbortSignal.timeout(30000), body: JSON.stringify({ requests: [{ updateBorders: { range, top: line, bottom: line, left: line, right: line, innerHorizontal: line, innerVertical: line } }] }) });
+    const reqs: Record<string, unknown>[] = [{ updateBorders: { range, top: line, bottom: line, left: line, right: line, innerHorizontal: line, innerVertical: line } }];
+    if (body.reset_grid === false) reqs.length = 0;
+    const heavy = { style: 'SOLID_THICK', colorStyle: { rgbColor: { red: 0, green: 0, blue: 0 } } };
+    const medium = { style: 'SOLID_MEDIUM', colorStyle: { rgbColor: { red: 0.2, green: 0.2, blue: 0.2 } } };
+    for (const g of groups) reqs.push({ updateBorders: { range: { sheetId: sh.properties.sheetId, startRowIndex: g.row, endRowIndex: g.row + 1, startColumnIndex: 0, endColumnIndex: columns }, top: g.kind === 'product' ? heavy : medium } });
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', headers: H, signal: AbortSignal.timeout(30000), body: JSON.stringify({ requests: reqs }) });
     if (!res.ok) return json({ ok: false, step: 'batchUpdate', status: res.status, error: (await res.text()).slice(0, 300) }, 502);
-    return json({ ok: true, applied: true, sheetId: sh.properties.sheetId, last_row: last, columns });
+    return json({ ok: true, applied: true, sheetId: sh.properties.sheetId, last_row: last, columns, group_lines: groups.length });
 });
