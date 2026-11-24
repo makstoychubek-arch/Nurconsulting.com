@@ -300,7 +300,7 @@ const COLOR_WORDS: [RegExp, string][] = [
 /** Какие из моделей клиент имеет в виду: по формату («3в1», «2 в 1», «три в одном») и цвету. Пусто, если модель не названа. */
 export function matchModels(models: string[], text: string): string[] {
   const t = ' ' + normModel(text).replace(/(^|\s)три в одном(?=\s|$)/g, '$13в1').replace(/(^|\s)два в одном(?=\s|$)/g, '$12в1').replace(/([23]) в одном/g, '$1в1') + ' ';
-  const fmt = (t.match(/([23])в1/) || [])[1] || '';
+  const fmt = (t.match(/([23])в1/) || [])[1] || (/штан|брюк/.test(t) ? '3' : /шорт/.test(t) ? '2' : '');
   const colors = COLOR_WORDS.filter(([re]) => re.test(t)).map(([, c]) => c);
   if (!fmt && !colors.length) return [];
   const uniq = [...new Map(models.map((m) => [normModel(m), m])).values()];

@@ -199,4 +199,10 @@ const rowsCount = (g) => g.length;
   assert.equal((await lib.claimFreeRow(fakeIO(g3, { failWrite: true }).io, 'Раздачи', sh3, { row: 8, model: 'Пижама 2в1 шоколадный', date: DAY }, 'x')).status, 'failed');
   console.log('ok   свободные места, ближайшая дата, подбор модели, бронь только в свободную строку');
 }
+{
+  const models = ['Пижама 2в1 шоколадный', 'Пижама 3в1 шоколадный', 'Пижама 3в1 молочный'];
+  assert.deepEqual(lib.matchModels(models, 'Если со штанами шоколадная, то да'), ['Пижама 3в1 шоколадный']);
+  assert.deepEqual(lib.matchModels(models, 'Интересует модель со штанами').sort(), ['Пижама 3в1 молочный', 'Пижама 3в1 шоколадный']);
+  console.log('ok   «со штанами» это 3в1');
+}
 console.log('PASS: alina-razdachi');
