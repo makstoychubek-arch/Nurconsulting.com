@@ -81,3 +81,29 @@ export function applyGreeting(replies: string[], greeted: boolean): string[] {
   }
   return startsWithGreeting(replies[0]) ? replies : ['Здравствуйте! ' + replies[0], ...replies.slice(1)];
 }
+
+// ── Дубли по смыслу и «сейчас пришлю» ──
+const STOP = new Set(['и', 'в', 'на', 'по', 'с', 'у', 'а', 'о', 'к', 'я', 'вы', 'вам', 'вас', 'вот', 'это']);
+const wordsOf = (s: string) => new Set(key(s).split(' ').filter((w) => w.length > 2 && !STOP.has(w)));
+
+/** Две реплики почти одинаковые: те же пункты списка или большинство тех же слов (формулировка могла измениться). */
+export function similarReply(a: string, b: string): boolean {
+  const bullets = (s: string) => String(s || '').split('\n').filter((l) => l.trim().startsWith('•')).map(key).sort().join('|');
+  const ba = bullets(a), bb = bullets(b);
+  if (ba && ba === bb) return true;
+  const wa = wordsOf(a), wb = wordsOf(b);
+  if (wa.size < 3 || wb.size < 3) return key(a) === key(b);
+  let inter = 0;
+  for (const w of wa) if (wb.has(w)) inter++;
+  return inter / (wa.size + wb.size - inter) >= 0.6;
+}
+
+/** Не отправляем то, что почти слово в слово уже отправили недавно (recent: реплики Алины за последние 90 секунд). */
+export function dropRecentSimilar(replies: string[], recent: string[]): string[] {
+  return replies.filter((r) => !recent.some((p) => similarReply(r, p)));
+}
+
+/** Клиент обещает прислать ещё («минуту, сейчас пришлю», «щас скину»): ждём следующее сообщение дольше. */
+export function promisesMore(text: string): boolean {
+  return /(?:^|[^а-я])(?:минут\S*|секунд\S*|щас|ща|подожд\S*|сейчас\s+(?:пришл|скин|отправ|найд|сниму|сделаю|оформл|посмотр|открою)\S*|пришлю|скину|отправлю)(?![а-я])/.test(norm(text));
+}

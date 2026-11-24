@@ -36,6 +36,8 @@ export async function alinaBrain(opts: {
   visionNote?: string | null;
   /** Свободные места по моделям и датам и брони клиента (режим строк). Это единственный источник фактов о местах. */
   placesFact?: string | null;
+  /** Последние сообщения диалога (клиент, менеджер, Алина), чтобы отвечать по контексту. */
+  history?: string | null;
 }): Promise<BrainResult> {
   const empty: BrainResult = {
     action: 'continue_flow',
@@ -88,6 +90,7 @@ export async function alinaBrain(opts: {
     opts.knowledge ? `план:\n${opts.knowledge.slice(0, 900)}` : '',
     opts.visionNote ? `что увидели на последнем скрине: ${opts.visionNote}` : '',
     opts.hasPhoto ? 'клиент прислал фото/скрин' : '',
+    opts.history ? `Последние сообщения диалога (контекст; не повторяй то, что уже сказано; если клиент отвечает на вопрос менеджера, поблагодари и иди дальше):\n${opts.history.slice(-1800)}` : '',
     opts.placesFact ? `МЕСТА (единственный источник, другого не выдумывай):\n${opts.placesFact}` : '',
     '',
     'Факты о товаре (из карточек и фото владельца, других фактов о товаре не выдумывай; чего здесь нет, говори «уточню у менеджера»):',
