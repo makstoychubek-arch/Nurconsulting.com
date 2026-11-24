@@ -926,6 +926,10 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_pickup') {
     if (hasPhoto || /забрал|получил|пвз|сегодня|завтра|\d{1,2}[./]/i.test(text)) {
       const vision = hasPhoto ? await readScreen('pickup') : null;
+      // Скрин поиска/корзины/заказа здесь не «получение»: не двигаем этап, решает менеджер
+      if (vision && ['product', 'cart', 'order'].includes(String(vision.kind)) && !text.trim().replace(/^скрин$/i, '')) {
+        return await visionToManager(lead, vision);
+      }
       await updateLead(db, lead.id, {
         pickup_at: text.slice(0, 200) || vision?.delivery_date ||
           new Date().toISOString().slice(0, 10),

@@ -122,6 +122,8 @@ export async function alinaBrain(opts: {
     'Если не нашли товар — подскажи перепроверить ключ, сортировку «популярные», без артикула вслух если не просят.',
     'Если просят фото товара — НЕ говори «не можем». action=continue_flow (фото шлёт система отдельно) или reply_only «сейчас пришлю».',
     'Артикул клиенту НЕ называй никогда. По фото искать нельзя — только по ключу.',
+    'Ты НЕ видишь картинки и НЕ можешь подтвердить «это наш товар». На «она?», «это ваш?», «точно ваш?» ответ один: «Сейчас уточню у менеджера». Не говори «да, наш».',
+    'Если клиент нашёл или заказал не тот товар: коротко извинись («Просим поискать ещё, извините за ошибку») и дай ориентир по цене: наша цена от 2500 до 4000 ₽ (до скидок). Артикул не называй.',
     'Если «не могу найти» — action=continue_flow (система спросит про фильтры). Бренд в фильтрах не давать.',
     'product_name бери ТОЛЬКО из списка открытых объявлений (или null).',
   ].filter(Boolean).join('\n');
@@ -215,7 +217,7 @@ export async function alinaBrain(opts: {
 
     return {
       action,
-      reply: (parsed.reply != null && !/^\s*(null|none|undefined|nan|n\/a|-)?\s*$/i.test(String(parsed.reply))) ? String(parsed.reply).slice(0, 700) : null,
+      reply: safeProductClaim((parsed.reply != null && !/^\s*(null|none|undefined|nan|n\/a|-)?\s*$/i.test(String(parsed.reply))) ? String(parsed.reply).slice(0, 700) : null),
       product_name,
       deal_type,
       via: 'ai',
@@ -271,4 +273,14 @@ export function shouldUseBrain(opts: {
   }
 
   return false;
+}
+
+
+/** Мозг не видит картинки: «да, это наш товар» подтверждает только скрин-проверка (vision), иначе передаём менеджеру. */
+export function safeProductClaim(reply: string | null): string | null {
+  if (!reply) return reply;
+  if (/(^|[\s,.!])(да,?\s*)?(это\s+)?наш(а|е|и)?\s+(товар|пижам)|да,?\s+наш[\s.!,]|(^|\s)наш\s+товар/i.test(reply) && !/не\s+наш/i.test(reply)) {
+    return 'Сейчас уточню у менеджера и вернусь 🙌';
+  }
+  return reply;
 }
