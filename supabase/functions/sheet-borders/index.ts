@@ -39,14 +39,14 @@ Deno.serve(async (req) => {
         const vr2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(q(tab) + '!A1:AX')}`, { headers: H, signal: AbortSignal.timeout(30000) });
         if (vr2.ok) vals = ((await vr2.json()).values || []) as unknown[][];
     }
-    // разделители групп: по смене товара (колонка product_col) толстая линия, по смене даты (колонка date_col) средняя; нумерация колонок с 0
+    // разделители групп: по смене даты (колонка date_col) толстая чёрная линия, по смене товара в пределах даты (колонка product_col) средняя серая; нумерация колонок с 0
     const productCol = body.product_col == null ? -1 : Number(body.product_col), dateCol = body.date_col == null ? -1 : Number(body.date_col);
     const cell = (r: number, c: number) => String((vals[r] || [])[c] ?? '').trim();
     const groups: { row: number; kind: 'product' | 'date' }[] = [];
     if (productCol >= 0 || dateCol >= 0) {
         for (let r = 2; r < last; r++) {
-            if (productCol >= 0 && cell(r, productCol) !== cell(r - 1, productCol)) groups.push({ row: r, kind: 'product' });
-            else if (dateCol >= 0 && cell(r, dateCol) !== cell(r - 1, dateCol)) groups.push({ row: r, kind: 'date' });
+            if (dateCol >= 0 && cell(r, dateCol) !== cell(r - 1, dateCol)) groups.push({ row: r, kind: 'date' });
+            else if (productCol >= 0 && cell(r, productCol) !== cell(r - 1, productCol)) groups.push({ row: r, kind: 'product' });
         }
     }
     if (dry) return json({ ok: true, dry_run: true, sheetId: sh.properties.sheetId, last_row: last, columns, rows_total: sh.properties.gridProperties?.rowCount ?? null, group_lines: groups.length, by_product: groups.filter((g) => g.kind === 'product').length, by_date: groups.filter((g) => g.kind === 'date').length });
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     if (body.reset_grid === false) reqs.length = 0;
     const heavy = { style: 'SOLID_THICK', colorStyle: { rgbColor: { red: 0, green: 0, blue: 0 } } };
     const medium = { style: 'SOLID_MEDIUM', colorStyle: { rgbColor: { red: 0.2, green: 0.2, blue: 0.2 } } };
-    for (const g of groups) reqs.push({ updateBorders: { range: { sheetId: sh.properties.sheetId, startRowIndex: g.row, endRowIndex: g.row + 1, startColumnIndex: 0, endColumnIndex: columns }, top: g.kind === 'product' ? heavy : medium } });
+    for (const g of groups) reqs.push({ updateBorders: { range: { sheetId: sh.properties.sheetId, startRowIndex: g.row, endRowIndex: g.row + 1, startColumnIndex: 0, endColumnIndex: columns }, top: g.kind === 'date' ? heavy : medium } });
     const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', headers: H, signal: AbortSignal.timeout(30000), body: JSON.stringify({ requests: reqs }) });
     if (!res.ok) return json({ ok: false, step: 'batchUpdate', status: res.status, error: (await res.text()).slice(0, 300) }, 502);
     return json({ ok: true, applied: true, sheetId: sh.properties.sheetId, last_row: last, columns, group_lines: groups.length });
