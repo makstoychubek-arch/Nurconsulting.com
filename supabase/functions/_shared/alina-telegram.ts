@@ -1,7 +1,8 @@
 import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
-import { askAlinaManager } from './alina-manager.ts';
+import { askAlinaManager, managerGroupId } from './alina-manager.ts';
+import { HUMAN_HANDOFF, SAFE_REPLY, dedupeReplies, isAngry, unsafeReply, wantsHuman } from './alina-guard.ts';
 import { loadAlinaSettings } from './alina-settings.ts';
 import { normLogin } from './alina-gate.ts';
 
@@ -69,6 +70,34 @@ export async function processAlinaTelegramUpdate(
     }
 
     const budget = { spent: 0 };
+
+    // Ручной режим: если владелец сам пишет в этом чате (последние 20 минут) или клиент уже позвал человека (последние 3 часа), Алина молчит.
+    const since20 = new Date(Date.now() - 20 * 60_000).toISOString();
+    const since3h = new Date(Date.now() - 3 * 3600_000).toISOString();
+    const [ownerMsg, ownerLog, handoff] = await Promise.all([
+        admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'owner_message').gt('created_at', since20).limit(1),
+        admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', since20).limit(1),
+        admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'human_requested').gt('created_at', since3h).limit(1),
+    ]);
+    if ((ownerMsg.data?.length || ownerLog.data?.length || handoff.data?.length)) {
+        await logAlinaRawEvent(message.chatId, 'muted_human', { update_id: message.updateId });
+        return;
+    }
+
+    // Клиент зовёт человека или раздражён: сразу передаём менеджеру, дальше пишет он (владелец подключится по уведомлению в группе).
+    if ((text || '').trim() && (wantsHuman(text || '') || isAngry(text || ''))) {
+        const group = await managerGroupId();
+        const posted = group ? await askAlinaManager(token, group, {
+            chatId: message.chatId, connectionId: message.connectionId, username: message.username,
+        }, `Клиент просит человека или раздражён: «${String(text).slice(0, 300)}». Подключитесь к чату, Алина больше не отвечает.`) : false;
+        await logAlinaRawEvent(message.chatId, 'human_requested', { text: String(text).slice(0, 200), posted });
+        const reply = posted ? HUMAN_HANDOFF[message.updateId % HUMAN_HANDOFF.length] : 'Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.';
+        try {
+            if (await sendText(token, message, reply, true, budget)) await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply });
+        } catch { /* ответ не критичен */ }
+        return;
+    }
+
     try {
         const { replies: draft, photos, escalate } = await handleAlinaClientMessage({
             ...message,
@@ -93,9 +122,15 @@ export async function processAlinaTelegramUpdate(
                 }
             }
         }
+        // Защита: ответ не должен выдавать «бот» или артикул, и не повторяем слово в слово прошлые реплики этого диалога.
+        if (replies.some(unsafeReply)) replies = replies.map((r) => (unsafeReply(r) ? SAFE_REPLY : r));
+        const { data: prev } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').order('created_at', { ascending: false }).limit(3);
+        replies = dedupeReplies(replies, (prev || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || '')));
         let firstReply = true;
         for (const reply of replies) {
             if (!await sendText(token, message, reply, firstReply, budget)) throw new Error('text_delivery');
+            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500) });
             firstReply = false;
         }
         await logAlinaRawEvent(message.chatId, 'business_out', {

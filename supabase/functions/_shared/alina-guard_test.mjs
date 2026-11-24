@@ -1,0 +1,18 @@
+import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
+import assert from 'node:assert/strict';
+const src = readFileSync(new URL('./alina-guard.ts', import.meta.url), 'utf8').replace(/^export /gm, '');
+const g = new Function(stripTypeScriptTypes(src) + '\nreturn { wantsHuman, isAngry, unsafeReply, dedupeReplies }')();
+for (const t of ['Менеджер!', 'позовите менеджера', 'Можно поговорить с менеджером?', 'вы бот?', 'Ты бот или человек', 'соедините с человеком', 'хочу поговорить с живым человеком', 'с кем я говорю', 'у меня жалоба', 'Это автоответчик?']) assert.ok(g.wantsHuman(t), t);
+for (const t of ['Пижама 3 в 1 шоколадная', 'Они маломерят?', 'Сейчас оформлю', 'как дела', 'можно фото', 'спасибо']) assert.ok(!g.wantsHuman(t), 'ложное: ' + t);
+for (const t of ['Я вас 5 ый раз прошу прислать фото', 'сколько можно', 'это безобразие', 'тупой бот 😡']) assert.ok(g.isAngry(t), t);
+assert.ok(!g.isAngry('Спасибо большое'));
+assert.ok(g.unsafeReply('Я бот и не могу'));
+assert.ok(g.unsafeReply('Артикул 1939871819'));
+assert.ok(g.unsafeReply('https://basket-53.wbbasket.ru/vol1/1.webp'));
+assert.ok(!g.unsafeReply('Ближайшее место завтра, 25 ноября'));
+assert.deepEqual(g.dedupeReplies(['Секунду, уточню.'], ['Секунду, уточню.']).length, 1);
+assert.notEqual(g.dedupeReplies(['Секунду, уточню.'], ['секунду уточню'])[0], 'Секунду, уточню.');
+assert.deepEqual(g.dedupeReplies(['Фото пришлю позже'], ['Фото пришлю позже!']), []);
+assert.deepEqual(g.dedupeReplies(['Привет!'], []), ['Привет!']);
+console.log('PASS: alina-guard');
