@@ -903,6 +903,12 @@ async function handleAlinaClientMessageInner(opts: {
   // ── wait_integration: ждём дату выхода интеграции ────────────────────────
   if (lead.status === 'wait_integration') {
     const d = parseIntegrationDate(text, true);
+    // Вторая часть реквизитов (ФИО отдельным сообщением): дописываем к реквизитам, дату не переспрашиваем
+    if (!d && /^[А-Яа-яЁёA-Za-z\-]+(?:\s+[А-Яа-яЁёA-Za-z\-]+){1,3}$/.test(text.trim()) && lead.bank_details) {
+      await updateLead(db, lead.id, { bank_details: `${lead.bank_details} ${text.trim()}`.slice(0, 1000), last_client_text: text });
+      await syncLeadToSheet(db, lead.id);
+      return { replies: [] };
+    }
     if (!d) return r('Напишите дату выхода интеграции, например 28.11 или «завтра» 🙌');
     await updateLead(db, lead.id, { status: 'wait_pickup', notes: withInt(lead.notes, d), last_client_text: text });
     await logEvent(db, lead.id, opts.chatId, 'integration_done', { date: d });
