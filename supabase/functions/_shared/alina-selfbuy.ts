@@ -726,6 +726,15 @@ async function handleAlinaClientMessageInner(opts: {
     return r(BRAND_REPLIES[(opts.chatId % 2 + (text.length % 2)) % BRAND_REPLIES.length]);
   }
 
+  // Товар по скрину уже подтверждён нашей проверкой, а клиент сверяется («она?», «этот?») или пишет артикул цифрами: менеджеру не передаём.
+  if (!hasPhoto && String(lead.screens_done || '').split(',').map((x) => x.trim()).includes('product') &&
+    ['wait_cart', 'wait_order', 'wait_size', 'wait_bank', 'wait_integration'].includes(String(lead.status))) {
+    if (/^\s*\d{7,}\s*$/.test(text)) return { replies: [] };
+    if (/^\s*(?:это\s+)?(?:она|он|этот|эта|наш[а]?|ваш[а]?|та)(?:\s+самая)?\s*[?!.]*\s*$/i.test(text) || /^\s*(?:точно\s+)?(?:наш[а]?|ваш[а]?|она)\s*\?+\s*$/i.test(text)) {
+      return rAsk(String(lead.status), 'Да, она, всё верно 👍');
+    }
+  }
+
   // Клиент просто подтвердил («да», «ок», «поняла»): на обычное подтверждение молчим (владелец, 24 ноября 2026), это не вопрос.
   if (!hasPhoto && isAck(text) && ['key_sent', 'wait_product', 'wait_cart', 'wait_order'].includes(String(lead.status))) {
     return { replies: [] };
