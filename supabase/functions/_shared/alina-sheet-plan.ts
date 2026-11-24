@@ -855,7 +855,8 @@ export async function fetchSheetPlan(
   }
   const discovered = await discoverTabs(sheetId, token);
   const mars = cabinetKey === 'mars';
-  const leadsGid = mars ? '1641065187' : (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
+  // МАРС: вкладка раздач берётся по названию из SHEET_TAB_LIMITS («Раздачи Пижам»); прежний жёсткий gid 1641065187 оставлен только запасным
+  const leadsGid = mars ? (discovered.razdachiGid || '1641065187') : (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
     ELIUM_RAZDACHI_FALLBACK).trim();
 
   const extraGids = (mars ? '' : Deno.env.get('ALINA_GRAPH_GIDS') || '')

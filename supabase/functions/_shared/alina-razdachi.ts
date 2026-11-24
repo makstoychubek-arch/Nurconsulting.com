@@ -42,7 +42,8 @@ const FIELD_HEADERS: Record<string, RegExp> = {
 };
 
 // Поля, по которым видно, что процесс по строке уже начался.
-const STARTED_FIELDS = ['price', 'pickup_plan', 'pickup_fact', 'review_date', 'review_kind', 'requisites', 'published', 'key'];
+// «Ключ» сюда не входит: в таблице МАРС он вписан заранее у каждой размеченной строки (это план, а не признак начатого процесса), из-за чего все места считались занятыми.
+const STARTED_FIELDS = ['price', 'pickup_plan', 'pickup_fact', 'review_date', 'review_kind', 'requisites', 'published'];
 
 export function normTg(raw: unknown): string {
   let s = String(raw ?? '').normalize('NFKC').replace(/[​-‍﻿]/g, '').trim().toLowerCase();
