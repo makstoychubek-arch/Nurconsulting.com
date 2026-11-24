@@ -138,7 +138,7 @@ export async function analyzeAlinaScreenshot(opts: {
     'confident=true ТОЛЬКО если ты на 100% видишь, что скрин не подходит (другая категория, другой запрос, вообще не тот экран). Если сомневаешься, похож ли товар на наш, confident=false и ok=true или false как думаешь.',
     'ok=true только если скрин подходит под этап. client_reply — как живой менеджер, 1 предложение.',
     stageHint[opts.stage],
-    opts.reference ? 'Вторая картинка это ЭТАЛОН: главное фото нашей карточки. Сравни с карточками на скрине клиента: has_our_product=true только если на скрине та же пижама (тот же фасон и цвет, то же главное фото). Другая модель или цвет: has_our_product=false. Если карточки на скрине не видно или не уверена, confident=false.' : '',
+    opts.reference ? 'Вторая картинка это ЭТАЛОН: главное фото нашей карточки. Сравни с карточками на скрине клиента: has_our_product=true только если на скрине та же пижама (тот же фасон и цвет, то же главное фото). Другая модель или цвет: has_our_product=false. Если карточки на скрине не видно или не уверена, confident=false. На корзине и заказе проверь КАЖДЫЙ товар в списке и сравни по цвету, рисунку (горох, однотон) и крою: белая, молочная или другой расцветки пижама это НЕ наш товар, даже если тоже пижама из трёх вещей. В notes напиши цвет и размер того, что видишь.' : '',
     expect ? `Контекст: ${expect}` : '',
   ].filter(Boolean).join('\n');
 
@@ -162,7 +162,7 @@ export async function analyzeAlinaScreenshot(opts: {
             role: 'user',
             content: [
               { type: 'text', text: `Этап: ${opts.stage}. Проверь скрин.` },
-              { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
+              { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
               ...(opts.reference ? [{ type: 'image_url', image_url: { url: `data:${opts.reference.mime};base64,${b64(opts.reference.bytes)}`, detail: 'low' } }] : []),
             ],
           },
