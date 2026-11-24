@@ -1123,6 +1123,10 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
       return r('Хорошо, без брони. Если передумаете или захотите другую модель, просто напишите 🙌');
     }
   }
+  // Бронь только что закреплена, а клиент просит «забронируйте»: подтверждаем уже сделанное, а не берём другую модель.
+  if (last?.event_type === 'slot_booked' && fresh && /заброн|закрепит|запиш/i.test(t) && last.payload?.model && last.payload?.date) {
+    return r(`Уже закрепила за вами «${last.payload.model}» на ${ruDay(last.payload.date, todayMskKey())} ✅`);
+  }
   // 2. Клиент назвал модель, на которую сегодня мест нет
   const sheet = getLastRazdachi()?.sheet;
   if (!sheet) return null;

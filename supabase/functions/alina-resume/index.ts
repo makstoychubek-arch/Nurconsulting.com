@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const chatId = Number(body.chat_id);
     const text = String(body.text || '').trim();
-    if (!Number.isSafeInteger(chatId) || !text) return json({ ok: false, error: 'chat_id и text обязательны' }, 400);
+    if (!Number.isSafeInteger(chatId) || (!text && !body.say)) return json({ ok: false, error: 'chat_id и text обязательны' }, 400);
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
     const { data: q } = await admin.from('alina_manager_questions').select('business_connection_id').eq('client_chat_id', chatId)
         .order('created_at', { ascending: false }).limit(1).maybeSingle();
@@ -22,6 +22,18 @@ Deno.serve(async (req) => {
         connectionId = String((a as { connection_id?: string } | null)?.connection_id || '');
     }
     if (!connectionId) return json({ ok: false, error: 'нет business_connection_id для этого чата' }, 404);
+    // Режим «сказать»: отправить клиенту готовый текст от имени Алины (по слову владельца), без разбора сообщения.
+    if (body.say) {
+        const token = (Deno.env.get('ALINA_BOT_TOKEN') || '').trim();
+        const say = String(body.say).slice(0, 1500);
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000),
+            body: JSON.stringify({ chat_id: chatId, business_connection_id: connectionId, text: say }),
+        }).catch(() => null);
+        const ok = Boolean(res?.ok && (await res.json().catch(() => null))?.ok === true);
+        if (ok) await admin.from('alina_selfbuy_events').insert({ event_type: 'chat_log', chat_id: chatId, payload: { dir: 'alina', text: say, by: 'owner_request' } });
+        return json({ ok });
+    }
     const updateId = 9_000_000_000 + Math.floor(Date.now() / 1000) % 1_000_000_000;
     await processAlinaTelegramUpdate('alina', (Deno.env.get('ALINA_BOT_TOKEN') || '').trim(), {
         update_id: updateId,
