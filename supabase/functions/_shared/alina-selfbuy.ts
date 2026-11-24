@@ -725,7 +725,7 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(...(vision?.has_our_product === true ? ['Да, это наш товар ✅'] : []), MSG_APPROVED_PRODUCT());
+      return r(MSG_APPROVED_PRODUCT());
     }
     return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
@@ -800,7 +800,7 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(...(vision?.has_our_product === true ? ['Да, это наш товар ✅'] : []), MSG_APPROVED_PRODUCT());
+      return r(MSG_APPROVED_PRODUCT());
     }
     return rAsk(
       'key_sent',

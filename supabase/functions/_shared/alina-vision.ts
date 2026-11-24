@@ -225,7 +225,10 @@ export async function analyzeAlinaScreenshot(opts: {
 
 /** Эвристика: если vision сказал ок=null — не блокируем; если false — отклоняем. */
 export function visionBlocks(v: VisionResult | null | undefined): boolean {
-  return Boolean(v && v.via === 'ai' && v.ok === false);
+  if (!v || v.via !== 'ai') return false;
+  if (v.ok === false) return true;
+  // Скрин принят моделью, но нашего товара на нём нет («пижама другого фасона и цвета») — тоже не пропускаем.
+  return ['product', 'cart', 'order'].includes(String(v.kind)) && v.has_our_product === false;
 }
 
 export function visionRejectReply(v: VisionResult, fallback: string): string {
