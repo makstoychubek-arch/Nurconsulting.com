@@ -1178,7 +1178,7 @@ function rAsk(status: string, text: string): AlinaReply {
 }
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
-const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
+const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|бронирую|забронируй|бронь|беру|хочу|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
 const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
 
 async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, date: string): Promise<AlinaReply> {
@@ -1229,15 +1229,26 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   const sheet = getLastRazdachi()?.sheet;
   if (!sheet) return null;
   const today = todayMskKey();
-  const slots = freeSlots(sheet, today, 14);
+  const late = tooLateForToday();
+  // Поздно вечером места «на сегодня» уже не берём: считаем только будущие даты.
+  const slots = freeSlots(sheet, today, 14).filter((x) => !late || x.date !== today);
   const models = [...new Set(sheet.rows.map((x) => x.model))];
-  const hit = matchModels(models, t);
+  let hit = matchModels(models, t);
+  const sinceIso = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  if (hit.length > 1) {
+    // Клиент называет модель по частям («со штанами», «шоколадный», «3 в 1 на завтра»): уточняем по последним его сообщениям.
+    const { data: recent } = await db.from('alina_selfbuy_events').select('payload').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+      .gt('created_at', sinceIso(60)).order('created_at', { ascending: false }).limit(12);
+    const ctx = (recent || []).map((e) => e.payload as { dir?: string; text?: string }).filter((p) => p?.dir === 'client').map((p) => String(p.text || '')).reverse().join(' ');
+    const narrowed = matchModels(models, `${ctx} ${t}`);
+    if (narrowed.length === 1) hit = narrowed;
+  }
   if (hit.length > 1) {
     // Цвет есть в нескольких форматах (2в1 и 3в1), а сегодня место только у части: не выбираем за клиента.
     const todayFree = hit.filter((m) => slots.some((x) => x.date === today && x.model.toLowerCase() === m.toLowerCase()));
     if (todayFree.length && todayFree.length < hit.length) {
       const parts = hit.map((m) => {
-        const near = nearestFree(sheet, m, today, 14);
+        const near = slots.find((x) => x.model.toLowerCase() === m.toLowerCase());
         return `${m} — ${near ? ruDay(near.date, today) : 'пока мест нет'}`;
       });
       return r(`Такой цвет есть в нескольких вариантах: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
@@ -1248,8 +1259,15 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   const model = hit[0];
   const k = model.toLowerCase();
   if (slots.some((x) => x.date === today && x.model.toLowerCase() === k)) return null; // сегодня есть место: идём по обычному пути и берём его сразу
-  const near = nearestFree(sheet, model, today, 14);
+  const near = slots.find((x) => x.model.toLowerCase() === k) ?? null;
   if (!near) return r(`На «${model}» свободных мест в ближайшие дни нет. Уточню у менеджера и вернусь к вам.`);
+  // Клиенту уже называли ближайшую дату и спросили модель: он выбрал, бронируем сразу, без повторного «забронировать?».
+  const { data: told } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+    .gt('created_at', sinceIso(90)).like('payload->>kind', 'models').limit(1);
+  if (told && told.length) {
+    const res = await bookPlace(db, lead, near.model, near.date);
+    if (res === 'claimed') return r(`Готово ✅ «${near.model}» за вами на ${ruDay(near.date, today)}.`, 'Напишите в этот день, и начнём.');
+  }
   return await offerLater(db, lead, near.model, near.date);
 }
 
