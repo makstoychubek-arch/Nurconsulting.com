@@ -13,6 +13,17 @@ Deno.serve(async (req) => {
     if (!await isServiceAuthorized(req, serviceKey)) return json({ ok: false, error: 'Unauthorized' }, 401);
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const dry = body.dry_run !== false;
+    // Чтение диапазона одним запросом (только два рабочих листа): { read: { tab, range: 'A1:Q200' } }
+    const rd = body.read as { tab?: string; range?: string } | undefined;
+    if (rd) {
+        if (!ALLOWED.has(String(rd.tab)) || !/^[A-Z]{1,2}\d{1,4}:[A-Z]{1,2}\d{1,4}$/.test(String(rd.range))) return json({ ok: false, error: 'Запрещённый диапазон' }, 400);
+        const sa0 = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
+        const tok0 = sa0 ? await googleAccessToken(sa0).catch(() => '') : '';
+        if (!tok0) return json({ ok: false, error: 'Нет доступа к Google' }, 503);
+        const r0 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`'${rd.tab}'!${rd.range}`)}?valueRenderOption=FORMATTED_VALUE`, { headers: { Authorization: `Bearer ${tok0}` }, signal: AbortSignal.timeout(20000) });
+        if (!r0.ok) return json({ ok: false, step: 'read', status: r0.status }, 502);
+        return json({ ok: true, values: (await r0.json()).values || [] });
+    }
     const writes = (Array.isArray(body.writes) ? body.writes : []) as { tab: string; cell: string; value: string | number | null }[];
     if (!writes.length || writes.length > 60) return json({ ok: false, error: 'writes: от 1 до 60 ячеек' }, 400);
     for (const w of writes) {
