@@ -17,6 +17,7 @@ import {
   type RazSheet,
   type SheetIO,
   todayMskKey,
+  tooLateForToday,
   writeClientRow,
 } from './alina-razdachi.ts';
 
@@ -232,6 +233,11 @@ export async function takePlaceToday(db: SupabaseClient, lead: Lead, model: stri
   const ctx = await placeCtx(db);
   if (!ctx || !normTg(lead.username)) return { kind: 'unavailable' };
   const today = todayMskKey();
+  // После 20:30 МСК на сегодня не берём: предлагаем ближайшую следующую дату.
+  if (tooLateForToday()) {
+    const next = freeSlots(getLastRazdachi()?.sheet ?? ctx.sheet, today, 14).find((x) => x.date !== today && normModel(x.model) === normModel(model));
+    return next ? { kind: 'later', date: next.date, model: next.model } : { kind: 'none' };
+  }
   const r = await claimOn(db, lead, model, today, today);
   if (typeof r === 'object') return { kind: 'have', row: r.row, date: today };
   if (r === 'claimed') {

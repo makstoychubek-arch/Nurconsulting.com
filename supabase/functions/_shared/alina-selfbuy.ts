@@ -43,7 +43,7 @@ import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdach
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -503,9 +503,10 @@ async function handleAlinaClientMessageInner(opts: {
       // Режим строк: вместо «напишите завтра» называем ближайшие свободные даты и предлагаем бронь.
       const sheet = getLastRazdachi()?.sheet;
       const today = todayMskKey();
-      const first = sheet ? freeSlots(sheet, today, 14)[0] : null; // только ближайшая дата, весь план не перечисляем
+      const late = tooLateForToday();
+      const first = sheet ? freeSlots(sheet, today, 14).find((x) => !late || x.date !== today) : null; // только ближайшая дата, весь план не перечисляем
       if (first) {
-        return { ...r(`На сегодня всё занято 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
+        return { ...r(`${late ? 'На сегодня уже не успеть: заказ до 22:00 МСК' : 'На сегодня всё занято'} 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
       }
     }
     return r(MSG_CLOSED());
@@ -1072,7 +1073,7 @@ function placesFactFor(username?: string | null): string | null {
     : ['свободных мест в ближайшие 14 дней нет'];
   const tg = (username || '').replace(/^@/, '').toLowerCase();
   const mine = sheet.rows.filter((x) => tg && x.tg === tg && x.date >= '' && x.date.length === 10).map((x) => `${x.model} ${ruDay(x.date, today)}`);
-  return [`свободные места: ${lines.join('; ')}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
+  return [`свободные места: ${lines.join('; ')}${tooLateForToday() ? ' (после 20:30 МСК на сегодня уже не берём: заказ нужно сделать до 22:00 МСК)' : ''}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
 }
 
 /** Клиент назвал другую модель после скрина заказа: заводим отдельную заявку (одна на клиента и модель). */
