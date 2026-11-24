@@ -31,7 +31,7 @@ export function parseAlinaBusinessUpdate(update: {
         messageId,
     };
     if (message.sender_business_bot || user.is_bot) return null;
-    if (user.id !== chatId) return { ...ids, kind: 'owner' as const };
+    if (user.id !== chatId) return { ...ids, kind: 'owner' as const, ownerText: (message.text || message.caption || (message.photo?.length ? '[фото]' : '')).trim() };
     const text = (message.text || message.caption || '').trim();
     const photoFileId = message.photo?.at(-1)?.file_id;
     if (!text && !photoFileId) return null;

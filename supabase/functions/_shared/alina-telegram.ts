@@ -16,6 +16,15 @@ export async function processAlinaTelegramUpdate(
     const message = parseAlinaBusinessUpdate(update);
     if (!message) return;
     const admin = getAdminClient();
+    // Журнал переписки для обучения Алины (режим наблюдения): что пишет клиент и что отвечает владелец вручную, с временем. Работает и при выключенной Алине.
+    try {
+        const who = message.kind === 'owner' ? 'owner' : 'client';
+        const text = message.kind === 'owner' ? message.ownerText : message.text;
+        await admin.from('alina_selfbuy_events').insert({
+            event_type: 'chat_log', chat_id: message.chatId,
+            payload: { dir: who, text: String(text || '').slice(0, 1500), username: message.kind === 'client' ? message.username || null : null, update_id: message.updateId },
+        });
+    } catch { /* журнал не должен мешать ответу */ }
     const { data: bot, error: botError } = await admin.from('telegram_bots')
         .select('is_enabled, deleted_at').eq('id', botId).maybeSingle();
     if (botError) throw new Error('Alina bot registry is unavailable');
