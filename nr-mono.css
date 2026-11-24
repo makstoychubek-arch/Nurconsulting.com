@@ -3324,3 +3324,20 @@ html body .rnp-sheet-table tr.rnp-section-hdr > td.rnp-section-fill { background
 html body .rnp-sheet-table tr.rnp-section-hdr > td:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
 html body .rnp-sheet-table tr.rnp-section-hdr > td:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
 html body .rnp-sheet-table tr.rnp-section-hdr .rnp-gs-section-title { font-weight: 900; letter-spacing: .06em; font-size: 11px; }
+
+/* Кнопка «Скрыть» в РНП (владелец, 24 ноября 2026): пока зажата, фото, названия и артикулы размыты, цифры остаются. Отклик без задержки. */
+.rnp-blur-btn { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.rnp-blur-btn.is-on { background: var(--text-primary) !important; color: var(--surface-solid, #fff) !important; border-color: var(--text-primary) !important; }
+html[data-nr-privacy] .rnp-tab-img,
+html[data-nr-privacy] .rnp-test-img,
+html[data-nr-privacy] .rnp-gs-photo-img,
+html[data-nr-privacy] .rnp-byart-img,
+html[data-nr-privacy] .rnp-gs-photo,
+html[data-nr-privacy] .rnp-gh-card img,
+html[data-nr-privacy] .rnp-gh-li img { filter: blur(14px) !important; }
+html[data-nr-privacy] .rnp-tab-label,
+html[data-nr-privacy] .rnp-cat-name,
+html[data-nr-privacy] .rnp-gs-name,
+html[data-nr-privacy] .rnp-wb-link,
+html[data-nr-privacy] .rnp-byart-name,
+html[data-nr-privacy] .rnp-gh-li > span { filter: blur(9px) !important; -webkit-user-select: none; user-select: none; }

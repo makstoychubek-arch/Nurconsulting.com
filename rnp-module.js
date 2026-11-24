@@ -4548,6 +4548,27 @@ const RNP = (() => {
           </div>`;
     }
 
+    // Кнопка «Скрыть» (владелец, 24 ноября 2026, вместо «Сравнить с октябрём»): пока зажата, фото, названия и артикулы размыты (html[data-nr-privacy]), цифры остаются; отпустили, и всё вернулось.
+    // Прежнее меню сравнения месяцев (_compareMonthMenuHtml) оставлено в коде, но на странице его нет.
+    function _blurBtnHtml() {
+        return `<button type="button" class="rnp-tool-icon rnp-blur-btn" title="Зажмите: скрыть фото и названия" aria-label="Скрыть фото и названия, пока кнопка зажата"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"></path><circle cx="12" cy="12" r="2.6"></circle><path d="M4 4l16 16"></path></svg></button>`;
+    }
+    function _bindBlurHold() {
+        if (window.__nrBlurBound) return;
+        window.__nrBlurBound = true;
+        const root = document.documentElement;
+        const btnOf = (e) => (e.target && e.target.closest ? e.target.closest('.rnp-blur-btn') : null);
+        const on = () => { root.setAttribute('data-nr-privacy', '1'); document.querySelectorAll('.rnp-blur-btn').forEach((b) => b.classList.add('is-on')); };
+        const off = () => { root.removeAttribute('data-nr-privacy'); document.querySelectorAll('.rnp-blur-btn').forEach((b) => b.classList.remove('is-on')); };
+        document.addEventListener('pointerdown', (e) => { const b = btnOf(e); if (!b) return; e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) { /* без захвата */ } on(); }, true);
+        ['pointerup', 'pointercancel'].forEach((n) => document.addEventListener(n, off, true));
+        document.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && btnOf(e)) { e.preventDefault(); on(); } }, true);
+        document.addEventListener('keyup', (e) => { if ((e.key === ' ' || e.key === 'Enter') && btnOf(e)) off(); }, true);
+        document.addEventListener('contextmenu', (e) => { if (btnOf(e)) e.preventDefault(); }, true);
+        window.addEventListener('blur', off);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) off(); });
+    }
+
     function _iconToolsHtml() {
         const planTitle = _planPeriod === 'month'
             ? 'Скопировать план с прошлого месяца'
@@ -4555,7 +4576,7 @@ const RNP = (() => {
         const editOn = _editMode ? ' is-on active' : '';
         const editTitle = _editMode ? 'Готово' : 'Редактировать';
         return `<div class="rnp-tool-icons">
-            ${_compareMonthMenuHtml()}
+            ${_blurBtnHtml()}
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
@@ -11161,6 +11182,7 @@ const RNP = (() => {
     }
 
     _bindCabinetListener();
+    _bindBlurHold();
     _bindAutoRefresh();
     _bindPlansListener();
     document.addEventListener('rnp-wb-degraded', () => {
