@@ -1004,14 +1004,18 @@ async function handleAlinaClientMessageInner(opts: {
           notes: `${lead.notes || ''}\n[+ ${text.slice(0, 200)}]`.trim(),
           last_client_text: text || (hasPhoto ? '[фото]' : ''),
         });
-        return r(brain.reply);
+        return rAsk('done', brain.reply);
       }
     }
     await updateLead(db, lead.id, {
       notes: `${lead.notes || ''}\n[+ ${text.slice(0, 200)}]`.trim(),
       last_client_text: text || (hasPhoto ? '[фото]' : ''),
     });
-    return r('Ок, всё на месте 🙌 Если что — напишите');
+    // Простое «спасибо/ок/хорошо» после завершения — молчим, иначе выходят похожие дубли
+    if (!hasPhoto && /^[\s\p{L}\p{P}\p{S}]{0,30}$/u.test(text) && /^(спасибо|спс|благодарю|ок|окей|хорошо|ладно|понятно|поняла|понял|good|ok|👍|🙏|❤️?)/iu.test(text.trim())) {
+      return { replies: [] };
+    }
+    return rAsk('done', 'Всё на месте 🙌 Если что — напишите');
   }
 
   // fallback — мозг, иначе мягко в ask_ad
