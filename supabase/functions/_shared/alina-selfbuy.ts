@@ -706,7 +706,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────
   if (lead.status === 'tz_sent') {
-    if (wantsKey(text) || /готов|ознаком|прочитал|понял|(?:^|[\s,.:;!?/\\|])ок(?=$|[\s,.:;!?/\\|])|хорошо|давай|дальше/i.test(text)) {
+    if (wantsKey(text) || /готов|ознаком|прочитал|понял|согласн|принима|понятно|ясно|конечно|(?:^|[\s,.:;!?/\\|])(?:да|даа+|ага|угу|окей|ок)(?=$|[\s,.:;!?/\\|])|хорошо|давай|дальше/i.test(text)) {
       return await sendKeyFlow(db, lead, camp, text);
     }
     if (hasPhoto) {
@@ -1350,10 +1350,16 @@ async function openDeal(
 
   const replies: string[] = [];
   if (ig) replies.push(MSG_GOT_IG());
-  replies.push(msgOpenHuman(deal, product));
-  replies.push(deal === 'barter'
+  const tzText = deal === 'barter'
     ? tzBarter(offer?.order_deadline || camp?.order_deadline)
-    : TZ_CASHBACK());
+    : TZ_CASHBACK();
+  if (razdachiRowsMode()) {
+    // Владелец (24 ноября 2026): условия одним сообщением, ключ отправляем после согласия клиента.
+    replies.push(`${tzText}\n\nЕсли согласны с условиями, отправлю ключ 🙌`);
+    return r(...replies);
+  }
+  replies.push(msgOpenHuman(deal, product));
+  replies.push(tzText);
 
   if (keyword) {
     await updateLead(db, lead.id, { keyword, status: 'key_sent' });

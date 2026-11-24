@@ -6,7 +6,7 @@ import { managerGroupId } from '../_shared/alina-manager.ts';
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 const WAITING = ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order'];
-const STEP: Record<string, string> = { tz_sent: 'скрин поиска', key_sent: 'скрин поиска', wait_product: 'скрин поиска', wait_cart: 'скрин корзины', wait_order: 'скрин заказа' };
+const STEP: Record<string, string> = { tz_sent: 'ваше согласие с условиями', key_sent: 'скрин поиска', wait_product: 'скрин поиска', wait_cart: 'скрин корзины', wait_order: 'скрин заказа' };
 
 Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';

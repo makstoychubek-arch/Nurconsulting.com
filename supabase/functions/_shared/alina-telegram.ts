@@ -187,7 +187,7 @@ export async function processAlinaTelegramUpdate(
             .eq('event_type', 'chat_log').in('payload->>dir', ['owner', 'alina']).gt('created_at', since12h).limit(40);
         const greeted = (hist || []).some((x: { payload: { text?: string } }) => startsWithGreeting(String(x.payload?.text || '')));
         replies = applyGreeting(replies, greeted);
-        replies = replies.flatMap((x) => splitLong(x)); // длинные тексты (ТЗ) отправляем несколькими сообщениями
+        replies = replies.flatMap((x) => splitLong(x, 3800)); // длинные тексты (ТЗ) отправляем несколькими сообщениями
         // «Отправила выше»: отвечаем реплаем на своё прежнее сообщение (условия, ключ, фото), чтобы не отправлять его второй раз.
         let replyMid = 0;
         if (replyToKind) {
