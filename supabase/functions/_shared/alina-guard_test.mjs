@@ -30,4 +30,6 @@ assert.ok(g.similarReply('Фото пришлю чуть позже, перед�
 assert.deepEqual(g.dropRecentSimilar([b, 'Спасибо, ссылку получила!'], [a]), ['Спасибо, ссылку получила!']);
 for (const t of ['Минуту сейчас пришлю', 'щас скину', 'подождите пожалуйста', 'сейчас оформлю']) assert.ok(g.promisesMore(t), t);
 for (const t of ['Пижама 3в1 шоколадная', 'какой размер', 'спасибо']) assert.ok(!g.promisesMore(t), 'ложное: ' + t);
+for (const t of ['Молочный 🥰', 'Не дошло, поэтому спрашиваю 😇', 'Хорошо 🙏', 'спасибо ❤️', '😂😂']) { assert.ok(!g.isAngry(t), 'смайл не злость: ' + t); assert.ok(!g.wantsHuman(t), 'смайл не просьба: ' + t); }
+assert.ok(g.isAngry('😡')); assert.ok(g.isAngry('это 🤬'));
 console.log('PASS: alina-guard');
