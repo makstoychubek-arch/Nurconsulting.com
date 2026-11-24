@@ -77,6 +77,8 @@ export async function analyzeAlinaScreenshot(opts: {
   expectKeyword?: string | null;
   expectProduct?: string | null;
   expectArticle?: string | null;
+  /** Эталон: главное фото нашей карточки (только для сверки, клиенту не отправляется). */
+  reference?: { bytes: Uint8Array; mime: string } | null;
 }): Promise<VisionResult> {
   const empty: VisionResult = {
     ok: null,
@@ -133,6 +135,7 @@ export async function analyzeAlinaScreenshot(opts: {
     'confident=true ТОЛЬКО если ты на 100% видишь, что скрин не подходит (другая категория, другой запрос, вообще не тот экран). Если сомневаешься, похож ли товар на наш, confident=false и ok=true или false как думаешь.',
     'ok=true только если скрин подходит под этап. client_reply — как живой менеджер, 1 предложение.',
     stageHint[opts.stage],
+    opts.reference ? 'Вторая картинка это ЭТАЛОН: главное фото нашей карточки. Сравни с карточками на скрине клиента: has_our_product=true только если на скрине та же пижама (тот же фасон и цвет, то же главное фото). Другая модель или цвет: has_our_product=false. Если карточки на скрине не видно или не уверена, confident=false.' : '',
     expect ? `Контекст: ${expect}` : '',
   ].filter(Boolean).join('\n');
 
@@ -157,6 +160,7 @@ export async function analyzeAlinaScreenshot(opts: {
             content: [
               { type: 'text', text: `Этап: ${opts.stage}. Проверь скрин.` },
               { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
+              ...(opts.reference ? [{ type: 'image_url', image_url: { url: `data:${opts.reference.mime};base64,${b64(opts.reference.bytes)}`, detail: 'low' } }] : []),
             ],
           },
         ],

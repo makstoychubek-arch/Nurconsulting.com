@@ -40,6 +40,7 @@ import {
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
 import { bookPlace, takePlaceToday } from './alina-razdachi-sync.ts';
+import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
@@ -310,13 +311,23 @@ async function handleAlinaClientMessageInner(opts: {
     if (!hasPhoto || !opts.photoFileId || !opts.botToken) return null;
     const file = await downloadTelegramFile(opts.botToken, opts.photoFileId);
     if (!file) return null;
+    // Эталон: главное фото нашей карточки с WB. Клиенту оно не уходит, нужно только чтобы сверить, наш ли товар на его скрине.
+    let reference: { bytes: Uint8Array; mime: string } | null = null;
+    let article = expectArticle;
+    if (razdachiRowsMode() && (stage === 'product' || stage === 'cart' || stage === 'order')) {
+      const mine = await resolveLeadArticle(lead, camp).catch(() => null);
+      if (mine?.article) article = mine.article;
+      const ref = article ? await fetchWbMainPhoto(article).catch(() => null) : null;
+      if (ref?.bytes) reference = { bytes: ref.bytes, mime: ref.mime || 'image/jpeg' };
+    }
     return await analyzeAlinaScreenshot({
       imageBytes: file.bytes,
       mime: file.mime,
       stage,
       expectKeyword: lead.keyword || camp?.keyword,
       expectProduct: lead.product_name || camp?.product_name,
-      expectArticle,
+      expectArticle: article,
+      reference,
     });
   };
 
@@ -624,7 +635,7 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT());
+      return r(...(vision?.has_our_product === true ? ['Да, это наш товар ✅'] : []), MSG_APPROVED_PRODUCT());
     }
     return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
@@ -699,7 +710,7 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT());
+      return r(...(vision?.has_our_product === true ? ['Да, это наш товар ✅'] : []), MSG_APPROVED_PRODUCT());
     }
     return r(
       lead.keyword
@@ -1471,9 +1482,22 @@ async function handleProductPhotoRequest(
   text: string,
 ): Promise<AlinaReply | null> {
   if (razdachiRowsMode()) {
-    // Владелец (24 ноября 2026): главное фото с WB не отправляем, по нему товар находят на WB без ключа. Нужны свои фото модели и цвета (встроенные в код); пока их нет, фото присылает менеджер.
-    await logEvent(db, lead.id, lead.chat_id, 'product_photo_manager', { text });
-    return r('Фото пришлю чуть позже, передала менеджеру 🙌');
+    // Владелец (24 ноября 2026): главное фото WB не отправляем, по нему товар находят без ключа. Шлём свои фото модели и цвета, встроенные в код.
+    const named = matchModels(PAJAMA_MODEL_NAMES, text);
+    const open = (await getOpenProductChoices()).map((o) => o.product_name || '').filter(Boolean);
+    let shots = named.length ? pajamaPhotosFor(named) : [];
+    if (!shots.length && lead.product_name) shots = pajamaPhotosFor([lead.product_name]);
+    let ask = '';
+    if (!shots.length) {
+      shots = pajamaPhotosFor(open);
+      ask = 'Выберите модель, которая нравится, и напишите мне 🙌';
+    }
+    await logEvent(db, lead.id, lead.chat_id, 'product_photo', { text, own: shots.map((x) => x.caption) });
+    if (!shots.length) return r('Фото пришлю чуть позже, передала менеджеру 🙌');
+    return {
+      replies: ask ? [ask] : [],
+      photos: shots.map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption })),
+    };
   }
   const choices = await getOpenProductChoices();
   const allOffers = choices.length
