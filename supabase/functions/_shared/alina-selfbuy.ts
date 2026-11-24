@@ -404,7 +404,9 @@ async function handleAlinaClientMessageInner(opts: {
   };
 
   // Фото товара с WB (по контексту диалога / названию в сообщении)
-  if (wantsProductPhoto(text)) {
+  // Фото модели шлём только в начале (выбор модели). Когда процесс идёт дальше или речь про отзыв («пример фото отзыва»), фото пижамы не отправляем.
+  const lateStage = ['wait_bank', 'wait_size', 'wait_integration', 'wait_pickup', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status));
+  if (wantsProductPhoto(text) && !(razdachiRowsMode() && (lateStage || /отзыв/i.test(text)))) {
     const photoReply = await handleProductPhotoRequest(db, lead, camp, text);
     if (photoReply) return photoReply;
   }
@@ -1759,6 +1761,7 @@ function cantFindProduct(text: string): boolean {
     /не\s*(нашел|нашёл|нашла|нашли|вижу|видно)/i.test(t) ||
     /нет\s+в\s+выдаче|не\s+появляется|куда\s+делся|где\s+(ваш|наш)\s+товар/i.test(t) ||
     /не\s*находит|поискала?\s*не|ищу\s*не\s*могу/i.test(t) ||
+    /фильтр|не\s*(выбива\S*|ищет|ищется|нашло|ношла|нашлось)|\d+\s*мин\S*\s+ищу|что\s+делать/i.test(t) ||
     /^(нету|нет|нема)\s*(его|товар|блюд|блуз)?/i.test(t)
   );
 }
