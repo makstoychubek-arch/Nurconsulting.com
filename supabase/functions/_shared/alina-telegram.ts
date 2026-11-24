@@ -2,6 +2,8 @@ import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
 import { askAlinaManager } from './alina-manager.ts';
+import { loadAlinaSettings } from './alina-settings.ts';
+import { normLogin } from './alina-gate.ts';
 
 type BotId = 'alina' | 'alina2';
 type ClientUpdate = Extract<NonNullable<ReturnType<typeof parseAlinaBusinessUpdate>>, { kind: 'client' }>;
@@ -22,6 +24,10 @@ export async function processAlinaTelegramUpdate(
         await logAlinaRawEvent(message.chatId, 'owner_message', { message_id: message.messageId });
         return;
     }
+
+    // Список «только эти логины» (настройка onlyLogins): пока он не пуст, остальным клиентам Алина не отвечает и ничего не записывает
+    const only = (await loadAlinaSettings()).onlyLogins;
+    if (only.length && !only.includes(normLogin(message.username))) return;
 
     const { data: credentials } = await admin.from('telegram_bot_secrets')
         .select('token').eq('bot_id', botId).maybeSingle();

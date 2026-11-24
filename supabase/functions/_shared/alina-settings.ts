@@ -25,6 +25,7 @@ export type AlinaSettings = {
   topicsOff: string[]; // темы, по которым менеджеру НЕ пишем (id из alina-gate.ts)
   managerGroup: number; // группа менеджеров (отрицательный номер), 0 = по умолчанию
   blacklist: string[]; // логины, которым Алина не отвечает
+  onlyLogins: string[]; // если список не пустой, Алина отвечает только этим логинам (проверка на себе до запуска для клиентов); пусто = всем
   texts: Record<string, string>; // свои тексты вместо стандартных (id из alina-templates.ts)
 };
 
@@ -47,6 +48,7 @@ export const ALINA_DEFAULTS: AlinaSettings = {
   topicsOff: [],
   managerGroup: 0,
   blacklist: [],
+  onlyLogins: [],
   texts: {},
 };
 
@@ -109,6 +111,7 @@ export function normalizeAlinaSettings(raw: Record<string, unknown> | null | und
     topicsOff: Array.isArray(r.topicsOff) ? [...new Set(r.topicsOff.map((x) => String(x)).filter((x) => /^[a-z_]{1,30}$/.test(x)))].slice(0, 20) : [],
     managerGroup: groupId(r.managerGroup),
     blacklist: Array.isArray(r.blacklist) ? [...new Set(r.blacklist.map(normLogin).filter(Boolean))].slice(0, 2000) : [],
+    onlyLogins: Array.isArray(r.onlyLogins) ? [...new Set(r.onlyLogins.map(normLogin).filter(Boolean))].slice(0, 50) : [],
     texts: cleanTexts(r.texts),
   };
 }
