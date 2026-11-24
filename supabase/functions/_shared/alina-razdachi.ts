@@ -241,3 +241,109 @@ export function createCachedLoader<T>(load: () => Promise<T>, ttlMs = 60_000, no
     return inflight;
   };
 }
+
+// ── Места и бронь (владелец, 24 ноября 2026) ─────────────────────────────────────────
+// Строка без логина и без данных процесса это свободное место. Алина берёт место сама: сегодня сразу, на другую дату по согласию клиента.
+
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+function dateToUtc(key: string): number {
+  const [d, m, y] = key.split('.').map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+/** Сколько дней от одной даты (дд.мм.гггг) до другой. */
+export function daysBetween(fromKey: string, toKey: string): number {
+  return Math.round((dateToUtc(toKey) - dateToUtc(fromKey)) / 86400000);
+}
+
+/** «сегодня», «завтра, 25 ноября», «послезавтра, 26 ноября» или «28 ноября». */
+export function ruDay(dateKey: string, today: string): string {
+  const n = daysBetween(today, dateKey);
+  const [d, m] = dateKey.split('.').map(Number);
+  const abs = `${d} ${MONTHS_GEN[m - 1]}`;
+  if (n === 0) return 'сегодня';
+  if (n === 1) return `завтра, ${abs}`;
+  if (n === 2) return `послезавтра, ${abs}`;
+  return abs;
+}
+
+export const isFreeRow = (r: RazRow): boolean => !r.tg && !r.started;
+
+export type FreeSlot = { model: string; date: string; rows: RazRow[] };
+
+/** Свободные места по моделям и датам от сегодняшней даты на horizon дней вперёд, по возрастанию даты. */
+export function freeSlots(sheet: RazSheet, today: string, horizon = 14): FreeSlot[] {
+  const map = new Map<string, FreeSlot>();
+  for (const r of sheet.rows) {
+    if (!isFreeRow(r)) continue;
+    const n = daysBetween(today, r.date);
+    if (n < 0 || n > horizon) continue;
+    const k = normModel(r.model) + '|' + r.date;
+    const s = map.get(k) ?? { model: r.model, date: r.date, rows: [] };
+    s.rows.push(r);
+    map.set(k, s);
+  }
+  return [...map.values()].sort((a, b) => dateToUtc(a.date) - dateToUtc(b.date) || a.model.localeCompare(b.model, 'ru'));
+}
+
+/** Ближайшая дата со свободным местом по модели. */
+export function nearestFree(sheet: RazSheet, model: string, today: string, horizon = 14): FreeSlot | null {
+  const k = normModel(model);
+  return freeSlots(sheet, today, horizon).find((s) => normModel(s.model) === k) ?? null;
+}
+
+const COLOR_WORDS: [RegExp, string][] = [
+  [/шоколад|шоко/, 'шоколад'], [/молоч/, 'молоч'], [/бордо/, 'бордо'], [/лапш|вишн/, 'лапша'], [/ бел(?:ый|ая|ое|ые)?(?=\s)/, 'бел'],
+];
+
+/** Какие из моделей клиент имеет в виду: по формату («3в1», «2 в 1», «три в одном») и цвету. Пусто, если модель не названа. */
+export function matchModels(models: string[], text: string): string[] {
+  const t = ' ' + normModel(text).replace(/(^|\s)три в одном(?=\s|$)/g, '$13в1').replace(/(^|\s)два в одном(?=\s|$)/g, '$12в1').replace(/([23]) в одном/g, '$1в1') + ' ';
+  const fmt = (t.match(/([23])в1/) || [])[1] || '';
+  const colors = COLOR_WORDS.filter(([re]) => re.test(t)).map(([, c]) => c);
+  if (!fmt && !colors.length) return [];
+  const uniq = [...new Map(models.map((m) => [normModel(m), m])).values()];
+  const scored = uniq.map((m) => {
+    const nm = normModel(m);
+    const mf = (nm.match(/([23])в1/) || [])[1] || '';
+    if (fmt && mf && fmt !== mf) return { m, s: -1 };
+    const colorHit = colors.length ? colors.some((c) => nm.includes(c)) : false;
+    if (colors.length && !colorHit) return { m, s: -1 };
+    return { m, s: (fmt && mf === fmt ? 2 : 0) + (colorHit ? 2 : 0) };
+  }).filter((x) => x.s > 0);
+  const best = Math.max(0, ...scored.map((x) => x.s));
+  return scored.filter((x) => x.s === best).map((x) => x.m);
+}
+
+export type ClaimResult = { status: 'claimed' | 'taken' | 'moved' | 'failed' | 'unverified'; row: number };
+
+/** Вписывает логин клиента в свободную строку. Перед записью строку читаем заново: занята или сдвинулась, не пишем. После записи сверяем. */
+export async function claimFreeRow(
+  io: SheetIO,
+  tab: string,
+  sheet: RazSheet,
+  target: { row: number; model: string; date: string },
+  tg: string,
+  responsible = 'Алина',
+): Promise<ClaimResult> {
+  const width = Math.max(sheet.headers.length, 1);
+  const last = colLetter(width - 1);
+  const q = quoteTab(tab);
+  const readRow = async (): Promise<string[] | null> => {
+    const v = await io.read(`${q}!A${target.row}:${last}${target.row}`);
+    return v ? (v[0] ?? []).map((c) => String(c ?? '')) : null;
+  };
+  const cells = await readRow();
+  if (!cells) return { status: 'failed', row: target.row };
+  if (normModel(cells[sheet.col.model]) !== normModel(target.model) || normDate(cells[sheet.col.date]) !== target.date) return { status: 'moved', row: target.row };
+  if (String(cells[sheet.col.tg] ?? '').trim() !== '') return { status: 'taken', row: target.row };
+  const updates = [{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: `@${tg}` }];
+  if (sheet.col.responsible != null && String(cells[sheet.col.responsible] ?? '').trim() === '') {
+    updates.push({ range: `${q}!${colLetter(sheet.col.responsible)}${target.row}`, value: responsible });
+  }
+  if (!await io.batchWrite(updates)) return { status: 'failed', row: target.row };
+  const after = await readRow();
+  if (!after) return { status: 'unverified', row: target.row };
+  return { status: normTg(after[sheet.col.tg]) === normTg(tg) ? 'claimed' : 'taken', row: target.row };
+}
