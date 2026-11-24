@@ -310,13 +310,23 @@ async function handleAlinaClientMessageInner(opts: {
     if (!hasPhoto || !opts.photoFileId || !opts.botToken) return null;
     const file = await downloadTelegramFile(opts.botToken, opts.photoFileId);
     if (!file) return null;
+    // Эталон: главное фото нашей карточки с WB. Клиенту оно не уходит, нужно только чтобы сверить, наш ли товар на его скрине.
+    let reference: { bytes: Uint8Array; mime: string } | null = null;
+    let article = expectArticle;
+    if (razdachiRowsMode() && (stage === 'product' || stage === 'cart' || stage === 'order')) {
+      const mine = await resolveLeadArticle(lead, camp).catch(() => null);
+      if (mine?.article) article = mine.article;
+      const ref = article ? await fetchWbMainPhoto(article).catch(() => null) : null;
+      if (ref?.bytes) reference = { bytes: ref.bytes, mime: ref.mime || 'image/jpeg' };
+    }
     return await analyzeAlinaScreenshot({
       imageBytes: file.bytes,
       mime: file.mime,
       stage,
       expectKeyword: lead.keyword || camp?.keyword,
       expectProduct: lead.product_name || camp?.product_name,
-      expectArticle,
+      expectArticle: article,
+      reference,
     });
   };
 
@@ -624,7 +634,7 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT());
+      return r(...(vision?.has_our_product === true ? ['Да, это наш товар ✅'] : []), MSG_APPROVED_PRODUCT());
     }
     return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
@@ -699,7 +709,7 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_APPROVED_PRODUCT());
+      return r(...(vision?.has_our_product === true ? ['Да, это наш товар ✅'] : []), MSG_APPROVED_PRODUCT());
     }
     return r(
       lead.keyword
