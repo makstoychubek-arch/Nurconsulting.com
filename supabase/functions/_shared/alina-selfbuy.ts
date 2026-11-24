@@ -209,7 +209,18 @@ async function upsertCampaign(
   return data as Campaign;
 }
 
-export async function handleAlinaClientMessage(opts: {
+/** Если Алина пообещала «уточню у менеджера», вопрос действительно уходит в группу менеджеров (раньше фраза говорилась, а в группу ничего не шло). */
+export async function handleAlinaClientMessage(opts: Parameters<typeof handleAlinaClientMessageInner>[0]): Promise<AlinaReply> {
+  const res = await handleAlinaClientMessageInner(opts);
+  if (res.escalate || !res.replies.some((x) => /уточню у менеджера|передам (?:вопрос )?менеджер/i.test(x))) return res;
+  const group = await managerGroupId();
+  if (!group) return res;
+  const question = (opts.text || '').trim() || '[клиент прислал фото]';
+  await logAlinaRawEvent(opts.chatId, 'manager_escalated', { topic: 'вопрос клиента', text: question.slice(0, 200), auto: true });
+  return { ...res, escalate: { topic: 'вопрос клиента', question, group } };
+}
+
+async function handleAlinaClientMessageInner(opts: {
   chatId: number;
   userId: number;
   username?: string;
@@ -427,6 +438,20 @@ export async function handleAlinaClientMessage(opts: {
       username: opts.username || lead.username,
     });
     await logEvent(db, lead.id, opts.chatId, 'closed_no_slots', { text });
+    if (razdachiRowsMode()) {
+      // Режим строк: вместо «напишите завтра» называем ближайшие свободные даты и предлагаем бронь.
+      const sheet = getLastRazdachi()?.sheet;
+      const today = todayMskKey();
+      const nearest = new Map<string, { model: string; date: string }>();
+      for (const x of sheet ? freeSlots(sheet, today, 14) : []) if (!nearest.has(x.model)) nearest.set(x.model, x);
+      if (nearest.size) {
+        return r(
+          'На сегодня места закончились 😔',
+          `Ближайшие свободные: ${[...nearest.values()].map((x) => `${x.model} — ${ruDay(x.date, today)}`).join('; ')}.`,
+          'Напишите, какую модель хотите, и я закреплю за вами место.',
+        );
+      }
+    }
     return r(MSG_CLOSED());
   }
 
