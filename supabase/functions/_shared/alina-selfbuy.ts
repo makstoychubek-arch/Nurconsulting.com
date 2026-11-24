@@ -214,7 +214,7 @@ async function upsertCampaign(
 export async function handleAlinaClientMessage(opts: Parameters<typeof handleAlinaClientMessageInner>[0]): Promise<AlinaReply> {
   const res = await handleAlinaClientMessageInner(opts);
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
-  const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню/i.test(x));
+  const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
   const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
   if (res.escalate || !(promised || asksManager)) return res;
   const group = await managerGroupId();
@@ -1470,6 +1470,11 @@ async function handleProductPhotoRequest(
   camp: Campaign | null,
   text: string,
 ): Promise<AlinaReply | null> {
+  if (razdachiRowsMode()) {
+    // Владелец (24 ноября 2026): главное фото с WB не отправляем, по нему товар находят на WB без ключа. Нужны свои фото модели и цвета (встроенные в код); пока их нет, фото присылает менеджер.
+    await logEvent(db, lead.id, lead.chat_id, 'product_photo_manager', { text });
+    return r('Фото пришлю чуть позже, передала менеджеру 🙌');
+  }
   const choices = await getOpenProductChoices();
   const allOffers = choices.length
     ? choices
