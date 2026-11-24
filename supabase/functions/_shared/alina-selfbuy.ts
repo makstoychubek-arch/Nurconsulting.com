@@ -42,7 +42,7 @@ import {
 import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
-import { isAck } from './alina-guard.ts';
+import { BRAND_REPLIES, isAck, isBrandQuestion } from './alina-guard.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
@@ -646,6 +646,11 @@ async function handleAlinaClientMessageInner(opts: {
       return r(MSG_ONLY_CASHBACK());
     }
     return await openDeal(db, lead, camp, typed || 'cashback', text);
+  }
+
+  // Вопрос про бренд: не называем, объясняем, что товар определяем сами по фото на скрине (владелец, 24 ноября 2026).
+  if (!hasPhoto && isBrandQuestion(text) && !['new', 'closed', 'done'].includes(String(lead.status))) {
+    return r(BRAND_REPLIES[(opts.chatId % 2 + (text.length % 2)) % BRAND_REPLIES.length]);
   }
 
   // Клиент просто подтвердил («да», «ок», «поняла»): коротко отвечаем, что ждём, и не повторяем инструкцию целиком.
