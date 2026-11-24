@@ -902,7 +902,7 @@ async function handleAlinaClientMessageInner(opts: {
     });
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
-    if (!haveInt) return r('Реквизиты приняла ✅', 'Когда планируете выход интеграции? Напишите дату 🙌');
+    if (!haveInt) return { ...r('Реквизиты приняла ✅', 'Когда планируете выход интеграции? Напишите дату 🙌'), tag: 'ask:wait_integration' };
     return r('Реквизиты приняла ✅', MSG_ASK_PICKUP());
   }
 
@@ -910,7 +910,8 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_integration') {
     const d = parseIntegrationDate(text, true);
     // Вторая часть реквизитов (ФИО отдельным сообщением): дописываем к реквизитам, дату не переспрашиваем
-    if (!d && /^[А-Яа-яЁёA-Za-z\-]+(?:\s+[А-Яа-яЁёA-Za-z\-]+){1,3}$/.test(text.trim()) && lead.bank_details) {
+    const isPhone = /^\+?\d[\d\s\-()]{9,}$/.test(text.trim()) && text.replace(/\D/g, '').length >= 10;
+    if (!d && (isPhone || /^[А-Яа-яЁёA-Za-z\-]+(?:\s+[А-Яа-яЁёA-Za-z\-]+){1,3}$/.test(text.trim())) && lead.bank_details) {
       await updateLead(db, lead.id, { bank_details: `${lead.bank_details} ${text.trim()}`.slice(0, 1000), last_client_text: text });
       await syncLeadToSheet(db, lead.id);
       return { replies: [] };
