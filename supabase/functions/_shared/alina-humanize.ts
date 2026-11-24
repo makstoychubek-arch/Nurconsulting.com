@@ -70,7 +70,7 @@ export async function humanizeReplies(replies: string[], clientText: string): Pr
     const result = [...replies];
     idx.forEach((i, k) => {
       const t = String(out[k] ?? '').trim();
-      if (t && t.length <= Math.ceil(replies[i].length * 1.4) + 20 && factsOk(replies[i], t)) result[i] = t;
+      if (t && !/^(null|none|undefined)$/i.test(t) && t.length <= Math.ceil(replies[i].length * 1.4) + 20 && factsOk(replies[i], t)) result[i] = t;
     });
     return result;
   } catch {

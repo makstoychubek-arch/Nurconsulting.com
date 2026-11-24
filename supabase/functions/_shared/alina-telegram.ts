@@ -146,7 +146,8 @@ export async function processAlinaTelegramUpdate(
             botToken: token,
             sourceAccount: 'business',
         });
-        let replies = draft;
+        // Пустые и служебные значения («null», «undefined») клиенту не отправляем никогда.
+        let replies = draft.filter((x) => !/^\s*(null|none|undefined|nan|n\/a)?\s*$/i.test(String(x ?? '')));
         if (escalate) {
           // Вопрос менеджерам. Клиент получает «уточню» только если вопрос действительно дошёл до группы.
           const posted = await askAlinaManager(token, escalate.group, {

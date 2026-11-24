@@ -784,7 +784,7 @@ async function handleAlinaClientMessageInner(opts: {
   // ── key_sent / wait_product ──────────────────────────────────────────────
   if (lead.status === 'key_sent' || lead.status === 'wait_product') {
     if (wantsKey(text)) return await sendKeyFlow(db, lead, camp, text);
-    if (hasPhoto || /скрин|нашла|нашёл|наш товар|это он/i.test(text)) {
+    if (hasPhoto || (!razdachiRowsMode() && /скрин|нашла|нашёл|наш товар|это он/i.test(text))) {
       // «артикул» намеренно не принимаем как успех — по артикулу не ведём
       const vision = hasPhoto ? await readScreen('product') : null;
       {
@@ -812,7 +812,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // ── wait_cart ────────────────────────────────────────────────────────────
   if (lead.status === 'wait_cart') {
-    if (hasPhoto || /корзин|конкурент|избранн/i.test(text)) {
+    if (hasPhoto || (!razdachiRowsMode() && /корзин|конкурент|избранн/i.test(text))) {
       const vision = hasPhoto ? await readScreen('cart') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
       if (vision && vision.via === 'ai' && ['product'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
@@ -846,7 +846,7 @@ async function handleAlinaClientMessageInner(opts: {
   }
 
   if (lead.status === 'wait_order') {
-    if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
+    if (hasPhoto || (!razdachiRowsMode() && /заказ|оформил|выкуп|пвз|доставк/i.test(text))) {
       const vision = hasPhoto ? await readScreen('order') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
       if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
@@ -1380,7 +1380,8 @@ async function sendKeyFlow(
   camp: Campaign | null,
   text: string,
 ): Promise<AlinaReply> {
-  const keyword = (camp?.keyword || lead.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
+  // Ключ берём из заявки (он взят из строки графика этой модели); ключ кампании по умолчанию может быть от другой модели.
+  const keyword = (lead.keyword || camp?.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
   if (!keyword) {
     return r('Секунду, ключ уточню и пришлю 🙌');
   }
