@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 const code = readFileSync(new URL('./alina-razdachi.ts', import.meta.url), 'utf8').replace(/^export /gm, '');
 const lib = new Function(stripTypeScriptTypes(code) + `
-return { normTg, normModel, normDate, todayMskKey, colLetter, parseRazdachiSheet, findClientRows, modelStats, writeClientRow, createCachedLoader }`)();
+return { normTg, normModel, normDate, todayMskKey, colLetter, parseRazdachiSheet, findClientRows, modelStats, writeClientRow, createCachedLoader, daysBetween, ruDay, isFreeRow, freeSlots, nearestFree, matchModels, claimFreeRow }`)();
 
 const HEAD = ['ТОВАР', 'ВИД РАЗДАЧИ', 'Ссылка ТГ', 'Дата заказа', 'Цена в заказе', 'Размер кэша', 'Кэш выплачен', 'Примерная Дата забора',
   'фактическая дата забора', 'Разрезанный ШК', 'Дата публикации отзыва ', 'Вид отзыва', 'Реквизиты', 'Реквизиты', 'Фактическая дата выплаты',
@@ -165,5 +165,38 @@ const rowsCount = (g) => g.length;
   const cold = lib.createCachedLoader(async () => { throw new Error('boom'); });
   await assert.rejects(cold(), /boom/);
   console.log('ok   кэш: один запрос на всех, из кэша минуту, при сбое последнее удачное');
+}
+
+// ── места и бронь ──
+{
+  const TODAY = '14.11.2026';
+  assert.equal(lib.daysBetween('14.11.2026', '16.11.2026'), 2);
+  assert.equal(lib.ruDay('14.11.2026', TODAY), 'сегодня');
+  assert.equal(lib.ruDay('15.11.2026', TODAY), 'завтра, 15 ноября');
+  assert.equal(lib.ruDay('16.11.2026', TODAY), 'послезавтра, 16 ноября');
+  assert.equal(lib.ruDay('20.11.2026', TODAY), '20 ноября');
+  const g = grid(); g.push(mk('Пижама 2в1 шоколадный', '', '16.11.2026'), mk('Пижама 3в1 молочный', '', '10.11.2026'));
+  const sh = lib.parseRazdachiSheet(g);
+  const fs = lib.freeSlots(sh, TODAY);
+  assert.deepEqual(fs.map((x) => [x.model, x.date, x.rows.length]), [['Пижама 2в1 шоколадный', DAY, 1], ['Пижама 2в1 шоколадный', '16.11.2026', 1]], 'прошлое не берём, занятые строки не берём');
+  assert.equal(lib.nearestFree(sh, 'Пижама 2в1 шоколадный', '15.11.2026').date, '16.11.2026');
+  assert.equal(lib.nearestFree(sh, 'Пижама 3в1 молочный', TODAY), null);
+  const models = ['Пижама 2в1 шоколадный', 'Пижама 3в1 шоколадный', 'Пижама 3в1 молочный', 'Пижама 3в1 бордовый'];
+  assert.deepEqual(lib.matchModels(models, 'хочу 3 в 1 молочную'), ['Пижама 3в1 молочный']);
+  assert.deepEqual(lib.matchModels(models, 'три в одном шоколадный'), ['Пижама 3в1 шоколадный']);
+  assert.deepEqual(lib.matchModels(models, 'шоколадную').sort(), ['Пижама 2в1 шоколадный', 'Пижама 3в1 шоколадный'], 'формат не назван: обе');
+  assert.deepEqual(lib.matchModels(models, 'привет'), []);
+  // бронь
+  const free = sh.rows.find((r) => r.model === 'Пижама 2в1 шоколадный' && !r.tg && r.date === DAY);
+  const f1 = fakeIO(g);
+  assert.equal((await lib.claimFreeRow(f1.io, 'Раздачи', sh, { row: free.row, model: free.model, date: DAY }, 'newguy')).status, 'claimed');
+  assert.equal(g[free.row - 1][sh.col.tg], '@newguy');
+  assert.equal(g[free.row - 1][sh.col.responsible], 'Алина');
+  assert.equal((await lib.claimFreeRow(fakeIO(g).io, 'Раздачи', sh, { row: free.row, model: free.model, date: DAY }, 'other')).status, 'taken', 'занятую не перезаписываем');
+  assert.equal(g[free.row - 1][sh.col.tg], '@newguy');
+  assert.equal((await lib.claimFreeRow(fakeIO(g).io, 'Раздачи', sh, { row: 3, model: free.model, date: DAY }, 'x')).status, 'moved', 'строка другой модели');
+  const g3 = grid(); const sh3 = lib.parseRazdachiSheet(g3);
+  assert.equal((await lib.claimFreeRow(fakeIO(g3, { failWrite: true }).io, 'Раздачи', sh3, { row: 8, model: 'Пижама 2в1 шоколадный', date: DAY }, 'x')).status, 'failed');
+  console.log('ok   свободные места, ближайшая дата, подбор модели, бронь только в свободную строку');
 }
 console.log('PASS: alina-razdachi');
