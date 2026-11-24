@@ -42,6 +42,7 @@ import {
 import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
+import { isAck } from './alina-guard.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
@@ -645,6 +646,18 @@ async function handleAlinaClientMessageInner(opts: {
       return r(MSG_ONLY_CASHBACK());
     }
     return await openDeal(db, lead, camp, typed || 'cashback', text);
+  }
+
+  // Клиент просто подтвердил («да», «ок», «поняла»): коротко отвечаем, что ждём, и не повторяем инструкцию целиком.
+  if (!hasPhoto && isAck(text)) {
+    const waiting: Record<string, string> = {
+      key_sent: 'Отлично, жду скрин поиска 🙌',
+      wait_product: 'Отлично, жду скрин поиска 🙌',
+      wait_cart: 'Хорошо, жду скрин корзины 🙌',
+      wait_order: 'Хорошо, жду скрин заказа 🙌',
+    };
+    const line = waiting[String(lead.status)];
+    if (line) return r(line);
   }
 
   // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────

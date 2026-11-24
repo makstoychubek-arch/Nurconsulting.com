@@ -120,3 +120,10 @@ export function withReplyContext(text: string, replyText?: string): string {
 export function recentWindowMs(reply: string): number {
   return reply.includes('•') ? 300_000 : 90_000;
 }
+
+/** Клиент просто подтверждает («да», «ок», «поняла», «хорошо спасибо», 👍): повторять инструкцию не нужно. */
+export function isAck(text: string): boolean {
+  const t = norm(text).replace(/[!.,)(🙏👍❤️😊☺️🥰🙌\s]+/g, ' ').trim();
+  if (!t || t.length > 40) return false;
+  return /^(?:да|даа+|ага|угу|ок|окей|окэй|ладно|хорошо|хорошо спасибо|поняла|поняла спасибо|понял|понятно|ясно|принято|спасибо|благодарю|договорились|отлично|супер|сейчас сделаю|сделаю|буду делать|поняла сейчас сделаю)$/.test(t);
+}
