@@ -80,6 +80,12 @@ export function extractSheetId(urlOrId: string): string | null {
   return null;
 }
 
+/** Таблицы, где Алине нужны только перечисленные вкладки (владелец, 24 ноября 2026: для «Кэшбэки / Выкупы МАРС» это «График раздач пижам» и «Раздачи Пижам»).
+ *  Остальные вкладки таблицы (брюки, жилетки, лонгслив, калькулятор и т.д.) Алина не читает и не предлагает. */
+export const SHEET_TAB_LIMITS: Record<string, { razdachi: string; graphs: string[] }> = {
+  '1ZSdNfnflgwOQZFSm1qcvfOB94bnfipZu5fB3pDodrik': { razdachi: 'Раздачи Пижам', graphs: ['График раздач пижам'] },
+};
+
 /** Автодетект вкладок: Раздач* + График* */
 async function discoverTabs(
   sheetId: string,
@@ -97,6 +103,12 @@ async function discoverTabs(
       name: properties.title,
     }));
 
+    const limit = SHEET_TAB_LIMITS[sheetId];
+    if (limit) {
+      const want = (n: string) => norm(n);
+      const rz = tabs.find((t) => want(t.name) === want(limit.razdachi));
+      return { razdachiGid: rz?.gid || null, graphs: tabs.filter((t) => limit.graphs.some((g) => want(g) === want(t.name))) };
+    }
     const graphs = tabs.filter((t) => /график|раздач|календарь/i.test(t.name) && !/^раздач/i.test(t.name));
     // вкладка лога: «Раздачи» / «Раздача» / «Выкупы»
     const raz = tabs.find((t) => /^раздач/i.test(t.name)) ||

@@ -115,7 +115,7 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
 
   // Дата строки: сохранённая при первой записи (клиент может дописывать данные в следующие дни), иначе сегодняшняя.
   const stored = lead.sheet_target?.startsWith(TARGET_PREFIX) ? lead.sheet_target.split('|') : null;
-  const tab = stored?.[1] || (active.cabinet_key === 'mars' ? 'Раздачи' : (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim());
+  const tab = stored?.[1] || (active.cabinet_key === 'mars' ? 'Раздачи Пижам' : (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim());
   const date = stored?.[2] || todayMskKey();
   const sheet: RazSheet = cached.sheet;
   const candidates = sheet.rows.filter((r) =>
