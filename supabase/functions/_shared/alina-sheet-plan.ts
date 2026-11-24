@@ -540,7 +540,7 @@ function buildOffers(
       deal_type: dealMode,
       product_name: b.product,
       keyword: bestKey,
-      article: b.article,
+      article: cleanArticle(b.article),
       cashback_pct: dealMode === 'barter' ? null : 70,
       plan_slots: planToday,
       used_slots: used,
@@ -568,7 +568,7 @@ function buildOffers(
           deal_type: dealMode,
           product_name: b.product,
           keyword: k.key,
-          article: b.article,
+          article: cleanArticle(b.article),
           cashback_pct: dealMode === 'barter' ? null : 70,
           plan_slots: kp,
           used_slots: ku,
@@ -585,6 +585,11 @@ function buildOffers(
     void todayLabels;
   }
   return offers;
+}
+
+/** В ячейке артикула бывает целая заметка графика: берём сам артикул WB (первое число из 6+ цифр). */
+export function cleanArticle(raw: string | null | undefined): string | null {
+  return String(raw ?? '').match(/\d{6,12}/)?.[0] ?? null;
 }
 
 /** Пересчёт мест по строкам листа на сегодня: всего строк модели, свободных (нет логина и данных процесса). */

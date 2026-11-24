@@ -996,6 +996,18 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   const slots = freeSlots(sheet, today, 14);
   const models = [...new Set(sheet.rows.map((x) => x.model))];
   const hit = matchModels(models, t);
+  if (hit.length > 1) {
+    // Цвет есть в нескольких форматах (2в1 и 3в1), а сегодня место только у части: не выбираем за клиента.
+    const todayFree = hit.filter((m) => slots.some((x) => x.date === today && x.model.toLowerCase() === m.toLowerCase()));
+    if (todayFree.length && todayFree.length < hit.length) {
+      const parts = hit.map((m) => {
+        const near = nearestFree(sheet, m, today, 14);
+        return `${m} — ${near ? ruDay(near.date, today) : 'пока мест нет'}`;
+      });
+      return r(`Такой цвет есть в нескольких вариантах: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
+    }
+    return null;
+  }
   if (hit.length !== 1) return null;
   const model = hit[0];
   const k = model.toLowerCase();
@@ -1446,8 +1458,8 @@ async function handleProductPhotoRequest(
   if (!matched.offer && lead.product_name) {
     matched = matchOfferFromText(allOffers, lead.product_name);
   }
-  // 3) артикул в notes лида / кампании
-  if (!matched.offer) {
+  // 3) артикул в notes лида / кампании (в режиме строк не берём «первый попавшийся» товар кампании)
+  if (!matched.offer && !razdachiRowsMode()) {
     const art =
       (lead.notes || '').match(/(?:арт|article:)\s*(\d{6,})/i)?.[1] ||
       (camp?.notes || '').match(/article:(\d{6,})/i)?.[1] ||
@@ -1464,6 +1476,20 @@ async function handleProductPhotoRequest(
     return r(
       `Какую модель фото? 🙌\n` + names.map((n) => `• ${n}`).join('\n'),
     );
+  }
+  if (!matched.offer && allOffers.length > 1 && !lead.product_name && razdachiRowsMode()) {
+    // Клиент просит фото, не назвав модель: показываем все модели, пока он выбирает.
+    const seen = new Set<string>();
+    const uniq = allOffers.filter((o) => o.article && o.product_name && !seen.has(o.product_name) && seen.add(o.product_name)).slice(0, 5);
+    const shots = await Promise.all(uniq.map(async (o) => ({ o, photo: await fetchWbMainPhoto(o.article!) })));
+    const ok = shots.filter((x) => x.photo);
+    await logEvent(db, lead.id, lead.chat_id, 'product_photo_all', { text, total: uniq.length, sent: ok.length });
+    if (ok.length) {
+      return {
+        replies: ['Выберите модель, которая нравится, и напишите мне 🙌'],
+        photos: ok.map((x) => ({ url: x.photo!.url, bytes: x.photo!.bytes, mime: x.photo!.mime, filename: x.photo!.filename, caption: x.o.product_name! })),
+      };
+    }
   }
   if (!matched.offer && allOffers.length > 1 && !lead.product_name) {
     const names = allOffers.map((o) => o.product_name).filter(Boolean);
