@@ -131,7 +131,7 @@ export type AlinaReply = {
   /** Ответить реплаем на своё прежнее сообщение этого вида («Отправила выше»). */
   replyToKind?: 'tz' | 'key' | 'photo';
   /** Ответ про наличие моделей: один раз в 5 минут на чат, чтобы не было дублей (проверяет alina-telegram). */
-  tag?: 'models';
+  tag?: string;
 };
 
 export type Campaign = {
@@ -801,7 +801,8 @@ async function handleAlinaClientMessageInner(opts: {
       await syncLeadToSheet(db, lead.id);
       return r(...(vision?.has_our_product === true ? ['Да, это наш товар ✅'] : []), MSG_APPROVED_PRODUCT());
     }
-    return r(
+    return rAsk(
+      'key_sent',
       lead.keyword
         ? `Жду скрин поиска по ключу «${lead.keyword}» — сверху строка запроса и наш товар 🙌\nЕсли не находите — напишите, скину фильтры`
         : 'Жду скрин: строка поиска (наш ключ) + наш товар в выдаче 🙌',
@@ -871,13 +872,13 @@ async function handleAlinaClientMessageInner(opts: {
       const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK();
       return r(bankMsg);
     }
-    return r('После оформления пришлите скрин заказа: цена, город/ПВЗ, дата получения.');
+    return rAsk('wait_order', 'После оформления пришлите скрин заказа: цена, город/ПВЗ, дата получения.');
   }
 
   // ── wait_bank ────────────────────────────────────────────────────────────
   if (lead.status === 'wait_bank') {
     if (hasPhoto && text.length < 8) {
-      return r('Реквизиты текстом: телефон + ФИО + банк (СБП).');
+      return rAsk('wait_bank', 'Реквизиты текстом: телефон + ФИО + банк (СБП).');
     }
     if (!looksLikeBank(text)) {
       // вопрос про реквизиты/кэш — мозг
@@ -885,7 +886,7 @@ async function handleAlinaClientMessageInner(opts: {
         const { brain } = await runBrain();
         if (brain.reply) return r(brain.reply);
       }
-      return r('Нужны реквизиты одной строкой: телефон + ФИО + банк (СБП) 🙌');
+      return rAsk('wait_bank', 'Нужны реквизиты одной строкой: телефон + ФИО + банк (СБП) 🙌');
     }
     // Дату интеграции спрашиваем только если клиент её ещё не называл.
     const haveInt = Boolean(intOf(lead));
@@ -909,7 +910,7 @@ async function handleAlinaClientMessageInner(opts: {
       await syncLeadToSheet(db, lead.id);
       return { replies: [] };
     }
-    if (!d) return r('Напишите дату выхода интеграции, например 28.11 или «завтра» 🙌');
+    if (!d) return rAsk('wait_integration', 'Напишите дату выхода интеграции, например 28.11 или «завтра» 🙌');
     await updateLead(db, lead.id, { status: 'wait_pickup', notes: withInt(lead.notes, d), last_client_text: text });
     await logEvent(db, lead.id, opts.chatId, 'integration_done', { date: d });
     await syncLeadToSheet(db, lead.id);
@@ -1155,6 +1156,11 @@ async function modelsReply(db: SupabaseClient, lead: SelfbuyLead, names: string[
       .map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption }));
   }
   return { replies: [text], ...(photos.length ? { photos } : {}), tag: 'models' };
+}
+
+/** Повторный вопрос в том же шаге («пришлите скрин…», «реквизиты…», «дата интеграции»): помечаем, чтобы второй раз за 3 минуты он не ушёл. */
+function rAsk(status: string, text: string): AlinaReply {
+  return { ...r(text), tag: `ask:${status}` };
 }
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──

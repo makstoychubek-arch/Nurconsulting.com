@@ -138,12 +138,13 @@ export async function processAlinaTelegramUpdate(
           }, escalate.question);
           if (!posted) replies = ['Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.'];
         }
-        // Ответ про наличие моделей: один раз в 5 минут на чат (чтобы точно не было дублей), повтор тихо не отправляем.
-        if (tag === 'models') {
+        // Ответ про наличие моделей (5 минут) и повторный вопрос в том же шаге (3 минуты): второй раз не отправляем, чтобы не было дублей.
+        if (tag === 'models' || (tag && tag.startsWith('ask:'))) {
+            const windowMs = tag === 'models' ? 5 * 60_000 : 3 * 60_000;
             const { data: shown } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log')
-                .eq('payload->>dir', 'alina').eq('payload->>kind', 'models').gt('created_at', new Date(Date.now() - 5 * 60_000).toISOString()).limit(1);
+                .eq('payload->>dir', 'alina').eq('payload->>kind', tag).gt('created_at', new Date(Date.now() - windowMs).toISOString()).limit(1);
             if (shown && shown.length) {
-                await logAlinaRawEvent(message.chatId, 'models_suppressed', { update_id: message.updateId });
+                await logAlinaRawEvent(message.chatId, 'prompt_suppressed', { update_id: message.updateId, tag });
                 return;
             }
         }
@@ -186,7 +187,7 @@ export async function processAlinaTelegramUpdate(
         for (const reply of replies) {
             const mid = await sendTextId(token, message, reply, firstReply, budget, replyMid || undefined);
             if (mid === null) throw new Error('text_delivery');
-            const kind = (tag === 'models' && reply === replies[0]) ? 'models' : kindOf(reply);
+            const kind = (tag && reply === replies[0]) ? tag : kindOf(reply);
             await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), mid, ...(kind ? { kind } : {}) });
             firstReply = false;
         }
