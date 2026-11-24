@@ -85,13 +85,14 @@ export async function processAlinaTelegramUpdate(
 
     // Ручной режим: если владелец сам пишет по делу в этом чате (последние 5 минут) или клиент уже позвал человека (последние 3 часа), Алина молчит.
     // Одно приветствие владельца («Здравствуйте») ручным режимом не считается: на ответ блогера Алина продолжает сама.
-    const since5 = new Date(Date.now() - 5 * 60_000).toISOString();
+    const since5 = new Date(Date.now() - 2 * 60_000).toISOString(); // владелец написал по делу: Алина молчит 2 минуты
     const since3h = new Date(Date.now() - 3 * 3600_000).toISOString();
     const [ownerLog, handoff] = await Promise.all([
         admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', since5).limit(10),
         admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'human_requested').gt('created_at', since3h).limit(1),
     ]);
-    const ownerBusy = (ownerLog.data || []).some((x: { payload: { text?: string } }) => !isGreetingOnly(String(x.payload?.text || '')));
+    // Приветствие и отправленные владельцем фильтры ручным режимом не считаются: дальше разговор подхватывает Алина.
+    const ownerBusy = (ownerLog.data || []).some((x: { payload: { text?: string } }) => { const t = String(x.payload?.text || ''); return !isGreetingOnly(t) && !/фильтр/i.test(t); });
     if (ownerBusy || handoff.data?.length) {
         await logAlinaRawEvent(message.chatId, 'muted_human', { update_id: message.updateId });
         return;
@@ -121,7 +122,7 @@ export async function processAlinaTelegramUpdate(
             `${label[String(x.payload?.dir)] || '?'}: ${String(x.payload?.text || '').slice(0, 300)}`).join('\n');
     } catch { /* без контекста тоже работаем */ }
     try {
-        const { replies: draft, photos, escalate, replyToKind } = await handleAlinaClientMessage({
+        const { replies: draft, photos, escalate, replyToKind, tag } = await handleAlinaClientMessage({
             ...message,
             text,
             history,
@@ -136,6 +137,15 @@ export async function processAlinaTelegramUpdate(
             chatId: message.chatId, connectionId: message.connectionId, username: message.username,
           }, escalate.question);
           if (!posted) replies = ['Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.'];
+        }
+        // Ответ про наличие моделей: один раз в 5 минут на чат (чтобы точно не было дублей), повтор тихо не отправляем.
+        if (tag === 'models') {
+            const { data: shown } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log')
+                .eq('payload->>dir', 'alina').eq('payload->>kind', 'models').gt('created_at', new Date(Date.now() - 5 * 60_000).toISOString()).limit(1);
+            if (shown && shown.length) {
+                await logAlinaRawEvent(message.chatId, 'models_suppressed', { update_id: message.updateId });
+                return;
+            }
         }
         for (const photo of photos || []) {
             const photoMid = await sendPhoto(token, message, photo);
@@ -176,8 +186,8 @@ export async function processAlinaTelegramUpdate(
         for (const reply of replies) {
             const mid = await sendTextId(token, message, reply, firstReply, budget, replyMid || undefined);
             if (mid === null) throw new Error('text_delivery');
-            const kind = kindOf(reply);
-            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), ...(kind ? { kind, mid } : {}) });
+            const kind = (tag === 'models' && reply === replies[0]) ? 'models' : kindOf(reply);
+            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), mid, ...(kind ? { kind } : {}) });
             firstReply = false;
         }
         await logAlinaRawEvent(message.chatId, 'business_out', {
@@ -185,9 +195,9 @@ export async function processAlinaTelegramUpdate(
             messages: replies.length,
             photos: photos?.length || 0,
         });
-    } catch {
+    } catch (e) {
         // The CRM may already have advanced. Replaying the update could advance it twice.
-        await logAlinaRawEvent(message.chatId, 'business_error', delivery);
+        await logAlinaRawEvent(message.chatId, 'business_error', { ...delivery, error: String((e as Error)?.message || e).slice(0, 200) });
         console.error('[alina] Telegram update failed after being claimed');
     }
 }

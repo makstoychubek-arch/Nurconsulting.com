@@ -1,0 +1,42 @@
+// Отправить клиенту готовый текст от имени Алины (по слову владельца). Только сервис. Без тяжёлых модулей, чтобы функция всегда запускалась.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
+
+const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+
+Deno.serve(async (req) => {
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    if (!await isServiceAuthorized(req, serviceKey)) return json({ ok: false, error: 'Unauthorized' }, 401);
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const chatId = Number(body.chat_id);
+    const say = String(body.say || '').trim().slice(0, 1500);
+    const delLast = Math.min(10, Math.max(0, Number(body.delete_last_alina) || 0));
+    if (!Number.isSafeInteger(chatId) || (!say && !delLast)) return json({ ok: false, error: 'chat_id и say (или delete_last_alina) обязательны' }, 400);
+    const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
+    const { data: q } = await admin.from('alina_manager_questions').select('business_connection_id').not('business_connection_id', 'is', null)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    const conn = String((q as { business_connection_id?: string } | null)?.business_connection_id || '');
+    const token = (Deno.env.get('ALINA_BOT_TOKEN') || '').trim();
+    if (!conn || !token) return json({ ok: false, error: 'нет business_connection_id или токена' }, 503);
+    // Удалить последние N сообщений Алины в чате (по слову владельца): номера берём из журнала, удаляет Telegram (deleteBusinessMessages)
+    if (delLast) {
+        const { data: rows } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', chatId).eq('event_type', 'chat_log')
+            .eq('payload->>dir', 'alina').not('payload->>mid', 'is', null).order('created_at', { ascending: false }).limit(delLast);
+        const ids = ((rows || []) as Array<{ payload: { mid?: number } }>).map((x) => Number(x.payload?.mid)).filter((n) => Number.isSafeInteger(n) && n > 0);
+        if (!ids.length) return json({ ok: false, error: 'нет номеров сообщений в журнале (они пишутся с этой версии)' });
+        const r = await fetch(`https://api.telegram.org/bot${token}/deleteBusinessMessages`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000),
+            body: JSON.stringify({ business_connection_id: conn, message_ids: ids }),
+        }).catch(() => null);
+        const d = r ? await r.json().catch(() => null) : null;
+        return json({ ok: d?.ok === true, deleted: ids.length, telegram: d?.ok === true ? undefined : String(d?.description || 'нет ответа').slice(0, 120) });
+    }
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000),
+        body: JSON.stringify({ chat_id: chatId, business_connection_id: conn, text: say }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    const ok = data?.ok === true;
+    if (ok) await admin.from('alina_selfbuy_events').insert({ event_type: 'chat_log', chat_id: chatId, payload: { dir: 'alina', text: say, by: 'owner_request', mid: data?.result?.message_id ?? null } });
+    return json({ ok, telegram: ok ? undefined : String(data?.description || 'нет ответа').slice(0, 120) });
+});

@@ -130,6 +130,8 @@ export type AlinaReply = {
   escalate?: { topic: string; question: string; group: number };
   /** Ответить реплаем на своё прежнее сообщение этого вида («Отправила выше»). */
   replyToKind?: 'tz' | 'key' | 'photo';
+  /** Ответ про наличие моделей: один раз в 5 минут на чат, чтобы не было дублей (проверяет alina-telegram). */
+  tag?: 'models';
 };
 
 export type Campaign = {
@@ -416,7 +418,7 @@ async function handleAlinaClientMessageInner(opts: {
   // Не находят после ключа → фильтры с карточки (без бренда)
   if (
     lead.status === 'ask_filters' ||
-    ((lead.status === 'key_sent' || lead.status === 'wait_product' ||
+    ((lead.status === 'key_sent' || lead.status === 'wait_product' || lead.status === 'wait_cart' ||
       lead.status === 'tz_sent') &&
       (cantFindProduct(text) || awaitingFiltersYes(lead, text)))
   ) {
@@ -501,13 +503,9 @@ async function handleAlinaClientMessageInner(opts: {
       // Режим строк: вместо «напишите завтра» называем ближайшие свободные даты и предлагаем бронь.
       const sheet = getLastRazdachi()?.sheet;
       const today = todayMskKey();
-      const nearest = new Map<string, { model: string; date: string }>();
-      for (const x of sheet ? freeSlots(sheet, today, 14) : []) if (!nearest.has(x.model)) nearest.set(x.model, x);
-      if (nearest.size) {
-        return r(
-          'На сегодня места закончились 😔',
-          `Ближайшие: ${[...nearest.values()].map((x) => `${x.model} — ${ruDay(x.date, today)}`).join('; ')}. Какую забронировать?`,
-        );
+      const first = sheet ? freeSlots(sheet, today, 14)[0] : null; // только ближайшая дата, весь план не перечисляем
+      if (first) {
+        return { ...r(`На сегодня всё занято 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
       }
     }
     return r(MSG_CLOSED());
@@ -553,15 +551,11 @@ async function handleAlinaClientMessageInner(opts: {
       }
     }
     // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
-    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
+    if (razdachiRowsMode() && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
       await updateLead(db, lead.id, { status: 'ask_ad' });
       await logEvent(db, lead.id, opts.chatId, 'ask_model', { text, open: choices.map((o) => o.product_name) });
       const names = choices.map((o) => o.product_name || '').filter(Boolean);
-      return r(
-        names.length === 1
-          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт?`
-          : msgAskAd(names),
-      );
+      return await modelsReply(db, lead, names);
     }
     if (picked.offer) {
       return await startDealFromOffer(db, lead, camp, picked.offer, text);
@@ -609,7 +603,7 @@ async function handleAlinaClientMessageInner(opts: {
 
     await updateLead(db, lead.id, { status: 'ask_ad' });
     await logEvent(db, lead.id, opts.chatId, 'ask_ad', { text, hasPhoto });
-    return r(msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)));
+    return await modelsReply(db, lead, choices.map((o) => o.product_name || '').filter(Boolean));
   }
 
   // ── ask_ad: ждём модель / цвет ───────────────────────────────────────────
@@ -637,15 +631,11 @@ async function handleAlinaClientMessageInner(opts: {
       }
     }
     // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
-    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
+    if (razdachiRowsMode() && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
       await updateLead(db, lead.id, { status: 'ask_ad' });
       await logEvent(db, lead.id, opts.chatId, 'ask_model', { text, open: choices.map((o) => o.product_name) });
       const names = choices.map((o) => o.product_name || '').filter(Boolean);
-      return r(
-        names.length === 1
-          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт?`
-          : msgAskAd(names),
-      );
+      return await modelsReply(db, lead, names);
     }
     if (picked.offer) {
       return await startDealFromOffer(db, lead, camp, picked.offer, text);
@@ -1024,7 +1014,7 @@ async function handleAlinaClientMessageInner(opts: {
     return r(brain.reply);
   }
   await updateLead(db, lead.id, { status: 'ask_ad', last_client_text: text });
-  return r(msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)));
+  return await modelsReply(db, lead, choices.map((o) => o.product_name || '').filter(Boolean));
 }
 
 /** Ключ места: модель и ключевой запрос. */
@@ -1144,6 +1134,23 @@ async function alreadySent(db: SupabaseClient, chatId: number, kind: 'tz' | 'key
   return rows.some((x) => named.some((m) => normModel(m) === normModel(x.payload?.text || '')));
 }
 
+/** Ответ «что доступно»: одна короткая строка и фото этих моделей (только те, что ещё не отправляли). Помечен tag, второй раз за 5 минут не уйдёт. */
+async function modelsReply(db: SupabaseClient, lead: SelfbuyLead, names: string[]): Promise<AlinaReply> {
+  const short = (n: string) => n.replace(/^Пижама\s*/i, '');
+  const text = names.length === 1
+    ? `Сегодня в раздаче «${short(names[0])}». Подойдёт?`
+    : names.length ? `Сегодня доступны: ${names.map(short).join(', ')}. Какая нравится?` : 'Какая модель вас интересует?';
+  let photos: NonNullable<AlinaReply['photos']> = [];
+  if (names.length && names.length <= 4) {
+    const { data } = await db.from('alina_selfbuy_events').select('payload').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+      .eq('payload->>kind', 'photo').gt('created_at', new Date(Date.now() - 24 * 3600_000).toISOString()).limit(20);
+    const sent = new Set(((data || []) as Array<{ payload: { text?: string } }>).map((x) => normModel(x.payload?.text || '')));
+    photos = pajamaPhotosFor(names).filter((x) => !sent.has(normModel(x.caption)))
+      .map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption }));
+  }
+  return { replies: [text], ...(photos.length ? { photos } : {}), tag: 'models' };
+}
+
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
 const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
@@ -1151,10 +1158,7 @@ const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена
 async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, date: string): Promise<AlinaReply> {
   await logEvent(db, lead.id, lead.chat_id, 'slot_offer', { model, date });
   const day = ruDay(date, todayMskKey());
-  return r(
-    `На сегодня «${model}» уже нет 😔`,
-    `Ближайшее место: ${day}. Забронировать?`,
-  );
+  return { ...r(`На сегодня «${model}» уже нет 😔\nБлижайшее место: ${day}. Забронировать?`), tag: 'models' as const };
 }
 
 async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
