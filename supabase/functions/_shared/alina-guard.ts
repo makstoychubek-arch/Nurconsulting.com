@@ -49,3 +49,35 @@ export const HUMAN_HANDOFF = [
   'Передала менеджеру, скоро вам ответят.',
 ];
 export const SAFE_REPLY = 'Секунду, уточню у менеджера и вернусь к вам.';
+
+// ── Приветствие: ровно одно на диалог (владелец, 24 ноября 2026) ──
+const GREET_RE = /^\s*(?:здравствуй\S*|привет\S*|добрый\s+(?:день|вечер|утро)|доброе\s+утро|добрейший\s+\S+|хай|здрасьте|здравия\S*)[\s!,.:;)🙌👋😊-]*/i;
+
+export function startsWithGreeting(text: string): boolean {
+  return GREET_RE.test(String(text || '').replace(/ё/g, 'е'));
+}
+
+/** Убирает приветствие в начале реплики: «Здравствуйте! Какую модель смотрите?» → «Какую модель смотрите?». */
+export function stripGreeting(text: string): string {
+  const t = String(text || '').trim().replace(GREET_RE, '').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+}
+
+/** Сообщение владельца это только приветствие (без вопроса и дела): такой ответ не включает ручной режим. */
+export function isGreetingOnly(text: string): boolean {
+  const t = String(text || '').trim();
+  return startsWithGreeting(t) && stripGreeting(t) === '' || (startsWithGreeting(t) && t.length <= 40 && !/[?]/.test(t));
+}
+
+/**
+ * Приветствие в ответах: если диалог уже поздоровался (владелец или Алина за последние 12 часов), убираем его из ответа;
+ * если никто не здоровался, а ответ без приветствия, добавляем «Здравствуйте!».
+ */
+export function applyGreeting(replies: string[], greeted: boolean): string[] {
+  if (!replies.length) return replies;
+  if (greeted) {
+    const first = stripGreeting(replies[0]);
+    return first ? [first, ...replies.slice(1)] : replies.slice(1);
+  }
+  return startsWithGreeting(replies[0]) ? replies : ['Здравствуйте! ' + replies[0], ...replies.slice(1)];
+}

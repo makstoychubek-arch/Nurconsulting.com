@@ -39,7 +39,7 @@ import {
   syncCampaignFromSheet,
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
-import { bookPlace, takePlaceToday } from './alina-razdachi-sync.ts';
+import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
@@ -76,6 +76,8 @@ export type SelfbuyStatus =
   | 'wait_product'
   | 'wait_cart'
   | 'wait_order'
+  | 'wait_size'
+  | 'wait_integration'
   | 'wait_bank'
   | 'wait_pickup'
   | 'wait_review'
@@ -300,6 +302,26 @@ async function handleAlinaClientMessageInner(opts: {
   if (razdachiRowsMode() && !hasPhoto && ['wait_bank', 'wait_pickup', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status))) {
     const next = await startSecondModelLead(db, lead, text);
     if (next) lead = next;
+  }
+
+  // Размер назван в любой момент: запоминаем, потом не переспрашиваем.
+  if (!hasPhoto && lead.status !== 'wait_size' && !sizeOf(lead)) {
+    const early = parseSize(text);
+    if (early) {
+      const notes = withSize(lead.notes, early);
+      await updateLead(db, lead.id, { notes });
+      lead = { ...lead, notes };
+    }
+  }
+
+  // Дата интеграции названа в любой момент («выйду 28-го»): запоминаем, потом не переспрашиваем.
+  if (!hasPhoto && lead.status !== 'wait_integration' && !intOf(lead)) {
+    const d = parseIntegrationDate(text);
+    if (d) {
+      const notes = withInt(lead.notes, d);
+      await updateLead(db, lead.id, { notes });
+      lead = { ...lead, notes };
+    }
   }
 
   // Режим строк: бронь места (ответ на предложение даты или запрос модели, которой сегодня нет).
@@ -749,6 +771,16 @@ async function handleAlinaClientMessageInner(opts: {
   }
 
   // ── wait_order ───────────────────────────────────────────────────────────
+  // ── wait_size: заказ принят, не хватает размера ───────────────────────────
+  if (lead.status === 'wait_size') {
+    const size = parseSize(text, true);
+    if (!size) return r('Напишите размер, который заказали, например M или 46 🙌');
+    await updateLead(db, lead.id, { status: 'wait_bank', notes: withSize(lead.notes, size), last_client_text: text });
+    await logEvent(db, lead.id, opts.chatId, 'size_done', { size });
+    await syncLeadToSheet(db, lead.id);
+    return r(lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK());
+  }
+
   if (lead.status === 'wait_order') {
     if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
       const vision = hasPhoto ? await readScreen('order') : null;
@@ -762,16 +794,20 @@ async function handleAlinaClientMessageInner(opts: {
         vision?.pvz ? `ПВЗ ${vision.pvz}` : '',
         vision?.delivery_date || text.slice(0, 200) || new Date().toISOString().slice(0, 10),
       ].filter(Boolean).join(' · ');
+      // Размер: со скрина заказа, из сообщения или из того, что клиент уже писал раньше; нет нигде, спрашиваем как человек.
+      const size = parseSize(vision?.size || '', true) || parseSize(text) || sizeOf(lead);
+      const baseNotes = visionNote(lead.notes, vision);
       await updateLead(db, lead.id, {
-        status: 'wait_bank',
+        status: size ? 'wait_bank' : 'wait_size',
         order_received_at: orderMeta.slice(0, 300),
         order_price: vision?.price || lead.order_price,
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'order'),
-        notes: visionNote(lead.notes, vision),
+        notes: size ? withSize(baseNotes, size) : baseNotes,
       });
-      await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto, vision });
+      await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto, vision, size });
       await syncLeadToSheet(db, lead.id);
+      if (!size) return r('Заказ вижу ✅ Подскажите, какой размер заказали?');
       const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK();
       return r(bankMsg);
     }
@@ -791,14 +827,27 @@ async function handleAlinaClientMessageInner(opts: {
       }
       return r('Нужны реквизиты одной строкой: телефон + ФИО + банк (СБП) 🙌');
     }
+    // Дату интеграции спрашиваем только если клиент её ещё не называл.
+    const haveInt = Boolean(intOf(lead));
     await updateLead(db, lead.id, {
       bank_details: text.slice(0, 1000),
-      status: 'wait_pickup',
+      status: haveInt ? 'wait_pickup' : 'wait_integration',
       last_client_text: '[реквизиты]',
     });
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
+    if (!haveInt) return r('Реквизиты приняла ✅', 'Когда планируете выход интеграции? Напишите дату 🙌');
     return r('Реквизиты приняла ✅', MSG_ASK_PICKUP());
+  }
+
+  // ── wait_integration: ждём дату выхода интеграции ────────────────────────
+  if (lead.status === 'wait_integration') {
+    const d = parseIntegrationDate(text, true);
+    if (!d) return r('Напишите дату выхода интеграции, например 28.11 или «завтра» 🙌');
+    await updateLead(db, lead.id, { status: 'wait_pickup', notes: withInt(lead.notes, d), last_client_text: text });
+    await logEvent(db, lead.id, opts.chatId, 'integration_done', { date: d });
+    await syncLeadToSheet(db, lead.id);
+    return r(MSG_ASK_PICKUP());
   }
 
   // ── wait_pickup ──────────────────────────────────────────────────────────
@@ -988,6 +1037,29 @@ async function visionToManager(lead: SelfbuyLead, v: { notes?: string; search_qu
     ...(group ? { escalate: { topic: 'скрин клиента', question, group } } : {}),
   };
 }
+
+// ── Размер вещи (колонка «Размер»; кэшбека нет, только бартер) ──
+const SIZE_RE = '(xxxl|xxl|xl|xxs|xs|s|m|l|\\d{2}(?:\\s*[-/]\\s*\\d{2})?)';
+
+/** Размер из текста: «размер M», «р-р 46», «44-46». В режиме loose годится и просто «M» или «беру 46». */
+export function parseSize(text: string, loose = false): string {
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  const m = t.match(new RegExp('(?:размер|р-р|р\\.)\\s*[:\\-—]?\\s*' + SIZE_RE + '(?![a-zа-я0-9])', 'i'));
+  if (m) return m[1].replace(/\s+/g, '').toUpperCase();
+  if (loose) {
+    const w = t.trim().match(new RegExp('^(?:беру|заказал[аи]?|взял[аи]?|у меня|мне|это)?\\s*' + SIZE_RE + '\\s*[.!)]*$', 'i'));
+    if (w) return w[1].replace(/\s+/g, '').toUpperCase();
+  }
+  return '';
+}
+
+const sizeOf = (lead: SelfbuyLead): string => (lead.notes || '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '';
+const withSize = (notes: string | null | undefined, size: string): string =>
+  `${(notes || '').replace(/\s*размер:\S+/g, '').trim()} размер:${size.replace(/\s+/g, '_')}`.trim();
+
+const intOf = (lead: SelfbuyLead): string => (lead.notes || '').match(/интеграция:(\S+)/)?.[1] ?? '';
+const withInt = (notes: string | null | undefined, date: string): string =>
+  `${(notes || '').replace(/\s*интеграция:\S+/g, '').trim()} интеграция:${date}`.trim();
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;

@@ -23,6 +23,8 @@ export type VisionResult = {
   pvz: string | null;
   delivery_date: string | null;
   has_our_product: boolean | null;
+  /** Размер вещи из скрина заказа (M, 46, 44-46) или null, если не виден. */
+  size: string | null;
   /** Модель уверена на 100%, что скрин не подходит (другая выдача/категория/не тот экран). Иначе решает менеджер. */
   confident: boolean;
   competitors_count: number | null;
@@ -90,6 +92,7 @@ export async function analyzeAlinaScreenshot(opts: {
     pvz: null,
     delivery_date: null,
     has_our_product: null,
+    size: null,
     confident: false,
     competitors_count: null,
     notes: '',
@@ -118,7 +121,7 @@ export async function analyzeAlinaScreenshot(opts: {
     product:
       'Скрин поиска WB/Ozon: строка запроса сверху + карточки. Нужен наш товар в выдаче и ключ в строке поиска.',
     cart: 'Скрин корзины: наш товар + конкуренты (2–3), желательно бренд в избранном.',
-    order: 'Скрин оформленного заказа: цена, ПВЗ/город, дата получения.',
+    order: 'Скрин оформленного заказа: цена, размер вещи (size), ПВЗ/город, дата получения.',
     pickup: 'Скрин получения / ПВЗ / статус «получен».',
     review: 'Черновик или опубликованный отзыв / фото товара / ШК.',
     other: 'Определи, что на скрине.',
@@ -129,7 +132,7 @@ export async function analyzeAlinaScreenshot(opts: {
     'Ответь ТОЛЬКО JSON без markdown:',
     '{"ok":true|false,"kind":"ad|product|cart|order|pickup|review|other",',
     '"search_query":string|null,"article":string|null,"product_hint":string|null,',
-    '"price":string|null,"pvz":string|null,"delivery_date":string|null,',
+    '"price":string|null,"size":string|null,"pvz":string|null,"delivery_date":string|null,',
     '"has_our_product":true|false|null,"confident":true|false,"competitors_count":number|null,',
     '"notes":"кратко","client_reply":"короткая реплика клиенту на русском если ok=false, иначе null"}',
     'confident=true ТОЛЬКО если ты на 100% видишь, что скрин не подходит (другая категория, другой запрос, вообще не тот экран). Если сомневаешься, похож ли товар на наш, confident=false и ok=true или false как думаешь.',
@@ -203,6 +206,7 @@ export async function analyzeAlinaScreenshot(opts: {
       has_our_product: typeof parsed.has_our_product === 'boolean'
         ? parsed.has_our_product
         : null,
+      size: parsed.size != null && String(parsed.size).trim() ? String(parsed.size).trim().slice(0, 20) : null,
       confident: parsed.confident === true,
       competitors_count: Number.isFinite(Number(parsed.competitors_count))
         ? Number(parsed.competitors_count)
