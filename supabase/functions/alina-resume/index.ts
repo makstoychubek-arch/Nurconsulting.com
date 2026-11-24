@@ -21,7 +21,13 @@ Deno.serve(async (req) => {
         const { data: a } = await admin.from('alina_admissions').select('connection_id').eq('chat_id', chatId).limit(1).maybeSingle();
         connectionId = String((a as { connection_id?: string } | null)?.connection_id || '');
     }
-    if (!connectionId) return json({ ok: false, error: 'нет business_connection_id для этого чата' }, 404);
+    if (!connectionId) {
+        // Подключение бизнес-аккаунта одно на все чаты: берём последнее известное
+        const { data: any1 } = await admin.from('alina_manager_questions').select('business_connection_id').not('business_connection_id', 'is', null)
+            .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        connectionId = String((any1 as { business_connection_id?: string } | null)?.business_connection_id || '');
+    }
+    if (!connectionId) return json({ ok: false, error: 'нет business_connection_id' }, 404);
     // Режим «сказать»: отправить клиенту готовый текст от имени Алины (по слову владельца), без разбора сообщения.
     if (body.say) {
         const token = (Deno.env.get('ALINA_BOT_TOKEN') || '').trim();
