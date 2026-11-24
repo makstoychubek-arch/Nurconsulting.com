@@ -39,7 +39,7 @@ import {
   syncCampaignFromSheet,
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
-import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
+import { bookPlace, clientRowsToday, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { BRAND_REPLIES, isAck, isBrandQuestion } from './alina-guard.ts';
@@ -534,6 +534,14 @@ async function handleAlinaClientMessageInner(opts: {
         picked.alternatives.map((o) => o.product_name || '').filter(Boolean),
       ));
     }
+    // Клиент уже закрепил место на эту дату (бронь с вчера): модель берём из его строки, заново не спрашиваем.
+    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0) {
+      const own = clientRowsToday(lead.username);
+      if (own.state === 'ok' && own.rows.length === 1) {
+        const mine = choices.find((o) => normModel(o.product_name) === normModel(own.rows[0].model));
+        if (mine) return await startDealFromOffer(db, lead, camp, mine, text);
+      }
+    }
     // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
     if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
       await updateLead(db, lead.id, { status: 'ask_ad' });
@@ -609,6 +617,14 @@ async function handleAlinaClientMessageInner(opts: {
         label,
         picked.alternatives.map((o) => o.product_name || '').filter(Boolean),
       ));
+    }
+    // Клиент уже закрепил место на эту дату (бронь с вчера): модель берём из его строки, заново не спрашиваем.
+    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0) {
+      const own = clientRowsToday(lead.username);
+      if (own.state === 'ok' && own.rows.length === 1) {
+        const mine = choices.find((o) => normModel(o.product_name) === normModel(own.rows[0].model));
+        if (mine) return await startDealFromOffer(db, lead, camp, mine, text);
+      }
     }
     // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
     if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
