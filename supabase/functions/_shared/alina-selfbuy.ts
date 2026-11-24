@@ -40,7 +40,7 @@ import {
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
 import { bookPlace, takePlaceToday } from './alina-razdachi-sync.ts';
-import { freeSlots, matchModels, nearestFree, ruDay, todayMskKey } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -271,6 +271,12 @@ export async function handleAlinaClientMessage(opts: {
   ) {
     await updateLead(db, lead.id, { status: 'ask_ad' });
     lead = { ...lead, status: 'ask_ad' };
+  }
+
+  // Вторая модель по очереди: первая заявка прошла этап скрина заказа, клиент называет другую модель → отдельная заявка на неё.
+  if (razdachiRowsMode() && !hasPhoto && ['wait_bank', 'wait_pickup', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status))) {
+    const next = await startSecondModelLead(db, lead, text);
+    if (next) lead = next;
   }
 
   // Режим строк: бронь места (ответ на предложение даты или запрос модели, которой сегодня нет).
@@ -898,6 +904,25 @@ function placesFactFor(username?: string | null): string | null {
   return [`свободные места: ${lines.join('; ')}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
 }
 
+/** Клиент назвал другую модель после скрина заказа: заводим отдельную заявку (одна на клиента и модель). */
+async function startSecondModelLead(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<SelfbuyLead | null> {
+  const sheet = getLastRazdachi()?.sheet;
+  if (!sheet || !lead.product_name) return null;
+  const hit = matchModels([...new Set(sheet.rows.map((x) => x.model))], text);
+  if (hit.length !== 1 || normModel(hit[0]) === normModel(lead.product_name)) return null;
+  const key = normModel(hit[0]);
+  const { data: have } = await db.from('alina_selfbuy_leads').select('*')
+    .eq('telegram_user_id', lead.telegram_user_id).eq('chat_id', lead.chat_id).eq('model_key', key).maybeSingle();
+  if (have) return have as SelfbuyLead;
+  const { data: made, error } = await db.from('alina_selfbuy_leads').insert({
+    telegram_user_id: lead.telegram_user_id, chat_id: lead.chat_id, username: lead.username, full_name: lead.full_name,
+    status: 'new', source_account: lead.source_account, model_key: key,
+  }).select('*').single();
+  if (error || !made) return null;
+  await logEvent(db, (made as SelfbuyLead).id, lead.chat_id, 'second_model_lead', { model: hit[0], first_lead: lead.id });
+  return made as SelfbuyLead;
+}
+
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
 const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
@@ -1329,6 +1354,8 @@ async function getOrCreateLead(
     .select('*')
     .eq('telegram_user_id', opts.userId)
     .eq('chat_id', opts.chatId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (lookupError) throw new Error('alina lead lookup failed');
   if (existing) return existing as SelfbuyLead;
@@ -1354,6 +1381,8 @@ async function getOrCreateLead(
         .select('*')
         .eq('telegram_user_id', opts.userId)
         .eq('chat_id', opts.chatId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (again) return again as SelfbuyLead;
     }
