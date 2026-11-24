@@ -416,7 +416,7 @@ async function handleAlinaClientMessageInner(opts: {
   // Не находят после ключа → фильтры с карточки (без бренда)
   if (
     lead.status === 'ask_filters' ||
-    ((lead.status === 'key_sent' || lead.status === 'wait_product' ||
+    ((lead.status === 'key_sent' || lead.status === 'wait_product' || lead.status === 'wait_cart' ||
       lead.status === 'tz_sent') &&
       (cantFindProduct(text) || awaitingFiltersYes(lead, text)))
   ) {
