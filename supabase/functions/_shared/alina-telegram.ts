@@ -2,7 +2,7 @@ import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
 import { askAlinaManager, managerGroupId } from './alina-manager.ts';
-import { HUMAN_HANDOFF, SAFE_REPLY, dedupeReplies, isAngry, unsafeReply, wantsHuman } from './alina-guard.ts';
+import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, isAngry, isGreetingOnly, startsWithGreeting, unsafeReply, wantsHuman } from './alina-guard.ts';
 import { loadAlinaSettings } from './alina-settings.ts';
 import { normLogin } from './alina-gate.ts';
 
@@ -71,15 +71,16 @@ export async function processAlinaTelegramUpdate(
 
     const budget = { spent: 0 };
 
-    // Ручной режим: если владелец сам пишет в этом чате (последние 20 минут) или клиент уже позвал человека (последние 3 часа), Алина молчит.
-    const since20 = new Date(Date.now() - 20 * 60_000).toISOString();
+    // Ручной режим: если владелец сам пишет по делу в этом чате (последние 5 минут) или клиент уже позвал человека (последние 3 часа), Алина молчит.
+    // Одно приветствие владельца («Здравствуйте») ручным режимом не считается: на ответ блогера Алина продолжает сама.
+    const since5 = new Date(Date.now() - 5 * 60_000).toISOString();
     const since3h = new Date(Date.now() - 3 * 3600_000).toISOString();
-    const [ownerMsg, ownerLog, handoff] = await Promise.all([
-        admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'owner_message').gt('created_at', since20).limit(1),
-        admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', since20).limit(1),
+    const [ownerLog, handoff] = await Promise.all([
+        admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', since5).limit(10),
         admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'human_requested').gt('created_at', since3h).limit(1),
     ]);
-    if ((ownerMsg.data?.length || ownerLog.data?.length || handoff.data?.length)) {
+    const ownerBusy = (ownerLog.data || []).some((x: { payload: { text?: string } }) => !isGreetingOnly(String(x.payload?.text || '')));
+    if (ownerBusy || handoff.data?.length) {
         await logAlinaRawEvent(message.chatId, 'muted_human', { update_id: message.updateId });
         return;
     }
@@ -127,6 +128,12 @@ export async function processAlinaTelegramUpdate(
         const { data: prev } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
             .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').order('created_at', { ascending: false }).limit(3);
         replies = dedupeReplies(replies, (prev || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || '')));
+        // Одно приветствие на диалог: уже поздоровались (владелец или Алина за 12 часов), так убираем его из ответа; никто не здоровался, так добавляем.
+        const since12h = new Date(Date.now() - 12 * 3600_000).toISOString();
+        const { data: hist } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').in('payload->>dir', ['owner', 'alina']).gt('created_at', since12h).limit(40);
+        const greeted = (hist || []).some((x: { payload: { text?: string } }) => startsWithGreeting(String(x.payload?.text || '')));
+        replies = applyGreeting(replies, greeted);
         let firstReply = true;
         for (const reply of replies) {
             if (!await sendText(token, message, reply, firstReply, budget)) throw new Error('text_delivery');
