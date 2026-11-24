@@ -31,6 +31,7 @@ type Lead = {
   review_planned_at?: string | null;
   review_note?: string | null;
   notes?: string | null;
+  bank_details?: string | null;
   status?: string | null;
   keyword?: string | null;
   reels_url?: string | null;
@@ -112,6 +113,7 @@ export function leadFields(lead: Lead & { order_received_at?: string | null }): 
     review_date: String(lead.notes ?? '').match(/интеграция:(\S+)/)?.[1] ?? String(lead.review_planned_at ?? ''),
     review_kind: lead.review_note ? 'Получен' : '',
     published: lead.status === 'done' ? 'Да' : '',
+    requisites: String(lead.bank_details ?? '').replace(/\s+/g, ' ').trim().slice(0, 200),
     responsible: 'Алина',
     key: String(lead.keyword ?? ''),
     reels: String(lead.reels_url ?? ''),
