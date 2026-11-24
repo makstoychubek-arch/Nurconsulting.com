@@ -43,6 +43,7 @@ export async function processAlinaTelegramUpdate(
     if (error?.code === '23505') return;
     if (error) throw new Error('Alina event storage is unavailable');
 
+    const budget = { spent: 0 };
     try {
         const { replies: draft, photos, escalate } = await handleAlinaClientMessage({
             ...message,
@@ -66,8 +67,10 @@ export async function processAlinaTelegramUpdate(
                 }
             }
         }
+        let firstReply = true;
         for (const reply of replies) {
-            if (!await sendText(token, message, reply)) throw new Error('text_delivery');
+            if (!await sendText(token, message, reply, firstReply, budget)) throw new Error('text_delivery');
+            firstReply = false;
         }
         await logAlinaRawEvent(message.chatId, 'business_out', {
             ...delivery,
@@ -81,7 +84,30 @@ export async function processAlinaTelegramUpdate(
     }
 }
 
-async function sendText(token: string, message: ClientUpdate, text: string): Promise<boolean> {
+// Живой темп: перед ответом «читает» и «печатает». Пауза зависит от длины текста, на все ответы одного сообщения не больше 25 секунд.
+export const pacing = {
+    sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+};
+export function humanPauseMs(text: string, first: boolean): number {
+    const base = 1200 + text.length * 40 + (first ? 1500 : 0);
+    return Math.min(9000, Math.round(base * (0.85 + Math.random() * 0.3)));
+}
+async function humanPause(token: string, message: ClientUpdate, text: string, first: boolean, budget: { spent: number }): Promise<void> {
+    const left = 25_000 - budget.spent;
+    if (left <= 0) return;
+    const ms = Math.min(left, humanPauseMs(text, first));
+    budget.spent += ms;
+    // «Печатает…» держится около 5 секунд: обновляем индикатор, пока ждём
+    for (let waited = 0; waited < ms; waited += 4500) {
+        await telegramSend(token, 'sendChatAction', JSON.stringify({
+            chat_id: message.chatId, business_connection_id: message.connectionId, action: 'typing',
+        }));
+        await pacing.sleep(Math.min(4500, ms - waited));
+    }
+}
+
+async function sendText(token: string, message: ClientUpdate, text: string, first = false, budget = { spent: 25_000 }): Promise<boolean> {
+    await humanPause(token, message, text, first, budget);
     return telegramSend(token, 'sendMessage', JSON.stringify({
         chat_id: message.chatId,
         business_connection_id: message.connectionId,

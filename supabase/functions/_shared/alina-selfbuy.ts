@@ -46,6 +46,7 @@ import {
   analyzeAlinaScreenshot,
   downloadTelegramFile,
   visionBlocks,
+  visionVerdict,
   visionRejectReply,
   type ScreenStage,
   type VisionResult,
@@ -212,7 +213,10 @@ async function upsertCampaign(
 /** Если Алина пообещала «уточню у менеджера», вопрос действительно уходит в группу менеджеров (раньше фраза говорилась, а в группу ничего не шло). */
 export async function handleAlinaClientMessage(opts: Parameters<typeof handleAlinaClientMessageInner>[0]): Promise<AlinaReply> {
   const res = await handleAlinaClientMessageInner(opts);
-  if (res.escalate || !res.replies.some((x) => /уточню у менеджера|передам (?:вопрос )?менеджер/i.test(x))) return res;
+  // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
+  const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
+  const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
+  if (res.escalate || !(promised || asksManager)) return res;
   const group = await managerGroupId();
   if (!group) return res;
   const question = (opts.text || '').trim() || '[клиент прислал фото]';
@@ -607,8 +611,10 @@ async function handleAlinaClientMessageInner(opts: {
     }
     if (hasPhoto) {
       const vision = await readScreen('product');
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'На скрине не вижу наш товар/ключ. Пришлите поиск с ключом сверху и наш товар 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'На скрине не вижу наш товар/ключ. Пришлите поиск с ключом сверху и наш товар 🙌'));
       }
       await updateLead(db, lead.id, {
         status: 'wait_cart',
@@ -680,8 +686,10 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto || /скрин|нашла|нашёл|наш товар|это он/i.test(text)) {
       // «артикул» намеренно не принимаем как успех — по артикулу не ведём
       const vision = hasPhoto ? await readScreen('product') : null;
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'Нужен скрин поиска: ключ в строке сверху и наш товар в выдаче 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'Нужен скрин поиска: ключ в строке сверху и наш товар в выдаче 🙌'));
       }
       await updateLead(db, lead.id, {
         status: 'wait_cart',
@@ -704,8 +712,10 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_cart') {
     if (hasPhoto || /корзин|конкурент|избранн/i.test(text)) {
       const vision = hasPhoto ? await readScreen('cart') : null;
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'В корзине нужны наш + 2–3 конкурента из топа, и скрин ещё раз 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'В корзине нужны наш + 2–3 конкурента из топа, и скрин ещё раз 🙌'));
       }
       await updateLead(db, lead.id, {
         status: 'wait_order',
@@ -724,8 +734,10 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_order') {
     if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
       const vision = hasPhoto ? await readScreen('order') : null;
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'Нужен скрин заказа: цена, ПВЗ/город и дата получения 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'Нужен скрин заказа: цена, ПВЗ/город и дата получения 🙌'));
       }
       const orderMeta = [
         vision?.price ? `цена ${vision.price}` : '',
@@ -948,6 +960,17 @@ async function startSecondModelLead(db: SupabaseClient, lead: SelfbuyLead, text:
   return made as SelfbuyLead;
 }
 
+/** Модель не уверена, наш ли товар на скрине: клиенту «сверю с менеджером», менеджерам вопрос с пометкой модели. */
+async function visionToManager(lead: SelfbuyLead, v: { notes?: string; search_query?: string | null; has_our_product?: boolean | null }): Promise<AlinaReply> {
+  await logAlinaRawEvent(lead.chat_id, 'vision_unsure', { notes: v.notes || null, query: v.search_query || null, has_our: v.has_our_product ?? null });
+  const group = await managerGroupId();
+  const question = `Скрин клиента: Алина не уверена, подходит ли он (наш товар/ключ). Модель в заявке: ${lead.product_name || '—'}; ключ: ${lead.keyword || '—'}. Заметка зрения: ${(v.notes || '—').slice(0, 200)}. Посмотрите скрин в чате и ответьте клиенту.`;
+  return {
+    replies: ['Секунду, сверю скрин с менеджером и вернусь к вам 🙌'],
+    ...(group ? { escalate: { topic: 'скрин клиента', question, group } } : {}),
+  };
+}
+
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
 const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
@@ -996,6 +1019,18 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   const slots = freeSlots(sheet, today, 14);
   const models = [...new Set(sheet.rows.map((x) => x.model))];
   const hit = matchModels(models, t);
+  if (hit.length > 1) {
+    // Цвет есть в нескольких форматах (2в1 и 3в1), а сегодня место только у части: не выбираем за клиента.
+    const todayFree = hit.filter((m) => slots.some((x) => x.date === today && x.model.toLowerCase() === m.toLowerCase()));
+    if (todayFree.length && todayFree.length < hit.length) {
+      const parts = hit.map((m) => {
+        const near = nearestFree(sheet, m, today, 14);
+        return `${m} — ${near ? ruDay(near.date, today) : 'пока мест нет'}`;
+      });
+      return r(`Такой цвет есть в нескольких вариантах: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
+    }
+    return null;
+  }
   if (hit.length !== 1) return null;
   const model = hit[0];
   const k = model.toLowerCase();
@@ -1435,6 +1470,11 @@ async function handleProductPhotoRequest(
   camp: Campaign | null,
   text: string,
 ): Promise<AlinaReply | null> {
+  if (razdachiRowsMode()) {
+    // Владелец (24 ноября 2026): главное фото с WB не отправляем, по нему товар находят на WB без ключа. Нужны свои фото модели и цвета (встроенные в код); пока их нет, фото присылает менеджер.
+    await logEvent(db, lead.id, lead.chat_id, 'product_photo_manager', { text });
+    return r('Фото пришлю чуть позже, передала менеджеру 🙌');
+  }
   const choices = await getOpenProductChoices();
   const allOffers = choices.length
     ? choices
@@ -1446,8 +1486,8 @@ async function handleProductPhotoRequest(
   if (!matched.offer && lead.product_name) {
     matched = matchOfferFromText(allOffers, lead.product_name);
   }
-  // 3) артикул в notes лида / кампании
-  if (!matched.offer) {
+  // 3) артикул в notes лида / кампании (в режиме строк не берём «первый попавшийся» товар кампании)
+  if (!matched.offer && !razdachiRowsMode()) {
     const art =
       (lead.notes || '').match(/(?:арт|article:)\s*(\d{6,})/i)?.[1] ||
       (camp?.notes || '').match(/article:(\d{6,})/i)?.[1] ||
@@ -1464,6 +1504,20 @@ async function handleProductPhotoRequest(
     return r(
       `Какую модель фото? 🙌\n` + names.map((n) => `• ${n}`).join('\n'),
     );
+  }
+  if (!matched.offer && allOffers.length > 1 && !lead.product_name && razdachiRowsMode()) {
+    // Клиент просит фото, не назвав модель: показываем все модели, пока он выбирает.
+    const seen = new Set<string>();
+    const uniq = allOffers.filter((o) => o.article && o.product_name && !seen.has(o.product_name) && seen.add(o.product_name)).slice(0, 5);
+    const shots = await Promise.all(uniq.map(async (o) => ({ o, photo: await fetchWbMainPhoto(o.article!) })));
+    const ok = shots.filter((x) => x.photo);
+    await logEvent(db, lead.id, lead.chat_id, 'product_photo_all', { text, total: uniq.length, sent: ok.length });
+    if (ok.length) {
+      return {
+        replies: ['Выберите модель, которая нравится, и напишите мне 🙌'],
+        photos: ok.map((x) => ({ url: x.photo!.url, bytes: x.photo!.bytes, mime: x.photo!.mime, filename: x.photo!.filename, caption: x.o.product_name! })),
+      };
+    }
   }
   if (!matched.offer && allOffers.length > 1 && !lead.product_name) {
     const names = allOffers.map((o) => o.product_name).filter(Boolean);
