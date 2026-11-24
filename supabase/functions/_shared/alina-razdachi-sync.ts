@@ -105,10 +105,17 @@ export function parseIntegrationDate(text: string | null | undefined, loose = fa
   return parseDeliveryDate(t, now);
 }
 
+/** Прибавляет дни к дате дд.мм.гггг. */
+export function addDaysKey(dateKey: string, n: number): string {
+  const [d, m, y] = dateKey.split('.').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${String(t.getUTCDate()).padStart(2, '0')}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${t.getUTCFullYear()}`;
+}
+
 export function leadFields(lead: Lead & { order_received_at?: string | null }): Record<string, string> {
   return {
     price: String(lead.order_price ?? ''),
-    pickup_plan: parseDeliveryDate(String(lead.order_received_at ?? '').split(' · ').pop()),
+    pickup_plan: '', // «Примерная дата забора» = дата заказа + 3 дня, считается при записи (syncLeadToRazdachiRow)
     size: String(lead.notes ?? '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '',
     pickup_fact: parseDeliveryDate(lead.pickup_at), // только дата (дд.мм.гггг), а не слово «скрин»
     review_date: String(lead.review_planned_at ?? ''),
@@ -168,7 +175,7 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
     const res = await writeClientRow(
       sheetIO(active.sheet_id, token), tab, sheet,
       { tg, model: lead.product_name, date, hintRow: lead.sheet_row ?? candidates[0]?.row },
-      leadFields(lead),
+      { ...leadFields(lead), ...(lead.order_price ? { pickup_plan: addDaysKey(date, 3) } : {}) },
     );
     if (res.row) {
       await db.from('alina_selfbuy_leads').update({
