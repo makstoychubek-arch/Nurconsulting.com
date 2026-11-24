@@ -185,6 +185,27 @@ export async function processAlinaTelegramUpdate(
         replies = replies.filter((r) => dropRecentSimilar([r], (prev || [])
             .filter((x: { created_at: string }) => Date.now() - Date.parse(x.created_at) < recentWindowMs(r))
             .map((x: { payload: { text?: string } }) => String(x.payload?.text || ''))).length > 0);
+        // Подтверждение брони («за вами», «закреплено», «в этот день») по той же модели и дате уже отправляли за последние 6 часов: второй раз не шлём,
+        // даже если гуманайзер переписал его другими словами.
+        {
+          const confirmRe = /за вами|закреплен|ждёт вас|в этот день/i;
+          if (replies.some((x) => confirmRe.test(x))) {
+            const { data: old6 } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+              .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').gt('created_at', new Date(Date.now() - 6 * 3600_000).toISOString()).limit(60);
+            const olds = (old6 || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || '')).filter((t) => confirmRe.test(t));
+            const key = (t: string) => `${(t.match(/[23]\s?в\s?1\s+[а-яё]+/i) || [''])[0].toLowerCase().replace(/\s/g, '')}|${(t.match(/\d{1,2}\s+(?:ноября|декабря)/i) || [''])[0]}`;
+            if (olds.length) {
+              const prevKeys = new Set(olds.map(key).filter((k) => k !== '|'));
+              const ctxKey = [...prevKeys][0];
+              replies = replies.filter((x) => {
+                if (!confirmRe.test(x)) return true;
+                const k = key(x);
+                // «Напишите в этот день» без модели и даты тоже считаем повтором
+                return !(k === '|' ? prevKeys.size > 0 : prevKeys.has(k)) && !(ctxKey && k === '|');
+              });
+            }
+          }
+        }
         // Одно приветствие на диалог: уже поздоровались (владелец или Алина за 12 часов), так убираем его из ответа; никто не здоровался, так добавляем.
         const since12h = new Date(Date.now() - 12 * 3600_000).toISOString();
         const { data: hist } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
