@@ -40,6 +40,7 @@ import {
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
 import { bookPlace, takePlaceToday } from './alina-razdachi-sync.ts';
+import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
@@ -1481,9 +1482,22 @@ async function handleProductPhotoRequest(
   text: string,
 ): Promise<AlinaReply | null> {
   if (razdachiRowsMode()) {
-    // Владелец (24 ноября 2026): главное фото с WB не отправляем, по нему товар находят на WB без ключа. Нужны свои фото модели и цвета (встроенные в код); пока их нет, фото присылает менеджер.
-    await logEvent(db, lead.id, lead.chat_id, 'product_photo_manager', { text });
-    return r('Фото пришлю чуть позже, передала менеджеру 🙌');
+    // Владелец (24 ноября 2026): главное фото WB не отправляем, по нему товар находят без ключа. Шлём свои фото модели и цвета, встроенные в код.
+    const named = matchModels(PAJAMA_MODEL_NAMES, text);
+    const open = (await getOpenProductChoices()).map((o) => o.product_name || '').filter(Boolean);
+    let shots = named.length ? pajamaPhotosFor(named) : [];
+    if (!shots.length && lead.product_name) shots = pajamaPhotosFor([lead.product_name]);
+    let ask = '';
+    if (!shots.length) {
+      shots = pajamaPhotosFor(open);
+      ask = 'Выберите модель, которая нравится, и напишите мне 🙌';
+    }
+    await logEvent(db, lead.id, lead.chat_id, 'product_photo', { text, own: shots.map((x) => x.caption) });
+    if (!shots.length) return r('Фото пришлю чуть позже, передала менеджеру 🙌');
+    return {
+      replies: ask ? [ask] : [],
+      photos: shots.map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption })),
+    };
   }
   const choices = await getOpenProductChoices();
   const allOffers = choices.length
