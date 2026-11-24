@@ -553,7 +553,7 @@ async function handleAlinaClientMessageInner(opts: {
       }
     }
     // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
-    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
+    if (razdachiRowsMode() && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
       await updateLead(db, lead.id, { status: 'ask_ad' });
       await logEvent(db, lead.id, opts.chatId, 'ask_model', { text, open: choices.map((o) => o.product_name) });
       const names = choices.map((o) => o.product_name || '').filter(Boolean);
@@ -637,7 +637,7 @@ async function handleAlinaClientMessageInner(opts: {
       }
     }
     // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
-    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
+    if (razdachiRowsMode() && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
       await updateLead(db, lead.id, { status: 'ask_ad' });
       await logEvent(db, lead.id, opts.chatId, 'ask_model', { text, open: choices.map((o) => o.product_name) });
       const names = choices.map((o) => o.product_name || '').filter(Boolean);

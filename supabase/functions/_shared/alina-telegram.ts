@@ -185,9 +185,9 @@ export async function processAlinaTelegramUpdate(
             messages: replies.length,
             photos: photos?.length || 0,
         });
-    } catch {
+    } catch (e) {
         // The CRM may already have advanced. Replaying the update could advance it twice.
-        await logAlinaRawEvent(message.chatId, 'business_error', delivery);
+        await logAlinaRawEvent(message.chatId, 'business_error', { ...delivery, error: String((e as Error)?.message || e).slice(0, 200) });
         console.error('[alina] Telegram update failed after being claimed');
     }
 }
