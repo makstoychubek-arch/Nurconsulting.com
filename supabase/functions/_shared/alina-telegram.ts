@@ -2,7 +2,7 @@ import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
 import { askAlinaManager, managerGroupId } from './alina-manager.ts';
-import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, isAngry, isGreetingOnly, startsWithGreeting, unsafeReply, wantsHuman } from './alina-guard.ts';
+import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAngry, isGreetingOnly, promisesMore, startsWithGreeting, unsafeReply, wantsHuman } from './alina-guard.ts';
 import { loadAlinaSettings } from './alina-settings.ts';
 import { normLogin } from './alina-gate.ts';
 
@@ -57,9 +57,20 @@ export async function processAlinaTelegramUpdate(
     let text = message.text;
     if (!message.photoFileId && (message.text || '').trim() && claimed?.created_at) {
         await pacing.sleep(pacing.burstMs);
-        const { data: newer } = await admin.from('alina_selfbuy_events').select('id')
-            .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', claimed.created_at).limit(1);
-        if (newer && newer.length) return; // дописал ещё: ответит последнее сообщение, сведя всё в один ответ
+        const hasNewer = async () => {
+            const { data } = await admin.from('alina_selfbuy_events').select('id')
+                .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', claimed.created_at).limit(1);
+            return Boolean(data && data.length);
+        };
+        let newer = await hasNewer();
+        // «Минуту, сейчас пришлю»: клиент обещал ещё, ждём следующее сообщение дольше (до ~70 секунд), чтобы ответить один раз на всё.
+        if (!newer && promisesMore(message.text || '')) {
+            for (let waited = 0; waited < pacing.promiseMs && !newer; waited += 5000) {
+                await pacing.sleep(5000);
+                newer = await hasNewer();
+            }
+        }
+        if (newer) return; // дописал ещё: ответит последнее сообщение, сведя всё в один ответ
         const { data: mark } = await admin.from('alina_selfbuy_events').select('created_at')
             .eq('chat_id', message.chatId).eq('event_type', 'burst_handled').order('created_at', { ascending: false }).limit(1).maybeSingle();
         const since = mark?.created_at ?? new Date(Date.now() - 120_000).toISOString();
@@ -99,10 +110,20 @@ export async function processAlinaTelegramUpdate(
         return;
     }
 
+    // Последние сообщения чата (клиент, владелец, Алина) для контекста: так Алина отвечает по делу, а не как на первое обращение.
+    let history = '';
+    try {
+        const { data: hist } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').order('created_at', { ascending: false }).limit(10);
+        const label: Record<string, string> = { client: 'Клиент', owner: 'Менеджер', alina: 'Алина' };
+        history = (hist || []).reverse().map((x: { payload: { dir?: string; text?: string } }) =>
+            `${label[String(x.payload?.dir)] || '?'}: ${String(x.payload?.text || '').slice(0, 300)}`).join('\n');
+    } catch { /* без контекста тоже работаем */ }
     try {
         const { replies: draft, photos, escalate } = await handleAlinaClientMessage({
             ...message,
             text,
+            history,
             hasPhoto: Boolean(message.photoFileId),
             botToken: token,
             sourceAccount: 'business',
@@ -125,9 +146,13 @@ export async function processAlinaTelegramUpdate(
         }
         // Защита: ответ не должен выдавать «бот» или артикул, и не повторяем слово в слово прошлые реплики этого диалога.
         if (replies.some(unsafeReply)) replies = replies.map((r) => (unsafeReply(r) ? SAFE_REPLY : r));
-        const { data: prev } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+        const { data: prev } = await admin.from('alina_selfbuy_events').select('payload, created_at').eq('chat_id', message.chatId)
             .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').order('created_at', { ascending: false }).limit(3);
         replies = dedupeReplies(replies, (prev || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || '')));
+        // То же по смыслу (другие слова): за последние 90 секунд почти такую реплику уже отправляли, второй раз не шлём.
+        const recent = (prev || []).filter((x: { created_at: string }) => Date.now() - Date.parse(x.created_at) < 90_000)
+            .map((x: { payload: { text?: string } }) => String(x.payload?.text || ''));
+        replies = dropRecentSimilar(replies, recent);
         // Одно приветствие на диалог: уже поздоровались (владелец или Алина за 12 часов), так убираем его из ответа; никто не здоровался, так добавляем.
         const since12h = new Date(Date.now() - 12 * 3600_000).toISOString();
         const { data: hist } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
@@ -156,6 +181,7 @@ export async function processAlinaTelegramUpdate(
 export const pacing = {
     sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
     burstMs: 7000, // сколько ждём, не допишет ли человек ещё
+    promiseMs: 70_000, // если клиент пообещал прислать ещё
 };
 
 /** Склеивает сообщения подряд в один текст (фото-сообщения не берём: у них свой путь). Если ничего не нашли, остаётся текст этого сообщения. */

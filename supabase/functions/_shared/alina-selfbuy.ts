@@ -244,6 +244,8 @@ async function handleAlinaClientMessageInner(opts: {
   photoFileId?: string | null;
   botToken?: string | null;
   sourceAccount?: string;
+  /** Последние сообщения чата (клиент, менеджер, Алина) для контекста ChatGPT. */
+  history?: string;
   /** Момент для часов работы (песочница); по умолчанию сейчас. */
   nowMs?: number;
 }): Promise<AlinaReply> {
@@ -377,6 +379,7 @@ async function handleAlinaClientMessageInner(opts: {
         orderDeadline: camp?.order_deadline,
         knowledge: camp?.notes || null,
         placesFact: razdachiRowsMode() ? placesFactFor(lead.username) : null,
+        history: opts.history || null,
       }),
       choices,
     };
