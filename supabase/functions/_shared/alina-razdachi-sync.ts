@@ -74,9 +74,23 @@ function sheetIO(sheetId: string, token: string): SheetIO {
 }
 
 /** Поля Алины для строки блогера. Модель, вид, ТГ и дата уже в строке и не пишутся. */
-export function leadFields(lead: Lead): Record<string, string> {
+const RU_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+/** Дата получения со скрина заказа («27 ноября», «27.11») → дд.мм.гггг. Пустая строка, если даты нет. */
+export function parseDeliveryDate(text: string | null | undefined, now = Date.now()): string {
+  const t = String(text ?? '').toLowerCase();
+  const year = new Date(now + 3 * 3600_000).getUTCFullYear();
+  let m = t.match(/(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/);
+  if (m) return `${m[1].padStart(2, '0')}.${String(RU_MONTHS.indexOf(m[2]) + 1).padStart(2, '0')}.${year}`;
+  m = t.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
+  if (m) return `${m[1].padStart(2, '0')}.${m[2].padStart(2, '0')}.${m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : m[3]) : year}`;
+  return '';
+}
+
+export function leadFields(lead: Lead & { order_received_at?: string | null }): Record<string, string> {
   return {
     price: String(lead.order_price ?? ''),
+    pickup_plan: parseDeliveryDate(String(lead.order_received_at ?? '').split(' · ').pop()),
     cash_pct: lead.cashback_pct == null ? '' : String(lead.cashback_pct),
     pickup_fact: String(lead.pickup_at ?? ''),
     review_date: String(lead.review_planned_at ?? ''),
