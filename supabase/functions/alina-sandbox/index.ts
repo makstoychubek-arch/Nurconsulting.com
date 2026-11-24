@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     const result = await handleSandbox(body, user.id, {
         handle: (opts) => handleAlinaClientMessage(opts) as never,
         leadState: async (chatId) => {
-            const { data } = await admin.from('alina_selfbuy_leads').select('status, deal_type, product_name').eq('chat_id', chatId).maybeSingle();
+            const { data } = await admin.from('alina_selfbuy_leads').select('status, deal_type, product_name').eq('chat_id', chatId).order('created_at', { ascending: false }).limit(1).maybeSingle();
             return (data as never) ?? null;
         },
         reset: async (chatId) => {
