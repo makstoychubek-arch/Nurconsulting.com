@@ -225,7 +225,9 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   try {
     const { data: ex } = await admin().from('alina_settings').select('value').eq('key', 'lateException').maybeSingle();
     const until = Date.parse(String((ex?.value as { until?: string } | null)?.until || ''));
-    setLateException(Number.isFinite(until) && until > Date.now());
+    const only = String((ex?.value as { login?: string } | null)?.login || '').replace(/^@/, '').toLowerCase();
+    const me = String(opts.username || '').replace(/^@/, '').toLowerCase();
+    setLateException(Number.isFinite(until) && until > Date.now() && (!only || only === me));
   } catch { setLateException(false); }
   const res = await handleAlinaClientMessageInner(opts);
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
