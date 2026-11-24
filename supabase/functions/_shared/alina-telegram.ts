@@ -177,7 +177,7 @@ export async function processAlinaTelegramUpdate(
             const mid = await sendTextId(token, message, reply, firstReply, budget, replyMid || undefined);
             if (mid === null) throw new Error('text_delivery');
             const kind = kindOf(reply);
-            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), ...(kind ? { kind, mid } : {}) });
+            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), mid, ...(kind ? { kind } : {}) });
             firstReply = false;
         }
         await logAlinaRawEvent(message.chatId, 'business_out', {
