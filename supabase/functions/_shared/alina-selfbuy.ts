@@ -39,9 +39,10 @@ import {
   syncCampaignFromSheet,
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
-import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
+import { bookPlace, clientRowsToday, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
+import { BRAND_REPLIES, isAck, isBrandQuestion } from './alina-guard.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
@@ -533,6 +534,25 @@ async function handleAlinaClientMessageInner(opts: {
         picked.alternatives.map((o) => o.product_name || '').filter(Boolean),
       ));
     }
+    // Клиент уже закрепил место на эту дату (бронь с вчера): модель берём из его строки, заново не спрашиваем.
+    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0) {
+      const own = clientRowsToday(lead.username);
+      if (own.state === 'ok' && own.rows.length === 1) {
+        const mine = choices.find((o) => normModel(o.product_name) === normModel(own.rows[0].model));
+        if (mine) return await startDealFromOffer(db, lead, camp, mine, text);
+      }
+    }
+    // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
+    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
+      await updateLead(db, lead.id, { status: 'ask_ad' });
+      await logEvent(db, lead.id, opts.chatId, 'ask_model', { text, open: choices.map((o) => o.product_name) });
+      const names = choices.map((o) => o.product_name || '').filter(Boolean);
+      return r(
+        names.length === 1
+          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт? Напишите «да» или другую модель 🙌`
+          : msgAskAd(names),
+      );
+    }
     if (picked.offer) {
       return await startDealFromOffer(db, lead, camp, picked.offer, text);
     }
@@ -598,6 +618,25 @@ async function handleAlinaClientMessageInner(opts: {
         picked.alternatives.map((o) => o.product_name || '').filter(Boolean),
       ));
     }
+    // Клиент уже закрепил место на эту дату (бронь с вчера): модель берём из его строки, заново не спрашиваем.
+    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0) {
+      const own = clientRowsToday(lead.username);
+      if (own.state === 'ok' && own.rows.length === 1) {
+        const mine = choices.find((o) => normModel(o.product_name) === normModel(own.rows[0].model));
+        if (mine) return await startDealFromOffer(db, lead, camp, mine, text);
+      }
+    }
+    // Режим строк: условия отправляем только после того, как клиент сам выбрал модель. Не выбираем за него, даже если сегодня открыта одна.
+    if (razdachiRowsMode() && !hasPhoto && matchModels(PAJAMA_MODEL_NAMES, text).length === 0 && !(isYes(text) && lead.status === 'ask_ad')) {
+      await updateLead(db, lead.id, { status: 'ask_ad' });
+      await logEvent(db, lead.id, opts.chatId, 'ask_model', { text, open: choices.map((o) => o.product_name) });
+      const names = choices.map((o) => o.product_name || '').filter(Boolean);
+      return r(
+        names.length === 1
+          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт? Напишите «да» или другую модель 🙌`
+          : msgAskAd(names),
+      );
+    }
     if (picked.offer) {
       return await startDealFromOffer(db, lead, camp, picked.offer, text);
     }
@@ -645,6 +684,23 @@ async function handleAlinaClientMessageInner(opts: {
       return r(MSG_ONLY_CASHBACK());
     }
     return await openDeal(db, lead, camp, typed || 'cashback', text);
+  }
+
+  // Вопрос про бренд: не называем, объясняем, что товар определяем сами по фото на скрине (владелец, 24 ноября 2026).
+  if (!hasPhoto && isBrandQuestion(text) && !['new', 'closed', 'done'].includes(String(lead.status))) {
+    return r(BRAND_REPLIES[(opts.chatId % 2 + (text.length % 2)) % BRAND_REPLIES.length]);
+  }
+
+  // Клиент просто подтвердил («да», «ок», «поняла»): коротко отвечаем, что ждём, и не повторяем инструкцию целиком.
+  if (!hasPhoto && isAck(text)) {
+    const waiting: Record<string, string> = {
+      key_sent: 'Отлично, жду скрин поиска 🙌',
+      wait_product: 'Отлично, жду скрин поиска 🙌',
+      wait_cart: 'Хорошо, жду скрин корзины 🙌',
+      wait_order: 'Хорошо, жду скрин заказа 🙌',
+    };
+    const line = waiting[String(lead.status)];
+    if (line) return r(line);
   }
 
   // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────
@@ -1104,6 +1160,10 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
       await logEvent(db, lead.id, lead.chat_id, 'slot_declined', { model, date });
       return r('Хорошо, без брони. Если передумаете или захотите другую модель, просто напишите 🙌');
     }
+  }
+  // Бронь только что закреплена, а клиент просит «забронируйте»: подтверждаем уже сделанное, а не берём другую модель.
+  if (last?.event_type === 'slot_booked' && fresh && /заброн|закрепит|запиш/i.test(t) && last.payload?.model && last.payload?.date) {
+    return r(`Уже закрепила за вами «${last.payload.model}» на ${ruDay(last.payload.date, todayMskKey())} ✅`);
   }
   // 2. Клиент назвал модель, на которую сегодня мест нет
   const sheet = getLastRazdachi()?.sheet;
