@@ -23,6 +23,8 @@ export type VisionResult = {
   pvz: string | null;
   delivery_date: string | null;
   has_our_product: boolean | null;
+  /** Модель уверена на 100%, что скрин не подходит (другая выдача/категория/не тот экран). Иначе решает менеджер. */
+  confident: boolean;
   competitors_count: number | null;
   notes: string;
   /** Короткая реплика клиенту, если ok=false */
@@ -86,6 +88,7 @@ export async function analyzeAlinaScreenshot(opts: {
     pvz: null,
     delivery_date: null,
     has_our_product: null,
+    confident: false,
     competitors_count: null,
     notes: '',
     client_reply: null,
@@ -125,8 +128,9 @@ export async function analyzeAlinaScreenshot(opts: {
     '{"ok":true|false,"kind":"ad|product|cart|order|pickup|review|other",',
     '"search_query":string|null,"article":string|null,"product_hint":string|null,',
     '"price":string|null,"pvz":string|null,"delivery_date":string|null,',
-    '"has_our_product":true|false|null,"competitors_count":number|null,',
+    '"has_our_product":true|false|null,"confident":true|false,"competitors_count":number|null,',
     '"notes":"кратко","client_reply":"короткая реплика клиенту на русском если ok=false, иначе null"}',
+    'confident=true ТОЛЬКО если ты на 100% видишь, что скрин не подходит (другая категория, другой запрос, вообще не тот экран). Если сомневаешься, похож ли товар на наш, confident=false и ok=true или false как думаешь.',
     'ok=true только если скрин подходит под этап. client_reply — как живой менеджер, 1 предложение.',
     stageHint[opts.stage],
     expect ? `Контекст: ${expect}` : '',
@@ -195,6 +199,7 @@ export async function analyzeAlinaScreenshot(opts: {
       has_our_product: typeof parsed.has_our_product === 'boolean'
         ? parsed.has_our_product
         : null,
+      confident: parsed.confident === true,
       competitors_count: Number.isFinite(Number(parsed.competitors_count))
         ? Number(parsed.competitors_count)
         : null,
@@ -217,4 +222,13 @@ export function visionBlocks(v: VisionResult | null | undefined): boolean {
 
 export function visionRejectReply(v: VisionResult, fallback: string): string {
   return (v.client_reply || fallback).trim();
+}
+
+/**
+ * Что делать со скрином: pass (подходит), reject (уверенно не подходит, просим другой), manager (не уверены, решает менеджер).
+ * Клиенту не отказываем, пока модель не уверена на 100%: ошибка зрения не должна выглядеть как ошибка клиента.
+ */
+export function visionVerdict(v: VisionResult | null | undefined): 'pass' | 'reject' | 'manager' {
+  if (!visionBlocks(v)) return 'pass';
+  return v!.confident ? 'reject' : 'manager';
 }

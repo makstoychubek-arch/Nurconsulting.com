@@ -46,6 +46,7 @@ import {
   analyzeAlinaScreenshot,
   downloadTelegramFile,
   visionBlocks,
+  visionVerdict,
   visionRejectReply,
   type ScreenStage,
   type VisionResult,
@@ -610,8 +611,10 @@ async function handleAlinaClientMessageInner(opts: {
     }
     if (hasPhoto) {
       const vision = await readScreen('product');
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'На скрине не вижу наш товар/ключ. Пришлите поиск с ключом сверху и наш товар 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'На скрине не вижу наш товар/ключ. Пришлите поиск с ключом сверху и наш товар 🙌'));
       }
       await updateLead(db, lead.id, {
         status: 'wait_cart',
@@ -683,8 +686,10 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto || /скрин|нашла|нашёл|наш товар|это он/i.test(text)) {
       // «артикул» намеренно не принимаем как успех — по артикулу не ведём
       const vision = hasPhoto ? await readScreen('product') : null;
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'Нужен скрин поиска: ключ в строке сверху и наш товар в выдаче 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'Нужен скрин поиска: ключ в строке сверху и наш товар в выдаче 🙌'));
       }
       await updateLead(db, lead.id, {
         status: 'wait_cart',
@@ -707,8 +712,10 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_cart') {
     if (hasPhoto || /корзин|конкурент|избранн/i.test(text)) {
       const vision = hasPhoto ? await readScreen('cart') : null;
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'В корзине нужны наш + 2–3 конкурента из топа, и скрин ещё раз 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'В корзине нужны наш + 2–3 конкурента из топа, и скрин ещё раз 🙌'));
       }
       await updateLead(db, lead.id, {
         status: 'wait_order',
@@ -727,8 +734,10 @@ async function handleAlinaClientMessageInner(opts: {
   if (lead.status === 'wait_order') {
     if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
       const vision = hasPhoto ? await readScreen('order') : null;
-      if (visionBlocks(vision)) {
-        return r(visionRejectReply(vision!, 'Нужен скрин заказа: цена, ПВЗ/город и дата получения 🙌'));
+      {
+        const verdict = visionVerdict(vision);
+        if (verdict === 'manager') return await visionToManager(lead, vision!);
+        if (verdict === 'reject') return r(visionRejectReply(vision!, 'Нужен скрин заказа: цена, ПВЗ/город и дата получения 🙌'));
       }
       const orderMeta = [
         vision?.price ? `цена ${vision.price}` : '',
@@ -949,6 +958,17 @@ async function startSecondModelLead(db: SupabaseClient, lead: SelfbuyLead, text:
   if (error || !made) return null;
   await logEvent(db, (made as SelfbuyLead).id, lead.chat_id, 'second_model_lead', { model: hit[0], first_lead: lead.id });
   return made as SelfbuyLead;
+}
+
+/** Модель не уверена, наш ли товар на скрине: клиенту «сверю с менеджером», менеджерам вопрос с пометкой модели. */
+async function visionToManager(lead: SelfbuyLead, v: { notes?: string; search_query?: string | null; has_our_product?: boolean | null }): Promise<AlinaReply> {
+  await logAlinaRawEvent(lead.chat_id, 'vision_unsure', { notes: v.notes || null, query: v.search_query || null, has_our: v.has_our_product ?? null });
+  const group = await managerGroupId();
+  const question = `Скрин клиента: Алина не уверена, подходит ли он (наш товар/ключ). Модель в заявке: ${lead.product_name || '—'}; ключ: ${lead.keyword || '—'}. Заметка зрения: ${(v.notes || '—').slice(0, 200)}. Посмотрите скрин в чате и ответьте клиенту.`;
+  return {
+    replies: ['Секунду, сверю скрин с менеджером и вернусь к вам 🙌'],
+    ...(group ? { escalate: { topic: 'скрин клиента', question, group } } : {}),
+  };
 }
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
