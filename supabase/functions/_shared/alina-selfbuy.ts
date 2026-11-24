@@ -42,7 +42,7 @@ import {
 import { bookPlace, clientRowsToday, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
-import { BRAND_REPLIES, isAck, isBrandQuestion } from './alina-guard.ts';
+import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
@@ -128,6 +128,8 @@ export type AlinaReply = {
   }[];
   /** Вопрос уходит менеджерам: Telegram-слой отправляет его в группу (песочница только показывает). */
   escalate?: { topic: string; question: string; group: number };
+  /** Ответить реплаем на своё прежнее сообщение этого вида («Отправила выше»). */
+  replyToKind?: 'tz' | 'key' | 'photo';
 };
 
 export type Campaign = {
@@ -694,6 +696,14 @@ async function handleAlinaClientMessageInner(opts: {
     return await openDeal(db, lead, camp, typed || 'cashback', text);
   }
 
+  // Просят то, что уже отправили (условия, ключ, фото): отвечаем «отправила выше» реплаем на своё сообщение, а не шлём второй раз.
+  if (!hasPhoto && razdachiRowsMode()) {
+    const again = askedAgainKind(text);
+    if (again && !saysNotReceived(text) && await alreadySent(db, opts.chatId, again, text)) {
+      return { replies: ['Отправила выше 👆'], replyToKind: again };
+    }
+  }
+
   // Вопрос про бренд: не называем, объясняем, что товар определяем сами по фото на скрине (владелец, 24 ноября 2026).
   if (!hasPhoto && isBrandQuestion(text) && !['new', 'closed', 'done'].includes(String(lead.status))) {
     return r(BRAND_REPLIES[(opts.chatId % 2 + (text.length % 2)) % BRAND_REPLIES.length]);
@@ -1120,6 +1130,19 @@ const withSize = (notes: string | null | undefined, size: string): string =>
 const intOf = (lead: SelfbuyLead): string => (lead.notes || '').match(/интеграция:(\S+)/)?.[1] ?? '';
 const withInt = (notes: string | null | undefined, date: string): string =>
   `${(notes || '').replace(/\s*интеграция:\S+/g, '').trim()} интеграция:${date}`.trim();
+
+/** Это уже отправляли в этом чате за последние сутки (условия, ключ, фото именно этой модели). */
+async function alreadySent(db: SupabaseClient, chatId: number, kind: 'tz' | 'key' | 'photo', text: string): Promise<boolean> {
+  const { data } = await db.from('alina_selfbuy_events').select('payload').eq('chat_id', chatId).eq('event_type', 'chat_log')
+    .eq('payload->>dir', 'alina').eq('payload->>kind', kind).gt('created_at', new Date(Date.now() - 24 * 3600_000).toISOString())
+    .order('created_at', { ascending: false }).limit(6);
+  const rows = (data || []) as Array<{ payload: { text?: string } }>;
+  if (!rows.length) return false;
+  if (kind !== 'photo') return true;
+  const named = matchModels(PAJAMA_MODEL_NAMES, text);
+  if (!named.length) return true; // фото «вообще»: то, что уже присылали
+  return rows.some((x) => named.some((m) => normModel(m) === normModel(x.payload?.text || '')));
+}
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;

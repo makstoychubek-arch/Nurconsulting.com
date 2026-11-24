@@ -151,3 +151,21 @@ export function splitLong(text: string, max = 700): string[] {
   if (cur.trim()) out.push(cur.trim());
   return out;
 }
+
+// ── «Отправила выше»: просят то, что уже отправлено (ТЗ, ключ, фото) ──
+const ASK_WORDS = '(?:скин\\S*|пришл\\S*|отправ\\S*|повтор\\S*|ещ[её]\\s+раз|напиш\\S*|какой|какое|какие|подскаж\\S*|можно|дайте|где|нужн\\S*)';
+
+/** Что просит клиент повторно: условия (tz), ключ (key), фото (photo). null, если не просит. */
+export function askedAgainKind(text: string): 'tz' | 'key' | 'photo' | null {
+  const t = norm(text);
+  const ask = new RegExp('(?:^|[^а-я])' + ASK_WORDS + '(?![а-я])').test(t);
+  if (/(?:^|[^а-я])(?:тз|т\.з|услови\S*|задани\S*)(?![а-я])/.test(t) && ask) return 'tz';
+  if (/ключ\S*/.test(t) && ask) return 'key';
+  if (/(?:фото|фотк\S*|картинк\S*)/.test(t) && ask && !/отзыв/.test(t)) return 'photo';
+  return null;
+}
+
+/** Клиент говорит, что не получил или не видит: тогда повторяем отправку, а не отвечаем «выше». */
+export function saysNotReceived(text: string): boolean {
+  return /не\s+(?:пришл\S*|дошл\S*|вижу|получ\S*|открыва\S*|загруж\S*)|потеря\S*|пропал\S*/.test(norm(text));
+}
