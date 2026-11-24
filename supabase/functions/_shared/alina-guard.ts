@@ -107,3 +107,16 @@ export function dropRecentSimilar(replies: string[], recent: string[]): string[]
 export function promisesMore(text: string): boolean {
   return /(?:^|[^а-я])(?:минут\S*|секунд\S*|щас|ща|подожд\S*|сейчас\s+(?:пришл|скин|отправ|найд|сниму|сделаю|оформл|посмотр|открою)\S*|пришлю|скину|отправлю)(?![а-я])/.test(norm(text));
 }
+
+/** Клиент ответил реплаем на сообщение Алины («Эта» на фото модели): добавляем, на что именно он отвечает, чтобы бот понял выбор. */
+export function withReplyContext(text: string, replyText?: string): string {
+  const t = String(text || '').trim();
+  const q = String(replyText || '').trim();
+  if (!q || !t || t.length > 60 || /[23]\s*в\s*1/i.test(t)) return t;
+  return `${t} (в ответ на «${q}»)`;
+}
+
+/** Окно повтора: списки моделей не дублируем 5 минут, остальное 90 секунд. */
+export function recentWindowMs(reply: string): number {
+  return reply.includes('•') ? 300_000 : 90_000;
+}

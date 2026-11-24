@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import assert from 'node:assert/strict';
 const src = readFileSync(new URL('./alina-guard.ts', import.meta.url), 'utf8').replace(/^export /gm, '');
-const g = new Function(stripTypeScriptTypes(src) + '\nreturn { wantsHuman, isAngry, unsafeReply, dedupeReplies, startsWithGreeting, stripGreeting, isGreetingOnly, applyGreeting, similarReply, dropRecentSimilar, promisesMore }')();
+const g = new Function(stripTypeScriptTypes(src) + '\nreturn { wantsHuman, isAngry, unsafeReply, dedupeReplies, startsWithGreeting, stripGreeting, isGreetingOnly, applyGreeting, similarReply, dropRecentSimilar, promisesMore, withReplyContext, recentWindowMs }')();
 for (const t of ['Менеджер!', 'позовите менеджера', 'Можно поговорить с менеджером?', 'вы бот?', 'Ты бот или человек', 'соедините с человеком', 'хочу поговорить с живым человеком', 'с кем я говорю', 'у меня жалоба', 'Это автоответчик?']) assert.ok(g.wantsHuman(t), t);
 for (const t of ['Пижама 3 в 1 шоколадная', 'Они маломерят?', 'Сейчас оформлю', 'как дела', 'можно фото', 'спасибо']) assert.ok(!g.wantsHuman(t), 'ложное: ' + t);
 for (const t of ['Я вас 5 ый раз прошу прислать фото', 'сколько можно', 'это безобразие', 'тупой бот 😡']) assert.ok(g.isAngry(t), t);
@@ -32,4 +32,8 @@ for (const t of ['Минуту сейчас пришлю', 'щас скину', 
 for (const t of ['Пижама 3в1 шоколадная', 'какой размер', 'спасибо']) assert.ok(!g.promisesMore(t), 'ложное: ' + t);
 for (const t of ['Молочный 🥰', 'Не дошло, поэтому спрашиваю 😇', 'Хорошо 🙏', 'спасибо ❤️', '😂😂']) { assert.ok(!g.isAngry(t), 'смайл не злость: ' + t); assert.ok(!g.wantsHuman(t), 'смайл не просьба: ' + t); }
 assert.ok(g.isAngry('😡')); assert.ok(g.isAngry('это 🤬'));
+assert.equal(g.withReplyContext('Эта', 'Пижама 3в1 молочный'), 'Эта (в ответ на «Пижама 3в1 молочный»)');
+assert.equal(g.withReplyContext('Давайте 3в1 шоколадную', 'Пижама 3в1 молочный'), 'Давайте 3в1 шоколадную');
+assert.equal(g.withReplyContext('Эта', ''), 'Эта');
+assert.equal(g.recentWindowMs('Выберите:\n• Пижама 2в1'), 300000); assert.equal(g.recentWindowMs('Спасибо'), 90000);
 console.log('PASS: alina-guard');

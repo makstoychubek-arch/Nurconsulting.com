@@ -2,7 +2,7 @@ import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
 import { askAlinaManager, managerGroupId } from './alina-manager.ts';
-import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAngry, isGreetingOnly, promisesMore, startsWithGreeting, unsafeReply, wantsHuman } from './alina-guard.ts';
+import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAngry, isGreetingOnly, promisesMore, recentWindowMs, startsWithGreeting, unsafeReply, wantsHuman, withReplyContext } from './alina-guard.ts';
 import { loadAlinaSettings } from './alina-settings.ts';
 import { normLogin } from './alina-gate.ts';
 
@@ -80,6 +80,7 @@ export async function processAlinaTelegramUpdate(
         await admin.from('alina_selfbuy_events').insert({ event_type: 'burst_handled', chat_id: message.chatId, payload: { update_id: message.updateId, parts: (burst || []).length } });
     }
 
+    if (message.kind === 'client' && message.replyText) text = withReplyContext(text || '', message.replyText);
     const budget = { spent: 0 };
 
     // Ручной режим: если владелец сам пишет по делу в этом чате (последние 5 минут) или клиент уже позвал человека (последние 3 часа), Алина молчит.
@@ -150,9 +151,10 @@ export async function processAlinaTelegramUpdate(
             .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').order('created_at', { ascending: false }).limit(3);
         replies = dedupeReplies(replies, (prev || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || '')));
         // То же по смыслу (другие слова): за последние 90 секунд почти такую реплику уже отправляли, второй раз не шлём.
-        const recent = (prev || []).filter((x: { created_at: string }) => Date.now() - Date.parse(x.created_at) < 90_000)
-            .map((x: { payload: { text?: string } }) => String(x.payload?.text || ''));
-        replies = dropRecentSimilar(replies, recent);
+        // Списки моделей не повторяем 5 минут, остальные реплики 90 секунд.
+        replies = replies.filter((r) => dropRecentSimilar([r], (prev || [])
+            .filter((x: { created_at: string }) => Date.now() - Date.parse(x.created_at) < recentWindowMs(r))
+            .map((x: { payload: { text?: string } }) => String(x.payload?.text || ''))).length > 0);
         // Одно приветствие на диалог: уже поздоровались (владелец или Алина за 12 часов), так убираем его из ответа; никто не здоровался, так добавляем.
         const since12h = new Date(Date.now() - 12 * 3600_000).toISOString();
         const { data: hist } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
