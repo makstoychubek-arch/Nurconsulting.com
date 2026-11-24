@@ -2,7 +2,7 @@ import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
 import { askAlinaManager, managerGroupId } from './alina-manager.ts';
-import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAngry, isGreetingOnly, promisesMore, recentWindowMs, startsWithGreeting, unsafeReply, wantsHuman, withReplyContext } from './alina-guard.ts';
+import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAngry, isGreetingOnly, promisesMore, recentWindowMs, splitLong, startsWithGreeting, unsafeReply, wantsHuman, withReplyContext } from './alina-guard.ts';
 import { loadAlinaSettings } from './alina-settings.ts';
 import { normLogin } from './alina-gate.ts';
 
@@ -161,6 +161,7 @@ export async function processAlinaTelegramUpdate(
             .eq('event_type', 'chat_log').in('payload->>dir', ['owner', 'alina']).gt('created_at', since12h).limit(40);
         const greeted = (hist || []).some((x: { payload: { text?: string } }) => startsWithGreeting(String(x.payload?.text || '')));
         replies = applyGreeting(replies, greeted);
+        replies = replies.flatMap((x) => splitLong(x)); // длинные тексты (ТЗ) отправляем несколькими сообщениями
         let firstReply = true;
         for (const reply of replies) {
             if (!await sendText(token, message, reply, firstReply, budget)) throw new Error('text_delivery');
