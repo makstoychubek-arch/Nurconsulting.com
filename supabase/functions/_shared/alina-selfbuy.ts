@@ -39,7 +39,7 @@ import {
   syncCampaignFromSheet,
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
-import { bookPlace, clientRowsToday, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
+import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
