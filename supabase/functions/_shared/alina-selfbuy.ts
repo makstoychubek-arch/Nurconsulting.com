@@ -315,6 +315,7 @@ export async function handleAlinaClientMessage(opts: {
         cashbackPct: lead.cashback_pct ?? camp?.cashback_pct ?? 70,
         orderDeadline: camp?.order_deadline,
         knowledge: camp?.notes || null,
+        placesFact: razdachiRowsMode() ? placesFactFor(lead.username) : null,
       }),
       choices,
     };
@@ -882,6 +883,20 @@ export async function claimSlot(db: SupabaseClient, lead: SelfbuyLead, offer: Sh
   }
 }
 
+
+/** Факты о местах для мозга: свободные места по моделям и датам и строки клиента. */
+function placesFactFor(username?: string | null): string | null {
+  const sheet = getLastRazdachi()?.sheet;
+  if (!sheet) return null;
+  const today = todayMskKey();
+  const free = freeSlots(sheet, today, 14);
+  const lines = free.length
+    ? free.map((x) => `${x.model}: ${ruDay(x.date, today)}, свободно ${x.rows.length}`)
+    : ['свободных мест в ближайшие 14 дней нет'];
+  const tg = (username || '').replace(/^@/, '').toLowerCase();
+  const mine = sheet.rows.filter((x) => tg && x.tg === tg && x.date >= '' && x.date.length === 10).map((x) => `${x.model} ${ruDay(x.date, today)}`);
+  return [`свободные места: ${lines.join('; ')}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
+}
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
