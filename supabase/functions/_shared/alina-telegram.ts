@@ -122,7 +122,7 @@ export async function processAlinaTelegramUpdate(
             `${label[String(x.payload?.dir)] || '?'}: ${String(x.payload?.text || '').slice(0, 300)}`).join('\n');
     } catch { /* без контекста тоже работаем */ }
     try {
-        const { replies: draft, photos, escalate, replyToKind } = await handleAlinaClientMessage({
+        const { replies: draft, photos, escalate, replyToKind, tag } = await handleAlinaClientMessage({
             ...message,
             text,
             history,
@@ -137,6 +137,15 @@ export async function processAlinaTelegramUpdate(
             chatId: message.chatId, connectionId: message.connectionId, username: message.username,
           }, escalate.question);
           if (!posted) replies = ['Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.'];
+        }
+        // Ответ про наличие моделей: один раз в 5 минут на чат (чтобы точно не было дублей), повтор тихо не отправляем.
+        if (tag === 'models') {
+            const { data: shown } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log')
+                .eq('payload->>dir', 'alina').eq('payload->>kind', 'models').gt('created_at', new Date(Date.now() - 5 * 60_000).toISOString()).limit(1);
+            if (shown && shown.length) {
+                await logAlinaRawEvent(message.chatId, 'models_suppressed', { update_id: message.updateId });
+                return;
+            }
         }
         for (const photo of photos || []) {
             const photoMid = await sendPhoto(token, message, photo);
@@ -177,7 +186,7 @@ export async function processAlinaTelegramUpdate(
         for (const reply of replies) {
             const mid = await sendTextId(token, message, reply, firstReply, budget, replyMid || undefined);
             if (mid === null) throw new Error('text_delivery');
-            const kind = kindOf(reply);
+            const kind = (tag === 'models' && reply === replies[0]) ? 'models' : kindOf(reply);
             await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), mid, ...(kind ? { kind } : {}) });
             firstReply = false;
         }
