@@ -46,10 +46,14 @@ Deno.serve(async (req) => {
         { event_type: 'chat_log', chat_id: chatId, payload: { dir: 'alina', text, kind: 'nudge' } },
     ]);
 
+    // Кого не трогаем (ведёт владелец вручную или тест): alina_settings.nudgeSkip, список логинов
+    const { data: skipRow } = await admin.from('alina_settings').select('value').eq('key', 'nudgeSkip').maybeSingle();
+    const skip = new Set(((skipRow as { value?: unknown } | null)?.value as string[] | undefined || []).map((x) => String(x).replace(/^@/, '').toLowerCase()));
     const sent: string[] = [];
     const missed: string[] = [];
     for (const l of leads) {
         if (sent.length >= 10) break;
+        if (l.username && skip.has(l.username.toLowerCase())) continue;
         // человек сейчас ведёт чат сам (последние 30 минут) или зовёт менеджера: не вмешиваемся
         const since30 = new Date(now - 30 * 60_000).toISOString();
         const { data: owner } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', l.chat_id).eq('event_type', 'chat_log')

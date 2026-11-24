@@ -1,0 +1,3 @@
+-- Напоминания Алины: проверка каждые 10 минут (функция alina-nudge). Расписание создано по образцу alina-manager-tick-1m.
+-- select cron.schedule('alina-nudge-10m', '*/10 * * * *', replace(command, 'alina-manager-tick', 'alina-nudge')) from cron.job where jobname = 'alina-manager-tick-1m';
+-- Кого не трогаем: alina_settings.nudgeSkip (список логинов).
