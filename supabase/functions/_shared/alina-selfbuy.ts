@@ -212,7 +212,10 @@ async function upsertCampaign(
 /** Если Алина пообещала «уточню у менеджера», вопрос действительно уходит в группу менеджеров (раньше фраза говорилась, а в группу ничего не шло). */
 export async function handleAlinaClientMessage(opts: Parameters<typeof handleAlinaClientMessageInner>[0]): Promise<AlinaReply> {
   const res = await handleAlinaClientMessageInner(opts);
-  if (res.escalate || !res.replies.some((x) => /уточню у менеджера|передам (?:вопрос )?менеджер/i.test(x))) return res;
+  // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
+  const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню/i.test(x));
+  const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
+  if (res.escalate || !(promised || asksManager)) return res;
   const group = await managerGroupId();
   if (!group) return res;
   const question = (opts.text || '').trim() || '[клиент прислал фото]';
