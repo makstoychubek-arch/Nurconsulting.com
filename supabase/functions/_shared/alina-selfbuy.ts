@@ -349,12 +349,29 @@ async function handleAlinaClientMessageInner(opts: {
     if (!file) return null;
     // Эталон: главное фото нашей карточки с WB. Клиенту оно не уходит, нужно только чтобы сверить, наш ли товар на его скрине.
     let reference: { bytes: Uint8Array; mime: string } | null = null;
+    const abRefs: { bytes: Uint8Array; mime: string }[] = [];
     let article = expectArticle;
     if (razdachiRowsMode() && (stage === 'product' || stage === 'cart' || stage === 'order')) {
       const mine = await resolveLeadArticle(lead, camp).catch(() => null);
       if (mine?.article) article = mine.article;
       const ref = article ? await fetchWbMainPhoto(article).catch(() => null) : null;
       if (ref?.bytes) reference = { bytes: ref.bytes, mime: ref.mime || 'image/jpeg' };
+      // A/B-тест меняет главное фото карточки: клиент мог снять скрин с прошлым вариантом, поэтому сверяем и с ними.
+      if (article) {
+        try {
+          const { data: vars } = await db.from('ab_tests').select('id, ab_test_variants(photo_url, is_currently_on_wb)')
+            .eq('nm_id', Number(article)).eq('status', 'active').limit(1);
+          const urls = ((vars?.[0] as { ab_test_variants?: { photo_url?: string }[] } | undefined)?.ab_test_variants || [])
+            .map((v) => v.photo_url).filter(Boolean) as string[];
+          for (const u of urls.slice(0, 5)) {
+            const res = await fetch(u, { signal: AbortSignal.timeout(8000) }).catch(() => null);
+            if (res?.ok) {
+              const buf = new Uint8Array(await res.arrayBuffer());
+              if (buf.length > 800) abRefs.push({ bytes: buf, mime: res.headers.get('content-type') || 'image/jpeg' });
+            }
+          }
+        } catch { /* без A/B-эталонов сверяем по главному фото */ }
+      }
     }
     return await analyzeAlinaScreenshot({
       imageBytes: file.bytes,
@@ -364,6 +381,7 @@ async function handleAlinaClientMessageInner(opts: {
       expectProduct: lead.product_name || camp?.product_name,
       expectArticle: article,
       reference,
+      references: reference ? [reference, ...abRefs] : abRefs,
     });
   };
 
