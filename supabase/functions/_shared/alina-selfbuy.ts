@@ -477,7 +477,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // Режим строк: клиент, которому уже сказали «сегодня мест нет», пишет дальше («хорошо», вопрос): не повторяем список мест, а отвечаем по делу.
   if (razdachiRowsMode() && lead.status === 'closed' && !campaignAccepting(camp) && !hasPhoto) {
-    if (isAck(text)) return r('Хорошо 🙌');
+    if (isAck(text)) return { replies: [] };
     const { brain: closedBrain } = await runBrain();
     if (closedBrain.via === 'ai' && closedBrain.reply) return r(closedBrain.reply);
   }
@@ -504,8 +504,7 @@ async function handleAlinaClientMessageInner(opts: {
       if (nearest.size) {
         return r(
           'На сегодня места закончились 😔',
-          `Ближайшие свободные: ${[...nearest.values()].map((x) => `${x.model} — ${ruDay(x.date, today)}`).join('; ')}.`,
-          'Напишите, какую модель хотите, и я закреплю за вами место.',
+          `Ближайшие: ${[...nearest.values()].map((x) => `${x.model} — ${ruDay(x.date, today)}`).join('; ')}. Какую забронировать?`,
         );
       }
     }
@@ -558,7 +557,7 @@ async function handleAlinaClientMessageInner(opts: {
       const names = choices.map((o) => o.product_name || '').filter(Boolean);
       return r(
         names.length === 1
-          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт? Напишите «да» или другую модель 🙌`
+          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт?`
           : msgAskAd(names),
       );
     }
@@ -642,7 +641,7 @@ async function handleAlinaClientMessageInner(opts: {
       const names = choices.map((o) => o.product_name || '').filter(Boolean);
       return r(
         names.length === 1
-          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт? Напишите «да» или другую модель 🙌`
+          ? `Какая модель вас интересует? Сегодня в раздаче «${names[0]}». Подойдёт?`
           : msgAskAd(names),
       );
     }
@@ -700,16 +699,9 @@ async function handleAlinaClientMessageInner(opts: {
     return r(BRAND_REPLIES[(opts.chatId % 2 + (text.length % 2)) % BRAND_REPLIES.length]);
   }
 
-  // Клиент просто подтвердил («да», «ок», «поняла»): коротко отвечаем, что ждём, и не повторяем инструкцию целиком.
-  if (!hasPhoto && isAck(text)) {
-    const waiting: Record<string, string> = {
-      key_sent: 'Отлично, жду скрин поиска 🙌',
-      wait_product: 'Отлично, жду скрин поиска 🙌',
-      wait_cart: 'Хорошо, жду скрин корзины 🙌',
-      wait_order: 'Хорошо, жду скрин заказа 🙌',
-    };
-    const line = waiting[String(lead.status)];
-    if (line) return r(line);
+  // Клиент просто подтвердил («да», «ок», «поняла»): на обычное подтверждение молчим (владелец, 24 ноября 2026), это не вопрос.
+  if (!hasPhoto && isAck(text) && ['key_sent', 'wait_product', 'wait_cart', 'wait_order'].includes(String(lead.status))) {
+    return { replies: [] };
   }
 
   // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────
@@ -1137,8 +1129,8 @@ async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, 
   await logEvent(db, lead.id, lead.chat_id, 'slot_offer', { model, date });
   const day = ruDay(date, todayMskKey());
   return r(
-    `К сожалению, на сегодня мест на «${model}» уже нет 😔`,
-    `Ближайшее свободное место: ${day}. Забронировать его для вас? Напишите «да», и я закреплю место за вами.`,
+    `На сегодня «${model}» уже нет 😔`,
+    `Ближайшее место: ${day}. Забронировать?`,
   );
 }
 
@@ -1155,7 +1147,7 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     if (YES_RE.test(t)) {
       const res = await bookPlace(db, lead, model!, date!);
       if (res === 'claimed') {
-        return r(`Готово ✅ Закрепила за вами «${model}» на ${ruDay(date!, todayMskKey())}.`, 'Напишите мне в этот день, и мы сразу начнём.');
+        return r(`Готово ✅ «${model}» за вами на ${ruDay(date!, todayMskKey())}.`, 'Напишите в этот день, и начнём.');
       }
       if (res === 'taken') {
         const sheet = getLastRazdachi()?.sheet;
@@ -1173,9 +1165,8 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   // Бронь закреплена, клиент отвечает «хорошо / ок / да» или коротким словом: не начинаем заново и не перечисляем места, а коротко подтверждаем.
   if (last?.event_type === 'slot_booked' && fresh && last.payload?.model && last.payload?.date && !/[?]/.test(t) && t.length <= 40 &&
     !/заброн|закрепит|запиш/i.test(t) && matchModels(PAJAMA_MODEL_NAMES, t).length === 0) {
-    return r(isAck(t)
-      ? 'Отлично, до связи ' + (ruDay(last.payload.date, todayMskKey()).startsWith('сегодня') ? 'сегодня' : 'в этот день') + ' 🙌'
-      : `Ваше место «${last.payload.model}» на ${ruDay(last.payload.date, todayMskKey())} закреплено ✅ Напишите мне в этот день, и сразу начнём.`);
+    if (isAck(t)) return { replies: [] };
+    return r(`Ваше место «${last.payload.model}» на ${ruDay(last.payload.date, todayMskKey())} закреплено ✅ Напишите мне в этот день, и сразу начнём.`);
   }
   // Бронь только что закреплена, а клиент просит «забронируйте»: подтверждаем уже сделанное, а не берём другую модель.
   if (last?.event_type === 'slot_booked' && fresh && /заброн|закрепит|запиш/i.test(t) && last.payload?.model && last.payload?.date) {
