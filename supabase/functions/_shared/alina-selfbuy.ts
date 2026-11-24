@@ -784,7 +784,7 @@ async function handleAlinaClientMessageInner(opts: {
   // ── key_sent / wait_product ──────────────────────────────────────────────
   if (lead.status === 'key_sent' || lead.status === 'wait_product') {
     if (wantsKey(text)) return await sendKeyFlow(db, lead, camp, text);
-    if (hasPhoto || /скрин|нашла|нашёл|наш товар|это он/i.test(text)) {
+    if (hasPhoto || (!razdachiRowsMode() && /скрин|нашла|нашёл|наш товар|это он/i.test(text))) {
       // «артикул» намеренно не принимаем как успех — по артикулу не ведём
       const vision = hasPhoto ? await readScreen('product') : null;
       {
@@ -812,7 +812,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // ── wait_cart ────────────────────────────────────────────────────────────
   if (lead.status === 'wait_cart') {
-    if (hasPhoto || /корзин|конкурент|избранн/i.test(text)) {
+    if (hasPhoto || (!razdachiRowsMode() && /корзин|конкурент|избранн/i.test(text))) {
       const vision = hasPhoto ? await readScreen('cart') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
       if (vision && vision.via === 'ai' && ['product'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
@@ -846,7 +846,7 @@ async function handleAlinaClientMessageInner(opts: {
   }
 
   if (lead.status === 'wait_order') {
-    if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
+    if (hasPhoto || (!razdachiRowsMode() && /заказ|оформил|выкуп|пвз|доставк/i.test(text))) {
       const vision = hasPhoto ? await readScreen('order') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
       if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
@@ -1004,14 +1004,18 @@ async function handleAlinaClientMessageInner(opts: {
           notes: `${lead.notes || ''}\n[+ ${text.slice(0, 200)}]`.trim(),
           last_client_text: text || (hasPhoto ? '[фото]' : ''),
         });
-        return r(brain.reply);
+        return rAsk('done', brain.reply);
       }
     }
     await updateLead(db, lead.id, {
       notes: `${lead.notes || ''}\n[+ ${text.slice(0, 200)}]`.trim(),
       last_client_text: text || (hasPhoto ? '[фото]' : ''),
     });
-    return r('Ок, всё на месте 🙌 Если что — напишите');
+    // Простое «спасибо/ок/хорошо» после завершения — молчим, иначе выходят похожие дубли
+    if (!hasPhoto && /^[\s\p{L}\p{P}\p{S}]{0,30}$/u.test(text) && /^(спасибо|спс|благодарю|ок|окей|хорошо|ладно|понятно|поняла|понял|good|ok|👍|🙏|❤️?)/iu.test(text.trim())) {
+      return { replies: [] };
+    }
+    return rAsk('done', 'Всё на месте 🙌 Если что — напишите');
   }
 
   // fallback — мозг, иначе мягко в ask_ad
@@ -1380,7 +1384,8 @@ async function sendKeyFlow(
   camp: Campaign | null,
   text: string,
 ): Promise<AlinaReply> {
-  const keyword = (camp?.keyword || lead.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
+  // Ключ берём из заявки (он взят из строки графика этой модели); ключ кампании по умолчанию может быть от другой модели.
+  const keyword = (lead.keyword || camp?.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
   if (!keyword) {
     return r('Секунду, ключ уточню и пришлю 🙌');
   }

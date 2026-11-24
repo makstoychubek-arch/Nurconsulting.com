@@ -198,7 +198,7 @@ export async function alinaBrain(opts: {
         if (action === 'pick_product') {
           return {
             action: 'reply_only',
-            reply: parsed.reply != null
+            reply: (parsed.reply != null && !/^\s*(null|none|undefined|nan|n\/a|-)?\s*$/i.test(String(parsed.reply)))
               ? String(parsed.reply).slice(0, 500)
               : 'Уточните, пожалуйста, какое объявление — название и цвет 🙌',
             product_name: null,
@@ -215,7 +215,7 @@ export async function alinaBrain(opts: {
 
     return {
       action,
-      reply: parsed.reply != null ? String(parsed.reply).slice(0, 700) : null,
+      reply: (parsed.reply != null && !/^\s*(null|none|undefined|nan|n\/a|-)?\s*$/i.test(String(parsed.reply))) ? String(parsed.reply).slice(0, 700) : null,
       product_name,
       deal_type,
       via: 'ai',
