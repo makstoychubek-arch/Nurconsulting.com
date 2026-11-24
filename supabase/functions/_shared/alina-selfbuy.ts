@@ -473,6 +473,13 @@ async function handleAlinaClientMessageInner(opts: {
     return await sendKeyFlow(db, lead, camp, text);
   }
 
+  // Режим строк: клиент, которому уже сказали «сегодня мест нет», пишет дальше («хорошо», вопрос): не повторяем список мест, а отвечаем по делу.
+  if (razdachiRowsMode() && lead.status === 'closed' && !campaignAccepting(camp) && !hasPhoto) {
+    if (isAck(text)) return r('Хорошо 🙌');
+    const { brain: closedBrain } = await runBrain();
+    if (closedBrain.via === 'ai' && closedBrain.reply) return r(closedBrain.reply);
+  }
+
   // Закрытый оффер для новых
   if (
     ['new', 'ask_ad', 'ask_type', 'closed'].includes(lead.status) &&
@@ -1160,6 +1167,13 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
       await logEvent(db, lead.id, lead.chat_id, 'slot_declined', { model, date });
       return r('Хорошо, без брони. Если передумаете или захотите другую модель, просто напишите 🙌');
     }
+  }
+  // Бронь закреплена, клиент отвечает «хорошо / ок / да» или коротким словом: не начинаем заново и не перечисляем места, а коротко подтверждаем.
+  if (last?.event_type === 'slot_booked' && fresh && last.payload?.model && last.payload?.date && !/[?]/.test(t) && t.length <= 40 &&
+    !/заброн|закрепит|запиш/i.test(t) && matchModels(PAJAMA_MODEL_NAMES, t).length === 0) {
+    return r(isAck(t)
+      ? 'Отлично, до связи ' + (ruDay(last.payload.date, todayMskKey()).startsWith('сегодня') ? 'сегодня' : 'в этот день') + ' 🙌'
+      : `Ваше место «${last.payload.model}» на ${ruDay(last.payload.date, todayMskKey())} закреплено ✅ Напишите мне в этот день, и сразу начнём.`);
   }
   // Бронь только что закреплена, а клиент просит «забронируйте»: подтверждаем уже сделанное, а не берём другую модель.
   if (last?.event_type === 'slot_booked' && fresh && /заброн|закрепит|запиш/i.test(t) && last.payload?.model && last.payload?.date) {
