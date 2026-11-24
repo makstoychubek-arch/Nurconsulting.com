@@ -109,7 +109,7 @@ export function leadFields(lead: Lead & { order_received_at?: string | null }): 
     price: String(lead.order_price ?? ''),
     pickup_plan: parseDeliveryDate(String(lead.order_received_at ?? '').split(' · ').pop()),
     size: String(lead.notes ?? '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '',
-    pickup_fact: String(lead.pickup_at ?? ''),
+    pickup_fact: parseDeliveryDate(lead.pickup_at), // только дата (дд.мм.гггг), а не слово «скрин»
     review_date: String(lead.review_planned_at ?? ''),
     integration: String(lead.notes ?? '').match(/интеграция:(\S+)/)?.[1] ?? '',
     review_kind: lead.review_note ? 'Получен' : '',
