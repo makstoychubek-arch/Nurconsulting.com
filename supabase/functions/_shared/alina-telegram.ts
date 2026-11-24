@@ -35,18 +35,35 @@ export async function processAlinaTelegramUpdate(
     if (!token) return;
 
     const delivery = { bot_id: botId, update_id: message.updateId };
-    const { error } = await admin.from('alina_selfbuy_events').insert({
+    const { data: claimed, error } = await admin.from('alina_selfbuy_events').insert({
         event_type: 'telegram_delivery',
         chat_id: message.chatId,
-        payload: delivery,
-    });
+        payload: { ...delivery, text: (message.text || '').slice(0, 1500), photo: Boolean(message.photoFileId) },
+    }).select('created_at').maybeSingle();
     if (error?.code === '23505') return;
     if (error) throw new Error('Alina event storage is unavailable');
+
+    // Несколько сообщений подряд: ждём, пока человек допишет, и отвечаем один раз на всё (владелец, 24 ноября 2026).
+    let text = message.text;
+    if (!message.photoFileId && (message.text || '').trim() && claimed?.created_at) {
+        await pacing.sleep(pacing.burstMs);
+        const { data: newer } = await admin.from('alina_selfbuy_events').select('id')
+            .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', claimed.created_at).limit(1);
+        if (newer && newer.length) return; // дописал ещё: ответит последнее сообщение, сведя всё в один ответ
+        const { data: mark } = await admin.from('alina_selfbuy_events').select('created_at')
+            .eq('chat_id', message.chatId).eq('event_type', 'burst_handled').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        const since = mark?.created_at ?? new Date(Date.now() - 120_000).toISOString();
+        const { data: burst } = await admin.from('alina_selfbuy_events').select('payload, created_at')
+            .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', since).order('created_at', { ascending: true }).limit(20);
+        text = joinBurst((burst || []).map((r: { payload: { text?: string; photo?: boolean } }) => r.payload), message.text || '');
+        await admin.from('alina_selfbuy_events').insert({ event_type: 'burst_handled', chat_id: message.chatId, payload: { update_id: message.updateId, parts: (burst || []).length } });
+    }
 
     const budget = { spent: 0 };
     try {
         const { replies: draft, photos, escalate } = await handleAlinaClientMessage({
             ...message,
+            text,
             hasPhoto: Boolean(message.photoFileId),
             botToken: token,
             sourceAccount: 'business',
@@ -87,7 +104,14 @@ export async function processAlinaTelegramUpdate(
 // Живой темп: перед ответом «читает» и «печатает». Пауза зависит от длины текста, на все ответы одного сообщения не больше 25 секунд.
 export const pacing = {
     sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    burstMs: 7000, // сколько ждём, не допишет ли человек ещё
 };
+
+/** Склеивает сообщения подряд в один текст (фото-сообщения не берём: у них свой путь). Если ничего не нашли, остаётся текст этого сообщения. */
+export function joinBurst(parts: { text?: string; photo?: boolean }[], own: string): string {
+    const texts = parts.filter((p) => !p.photo).map((p) => String(p.text || '').trim()).filter(Boolean);
+    return texts.length ? texts.join('\n') : own;
+}
 export function humanPauseMs(text: string, first: boolean): number {
     const base = 1200 + text.length * 40 + (first ? 1500 : 0);
     return Math.min(9000, Math.round(base * (0.85 + Math.random() * 0.3)));
