@@ -1599,7 +1599,7 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
   try {
     const token = await googleAccessToken(saJson);
     const tab = targetSheet?.cabinet_key === 'mars'
-      ? 'Раздачи'
+      ? 'Раздачи Пижам'
       : (Deno.env.get('ALINA_LEADS_TAB') || 'Список БЛУЗКИ ФОНАРЬ/ВЫРЕЗ ВБ').trim();
     const tg = lead.username
       ? `@${String(lead.username).replace(/^@/, '')}`
