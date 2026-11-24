@@ -76,6 +76,7 @@ export type SelfbuyStatus =
   | 'wait_product'
   | 'wait_cart'
   | 'wait_order'
+  | 'wait_size'
   | 'wait_bank'
   | 'wait_pickup'
   | 'wait_review'
@@ -300,6 +301,16 @@ async function handleAlinaClientMessageInner(opts: {
   if (razdachiRowsMode() && !hasPhoto && ['wait_bank', 'wait_pickup', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status))) {
     const next = await startSecondModelLead(db, lead, text);
     if (next) lead = next;
+  }
+
+  // Размер назван в любой момент: запоминаем, потом не переспрашиваем.
+  if (!hasPhoto && lead.status !== 'wait_size' && !sizeOf(lead)) {
+    const early = parseSize(text);
+    if (early) {
+      const notes = withSize(lead.notes, early);
+      await updateLead(db, lead.id, { notes });
+      lead = { ...lead, notes };
+    }
   }
 
   // Режим строк: бронь места (ответ на предложение даты или запрос модели, которой сегодня нет).
@@ -749,6 +760,16 @@ async function handleAlinaClientMessageInner(opts: {
   }
 
   // ── wait_order ───────────────────────────────────────────────────────────
+  // ── wait_size: заказ принят, не хватает размера ───────────────────────────
+  if (lead.status === 'wait_size') {
+    const size = parseSize(text, true);
+    if (!size) return r('Напишите размер, который заказали, например M или 46 🙌');
+    await updateLead(db, lead.id, { status: 'wait_bank', notes: withSize(lead.notes, size), last_client_text: text });
+    await logEvent(db, lead.id, opts.chatId, 'size_done', { size });
+    await syncLeadToSheet(db, lead.id);
+    return r(lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK());
+  }
+
   if (lead.status === 'wait_order') {
     if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
       const vision = hasPhoto ? await readScreen('order') : null;
@@ -762,16 +783,20 @@ async function handleAlinaClientMessageInner(opts: {
         vision?.pvz ? `ПВЗ ${vision.pvz}` : '',
         vision?.delivery_date || text.slice(0, 200) || new Date().toISOString().slice(0, 10),
       ].filter(Boolean).join(' · ');
+      // Размер: со скрина заказа, из сообщения или из того, что клиент уже писал раньше; нет нигде, спрашиваем как человек.
+      const size = parseSize(vision?.size || '', true) || parseSize(text) || sizeOf(lead);
+      const baseNotes = visionNote(lead.notes, vision);
       await updateLead(db, lead.id, {
-        status: 'wait_bank',
+        status: size ? 'wait_bank' : 'wait_size',
         order_received_at: orderMeta.slice(0, 300),
         order_price: vision?.price || lead.order_price,
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'order'),
-        notes: visionNote(lead.notes, vision),
+        notes: size ? withSize(baseNotes, size) : baseNotes,
       });
-      await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto, vision });
+      await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto, vision, size });
       await syncLeadToSheet(db, lead.id);
+      if (!size) return r('Заказ вижу ✅ Подскажите, какой размер заказали?');
       const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK();
       return r(bankMsg);
     }
@@ -988,6 +1013,25 @@ async function visionToManager(lead: SelfbuyLead, v: { notes?: string; search_qu
     ...(group ? { escalate: { topic: 'скрин клиента', question, group } } : {}),
   };
 }
+
+// ── Размер вещи (колонка «Размер»; кэшбека нет, только бартер) ──
+const SIZE_RE = '(xxxl|xxl|xl|xxs|xs|s|m|l|\\d{2}(?:\\s*[-/]\\s*\\d{2})?)';
+
+/** Размер из текста: «размер M», «р-р 46», «44-46». В режиме loose годится и просто «M» или «беру 46». */
+export function parseSize(text: string, loose = false): string {
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  const m = t.match(new RegExp('(?:размер|р-р|р\\.)\\s*[:\\-—]?\\s*' + SIZE_RE + '(?![a-zа-я0-9])', 'i'));
+  if (m) return m[1].replace(/\s+/g, '').toUpperCase();
+  if (loose) {
+    const w = t.trim().match(new RegExp('^(?:беру|заказал[аи]?|взял[аи]?|у меня|мне|это)?\\s*' + SIZE_RE + '\\s*[.!)]*$', 'i'));
+    if (w) return w[1].replace(/\s+/g, '').toUpperCase();
+  }
+  return '';
+}
+
+const sizeOf = (lead: SelfbuyLead): string => (lead.notes || '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '';
+const withSize = (notes: string | null | undefined, size: string): string =>
+  `${(notes || '').replace(/\s*размер:\S+/g, '').trim()} размер:${size.replace(/\s+/g, '_')}`.trim();
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;

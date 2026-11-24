@@ -30,6 +30,7 @@ type Lead = {
   pickup_at?: string | null;
   review_planned_at?: string | null;
   review_note?: string | null;
+  notes?: string | null;
   status?: string | null;
   keyword?: string | null;
   reels_url?: string | null;
@@ -91,7 +92,7 @@ export function leadFields(lead: Lead & { order_received_at?: string | null }): 
   return {
     price: String(lead.order_price ?? ''),
     pickup_plan: parseDeliveryDate(String(lead.order_received_at ?? '').split(' · ').pop()),
-    cash_pct: lead.cashback_pct == null ? '' : String(lead.cashback_pct),
+    size: String(lead.notes ?? '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '',
     pickup_fact: String(lead.pickup_at ?? ''),
     review_date: String(lead.review_planned_at ?? ''),
     review_kind: lead.review_note ? 'Получен' : '',

@@ -1,0 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
+import assert from 'node:assert/strict';
+const src = readFileSync(new URL('./alina-selfbuy.ts', import.meta.url), 'utf8');
+const a = src.indexOf("const SIZE_RE"), b = src.indexOf("const sizeOf");
+const { parseSize } = new Function(stripTypeScriptTypes(src.slice(a, b).replace(/^export /gm, '')) + '\nreturn { parseSize }')();
+assert.equal(parseSize('размер M'), 'M'); assert.equal(parseSize('Размер: 46'), '46'); assert.equal(parseSize('р-р 44-46'), '44-46'); assert.equal(parseSize('размер xl'), 'XL');
+assert.equal(parseSize('беру 46', true), '46'); assert.equal(parseSize('M', true), 'M'); assert.equal(parseSize('мне S', true), 'S');
+assert.equal(parseSize('привет'), ''); assert.equal(parseSize('сколько стоит', true), ''); assert.equal(parseSize('маломерит?', true), '');
+console.log('PASS: alina-size');
