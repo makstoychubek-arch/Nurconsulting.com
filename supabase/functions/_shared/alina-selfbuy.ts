@@ -39,6 +39,9 @@ import {
   syncCampaignFromSheet,
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
+import { bookPlace, takePlaceToday } from './alina-razdachi-sync.ts';
+import { freeSlots, matchModels, nearestFree, ruDay, todayMskKey } from './alina-razdachi.ts';
+import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
   downloadTelegramFile,
@@ -259,16 +262,6 @@ export async function handleAlinaClientMessage(opts: {
   // «База в голове» = актуальный план из Google таблицы
   const camp = await ensureCampaignFresh();
 
-  // Режим «Раздачи — строки»: клиента нет в размеченных строках на сегодня (другой логин, нет логина, не наняли).
-  // Не ведём процесс и в таблицу не пишем: отвечаем коротко, остальное решает менеджер.
-  if (razdachiRowsMode()) {
-    const found = clientRowsToday(opts.username);
-    if (found.state === 'unavailable' || !found.rows.length) {
-      await logAlinaRawEvent(opts.chatId, 'razdachi_unmatched', { username: opts.username || null, sheet: found.state });
-      return { replies: ['Секунду, уточню у менеджера и вернусь к вам.'] };
-    }
-  }
-
   let lead = await getOrCreateLead(db, opts, source);
 
   // Старые/зависшие статусы → снова уточняем объявление
@@ -278,6 +271,12 @@ export async function handleAlinaClientMessage(opts: {
   ) {
     await updateLead(db, lead.id, { status: 'ask_ad' });
     lead = { ...lead, status: 'ask_ad' };
+  }
+
+  // Режим строк: бронь места (ответ на предложение даты или запрос модели, которой сегодня нет).
+  if (razdachiRowsMode() && !hasPhoto && ['new', 'closed', 'ask_ad', 'ask_type'].includes(String(lead.status))) {
+    const booked = await handleRowsBooking(db, lead, text);
+    if (booked) return booked;
   }
 
   const expectArticle =
@@ -883,6 +882,64 @@ export async function claimSlot(db: SupabaseClient, lead: SelfbuyLead, offer: Sh
   }
 }
 
+
+// ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
+const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
+const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
+
+async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, date: string): Promise<AlinaReply> {
+  await logEvent(db, lead.id, lead.chat_id, 'slot_offer', { model, date });
+  const day = ruDay(date, todayMskKey());
+  return r(
+    `К сожалению, на сегодня мест на «${model}» уже нет 😔`,
+    `Ближайшее свободное место: ${day}. Забронировать его для вас? Напишите «да», и я закреплю место за вами.`,
+  );
+}
+
+async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
+  const t = text.trim();
+  // 1. Ответ на предложение даты
+  const { data: ev } = await db.from('alina_selfbuy_events').select('event_type, payload, created_at')
+    .eq('chat_id', lead.chat_id).in('event_type', ['slot_offer', 'slot_booked', 'slot_declined'])
+    .order('created_at', { ascending: false }).limit(1);
+  const last = (ev || [])[0] as { event_type: string; payload: { model?: string; date?: string }; created_at: string } | undefined;
+  const fresh = last && Date.now() - Date.parse(last.created_at) < 24 * 3600_000;
+  if (last?.event_type === 'slot_offer' && fresh && last.payload?.model && last.payload?.date) {
+    const { model, date } = last.payload;
+    if (YES_RE.test(t)) {
+      const res = await bookPlace(db, lead, model!, date!);
+      if (res === 'claimed') {
+        return r(`Готово ✅ Закрепила за вами «${model}» на ${ruDay(date!, todayMskKey())}.`, 'Напишите мне в этот день, и мы сразу начнём.');
+      }
+      if (res === 'taken') {
+        const sheet = getLastRazdachi()?.sheet;
+        const near = sheet ? nearestFree(sheet, model!, todayMskKey(), 14) : null;
+        if (near) return await offerLater(db, lead, near.model, near.date);
+        return r('Пока писали, это место заняли, а других свободных пока нет. Уточню у менеджера и вернусь к вам.');
+      }
+      return r('Не получилось записать место, уточню у менеджера и вернусь к вам.');
+    }
+    if (NO_RE.test(t)) {
+      await logEvent(db, lead.id, lead.chat_id, 'slot_declined', { model, date });
+      return r('Хорошо, без брони. Если передумаете или захотите другую модель, просто напишите 🙌');
+    }
+  }
+  // 2. Клиент назвал модель, на которую сегодня мест нет
+  const sheet = getLastRazdachi()?.sheet;
+  if (!sheet) return null;
+  const today = todayMskKey();
+  const slots = freeSlots(sheet, today, 14);
+  const models = [...new Set(sheet.rows.map((x) => x.model))];
+  const hit = matchModels(models, t);
+  if (hit.length !== 1) return null;
+  const model = hit[0];
+  const k = model.toLowerCase();
+  if (slots.some((x) => x.date === today && x.model.toLowerCase() === k)) return null; // сегодня есть место: идём по обычному пути и берём его сразу
+  const near = nearestFree(sheet, model, today, 14);
+  if (!near) return r(`На «${model}» свободных мест в ближайшие дни нет. Уточню у менеджера и вернусь к вам.`);
+  return await offerLater(db, lead, near.model, near.date);
+}
+
 async function startDealFromOffer(
   db: SupabaseClient,
   lead: SelfbuyLead,
@@ -898,7 +955,19 @@ async function startDealFromOffer(
     ));
   }
 
-  if (!(await claimSlot(db, lead, offer, lastPlanAtMs()))) {
+  if (razdachiRowsMode()) {
+    // Режим строк: место это свободная строка листа, берём её сразу (логин клиента в строку), без предложения.
+    const place = await takePlaceToday(db, lead, offer.product_name || '');
+    if (place.kind === 'later') return await offerLater(db, lead, place.model, place.date);
+    if (place.kind === 'none') {
+      await updateLead(db, lead.id, { status: 'closed' });
+      return r(MSG_CLOSED_FULL());
+    }
+    if (place.kind === 'unavailable') {
+      await logAlinaRawEvent(lead.chat_id, 'razdachi_unmatched', { username: lead.username || null, model: offer.product_name });
+      return r('Секунду, уточню у менеджера и вернусь к вам.');
+    }
+  } else if (!(await claimSlot(db, lead, offer, lastPlanAtMs()))) {
     await updateLead(db, lead.id, { status: 'closed' });
     await logEvent(db, lead.id, lead.chat_id, 'slot_lost', { product: offer.product_name, keyword: offer.keyword });
     return r(MSG_CLOSED_FULL());

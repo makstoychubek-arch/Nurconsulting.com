@@ -12,7 +12,7 @@
 import { googleAccessToken } from './alina-google-auth.ts';
 import { secretOrEnv } from './integration-secrets.ts';
 import { scoreProductMatch } from './alina-product-match.ts';
-import { parseRazdachiSheet, type RazSheet } from './alina-razdachi.ts';
+import { parseRazdachiSheet, normModel, isFreeRow, todayMskKey, type RazSheet } from './alina-razdachi.ts';
 
 /** Режим «Раздачи — строки»: каждая размеченная строка с ТГ, моделью и датой это место блогера. Выключен по умолчанию. */
 export function razdachiRowsMode(): boolean {
@@ -587,6 +587,21 @@ function buildOffers(
   return offers;
 }
 
+/** Пересчёт мест по строкам листа на сегодня: всего строк модели, свободных (нет логина и данных процесса). */
+export function applyRowsToOffers(offers: SheetPlanOffer[], sheet: RazSheet, today = todayMskKey()): void {
+  for (const o of offers) {
+    const k = normModel(o.product_name);
+    if (!k) continue;
+    const mine = sheet.rows.filter((r) => r.date === today && normModel(r.model) === k);
+    const free = mine.filter(isFreeRow).length;
+    o.plan_slots = mine.length;
+    o.used_slots = mine.length - free;
+    o.slots_left = free;
+    o.is_open = free > 0;
+    o.status_raw = free > 0 ? 'открыто' : (mine.length ? 'места закончились' : 'нет плана на сегодня');
+  }
+}
+
 /** Уникальные открытые товары (для «по какому объявлению»). */
 export function listOpenProductChoices(offers: SheetPlanOffer[]): SheetPlanOffer[] {
   const out: SheetPlanOffer[] = [];
@@ -956,6 +971,8 @@ export async function fetchSheetPlan(
 
   const dealMode = inferDealModeFromLeads(leads);
   const offers = buildOffers(blocks, leads, dealMode);
+  // Режим строк: места считаем по листу «Раздачи Пижам»: свободна строка без логина и без данных процесса (график только называет модели).
+  if (razdachiRowsMode() && lastRazdachi?.sheetId === sheetId) applyRowsToOffers(offers, lastRazdachi.sheet);
   for (const o of offers) o.read_ms = readStartMs;
   const active = pickActive(offers);
   if (active) active.deal_type = dealMode;

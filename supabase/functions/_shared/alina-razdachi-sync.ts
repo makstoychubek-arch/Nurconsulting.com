@@ -7,7 +7,10 @@ import { secretOrEnv } from './integration-secrets.ts';
 import { googleAccessToken } from './alina-google-auth.ts';
 import { getLastRazdachi, resolveActiveSheet } from './alina-sheet-plan.ts';
 import {
+  claimFreeRow,
   findClientRows,
+  freeSlots,
+  nearestFree,
   normModel,
   normTg,
   parseRazdachiSheet,
@@ -145,6 +148,72 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
     console.error('[alina-razdachi] write failed');
     await event('razdachi_write_problem', { status: 'error' });
   }
+}
+
+// ── Места и бронь (владелец, 24 ноября 2026) ──
+export type PlaceResult =
+  | { kind: 'have' | 'claimed'; row: number; date: string }
+  | { kind: 'later'; date: string; model: string }
+  | { kind: 'none' }
+  | { kind: 'unavailable' };
+
+async function placeCtx(db: SupabaseClient) {
+  const active = await resolveActiveSheet(db);
+  const saJson = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
+  const cached = getLastRazdachi();
+  if (!active?.sheet_id || !saJson || !cached || cached.sheetId !== active.sheet_id) return null;
+  const tab = active.cabinet_key === 'mars' ? 'Раздачи Пижам' : (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim();
+  return { sheet: cached.sheet, tab, sheetId: active.sheet_id, saJson };
+}
+
+async function claimOn(db: SupabaseClient, lead: Lead, model: string, date: string, today: string): Promise<'claimed' | 'taken' | 'failed' | { row: number }> {
+  const ctx = await placeCtx(db);
+  const tg = normTg(lead.username);
+  if (!ctx || !tg) return 'failed';
+  // Перечитываем лист заново перед выбором: кэш мог устареть.
+  const io = sheetIO(ctx.sheetId, await googleAccessToken(ctx.saJson));
+  const fresh = await io.read(`'${ctx.tab.replace(/'/g, "''")}'!A1:AZ2000`);
+  const sheet = (fresh && parseRazdachiSheet(fresh)) || ctx.sheet;
+  const k = normModel(model);
+  const own = sheet.rows.find((r) => r.tg === tg && r.date === date && normModel(r.model) === k);
+  if (own) return { row: own.row };
+  const free = freeSlots(sheet, today, 14).find((x) => x.date === date && normModel(x.model) === k);
+  for (const cand of (free?.rows ?? []).slice(0, 3)) {
+    const res = await claimFreeRow(io, ctx.tab, sheet, { row: cand.row, model: cand.model, date }, tg);
+    if (res.status === 'claimed') {
+      const cachedRow = ctx.sheet.rows.find((r) => r.row === cand.row);
+      if (cachedRow) cachedRow.tg = tg;
+      await db.from('alina_sheet_reservations').insert({ sheet_target: `${TARGET_PREFIX}${ctx.tab}|${date}`, sheet_row: cand.row, lead_id: lead.id, order_day: date })
+        .then(() => undefined, () => undefined);
+      await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'slot_booked', payload: { model, date, row: cand.row } })
+        .then(() => undefined, () => undefined);
+      return 'claimed';
+    }
+    if (res.status === 'failed' || res.status === 'unverified') return 'failed';
+  }
+  return 'taken';
+}
+
+/** Берёт место на сегодня сразу; если мест нет, возвращает ближайшую дату со свободным местом. */
+export async function takePlaceToday(db: SupabaseClient, lead: Lead, model: string): Promise<PlaceResult> {
+  const ctx = await placeCtx(db);
+  if (!ctx || !normTg(lead.username)) return { kind: 'unavailable' };
+  const today = todayMskKey();
+  const r = await claimOn(db, lead, model, today, today);
+  if (typeof r === 'object') return { kind: 'have', row: r.row, date: today };
+  if (r === 'claimed') {
+    const row = getLastRazdachi()?.sheet.rows.find((x) => x.tg === normTg(lead.username) && x.date === today && normModel(x.model) === normModel(model));
+    return { kind: 'claimed', row: row?.row ?? 0, date: today };
+  }
+  if (r === 'failed') return { kind: 'unavailable' };
+  const near = nearestFree(getLastRazdachi()?.sheet ?? ctx.sheet, model, today, 14);
+  return near ? { kind: 'later', date: near.date, model: near.model } : { kind: 'none' };
+}
+
+/** Бронь на выбранную дату по согласию клиента. */
+export async function bookPlace(db: SupabaseClient, lead: Lead, model: string, date: string): Promise<'claimed' | 'taken' | 'failed'> {
+  const r = await claimOn(db, lead, model, date, todayMskKey());
+  return typeof r === 'object' ? 'claimed' : r;
 }
 
 export { parseRazdachiSheet };
