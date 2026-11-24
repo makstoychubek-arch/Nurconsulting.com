@@ -41,6 +41,7 @@ import {
 } from './alina-sheet-plan.ts';
 import { bookPlace, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
+import { humanizeReplies } from './alina-humanize.ts';
 import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
@@ -217,12 +218,18 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
   const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
   const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
-  if (res.escalate || !(promised || asksManager)) return res;
+  if (res.escalate || !(promised || asksManager)) return await withHuman(res, opts.text);
   const group = await managerGroupId();
-  if (!group) return res;
+  if (!group) return await withHuman(res, opts.text);
   const question = (opts.text || '').trim() || '[клиент прислал фото]';
   await logAlinaRawEvent(opts.chatId, 'manager_escalated', { topic: 'вопрос клиента', text: question.slice(0, 200), auto: true });
-  return { ...res, escalate: { topic: 'вопрос клиента', question, group } };
+  return await withHuman({ ...res, escalate: { topic: 'вопрос клиента', question, group } }, opts.text);
+}
+
+/** Очеловечивание коротких шаблонных реплик (факты проверяет код, при сомнении остаётся исходный текст). */
+async function withHuman(res: AlinaReply, clientText?: string): Promise<AlinaReply> {
+  if (!res.replies.length) return res;
+  return { ...res, replies: await humanizeReplies(res.replies, clientText || '') };
 }
 
 async function handleAlinaClientMessageInner(opts: {

@@ -1,0 +1,16 @@
+import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
+import assert from 'node:assert/strict';
+const src = readFileSync(new URL('./alina-humanize.ts', import.meta.url), 'utf8').replace(/^import .*$/gm, '');
+const cut = src.slice(0, src.indexOf('export async function humanizeReplies')).replace(/^export /gm, '');
+const { skipHumanize, factsOf, factsOk } = new Function(stripTypeScriptTypes(cut) + '\nreturn { skipHumanize, factsOf, factsOk }')();
+assert.equal(skipHumanize('Ключ для поиска: «пижама женская»'), true);
+assert.equal(skipHumanize('Напишите @manager_x'), true);
+assert.equal(skipHumanize('На сегодня мест уже нет 😔'), false);
+assert.equal(skipHumanize('x'.repeat(400)), true);
+assert.ok(factsOk('Ближайшее свободное место: завтра, 25 ноября. Забронировать?', 'Ближайшее место есть завтра, 25 ноября. Забронировать для вас?'));
+assert.ok(!factsOk('Ближайшее место: завтра, 25 ноября.', 'Ближайшее место: завтра, 26 ноября.'), 'дата изменилась');
+assert.ok(!factsOk('Модель «Пижама 3в1 молочный» есть.', 'Модель «Пижама 3в1 шоколадный» есть.'), 'название изменилось');
+assert.ok(!factsOk('Есть места.', 'Есть 5 мест.'), 'появилось число');
+assert.deepEqual(factsOf('«А» @B 12'), ['«а»', '@b', '12']);
+console.log('PASS: alina-humanize');
