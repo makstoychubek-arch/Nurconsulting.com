@@ -121,7 +121,7 @@ export async function processAlinaTelegramUpdate(
             `${label[String(x.payload?.dir)] || '?'}: ${String(x.payload?.text || '').slice(0, 300)}`).join('\n');
     } catch { /* без контекста тоже работаем */ }
     try {
-        const { replies: draft, photos, escalate } = await handleAlinaClientMessage({
+        const { replies: draft, photos, escalate, replyToKind } = await handleAlinaClientMessage({
             ...message,
             text,
             history,
@@ -138,7 +138,9 @@ export async function processAlinaTelegramUpdate(
           if (!posted) replies = ['Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.'];
         }
         for (const photo of photos || []) {
-            if (!await sendPhoto(token, message, photo)) {
+            const photoMid = await sendPhoto(token, message, photo);
+            if (photoMid !== null) await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', kind: 'photo', text: String(photo.caption || '').slice(0, 300), mid: photoMid });
+            if (photoMid === null) {
                 const fallback = [photo.caption, photo.url].filter(Boolean).join('\n');
                 if (fallback && !await sendText(token, message, fallback)) {
                     throw new Error('photo_fallback');
@@ -162,10 +164,20 @@ export async function processAlinaTelegramUpdate(
         const greeted = (hist || []).some((x: { payload: { text?: string } }) => startsWithGreeting(String(x.payload?.text || '')));
         replies = applyGreeting(replies, greeted);
         replies = replies.flatMap((x) => splitLong(x)); // длинные тексты (ТЗ) отправляем несколькими сообщениями
+        // «Отправила выше»: отвечаем реплаем на своё прежнее сообщение (условия, ключ, фото), чтобы не отправлять его второй раз.
+        let replyMid = 0;
+        if (replyToKind) {
+            const { data: prevMsg } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+                .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').eq('payload->>kind', replyToKind)
+                .order('created_at', { ascending: false }).limit(1).maybeSingle();
+            replyMid = Number((prevMsg as { payload?: { mid?: number } } | null)?.payload?.mid || 0);
+        }
         let firstReply = true;
         for (const reply of replies) {
-            if (!await sendText(token, message, reply, firstReply, budget)) throw new Error('text_delivery');
-            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500) });
+            const mid = await sendTextId(token, message, reply, firstReply, budget, replyMid || undefined);
+            if (mid === null) throw new Error('text_delivery');
+            const kind = kindOf(reply);
+            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), ...(kind ? { kind, mid } : {}) });
             firstReply = false;
         }
         await logAlinaRawEvent(message.chatId, 'business_out', {
@@ -210,20 +222,31 @@ async function humanPause(token: string, message: ClientUpdate, text: string, fi
     }
 }
 
-async function sendText(token: string, message: ClientUpdate, text: string, first = false, budget = { spent: 25_000 }): Promise<boolean> {
+async function sendTextId(token: string, message: ClientUpdate, text: string, first = false, budget = { spent: 25_000 }, replyTo?: number): Promise<number | null> {
     await humanPause(token, message, text, first, budget);
-    return telegramSend(token, 'sendMessage', JSON.stringify({
+    return telegramSendId(token, 'sendMessage', JSON.stringify({
         chat_id: message.chatId,
         business_connection_id: message.connectionId,
         text,
+        ...(replyTo ? { reply_parameters: { message_id: replyTo } } : {}),
     }));
+}
+async function sendText(token: string, message: ClientUpdate, text: string, first = false, budget = { spent: 25_000 }): Promise<boolean> {
+    return (await sendTextId(token, message, text, first, budget)) !== null;
+}
+
+/** Вид отправленного сообщения для «отправила выше»: условия или ключ. */
+function kindOf(text: string): 'tz' | 'key' | null {
+    if (/Высылаю ТЗ|ТЗ для ОЗНАКОМЛЕНИЯ/.test(text)) return 'tz';
+    if (/^Ключ для поиска/.test(text)) return 'key';
+    return null;
 }
 
 async function sendPhoto(
     token: string,
     message: ClientUpdate,
     photo: NonNullable<AlinaReply['photos']>[number],
-): Promise<boolean> {
+): Promise<number | null> {
     const form = new FormData();
     form.set('chat_id', String(message.chatId));
     form.set('business_connection_id', message.connectionId);
@@ -233,18 +256,22 @@ async function sendPhoto(
     } else if (photo.url) {
         form.set('photo', photo.url);
     } else {
-        return false;
+        return null;
     }
-    return telegramSend(token, 'sendPhoto', form);
+    return telegramSendId(token, 'sendPhoto', form);
 }
 
-async function telegramSend(token: string, method: string, body: string | FormData): Promise<boolean> {
+async function telegramSendId(token: string, method: string, body: string | FormData): Promise<number | null> {
     const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
         method: 'POST',
         headers: typeof body === 'string' ? { 'Content-Type': 'application/json' } : undefined,
         signal: AbortSignal.timeout(10_000),
         body,
     }).catch(() => null);
-    if (!response?.ok) return false;
-    return (await response.json().catch(() => null))?.ok === true;
+    if (!response?.ok) return null;
+    const data = await response.json().catch(() => null);
+    return data?.ok === true ? Number(data?.result?.message_id ?? 0) || 0 : null;
+}
+async function telegramSend(token: string, method: string, body: string | FormData): Promise<boolean> {
+    return (await telegramSendId(token, method, body)) !== null;
 }
