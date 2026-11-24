@@ -1877,15 +1877,25 @@ async function handleCantFindFilters(
     }
     if (!isYes(text) && !cantFindProduct(text)) {
       // ждём да/нет
-      if (lead.status === 'ask_filters') return r(MSG_ASK_FILTERS());
+      if (lead.status === 'ask_filters') return rAsk('ask_filters', MSG_ASK_FILTERS());
       return null;
     }
     // yes → ниже отправим batch
   } else if (cantFindProduct(text)) {
     if (round >= 2) {
-      return r(
-        'Попробуйте сортировку «Популярные» и без лишних фильтров кроме тех, что скидывала. Потом скрин поиска с ключом сверху 🙌',
-      );
+      // Обе пачки фильтров отправлены, а клиент всё равно не находит (регион, недоступная карточка): не крутим одно и то же, передаём менеджеру один раз.
+      const { data: done } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'filters_escalated')
+        .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(1);
+      if (done && done.length) return { replies: [] };
+      const group = await managerGroupId();
+      await logEvent(db, lead.id, lead.chat_id, 'filters_escalated', { text });
+      if (group) {
+        return {
+          replies: ['Передала менеджеру, он посмотрит и подскажет.'],
+          escalate: { topic: 'не находит товар', question: `Клиент не находит товар даже с фильтрами: «${text.slice(0, 200)}». Модель: ${lead.product_name || '—'}, ключ: ${lead.keyword || '—'}. Посмотрите регион и доступность карточки.`, group },
+        };
+      }
+      return r('Попробуйте сортировку «Популярные» и без лишних фильтров кроме тех, что скидывала. Потом скрин поиска с ключом сверху 🙌');
     }
     if (round === 1) {
       // сразу вторая пачка без повторного «хотите?»
@@ -1897,7 +1907,7 @@ async function handleCantFindFilters(
         last_client_text: text,
       });
       await logEvent(db, lead.id, lead.chat_id, 'ask_filters', { text });
-      return r(MSG_ASK_FILTERS());
+      return rAsk('ask_filters', MSG_ASK_FILTERS());
     }
   } else {
     return null;
