@@ -1646,6 +1646,20 @@ async function resolveClientProduct(
   alternatives: SheetPlanOffer[];
 }> {
   const all = offers.length ? offers : (await fetchSheetPlan(false)).offers || [];
+  if (razdachiRowsMode() && text.trim()) {
+    // Названия моделей понимаем по формату и цвету («2 в 1 бордовая», «белую 2в1»): надёжнее общего подбора по словам.
+    const names = [...new Set(all.map((o) => String(o.product_name || '')).filter(Boolean))];
+    const hit = matchModels(names, text);
+    const pick = (n: string) => all.find((o) => o.product_name === n && o.is_open) || all.find((o) => o.product_name === n) || null;
+    if (hit.length === 1) {
+      const o = pick(hit[0]);
+      if (o) return { offer: o, ambiguous: [], unavailableColor: null, alternatives: [] };
+    }
+    if (hit.length > 1 && hit.length < names.length) {
+      const amb = hit.map(pick).filter(Boolean) as SheetPlanOffer[];
+      if (amb.length > 1) return { offer: null, ambiguous: amb, unavailableColor: null, alternatives: [] };
+    }
+  }
   let picked = resolveProductChoice(all, text);
   if (picked.offer || picked.unavailableColor || picked.ambiguous.length) return picked;
 
