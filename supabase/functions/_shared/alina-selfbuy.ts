@@ -45,7 +45,7 @@ import { humanizeReplies } from './alina-humanize.ts';
 import { dayApproved } from './alina-dayplan.ts';
 import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, ruDay, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, isModelBlocked, ruDay, setBlockedModels, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -238,6 +238,11 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     const me = String(opts.username || '').replace(/^@/, '').toLowerCase();
     setLateException(Number.isFinite(until) && until > Date.now() && (!only || only === me));
   } catch { setLateException(false); }
+  // Модели, недоступные на WB (alina_settings.blockedModels): не предлагаем и не бронируем.
+  try {
+    const { data: bm } = await admin().from('alina_settings').select('value').eq('key', 'blockedModels').maybeSingle();
+    setBlockedModels(Array.isArray(bm?.value) ? (bm!.value as string[]) : []);
+  } catch { setBlockedModels([]); }
   // План дня должен быть согласован владельцем (ответ «ок» в группе менеджеров), пока нет, места на сегодня не отдаём.
   try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
   let res = await handleAlinaClientMessageInner(opts);
@@ -1479,6 +1484,11 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   }
   if (hit.length !== 1) return null;
   const model = hit[0];
+  if (isModelBlocked(model)) {
+    const seenB = new Set<string>();
+    const altB = slots.filter((x) => (seenB.has(x.model) ? false : (seenB.add(x.model), true))).slice(0, 4);
+    return { ...r(`«${model.replace(/^Пижама\s+/i, '')}» сейчас недоступна на WB, как только появится, напишу вам 🙌${altB.length ? ` Пока могу предложить: ${altB.map((x) => `${x.model.replace(/^Пижама\s+/i, '')} (${ruDay(x.date, today)})`).join('; ')}. Какую хотите?` : ''}`), tag: 'models' as const };
+  }
   const k = model.toLowerCase();
   if (slots.some((x) => x.date === today && x.model.toLowerCase() === k)) return null; // сегодня есть место: идём по обычному пути и берём его сразу
   const near = slots.find((x) => x.model.toLowerCase() === k) ?? null;
