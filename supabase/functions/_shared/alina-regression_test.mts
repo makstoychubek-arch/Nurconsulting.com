@@ -4,6 +4,7 @@ import { weekdayDate, pickupDateFromText } from './alina-dates.ts';
 import { parseAnswerKind, worthClassifying } from './alina-intent-core.ts';
 import { pickAckEmoji, ACK_EMOJIS } from './alina-ack.ts';
 import { ALINA_VERSION } from './alina-version.ts';
+import { parseModelAnswer } from './alina-model-vision-core.ts';
 
 const wed = Date.parse('2026-11-25T12:00:00Z'); // среда
 assert.equal(weekdayDate('вторник давайте', wed), '01.12.2026', 'дни недели в дате интеграции');
@@ -21,5 +22,10 @@ assert.equal(pickupDateFromText('Можно товар будет забрать
 assert.equal(pickupDateFromText('2 числа забрать ?', wed), '02.12.2026');
 assert.equal(pickupDateFromText('заберу 30.11', wed), '30.11.2026');
 assert.equal(pickupDateFromText('заберу завтра', wed), '');
+const NAMES = ['Пижама 3в1 бордовый', 'Пижама 2в1 белый', 'Пижама 3в1 лапша вишня'];
+assert.equal(parseModelAnswer('{"model":3,"confidence":0.9}', NAMES), 'Пижама 3в1 лапша вишня');
+assert.equal(parseModelAnswer('{"model":1,"confidence":0.6}', NAMES), null, 'неуверенный ответ модели не используем');
+assert.equal(parseModelAnswer('{"model":0,"confidence":1}', NAMES), null, 'не наша картинка');
+assert.equal(parseModelAnswer('мусор', NAMES), null);
 assert.equal(ALINA_VERSION, '2.0');
 console.log('PASS: alina-regression');
