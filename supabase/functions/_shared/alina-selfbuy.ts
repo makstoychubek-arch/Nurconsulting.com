@@ -231,6 +231,23 @@ async function upsertCampaign(
 
 /** Если Алина пообещала «уточню у менеджера», вопрос действительно уходит в группу менеджеров (раньше фраза говорилась, а в группу ничего не шло). */
 export async function handleAlinaClientMessage(opts: Parameters<typeof handleAlinaClientMessageInner>[0]): Promise<AlinaReply> {
+  // У клиента нет логина в Telegram: в строку таблицы писать нечего, место не закрепить. Просим логин один раз, дальше берём его из ответа.
+  if (razdachiRowsMode() && !String(opts.username || '').trim() && (opts.text || '').trim() && !opts.hasPhoto) {
+    const t0 = (opts.text || '').trim();
+    const m0 = t0.match(/@([A-Za-z][A-Za-z0-9_]{4,31})/) || t0.match(/^([A-Za-z][A-Za-z0-9_]{4,31})$/);
+    if (m0) {
+      await admin().from('alina_selfbuy_leads').update({ username: m0[1] }).eq('chat_id', opts.chatId).is('username', null).then(() => undefined, () => undefined);
+      await logAlinaRawEvent(opts.chatId, 'username_given', { username: m0[1] });
+      opts = { ...opts, username: m0[1] };
+    } else {
+      const { data: asked } = await admin().from('alina_selfbuy_events').select('id').eq('chat_id', opts.chatId).eq('event_type', 'ask_username')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      if (!asked || !asked.length) {
+        await logAlinaRawEvent(opts.chatId, 'ask_username', { text: t0.slice(0, 120) });
+        return r('Чтобы закрепить за вами место, мне нужен ваш логин в Telegram (он начинается с @, например @name).', 'Напишите его, пожалуйста 🙌');
+      }
+    }
+  }
   // Разовое исключение владельца: пока не истекло, место на сегодня берём и поздно вечером.
   try {
     const { data: ex } = await admin().from('alina_settings').select('value').eq('key', 'lateException').maybeSingle();
@@ -1500,16 +1517,20 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     return null;
   }
   // Клиент соглашается («Хорошо на завтра», «давайте») на ближайшую дату, но модель не назвал: называем, что есть на эту дату, а не зовём менеджера.
+  // «Хорошо, завтра напишу», «подумаю», «вернусь»: клиент не выбрал модель и ничего не просит закрепить. Место не бронируем.
+  if (hit.length === 0 && slots.length && /напиш[уе]\S*|подума\S*|верн[уё]\S*|позже|потом|попозже/i.test(t) && !/забронир|закреп|запиш/i.test(t)) {
+    const { data: toldW } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+      .gt('created_at', sinceIso(180)).like('payload->>kind', 'models').limit(1);
+    if (toldW && toldW.length) return r('Хорошо 🙌', 'Захотите закрепить место, напишите модель, и я забронирую.');
+  }
   if (hit.length === 0 && (isYes(t) || /завтра|ближайш/i.test(t)) && slots.length) {
     const { data: told0 } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
       .gt('created_at', sinceIso(25)).like('payload->>kind', 'models').limit(1);
     if (told0 && told0.length) {
       const first = slots.find((x) => x.date !== today) ?? slots[0];
       const onDate = [...new Set(slots.filter((x) => x.date === first.date).map((x) => x.model))];
-      if (onDate.length === 1) {
-        const res = await bookPlace(db, lead, onDate[0], first.date);
-        if (res === 'claimed') return r(`Готово ✅ «${onDate[0]}» за вами на ${ruDay(first.date, today)}.`, 'Напишите в этот день, и начнём.');
-      }
+      // Одна модель на дату: клиент её не называл, сами не бронируем, а спрашиваем (бронь по «да»).
+      if (onDate.length === 1) return await offerLater(db, lead, onDate[0], first.date);
       return { ...r(`На ${ruDay(first.date, today)} есть: ${onDate.map((n) => n.replace(/^Пижама\s+/i, '')).join(', ')}. Какую забронировать?`), tag: 'models' as const };
     }
   }

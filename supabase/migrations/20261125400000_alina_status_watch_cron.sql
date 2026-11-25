@@ -1,0 +1,3 @@
+-- Наблюдение за статусами менеджера (шаги 2–3, пока без отправки клиентам): функция alina-status-watch, каждые 10 минут.
+-- select cron.schedule('alina-status-watch-10m', '*/10 * * * *', replace(command, 'alina-manager-tick', 'alina-status-watch')) from cron.job where jobname = 'alina-manager-tick-1m';
+-- Снимок: alina_settings.statusSnap. События: alina_selfbuy_events, event_type = 'status_watch', payload.mode = 'dry'.
