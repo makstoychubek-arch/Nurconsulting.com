@@ -379,6 +379,12 @@ async function handleAlinaClientMessageInner(opts: {
     }
   }
 
+  // Клиент пишет, что его размера нет (владелец, 25 ноября 2026): предлагаем другую модель; если и её нет, переносим на следующий день и убираем из строки на сегодня.
+  if (razdachiRowsMode() && !hasPhoto) {
+    const moved = await handleSizeMissing(db, lead, text);
+    if (moved) return moved;
+  }
+
   // Режим строк: бронь места (ответ на предложение даты или запрос модели, которой сегодня нет).
   if (razdachiRowsMode() && !hasPhoto && ['new', 'closed', 'ask_ad', 'ask_type'].includes(String(lead.status))) {
     const booked = await handleRowsBooking(db, lead, text);
@@ -1269,6 +1275,42 @@ async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, 
   await logEvent(db, lead.id, lead.chat_id, 'slot_offer', { model, date });
   const day = ruDay(date, todayMskKey());
   return { ...r(`На сегодня «${model}» уже нет 😔\nБлижайшее место: ${day}. Забронировать?`), tag: 'models' as const };
+}
+
+const SIZE_MISSING_RE = /(?:размер[а-яё]*\s+(?:нет|нету|закончил\S*|кончил\S*|не\s+(?:вижу|остал\S*|хватает))|(?:нет|нету)\s+(?:в\s+наличии\s+)?(?:моего\s+|нужного\s+|такого\s+)?размер|размер\S*\s+в\s+наличии\s+нет|не\s+(?:вижу|нахожу)\s+(?:свой|мой|нужный)\s+размер)/i;
+
+/** Размера нет: другая модель на сегодня, потом перенос на ближайший день и освобождение строки сегодняшнего дня. */
+async function handleSizeMissing(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
+  const missing = SIZE_MISSING_RE.test(text);
+  const { data: ev } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'size_missing_offer')
+    .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(1);
+  const offered = Boolean(ev && ev.length);
+  const declines = offered && lead.status === 'ask_ad' && (isNo(text) || /не\s+подход|не\s+хочу|других?\s+нет|ничего/i.test(text));
+  if (!missing && !declines) return null;
+  const sheet = getLastRazdachi()?.sheet;
+  if (!sheet) return null;
+  const today = todayMskKey();
+  const todayNames = tooLateForToday() ? [] : [...new Set(freeSlots(sheet, today, 0).filter((x) => x.date === today)
+    .map((x) => x.model).filter((m) => normModel(m) !== normModel(lead.product_name || '')))];
+
+  if (!offered && todayNames.length) {
+    // Шаг 1: освобождаем текущее место и предлагаем другую модель из сегодняшних.
+    await releaseClientPlace(db, lead).catch(() => null);
+    await updateLead(db, lead.id, { status: 'ask_ad', last_client_text: text });
+    await logEvent(db, lead.id, lead.chat_id, 'size_missing_offer', { text, offer: todayNames });
+    return { ...r(`Поняла, тогда подберём другую модель. Сегодня есть: ${todayNames.map((n) => n.replace(/^Пижама\s+/i, '')).join(', ')}. Какую хотите?`), tag: 'models' as const };
+  }
+  // Шаг 2: другой модели нет или клиент отказался: переносим на ближайший день, строку сегодняшнего дня освобождаем.
+  const future = freeSlots(sheet, today, 14).filter((x) => x.date !== today);
+  const same = future.find((x) => normModel(x.model) === normModel(lead.product_name || ''));
+  const target = same || future[0];
+  if (!target) return r('Поняла, по размеру сегодня ничего не подобрать 🙏 Напишите завтра, поищем вместе.');
+  if (!offered) await releaseClientPlace(db, lead).catch(() => null);
+  const res = await bookPlace(db, lead, target.model, target.date);
+  await updateLead(db, lead.id, { status: 'closed', last_client_text: text });
+  await logEvent(db, lead.id, lead.chat_id, 'size_moved', { text, model: target.model, date: target.date, res });
+  if (res !== 'claimed') return r('Поняла, по размеру сегодня ничего не подобрать 🙏 Место освободила. Напишите завтра, подберём вариант.');
+  return r(`Поняла, размера нет. Перенесла вас на ${ruDay(target.date, today)}: «${target.model}» ✅ Напишите в этот день, и начнём.`);
 }
 
 async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
