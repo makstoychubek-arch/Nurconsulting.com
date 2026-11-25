@@ -2288,6 +2288,10 @@ async function handleCantFindFilters(
     }
     // yes → ниже отправим batch
   } else if (cantFindProduct(text)) {
+    // Просьба «добавьте фильтры» это не «не нашла»: фильтров у нас нет, место не освобождаем, напоминаем про ключ и главное фото (25 ноября 2026).
+    if (/фильтр/i.test(text) && !/не\s+(?:наш|могу|получа|нахо)/i.test(text)) {
+      return r(`Фильтры не нужны: вбейте ключ${lead.keyword ? ` «${lead.keyword}»` : ''} в поиск и найдите наш товар, главное фото было выше 🙌`, 'Скрин пришлите, когда найдёте.');
+    }
     if (round >= 0) {
       // Лесенка (владелец, 25 ноября 2026): фильтров нет вообще: сразу главное фото с подписью «по фото не ищем» карточки → извиняемся и освобождаем место другим.
       const { data: sentPhoto } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'main_photo_sent')
