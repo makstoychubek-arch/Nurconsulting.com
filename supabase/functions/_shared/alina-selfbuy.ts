@@ -360,9 +360,10 @@ async function handleAlinaClientMessageInner(opts: {
 
   let lead = await getOrCreateLead(db, opts, source);
   // Клиент с оформленным заказом присылает фото (разрезанные ШК, отзыв): ведём по его живой заявке, а не по закрытой или новой (иначе Алина снова спросит модель).
-  if (opts.hasPhoto && ['new', 'closed', 'ask_ad', 'ask_type'].includes(String(lead.status))) {
+  // Так же для текста: клиент с заказом в работе не считается новым (иначе ему снова предлагают модели и места). Вторую модель ведёт обработчик «по очереди».
+  if (['new', 'closed', 'ask_ad', 'ask_type'].includes(String(lead.status))) {
     const { data: active } = await db.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId)
-      .in('status', ['wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done']).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+      .in('status', ['wait_size', 'wait_bank', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done']).order('updated_at', { ascending: false }).limit(1).maybeSingle();
     if (active) lead = active as SelfbuyLead;
   }
 
