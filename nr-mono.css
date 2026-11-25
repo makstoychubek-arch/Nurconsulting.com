@@ -3341,3 +3341,27 @@ html[data-nr-privacy] .rnp-gs-name,
 html[data-nr-privacy] .rnp-wb-link,
 html[data-nr-privacy] .rnp-byart-name,
 html[data-nr-privacy] .rnp-gh-li > span { filter: blur(9px) !important; -webkit-user-select: none; user-select: none; }
+
+/* Пульт Алины («Минимализм»): контур, чёрный блок только у главной метрики, цвет только у «плохо». */
+.ap-ver { font: 700 10px var(--font-d, inherit); letter-spacing: .08em; border: 1px solid currentColor; border-radius: 99px; padding: 2px 9px; vertical-align: middle; margin-left: 8px; }
+.ap-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.ap-m { border: 1px solid currentColor; border-radius: 26px; padding: 14px 16px; min-width: 0; display: grid; gap: 2px; }
+.ap-m i { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .65; }
+.ap-m b { font-size: 30px; font-weight: 900; line-height: 1.1; }
+.ap-m span { font-size: 12px; opacity: .65; }
+.ap-m u { display: block; height: 6px; border-radius: 99px; background: rgba(128, 128, 128, .35); text-decoration: none; overflow: hidden; margin-top: 6px; }
+.ap-m u s { display: block; height: 100%; background: currentColor; text-decoration: none; }
+.ap-ink { background: var(--accent, #0b0b0b); color: var(--on-accent, #fff); border-color: var(--accent, #0b0b0b); }
+.ap-bad { color: #c62828; }
+.ap-scroll { overflow-x: auto; }
+.ap-t { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 460px; }
+.ap-t th { text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .65; padding: 6px 8px; border-bottom: 1px solid currentColor; }
+.ap-t td { padding: 7px 8px; border-bottom: 1px solid rgba(128, 128, 128, .25); }
+.ap-hot td { background: rgba(198, 40, 40, .08); }
+.ap-pill { display: inline-block; border: 1px solid currentColor; border-radius: 99px; padding: 1px 9px; font-size: 12px; font-weight: 700; }
+.ap-feed { display: grid; gap: 6px; font-size: 13px; }
+.ap-ts { opacity: .55; font-variant-numeric: tabular-nums; margin-right: 4px; }
+.ap-seg { display: inline-flex; border: 1px solid currentColor; border-radius: 99px; overflow: hidden; }
+.ap-seg button { font: 700 12px inherit; background: transparent; color: inherit; border: 0; padding: 6px 12px; cursor: pointer; }
+.ap-seg button.on { background: var(--accent, #0b0b0b); color: var(--on-accent, #fff); }
+@media (max-width: 760px) { .ap-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
