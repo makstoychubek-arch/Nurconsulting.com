@@ -4,7 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { googleAccessToken } from '../_shared/alina-google-auth.ts';
 import { secretOrEnv } from '../_shared/integration-secrets.ts';
-import { parseRazdachiSheet } from '../_shared/alina-razdachi.ts';
+import { parseRazdachiSheet, colLetter, normTg } from '../_shared/alina-razdachi.ts';
+import { sheetStatusOf } from '../_shared/alina-razdachi-sync.ts';
 import { planStatusChanges } from '../_shared/alina-status-watch.ts';
 
 const SHEET_ID = '1ZSdNfnflgwOQZFSm1qcvfOB94bnfipZu5fB3pDodrik';
@@ -24,6 +25,35 @@ Deno.serve(async (req) => {
     const sheet = parseRazdachiSheet(values);
     if (!sheet || sheet.col.status == null) return json({ ok: false, error: 'нет колонки «Статус»' });
     const idCol = sheet.headers.findIndex((h) => h.trim().toLowerCase() === 'id');
+    // Разовая заливка статусов (alina_settings.statusBackfill {run:true, logins:[...]}): заполняет ТОЛЬКО пустые «Статус» у строк с логином
+    // по заявке клиента (нет заявки: «Заказ оформлен», если есть цена, иначе «Записан»). Отчёт: alina_settings.statusBackfillReport.
+    const { data: bf } = await admin.from('alina_settings').select('value').eq('key', 'statusBackfill').maybeSingle();
+    const bfv = (bf?.value ?? null) as { run?: boolean; logins?: string[] } | null;
+    if (bfv?.run) {
+        const sc = sheet.col.status!;
+        const { data: ld } = await admin.from('alina_selfbuy_leads').select('username, status, updated_at').not('username', 'is', null).order('updated_at', { ascending: true }).limit(3000);
+        const latest = new Map<string, string>();
+        for (const l of (ld || []) as Array<{ username: string; status: string }>) latest.set(normTg(l.username), l.status);
+        const data: Array<{ range: string; values: string[][] }> = [];
+        const filled: string[] = [];
+        for (const rw of sheet.rows) {
+            if (!rw.tg || String(rw.cells[sc] ?? '').trim() !== '') continue;
+            const priceIdx = sheet.col.price;
+            const hasPrice = priceIdx != null && String(rw.cells[priceIdx] ?? '').trim() !== '';
+            const st = sheetStatusOf(latest.get(rw.tg)) || (hasPrice ? 'Заказ оформлен' : 'Записан');
+            data.push({ range: `'${TAB}'!${colLetter(sc)}${rw.row}`, values: [[st]] });
+            filled.push(`${rw.row}:${rw.tg}:${st}`);
+        }
+        let applied = false;
+        if (data.length) {
+            const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(30000), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) }).catch(() => null);
+            applied = Boolean(w?.ok);
+        }
+        const want = (bfv.logins || []).map((x) => normTg(x));
+        const peek = sheet.rows.filter((rw) => want.includes(rw.tg)).map((rw) => ({ row: rw.row, cells: rw.cells }));
+        await admin.from('alina_settings').upsert({ key: 'statusBackfillReport', value: { at: new Date().toISOString(), applied, count: data.length, filled: filled.slice(0, 400), peek, headers: sheet.headers } });
+        await admin.from('alina_settings').upsert({ key: 'statusBackfill', value: { run: false } });
+    }
     const { data: snapRow } = await admin.from('alina_settings').select('value').eq('key', 'statusSnap').maybeSingle();
     const prev = (snapRow?.value ?? null) as Record<string, string> | null;
     const { snap, changes } = planStatusChanges(prev, sheet, idCol >= 0 ? idCol : undefined);

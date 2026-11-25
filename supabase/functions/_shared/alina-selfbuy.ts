@@ -1500,16 +1500,20 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     return null;
   }
   // Клиент соглашается («Хорошо на завтра», «давайте») на ближайшую дату, но модель не назвал: называем, что есть на эту дату, а не зовём менеджера.
+  // «Хорошо, завтра напишу», «подумаю», «вернусь»: клиент не выбрал модель и ничего не просит закрепить. Место не бронируем.
+  if (hit.length === 0 && slots.length && /напиш[уе]\S*|подума\S*|верн[уё]\S*|позже|потом|попозже/i.test(t) && !/забронир|закреп|запиш/i.test(t)) {
+    const { data: toldW } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+      .gt('created_at', sinceIso(180)).like('payload->>kind', 'models').limit(1);
+    if (toldW && toldW.length) return r('Хорошо 🙌', 'Захотите закрепить место, напишите модель, и я забронирую.');
+  }
   if (hit.length === 0 && (isYes(t) || /завтра|ближайш/i.test(t)) && slots.length) {
     const { data: told0 } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
       .gt('created_at', sinceIso(25)).like('payload->>kind', 'models').limit(1);
     if (told0 && told0.length) {
       const first = slots.find((x) => x.date !== today) ?? slots[0];
       const onDate = [...new Set(slots.filter((x) => x.date === first.date).map((x) => x.model))];
-      if (onDate.length === 1) {
-        const res = await bookPlace(db, lead, onDate[0], first.date);
-        if (res === 'claimed') return r(`Готово ✅ «${onDate[0]}» за вами на ${ruDay(first.date, today)}.`, 'Напишите в этот день, и начнём.');
-      }
+      // Одна модель на дату: клиент её не называл, сами не бронируем, а спрашиваем (бронь по «да»).
+      if (onDate.length === 1) return await offerLater(db, lead, onDate[0], first.date);
       return { ...r(`На ${ruDay(first.date, today)} есть: ${onDate.map((n) => n.replace(/^Пижама\s+/i, '')).join(', ')}. Какую забронировать?`), tag: 'models' as const };
     }
   }
