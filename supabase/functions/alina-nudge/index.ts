@@ -121,7 +121,20 @@ Deno.serve(async (req) => {
             if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'deadline', text); sent.push(`deadline ${l.username}`); } else if (dry) sent.push(`deadline ${l.username}`);
             continue;
         }
-        if (idleMs > 3 * 3600_000 && hm >= 9 * 60 && hm < 21 * 60 && !await done(l.chat_id, 'idle')) {
+        // Напоминания тем, кто ищет или собирает заказ (владелец, 25 ноября 2026): через 40 минут тишины спрашиваем, как идёт, через 2 часа уточняем, актуально ли.
+        const PING1: Record<string, string> = {
+            tz_sent: 'Ознакомились с условиями? Если всё устраивает, напишите «согласна», и пришлю ключ 🙌',
+            key_sent: 'Как поиск, нашли наш товар? Если не получается, напишите, подскажу 🙌',
+            wait_product: 'Как поиск, нашли наш товар? Если не получается, напишите, подскажу 🙌',
+            wait_cart: 'Как корзина? Пришлите скрин, когда будет готова 🙌',
+            wait_order: 'Заказ оформили? Пришлите скрин, когда будет готов 🙌',
+        };
+        if (idleMs > 40 * 60_000 && idleMs < 2 * 3600_000 && hm >= 9 * 60 && hm < 21 * 60 && PING1[l.status] && !await done(l.chat_id, 'ping1')) {
+            const text = PING1[l.status];
+            if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'ping1', text); sent.push(`ping1 ${l.username}`); } else if (dry) sent.push(`ping1 ${l.username}`);
+            continue;
+        }
+        if (idleMs > 2 * 3600_000 && hm >= 9 * 60 && hm < 21 * 60 && !await done(l.chat_id, 'idle')) {
             const text = 'Ещё актуально? Если нет, напишите, освобожу место 🙌';
             if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'idle', text); sent.push(`idle ${l.username}`); } else if (dry) sent.push(`idle ${l.username}`);
         }
@@ -142,6 +155,53 @@ Deno.serve(async (req) => {
             const text = 'Здравствуйте! Заказ уже должен быть в пункте выдачи. Вы его забрали? 🙌';
             if (dry) { sent.push(`pickup_ask ${l.username}`); continue; }
             if (await send(l.chat_id, text)) { await log(l.chat_id, 'pickup_ask', text); sent.push(`pickup_ask ${l.username}`); }
+        }
+    }
+    // Утреннее приглашение начать: у клиента закреплено место на сегодня (бронь с прошлых дней), но он ещё не писал. Один раз за день с 10:00 до 14:00 по Москве.
+    if (hm >= 10 * 60 && hm < 14 * 60 && !dry) {
+        if (!sheetToken) sheetToken = await googleAccessToken((await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON')) || '').catch(() => '');
+        const sr = sheetToken ? await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`'${TAB}'!A1:E700`)}?valueRenderOption=FORMATTED_VALUE`, { headers: { Authorization: `Bearer ${sheetToken}` }, signal: AbortSignal.timeout(20_000) }).catch(() => null) : null;
+        const rows0 = ((await sr?.json().catch(() => null))?.values || []) as string[][];
+        let started = 0;
+        for (const r0 of rows0.slice(1)) {
+            if (started >= 8) break;
+            if (String(r0[3] || '').trim() !== dayKey || !String(r0[2] || '').trim() || String(r0[4] || '').trim()) continue;
+            const un = String(r0[2]).replace(/^@/, '').trim();
+            if (skip.has(un.toLowerCase())) continue;
+            const { data: ld } = await admin.from('alina_selfbuy_leads').select('chat_id, status').ilike('username', un).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+            const chat = (ld as { chat_id?: number; status?: string } | null);
+            if (!chat?.chat_id || !['closed', 'new', 'ask_ad'].includes(String(chat.status))) continue;
+            if (await done(chat.chat_id, 'start_ask')) continue;
+            const { data: today0 } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', chat.chat_id).eq('event_type', 'chat_log').gt('created_at', new Date(now - 6 * 3600_000).toISOString()).limit(1);
+            if (today0 && today0.length) continue; // клиент или менеджер уже общаются сегодня
+            const model = String(r0[0] || '').replace(/^Пижама\s+/i, '');
+            const text = `Доброе утро! Сегодня ваше место на «${model}». Начинаем? Заказать нужно до 22:00 по Москве. Напишите «да», и пришлю условия 🙌`;
+            if (await send(chat.chat_id, text)) { await log(chat.chat_id, 'start_ask', text); sent.push(`start_ask ${un}`); started++; }
+        }
+    }
+    // 2 этап: клиент не прислал ШК или черновик отзыва больше суток, напоминаем раз в день днём; отзыв отправлен менеджеру, а ответа нет 3 часа: напоминаем в группу.
+    if (hm >= 11 * 60 && hm < 19 * 60 && !dry) {
+        const { data: st2 } = await admin.from('alina_selfbuy_leads').select('id, chat_id, username, status, updated_at, product_name').in('status', ['wait_shk', 'wait_review']).limit(60);
+        for (const l of (st2 || []) as Array<{ id: string; chat_id: number; username: string | null; status: string; updated_at: string }>) {
+            if (l.username && skip.has(l.username.toLowerCase())) continue;
+            if (now - Date.parse(l.updated_at) < 24 * 3600_000) continue;
+            const kind = l.status === 'wait_shk' ? 'shk_ask' : 'review_ask';
+            if (await done(l.chat_id, kind)) continue;
+            const text = l.status === 'wait_shk' ? 'Напоминаю: жду фото с разрезанными штрихкодами WB 🙌' : 'Напоминаю: жду черновик отзыва, фото и текст. Публиковать сразу не нужно 🙌';
+            if (await send(l.chat_id, text)) { await log(l.chat_id, kind, text); sent.push(`${kind} ${l.username}`); }
+        }
+        const group2 = await managerGroupId();
+        if (group2) {
+            const { data: rv } = await admin.from('alina_selfbuy_events').select('chat_id, created_at').eq('event_type', 'review').lt('created_at', new Date(now - 3 * 3600_000).toISOString()).gt('created_at', new Date(now - 30 * 3600_000).toISOString()).limit(40);
+            for (const e of (rv || []) as Array<{ chat_id: number; created_at: string }>) {
+                if (await done(e.chat_id, 'review_remind')) continue;
+                const { data: ans } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', e.chat_id).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', e.created_at).limit(1);
+                if (ans && ans.length) continue;
+                const { data: ld } = await admin.from('alina_selfbuy_leads').select('username').eq('chat_id', e.chat_id).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+                const who = (ld as { username?: string } | null)?.username ? '@' + (ld as { username: string }).username : String(e.chat_id);
+                const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000), body: JSON.stringify({ chat_id: group2, text: `Отзыв от ${who} уже больше 3 часов ждёт согласования.` }) }).catch(() => null);
+                if (r?.ok) await admin.from('alina_selfbuy_events').insert({ event_type: 'nudge', chat_id: e.chat_id, payload: { kind: 'review_remind', day } });
+            }
         }
     }
     // После 22:30 МСК: список не приславших заказ в группу менеджеров (один раз за день)

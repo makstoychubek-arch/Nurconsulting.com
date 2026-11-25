@@ -279,10 +279,16 @@ export const isFreeRow = (r: RazRow): boolean => !r.tg && !r.started;
 export type FreeSlot = { model: string; date: string; rows: RazRow[] };
 
 /** Свободные места по моделям и датам от сегодняшней даты на horizon дней вперёд, по возрастанию даты. */
+/** Модели, которые сейчас недоступны на WB (alina_settings.blockedModels): Алина их не предлагает и не бронирует. */
+let blockedModels = new Set<string>();
+export const setBlockedModels = (names: string[]): void => { blockedModels = new Set(names.map((n) => normModel(n))); };
+export const isModelBlocked = (name: string): boolean => blockedModels.has(normModel(name));
+
 export function freeSlots(sheet: RazSheet, today: string, horizon = 14): FreeSlot[] {
   const map = new Map<string, FreeSlot>();
   for (const r of sheet.rows) {
     if (!isFreeRow(r)) continue;
+    if (isModelBlocked(r.model)) continue;
     const n = daysBetween(today, r.date);
     if (n < 0 || n > horizon) continue;
     const k = normModel(r.model) + '|' + r.date;

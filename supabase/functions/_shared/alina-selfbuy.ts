@@ -45,7 +45,7 @@ import { humanizeReplies } from './alina-humanize.ts';
 import { dayApproved } from './alina-dayplan.ts';
 import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, ruDay, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, isModelBlocked, ruDay, setBlockedModels, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -238,6 +238,11 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     const me = String(opts.username || '').replace(/^@/, '').toLowerCase();
     setLateException(Number.isFinite(until) && until > Date.now() && (!only || only === me));
   } catch { setLateException(false); }
+  // Модели, недоступные на WB (alina_settings.blockedModels): не предлагаем и не бронируем.
+  try {
+    const { data: bm } = await admin().from('alina_settings').select('value').eq('key', 'blockedModels').maybeSingle();
+    setBlockedModels(Array.isArray(bm?.value) ? (bm!.value as string[]) : []);
+  } catch { setBlockedModels([]); }
   // План дня должен быть согласован владельцем (ответ «ок» в группе менеджеров), пока нет, места на сегодня не отдаём.
   try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
   let res = await handleAlinaClientMessageInner(opts);
@@ -426,6 +431,13 @@ async function handleAlinaClientMessageInner(opts: {
       if (mine?.article) article = mine.article;
       const ref = article ? await fetchWbMainPhoto(article).catch(() => null) : null;
       if (ref?.bytes) reference = { bytes: ref.bytes, mime: ref.mime || 'image/jpeg' };
+      // На скрине может быть не только главное фото, но и следующие кадры галереи карточки: берём ещё 2-е и 3-е как эталоны.
+      if (article) {
+        for (const idx of [2, 3]) {
+          const extra = await fetchWbMainPhoto(article, idx).catch(() => null);
+          if (extra?.bytes) abRefs.push({ bytes: extra.bytes, mime: extra.mime || 'image/jpeg' });
+        }
+      }
       // A/B-тест меняет главное фото карточки: клиент мог снять скрин с прошлым вариантом, поэтому сверяем и с ними.
       if (article) {
         try {
@@ -979,6 +991,8 @@ async function handleAlinaClientMessageInner(opts: {
       const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK();
       return r(bankMsg);
     }
+    // Клиент пишет, что заказал: отвечаем всегда (не подавляем как повторный вопрос), просим именно скрин.
+    if (/заказал|оформил|выкупил|купил/i.test(text)) return r('Отлично! Пришлите скрин заказа: видны цена, город/ПВЗ и дата получения 🙌');
     return rAsk('wait_order', 'После оформления пришлите скрин заказа: цена, город/ПВЗ, дата получения.');
   }
 
@@ -1049,7 +1063,7 @@ async function handleAlinaClientMessageInner(opts: {
     // «Забрала / получила» (или скрин получения): записываем фактическую дату сегодняшней, просим фото разрезанных ШК.
     // Даты вроде «28.11» здесь не получение: это интеграция или вопрос, фактическую дату сами не ставим.
     const vision = hasPhoto ? await readScreen('pickup') : null;
-    const photoIsPickup = Boolean(vision && vision.via === 'ai' && String(vision.kind) === 'pickup');
+    const photoIsPickup = Boolean(vision && vision.via === 'ai' && String(vision.kind) === 'pickup' && vision.ok === true);
     if (RECEIVED_RE.test(text) || photoIsPickup) {
       await updateLead(db, lead.id, {
         pickup_at: new Date().toISOString().slice(0, 10),
@@ -1063,6 +1077,7 @@ async function handleAlinaClientMessageInner(opts: {
       return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌');
     }
     if (hasPhoto) return { replies: [] };
+    if (/заказал|оформил|выкупил/i.test(text)) return r('Заказ у вас уже записан ✅ Когда он придёт в пункт выдачи, я напомню 🙌');
     // Задержка, «не пришло», «нет ссылки» и подобное: коротко отвечаем, дату в таблице меняет менеджер.
     if (shouldUseBrain({ text, status: 'wait_pickup', hasPhoto, matchedProduct: false })) {
       const { brain } = await runBrain();
@@ -1253,6 +1268,12 @@ async function startSecondModelLead(db: SupabaseClient, lead: SelfbuyLead, text:
 /** Модель не уверена, наш ли товар на скрине: клиенту «сверю с менеджером», менеджерам вопрос с пометкой модели. */
 async function visionToManager(lead: SelfbuyLead, v: { notes?: string; search_query?: string | null; has_our_product?: boolean | null }): Promise<AlinaReply> {
   await logAlinaRawEvent(lead.chat_id, 'vision_unsure', { notes: v.notes || null, query: v.search_query || null, has_our: v.has_our_product ?? null });
+  // Первый сомнительный скрин за 3 часа: не дёргаем менеджера, просим прислать чётче. Второй подряд уходит менеджеру.
+  {
+    const { data: prevUnsure } = await admin().from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'vision_unsure')
+      .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(2);
+    if ((prevUnsure || []).length <= 1) return rAsk(String(lead.status), 'Не вижу на скрине наш товар. Пришлите, пожалуйста, скрин ещё раз: сверху запрос, ниже наш товар 🙌');
+  }
   const group = await managerGroupId();
   const question = `Скрин клиента: Алина не уверена, подходит ли он (наш товар/ключ). Модель в заявке: ${lead.product_name || '—'}; ключ: ${lead.keyword || '—'}. Заметка зрения: ${(v.notes || '—').slice(0, 200)}. Посмотрите скрин в чате и ответьте клиенту.`;
   return {
@@ -1376,7 +1397,9 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     .eq('chat_id', lead.chat_id).in('event_type', ['slot_offer', 'slot_booked', 'slot_declined'])
     .order('created_at', { ascending: false }).limit(1);
   const last = (ev || [])[0] as { event_type: string; payload: { model?: string; date?: string }; created_at: string } | undefined;
-  const fresh = last && Date.now() - Date.parse(last.created_at) < 24 * 3600_000;
+  const dayKey = (d?: string) => { const m = String(d || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}${m[2]}${m[1]}` : ''; };
+  // Бронь и предложение живут сутки и только пока дата не прошла (иначе вчерашнее «закреплено» всплывает в ответ на любое сообщение).
+  const fresh = last && Date.now() - Date.parse(last.created_at) < 24 * 3600_000 && dayKey(last.payload?.date) >= dayKey(todayMskKey());
   if (last?.event_type === 'slot_offer' && fresh && last.payload?.model && last.payload?.date) {
     const { model, date } = last.payload;
     if (YES_RE.test(t)) {
@@ -1445,12 +1468,37 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     }
     return null;
   }
+  // Клиент соглашается («Хорошо на завтра», «давайте») на ближайшую дату, но модель не назвал: называем, что есть на эту дату, а не зовём менеджера.
+  if (hit.length === 0 && (isYes(t) || /завтра|ближайш/i.test(t)) && slots.length) {
+    const { data: told0 } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+      .gt('created_at', sinceIso(25)).like('payload->>kind', 'models').limit(1);
+    if (told0 && told0.length) {
+      const first = slots.find((x) => x.date !== today) ?? slots[0];
+      const onDate = [...new Set(slots.filter((x) => x.date === first.date).map((x) => x.model))];
+      if (onDate.length === 1) {
+        const res = await bookPlace(db, lead, onDate[0], first.date);
+        if (res === 'claimed') return r(`Готово ✅ «${onDate[0]}» за вами на ${ruDay(first.date, today)}.`, 'Напишите в этот день, и начнём.');
+      }
+      return { ...r(`На ${ruDay(first.date, today)} есть: ${onDate.map((n) => n.replace(/^Пижама\s+/i, '')).join(', ')}. Какую забронировать?`), tag: 'models' as const };
+    }
+  }
   if (hit.length !== 1) return null;
   const model = hit[0];
+  if (isModelBlocked(model)) {
+    const seenB = new Set<string>();
+    const altB = slots.filter((x) => (seenB.has(x.model) ? false : (seenB.add(x.model), true))).slice(0, 4);
+    return { ...r(`«${model.replace(/^Пижама\s+/i, '')}» сейчас недоступна на WB, как только появится, напишу вам 🙌${altB.length ? ` Пока могу предложить: ${altB.map((x) => `${x.model.replace(/^Пижама\s+/i, '')} (${ruDay(x.date, today)})`).join('; ')}. Какую хотите?` : ''}`), tag: 'models' as const };
+  }
   const k = model.toLowerCase();
   if (slots.some((x) => x.date === today && x.model.toLowerCase() === k)) return null; // сегодня есть место: идём по обычному пути и берём его сразу
   const near = slots.find((x) => x.model.toLowerCase() === k) ?? null;
-  if (!near) return r(`На «${model}» свободных мест в ближайшие дни нет. Уточню у менеджера и вернусь к вам.`);
+  if (!near) {
+    // Этой модели нет ни сегодня, ни в ближайшие дни: предлагаем, что есть (по одной ближайшей дате на модель), менеджера не зовём.
+    const seen = new Set<string>();
+    const alt = slots.filter((x) => (seen.has(x.model) ? false : (seen.add(x.model), true))).slice(0, 4);
+    if (alt.length) return { ...r(`Мест на «${model.replace(/^Пижама\s+/i, '')}» пока нет. Могу предложить: ${alt.map((x) => `${x.model.replace(/^Пижама\s+/i, '')} (${ruDay(x.date, today)})`).join('; ')}. Какую хотите?`), tag: 'models' as const };
+    return r(`Мест на «${model.replace(/^Пижама\s+/i, '')}» пока нет, как появятся, напишу вам 🙌`);
+  }
   // Клиенту уже называли ближайшую дату и спросили модель: он выбрал, бронируем сразу, без повторного «забронировать?».
   const { data: told } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
     .gt('created_at', sinceIso(90)).like('payload->>kind', 'models').limit(1);
@@ -1469,7 +1517,10 @@ async function startDealFromOffer(
   text: string,
 ): Promise<AlinaReply> {
   if (dayClosedOn()) return dayWaitReply();
-  if (!offer.is_open || (offer.slots_left ?? 0) <= 0) {
+  // Клиент уже занимает строку этой модели на сегодня (его записал менеджер или бронь): места в плане «0», но ему они не нужны, продолжаем с его строкой.
+  const ownRows = clientRowsToday(lead.username);
+  const holdsModel = ownRows.state === 'ok' && ownRows.rows.some((x) => normModel(x.model) === normModel(offer.product_name || ''));
+  if (!holdsModel && (!offer.is_open || (offer.slots_left ?? 0) <= 0)) {
     const open = await getOpenProductChoices();
     return r(msgColorUnavailable(
       offer.product_name || 'этой модели',

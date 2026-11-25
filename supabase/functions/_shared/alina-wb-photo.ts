@@ -34,7 +34,7 @@ export type WbPhoto = {
 };
 
 /** Скачать главное фото (байты) — Telegram Business часто не тянет webp по URL сам. */
-export async function fetchWbMainPhoto(nmId: number | string): Promise<WbPhoto | null> {
+export async function fetchWbMainPhoto(nmId: number | string, index = 1): Promise<WbPhoto | null> {
   const nm = Number(nmId);
   if (!Number.isFinite(nm) || nm < 100000) return null;
   const vol = Math.floor(nm / 100000);
@@ -49,7 +49,7 @@ export async function fetchWbMainPhoto(nmId: number | string): Promise<WbPhoto |
   ];
   for (const base of bases) {
     for (const ext of ['webp', 'jpg', 'jpeg', 'png']) {
-      const url = `${base}/1.${ext}`;
+      const url = `${base}/${index}.${ext}`;
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
         if (!res.ok) continue;
