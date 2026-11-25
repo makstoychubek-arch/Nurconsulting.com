@@ -144,6 +144,31 @@ Deno.serve(async (req) => {
             if (await send(l.chat_id, text)) { await log(l.chat_id, 'pickup_ask', text); sent.push(`pickup_ask ${l.username}`); }
         }
     }
+    // 2 этап: клиент не прислал ШК или черновик отзыва больше суток, напоминаем раз в день днём; отзыв отправлен менеджеру, а ответа нет 3 часа: напоминаем в группу.
+    if (hm >= 11 * 60 && hm < 19 * 60 && !dry) {
+        const { data: st2 } = await admin.from('alina_selfbuy_leads').select('id, chat_id, username, status, updated_at, product_name').in('status', ['wait_shk', 'wait_review']).limit(60);
+        for (const l of (st2 || []) as Array<{ id: string; chat_id: number; username: string | null; status: string; updated_at: string }>) {
+            if (l.username && skip.has(l.username.toLowerCase())) continue;
+            if (now - Date.parse(l.updated_at) < 24 * 3600_000) continue;
+            const kind = l.status === 'wait_shk' ? 'shk_ask' : 'review_ask';
+            if (await done(l.chat_id, kind)) continue;
+            const text = l.status === 'wait_shk' ? 'Напоминаю: жду фото с разрезанными штрихкодами WB 🙌' : 'Напоминаю: жду черновик отзыва, фото и текст. Публиковать сразу не нужно 🙌';
+            if (await send(l.chat_id, text)) { await log(l.chat_id, kind, text); sent.push(`${kind} ${l.username}`); }
+        }
+        const group2 = await managerGroupId();
+        if (group2) {
+            const { data: rv } = await admin.from('alina_selfbuy_events').select('chat_id, created_at').eq('event_type', 'review').lt('created_at', new Date(now - 3 * 3600_000).toISOString()).gt('created_at', new Date(now - 30 * 3600_000).toISOString()).limit(40);
+            for (const e of (rv || []) as Array<{ chat_id: number; created_at: string }>) {
+                if (await done(e.chat_id, 'review_remind')) continue;
+                const { data: ans } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', e.chat_id).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', e.created_at).limit(1);
+                if (ans && ans.length) continue;
+                const { data: ld } = await admin.from('alina_selfbuy_leads').select('username').eq('chat_id', e.chat_id).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+                const who = (ld as { username?: string } | null)?.username ? '@' + (ld as { username: string }).username : String(e.chat_id);
+                const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000), body: JSON.stringify({ chat_id: group2, text: `Отзыв от ${who} уже больше 3 часов ждёт согласования.` }) }).catch(() => null);
+                if (r?.ok) await admin.from('alina_selfbuy_events').insert({ event_type: 'nudge', chat_id: e.chat_id, payload: { kind: 'review_remind', day } });
+            }
+        }
+    }
     // После 22:30 МСК: список не приславших заказ в группу менеджеров (один раз за день)
     let groupSent = false;
     if ((missed.length || released.length) && !dry) {
