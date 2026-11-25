@@ -15,6 +15,7 @@ function setup({ manager = async () => false } = {}) {
     unwrapTelegramMessage: () => null, alinaWebhookSecret: async () => SECRET,
     processAlinaTelegramUpdate: async () => { calls.alina++; },
     managerGroupId: async () => group, processAlinaManagerTest: async (...a) => { calls.manager++; return manager(...a); },
+    tryApproveDay: async () => false,
     isTeamChatId: () => false, replyTeamChat: async () => ({}),
     Deno: { env: { get: (k) => (k === 'ALINA_BOT_TOKEN' ? 'tok' : undefined) }, serve: (h) => { handler = h; } },
   };
