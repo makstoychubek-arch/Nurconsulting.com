@@ -120,5 +120,49 @@ Deno.serve(async (req) => {
             out.free_today = models;
         } else out.sheet = 'не прочиталась';
     }
+    // ── 3. Сверка заявок с таблицей ──────────────────────────────────────────────────────────────────
+    // Клиент ищет товар или собирает заказ, а его строку в таблице перенесли на другую дату (так вышло с «лапшой вишней» 25 → 28 ноября): останавливаем заявку,
+    // один раз честно пишем «место перенесено на …, сегодня ничего делать не нужно». Настройка guardian.reconcile: off | dry | live (по умолчанию live).
+    const recMode = String((gs as { value?: Record<string, unknown> } | null)?.value?.reconcile || 'live');
+    if (recMode !== 'off' && hm >= 8 * 60 && hm < 23 * 60) {
+        try {
+            const sa2 = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
+            const gt2 = sa2 ? await googleAccessToken(sa2).catch(() => '') : '';
+            const r2 = gt2 ? await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`'${TAB}'!A1:Z2000`)}?valueRenderOption=FORMATTED_VALUE`, { headers: { Authorization: `Bearer ${gt2}` }, signal: AbortSignal.timeout(20000) }).catch(() => null) : null;
+            const sh2 = r2?.ok ? parseRazdachiSheet(((await r2.json().catch(() => null))?.values || []) as string[][]) : null;
+            if (sh2) {
+                const today2 = todayMskKey();
+                const toKey = (d: string) => { const m = d.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}${m[2]}${m[1]}` : ''; };
+                const { data: act } = await admin.from('alina_selfbuy_leads').select('id, chat_id, username, status, product_name')
+                    .in('status', ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order']).gt('updated_at', new Date(now - 48 * 3600_000).toISOString()).limit(40);
+                const moved: string[] = [];
+                for (const l of (act || []) as Array<{ id: string; chat_id: number; username: string | null; status: string; product_name: string | null }>) {
+                    if (!l.username) continue;
+                    const mine = sh2.rows.filter((r) => r.tg === normTg(l.username) && (!l.product_name || normModel(r.model) === normModel(l.product_name)));
+                    if (!mine.length || mine.some((r) => r.date === today2)) continue;
+                    const later = mine.filter((r) => toKey(r.date) > toKey(today2)).sort((a, b) => toKey(a.date).localeCompare(toKey(b.date)))[0];
+                    if (!later) continue;
+                    const { data: sent } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', l.chat_id).eq('event_type', 'moved_notice').eq('payload->>date', later.date).limit(1);
+                    if (sent && sent.length) continue;
+                    const model = later.model.replace(/^Пижама\s+/i, '');
+                    const text = `Простите за путаницу 🙏 Ваше место перенесено на ${later.date.slice(0, 5)}: ${model}. Сегодня искать и заказывать не нужно, напишите в этот день, и начнём 🙌`;
+                    if (recMode === 'dry') { moved.push(`${l.username} → ${later.date} (пробно)`); continue; }
+                    const { data: q2 } = await admin.from('alina_manager_questions').select('business_connection_id').not('business_connection_id', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+                    const conn2 = String((q2 as { business_connection_id?: string } | null)?.business_connection_id || '');
+                    if (!conn2 || !token) continue;
+                    const sr2 = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000), body: JSON.stringify({ chat_id: l.chat_id, business_connection_id: conn2, text }) }).then((x) => x.json()).catch(() => null);
+                    if (sr2?.ok) {
+                        await admin.from('alina_selfbuy_leads').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', l.id);
+                        await admin.from('alina_selfbuy_events').insert([
+                            { chat_id: l.chat_id, event_type: 'moved_notice', payload: { date: later.date, model: later.model, username: l.username } },
+                            { chat_id: l.chat_id, event_type: 'chat_log', payload: { dir: 'alina', text, by: 'guardian' } },
+                        ]);
+                        moved.push(`${l.username} → ${later.date}`);
+                    }
+                }
+                out.moved = moved;
+            }
+        } catch (e) { out.reconcile_error = String((e as Error)?.message || e).slice(0, 120); }
+    }
     return json({ ok: true, ...out });
 });
