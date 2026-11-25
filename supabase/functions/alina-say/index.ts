@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
         const r0 = wi?.result || {};
         return json({ ok: wi?.ok === true, pending: r0.pending_update_count, last_error_date: r0.last_error_date ? new Date(r0.last_error_date * 1000).toISOString() : null, last_error: String(r0.last_error_message || '').slice(0, 160), has_url: Boolean(r0.url), allowed: r0.allowed_updates });
     }
-    const say = String(body.say || '').trim().slice(0, 1500);
+    const say = String(body.say || '').trim().slice(0, 3800);
     const photoModel = String(body.photo_model || '').trim();
     const delLast = Math.min(10, Math.max(0, Number(body.delete_last_alina) || 0));
     if (!Number.isSafeInteger(chatId) || (!say && !delLast && !photoModel)) return json({ ok: false, error: 'chat_id и say (или delete_last_alina) обязательны' }, 400);
