@@ -1406,36 +1406,12 @@ const SIZE_MISSING_RE = /(?:размер[а-яё]*\s+(?:нет|нету|зако
 
 /** Размера нет: другая модель на сегодня, потом перенос на ближайший день и освобождение строки сегодняшнего дня. */
 async function handleSizeMissing(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
-  const missing = SIZE_MISSING_RE.test(text);
-  const { data: ev } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'size_missing_offer')
-    .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(1);
-  const offered = Boolean(ev && ev.length);
-  const declines = offered && lead.status === 'ask_ad' && (isNo(text) || /не\s+подход|не\s+хочу|других?\s+нет|ничего/i.test(text));
-  if (!missing && !declines) return null;
-  const sheet = getLastRazdachi()?.sheet;
-  if (!sheet) return null;
-  const today = todayMskKey();
-  const todayNames = tooLateForToday() ? [] : [...new Set(freeSlots(sheet, today, 0).filter((x) => x.date === today)
-    .map((x) => x.model).filter((m) => normModel(m) !== normModel(lead.product_name || '')))];
-
-  if (!offered && todayNames.length) {
-    // Шаг 1: освобождаем текущее место и предлагаем другую модель из сегодняшних.
-    await releaseClientPlace(db, lead).catch(() => null);
-    await updateLead(db, lead.id, { status: 'ask_ad', last_client_text: text });
-    await logEvent(db, lead.id, lead.chat_id, 'size_missing_offer', { text, offer: todayNames });
-    return { ...r(`Поняла, тогда подберём другую модель. Сегодня есть: ${todayNames.map((n) => n.replace(/^Пижама\s+/i, '')).join(', ')}. Какую хотите?`), tag: 'models' as const };
-  }
-  // Шаг 2: другой модели нет или клиент отказался: переносим на ближайший день, строку сегодняшнего дня освобождаем.
-  const future = freeSlots(sheet, today, 14).filter((x) => x.date !== today);
-  const same = future.find((x) => normModel(x.model) === normModel(lead.product_name || ''));
-  const target = same || future[0];
-  if (!target) return r('Поняла, по размеру сегодня ничего не подобрать 🙏 Напишите завтра, поищем вместе.');
-  if (!offered) await releaseClientPlace(db, lead).catch(() => null);
-  const res = await bookPlace(db, lead, target.model, target.date);
+  // Правило владельца (25 ноября 2026): нужного размера у клиента нет (из-за региона), пишем коротко, сразу освобождаем строку в таблице и отдаём место другим. Другую модель и перенос не предлагаем.
+  if (!SIZE_MISSING_RE.test(text)) return null;
+  await releaseClientPlace(db, lead).catch(() => null);
   await updateLead(db, lead.id, { status: 'closed', last_client_text: text });
-  await logEvent(db, lead.id, lead.chat_id, 'size_moved', { text, model: target.model, date: target.date, res });
-  if (res !== 'claimed') return r('Поняла, по размеру сегодня ничего не подобрать 🙏 Место освободила. Напишите завтра, подберём вариант.');
-  return r(`Поняла, размера нет. Перенесла вас на ${ruDay(target.date, today)}: «${target.model}» ✅ Напишите в этот день, и начнём.`);
+  await logEvent(db, lead.id, lead.chat_id, 'size_missing_released', { text });
+  return r('Извините, у других выходят все размеры, это связано с регионом.', 'Ваше место передаём другому, спасибо 🙏');
 }
 
 const QTY_RE = /(?:можно|могу|мож\S*|хочу|хотела|возьм\S*|взять)\s+(?:сразу\s+)?(?:две|2(?!\s*в\s*\d)|два|обе|оба|три|3(?!\s*в\s*\d)|несколько|больше\s+одн\S*|ещ[её]\s+одн\S*)\s*(?:модел\S*|костюм\S*|пижам\S*|штук\S*|комплект\S*|шт\b)?|сколько\s+(?:костюм\S*|пижам\S*|модел\S*|штук|комплект\S*)?\s*(?:можно|могу|мне)?\s*(?:взять|заказать|получить)|сколько\s+могу\s+взять|(?:две|2(?!\s*в\s*\d)|два)\s+(?:модел\S*|костюм\S*|пижам\S*)\s+(?:можно|возможн\S*)/i;
