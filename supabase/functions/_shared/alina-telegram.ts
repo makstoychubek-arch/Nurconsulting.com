@@ -115,6 +115,30 @@ export async function processAlinaTelegramUpdate(
         return;
     }
 
+    // Штаны (владелец, 25 ноября 2026): раздача штанов закончена, клиенты пишут про них («получили» и т. п.). Алина про штаны молчит и не предлагает пижамы,
+    // пока человек сам не заговорит про пижаму. Исключение: у клиента уже идёт заказ пижамы, тогда разговор ведёт Алина как обычно.
+    if (message.kind === 'client') {
+        const t0 = String(text || '');
+        const PANTS_RE = /(?:^|[^а-яё])(?:штан\S*|брюк\S*|лонгслив\S*|жилет\S*)/i;
+        const PAJ_RE = /пижам|[23]\s?в\s?1|модел|комплект|шорт/i;
+        const { data: pm } = await admin.from('alina_selfbuy_events').select('event_type').eq('chat_id', message.chatId)
+            .in('event_type', ['pants_muted', 'pants_unmuted']).gt('created_at', new Date(Date.now() - 72 * 3600_000).toISOString()).order('created_at', { ascending: false }).limit(1);
+        const muted = (pm || [])[0]?.event_type === 'pants_muted';
+        if (muted && PAJ_RE.test(t0)) {
+            await logAlinaRawEvent(message.chatId, 'pants_unmuted', { text: t0.slice(0, 80) });
+        } else if (muted) {
+            await logAlinaRawEvent(message.chatId, 'muted_pants', { update_id: message.updateId });
+            return;
+        } else if (PANTS_RE.test(t0) && !PAJ_RE.test(t0)) {
+            const { data: act } = await admin.from('alina_selfbuy_leads').select('id').eq('chat_id', message.chatId)
+                .in('status', ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order', 'wait_size', 'wait_bank', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels']).limit(1);
+            if (!act || !act.length) {
+                await logAlinaRawEvent(message.chatId, 'pants_muted', { text: t0.slice(0, 120) });
+                return;
+            }
+        }
+    }
+
     // Клиент зовёт человека или раздражён: сразу передаём менеджеру, дальше пишет он (владелец подключится по уведомлению в группе).
     if ((text || '').trim() && (wantsHuman(text || '') || isAngry(text || ''))) {
         const group = await managerGroupId();
