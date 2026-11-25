@@ -401,6 +401,12 @@ async function handleAlinaClientMessageInner(opts: {
     }
   }
 
+  // «Можно две модели?», «сколько костюмов могу взять?»: честный ответ по наличию, по очереди одну за другой (владелец, 25 ноября 2026).
+  if (razdachiRowsMode() && !hasPhoto && QTY_RE.test(text)) {
+    const qty = await handleQuantityQuestion(db, lead);
+    if (qty) return qty;
+  }
+
   // Клиент пишет, что его размера нет (владелец, 25 ноября 2026): предлагаем другую модель; если и её нет, переносим на следующий день и убираем из строки на сегодня.
   if (razdachiRowsMode() && !hasPhoto) {
     const moved = await handleSizeMissing(db, lead, text);
@@ -1390,6 +1396,28 @@ async function handleSizeMissing(db: SupabaseClient, lead: SelfbuyLead, text: st
   await logEvent(db, lead.id, lead.chat_id, 'size_moved', { text, model: target.model, date: target.date, res });
   if (res !== 'claimed') return r('Поняла, по размеру сегодня ничего не подобрать 🙏 Место освободила. Напишите завтра, подберём вариант.');
   return r(`Поняла, размера нет. Перенесла вас на ${ruDay(target.date, today)}: «${target.model}» ✅ Напишите в этот день, и начнём.`);
+}
+
+const QTY_RE = /(?:можно|могу|мож\S*|хочу|хотела|возьм\S*|взять)\s+(?:сразу\s+)?(?:две|2(?!\s*в\s*\d)|два|обе|оба|три|3(?!\s*в\s*\d)|несколько|больше\s+одн\S*|ещ[её]\s+одн\S*)\s*(?:модел\S*|костюм\S*|пижам\S*|штук\S*|комплект\S*|шт\b)?|сколько\s+(?:костюм\S*|пижам\S*|модел\S*|штук|комплект\S*)?\s*(?:можно|могу|мне)?\s*(?:взять|заказать|получить)|сколько\s+могу\s+взять|(?:две|2(?!\s*в\s*\d)|два)\s+(?:модел\S*|костюм\S*|пижам\S*)\s+(?:можно|возможн\S*)/i;
+
+/** Вопрос про несколько моделей: Алина отвечает честно по наличию, по правилу «по очереди одну за другой». */
+async function handleQuantityQuestion(db: SupabaseClient, lead: SelfbuyLead): Promise<AlinaReply | null> {
+  const sheet = getLastRazdachi()?.sheet;
+  if (!sheet) return null;
+  const today = todayMskKey();
+  const slots = freeSlots(sheet, today, 14).filter((x) => !tooLateForToday() || x.date !== today);
+  const own = clientRowsToday(lead.username);
+  const busy = own.state === 'ok' && own.rows.length > 0;
+  const todayNames = [...new Set(slots.filter((x) => x.date === today).map((x) => x.model.replace(/^Пижама\s+/i, '')))];
+  const later = slots.filter((x) => x.date !== today);
+  const laterNames = [...new Set(later.map((x) => x.model))].slice(0, 3).map((m) => `${m.replace(/^Пижама\s+/i, '')} (${ruDay(later.find((x) => x.model === m)!.date, today)})`);
+  await logEvent(db, lead.id, lead.chat_id, 'qty_question', {});
+  const rule = 'Берём по очереди: сначала оформляете одну пижаму, потом можно вторую.';
+  if (todayNames.length >= 2) return { ...r(`${rule} Сегодня есть: ${todayNames.join(', ')}. С какой начнём?`), tag: 'models' as const };
+  if (todayNames.length === 1) {
+    return { ...r(`${rule} Сегодня доступна только одна модель: ${todayNames[0]}.${laterNames.length ? ` Другие появятся позже: ${laterNames.join('; ')}.` : ' Других моделей пока нет.'}${busy ? '' : ' Берёте её?'}`), tag: 'models' as const };
+  }
+  return { ...r(`${rule} Сегодня мест уже нет.${laterNames.length ? ` Ближайшие: ${laterNames.join('; ')}.` : ' Других моделей пока нет.'}`), tag: 'models' as const };
 }
 
 async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
