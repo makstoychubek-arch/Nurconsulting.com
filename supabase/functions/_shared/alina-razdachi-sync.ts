@@ -106,6 +106,16 @@ export function parseIntegrationDate(text: string | null | undefined, loose = fa
   if (/послезавтра/.test(t)) return day(2);
   if (/завтра/.test(t)) return day(1);
   if (/сегодня/.test(t)) return day(0);
+  // Дни недели («вторник», «в среду», «до пятницы»): ближайший такой день после сегодняшнего.
+  const WD: Array<[RegExp, number]> = [[/понедельник/, 1], [/вторник/, 2], [/\bсред[ауы]?\b/, 3], [/четверг/, 4], [/пятниц/, 5], [/суббот/, 6], [/воскресень/, 0]];
+  for (const [re, wd] of WD) {
+    if (re.test(t)) {
+      const todayWd = new Date(now + 3 * 3600_000).getUTCDay();
+      let add = (wd - todayWd + 7) % 7;
+      if (add === 0) add = 7;
+      return day(add);
+    }
+  }
   return parseDeliveryDate(t, now);
 }
 
