@@ -43,6 +43,7 @@ import {
 import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
+import { classifyAnswer, worthClassifying } from './alina-intent.ts';
 import { dayApproved } from './alina-dayplan.ts';
 import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
@@ -234,6 +235,36 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   // Логин появился у клиента позже (создал в Telegram): подставляем его во все заявки чата, иначе в таблицу писать нечего.
   if (String(opts.username || '').trim()) {
     await admin().from('alina_selfbuy_leads').update({ username: String(opts.username).replace(/^@/, '') }).eq('chat_id', opts.chatId).is('username', null).then(() => undefined, () => undefined);
+  }
+  // ── Алина 2.0: ожидаемый ответ и понимание коротких ответов ───────────────────────────────────────────
+  if (razdachiRowsMode() && (opts.text || '').trim() && !opts.hasPhoto) {
+    try {
+      const db2 = admin();
+      const since = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+      const { data: exs } = await db2.from('alina_selfbuy_events').select('id, event_type, payload, created_at').eq('chat_id', opts.chatId)
+        .in('event_type', ['expect', 'expect_done']).gt('created_at', since(360)).order('created_at', { ascending: false }).limit(2);
+      const lastEx = (exs || [])[0] as { id: string; event_type: string; payload: { kind?: string; model?: string; date?: string }; created_at: string } | undefined;
+      const pendingEx = lastEx && lastEx.event_type === 'expect' ? lastEx : undefined;
+      // Последний вопрос Алины
+      const { data: lastOut } = await db2.from('alina_selfbuy_events').select('payload, created_at').eq('chat_id', opts.chatId).eq('event_type', 'chat_log')
+        .eq('payload->>dir', 'alina').gt('created_at', since(60)).order('created_at', { ascending: false }).limit(3);
+      const lastQ = ((lastOut || []) as Array<{ payload: { text?: string } }>).map((x) => String(x.payload?.text || '')).find((t) => /\?\s*(?:[^\p{L}\p{N}]*)$/u.test(t.trim()));
+      let answer: 'yes' | 'no' | 'other' = isYes(opts.text || '') ? 'yes' : isNo(opts.text || '') ? 'no' : 'other';
+      if (answer === 'other' && (pendingEx || lastQ) && worthClassifying(opts.text || '') && !isAck(opts.text || '')) {
+        answer = await classifyAnswer(lastQ || String(pendingEx?.payload?.kind || ''), opts.text || '');
+        if (answer !== 'other') await logAlinaRawEvent(opts.chatId, 'intent_resolved', { text: (opts.text || '').slice(0, 80), answer });
+      }
+      if (pendingEx) {
+        if (answer === 'no') await logAlinaRawEvent(opts.chatId, 'expect_done', { ref: pendingEx.id, result: 'no' });
+        else if (answer === 'yes') {
+          const done = await handleExpectedYes(db2, opts, pendingEx.payload);
+          await logAlinaRawEvent(opts.chatId, 'expect_done', { ref: pendingEx.id, result: 'yes' });
+          if (done) return done;
+        }
+      } else if (answer === 'yes' && !isYes(opts.text || '')) {
+        opts = { ...opts, text: 'Да' }; // шаблон не узнал, а смысл «да»: дальше работает обычная логика
+      }
+    } catch (e) { console.warn('[alina2] expect', e); }
   }
   // У клиента нет логина в Telegram: в строку таблицы писать нечего, место не закрепить. Просим логин один раз, дальше берём его из ответа.
   if (razdachiRowsMode() && !String(opts.username || '').trim() && (opts.text || '').trim() && !opts.hasPhoto) {
@@ -646,6 +677,12 @@ async function handleAlinaClientMessageInner(opts: {
 
   // Режим строк: клиент, которому уже сказали «сегодня мест нет», пишет дальше («хорошо», вопрос): не повторяем список мест, а отвечаем по делу.
   if (razdachiRowsMode() && lead.status === 'closed' && !campaignAccepting(camp) && !hasPhoto) {
+    // Клиент записан на будущий день и уже просит фильтры или пишет «не могу найти»: объясняем, что поиск начнём в его день.
+    if (/фильтр|не\s+могу\s+найти|не\s+нахожу/i.test(text)) {
+      const { data: resv } = await db.from('alina_sheet_reservations').select('order_day').eq('lead_id', lead.id).limit(5);
+      const future = (resv || []).map((x) => String(x.order_day || '')).find((d) => d && d !== todayMskKey());
+      if (future) return r(`Поиск и заказ начнём в ваш день, ${ruDay(future, todayMskKey())}: тогда пришлю ключ и главное фото, фильтры не нужны ✅`);
+    }
     if (isAck(text)) return { replies: [] };
     const { brain: closedBrain } = await runBrain();
     if (closedBrain.via === 'ai' && closedBrain.reply) return r(closedBrain.reply);
@@ -998,7 +1035,7 @@ async function handleAlinaClientMessageInner(opts: {
     return rAsk(
       'key_sent',
       lead.keyword
-        ? `Жду скрин поиска по ключу «${lead.keyword}» — сверху строка запроса и наш товар 🙌\nЕсли не находите — напишите, скину фильтры`
+        ? `Жду скрин поиска по ключу «${lead.keyword}» — сверху строка запроса и наш товар 🙌\nЕсли не находите — напишите, пришлю главное фото`
         : 'Жду скрин: строка поиска (наш ключ) + наш товар в выдаче 🙌',
     );
   }
@@ -1997,6 +2034,45 @@ function resumeHints(
   }
 }
 
+
+/** Клиент ответил «да» на ожидаемый вопрос (предложение места от владельца или листа ожидания): выполняем то, что предлагали. */
+async function handleExpectedYes(
+  db: SupabaseClient,
+  opts: { chatId: number; userId: number; username?: string; fullName?: string; text?: string },
+  ex: { kind?: string; model?: string; date?: string },
+): Promise<AlinaReply | null> {
+  const model = String(ex.model || '').trim();
+  if (!model) return null;
+  const { data: l } = await db.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+  if (!l) return null;
+  let lead = l as SelfbuyLead;
+  if (!lead.username && opts.username) {
+    await db.from('alina_selfbuy_leads').update({ username: String(opts.username).replace(/^@/, '') }).eq('id', lead.id);
+    lead = { ...lead, username: String(opts.username).replace(/^@/, '') };
+  }
+  const today = todayMskKey();
+  const sheet = getLastRazdachi()?.sheet;
+  const notInTime = () => r('Вы не успели: это место уже занял другой клиент 🙏');
+  if (ex.kind === 'book' && ex.date) {
+    const res = await bookPlace(db, lead, model, ex.date);
+    if (res === 'claimed') return r(`Готово ✅ «${model}» за вами на ${ruDay(ex.date, today)}.`, 'Напишите в этот день, и начнём.');
+    return notInTime();
+  }
+  // start_deal: место на сегодня
+  const own = clientRowsToday(lead.username);
+  const holds = own.state === 'ok' && own.rows.some((x) => normModel(x.model) === normModel(model));
+  const free = Boolean(sheet && freeSlots(sheet, today, 0).some((x) => x.date === today && normModel(x.model) === normModel(model)));
+  if (!holds && !free) return notInTime();
+  if (tooLateForToday()) return r('На сегодня уже не успеть: заказ нужно сделать до 22:00 МСК 🙏 Напишите завтра, поставлю на ближайшую дату.');
+  const keyIdx = sheet?.col.key;
+  const row = sheet?.rows.find((x) => normModel(x.model) === normModel(model) && x.date === today);
+  const offer = {
+    date: null, deal_type: 'barter', product_name: model, keyword: keyIdx != null && row ? String(row.cells[keyIdx] ?? '').trim() || null : null,
+    article: null, cashback_pct: null, plan_slots: 1, used_slots: 0, slots_left: 1, order_deadline: null, is_open: true, status_raw: null, tab: '', row_index: 0,
+  } as unknown as SheetPlanOffer;
+  return await startDealFromOffer(db, lead, null, offer, 'Да');
+}
+
 async function getOrCreateLead(
   db: SupabaseClient,
   opts: {
@@ -2288,6 +2364,11 @@ async function handleCantFindFilters(
     }
     // yes → ниже отправим batch
   } else if (cantFindProduct(text)) {
+    // Просьба «добавьте фильтры» это не «не нашла»: фильтров у нас нет, место не освобождаем, напоминаем про ключ и главное фото (25 ноября 2026).
+    const bare = text.replace(/\s*\(в ответ на[\s\S]*$/, '');
+    if (/фильтр/i.test(bare) && !/не\s+(?:наш|могу|получа|нахо)/i.test(bare)) {
+      return r(`Фильтры не нужны: вбейте ключ${lead.keyword ? ` «${lead.keyword}»` : ''} в поиск и найдите наш товар, главное фото было выше 🙌`, 'Скрин пришлите, когда найдёте.');
+    }
     if (round >= 0) {
       // Лесенка (владелец, 25 ноября 2026): фильтров нет вообще: сразу главное фото с подписью «по фото не ищем» карточки → извиняемся и освобождаем место другим.
       const { data: sentPhoto } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'main_photo_sent')

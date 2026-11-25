@@ -95,6 +95,8 @@ export function parseDeliveryDate(text: string | null | undefined, now = Date.no
 }
 
 /** Дата интеграции из сообщения: «интеграция 28.11», «выйду 28 ноября», «выложу завтра». loose: годится и просто дата («28.11», «завтра»). Пусто, если даты нет. */
+import { weekdayDate } from './alina-dates.ts';
+
 export function parseIntegrationDate(text: string | null | undefined, loose = false, now = Date.now()): string {
   const t = String(text ?? '').toLowerCase().replace(/ё/g, 'е');
   const ctx = /(интеграц|выйд|выход|выложу|опубликую|опубликовать|разместлю|размещу|рилс|рилз|reels|сторис|ролик)/.test(t);
@@ -106,6 +108,8 @@ export function parseIntegrationDate(text: string | null | undefined, loose = fa
   if (/послезавтра/.test(t)) return day(2);
   if (/завтра/.test(t)) return day(1);
   if (/сегодня/.test(t)) return day(0);
+  const wd = weekdayDate(t, now);
+  if (wd) return wd;
   return parseDeliveryDate(t, now);
 }
 
