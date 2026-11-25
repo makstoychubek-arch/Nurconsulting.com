@@ -131,6 +131,9 @@ export type AlinaReply = {
   escalate?: { topic: string; question: string; group: number };
   /** Ответить реплаем на своё прежнее сообщение этого вида («Отправила выше»). */
   replyToKind?: 'tz' | 'key' | 'photo';
+  /** Вместо отдельного «принято» ставим реакцию на сообщение клиента; если не вышло, уходит reactFallback. */
+  react?: string;
+  reactFallback?: string;
   /** Ответ про наличие моделей: один раз в 5 минут на чат, чтобы не было дублей (проверяет alina-telegram). */
   tag?: string;
 };
@@ -961,8 +964,8 @@ async function handleAlinaClientMessageInner(opts: {
     });
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
-    if (!haveInt) return { ...r('Реквизиты приняла ✅', 'Когда планируете выход интеграции? Напишите дату 🙌'), tag: 'ask:wait_integration' };
-    return r('Реквизиты приняла ✅', MSG_ASK_PICKUP());
+    if (!haveInt) return { ...r('Когда планируете выход интеграции? Напишите дату 🙌'), tag: 'ask:wait_integration', react: '❤', reactFallback: 'Реквизиты приняла ✅' };
+    return { ...r(MSG_ASK_PICKUP()), react: '❤', reactFallback: 'Реквизиты приняла ✅' };
   }
 
   // ── wait_integration: ждём дату выхода интеграции ────────────────────────
@@ -1055,7 +1058,7 @@ async function handleAlinaClientMessageInner(opts: {
         last_client_text: text,
       });
       await syncLeadToSheet(db, lead.id);
-      return r('Реквизиты обновила ✅');
+      return { replies: [], react: '❤', reactFallback: 'Реквизиты обновила ✅' };
     }
     if (wantsTz(text)) {
       const deal = (lead.deal_type || 'cashback') as DealType;
