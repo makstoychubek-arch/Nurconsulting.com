@@ -121,7 +121,20 @@ Deno.serve(async (req) => {
             if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'deadline', text); sent.push(`deadline ${l.username}`); } else if (dry) sent.push(`deadline ${l.username}`);
             continue;
         }
-        if (idleMs > 3 * 3600_000 && hm >= 9 * 60 && hm < 21 * 60 && !await done(l.chat_id, 'idle')) {
+        // Напоминания тем, кто ищет или собирает заказ (владелец, 25 ноября 2026): через 40 минут тишины спрашиваем, как идёт, через 2 часа уточняем, актуально ли.
+        const PING1: Record<string, string> = {
+            tz_sent: 'Ознакомились с условиями? Если всё устраивает, напишите «согласна», и пришлю ключ 🙌',
+            key_sent: 'Как поиск, нашли наш товар? Если не получается, напишите, подскажу 🙌',
+            wait_product: 'Как поиск, нашли наш товар? Если не получается, напишите, подскажу 🙌',
+            wait_cart: 'Как корзина? Пришлите скрин, когда будет готова 🙌',
+            wait_order: 'Заказ оформили? Пришлите скрин, когда будет готов 🙌',
+        };
+        if (idleMs > 40 * 60_000 && idleMs < 2 * 3600_000 && hm >= 9 * 60 && hm < 21 * 60 && PING1[l.status] && !await done(l.chat_id, 'ping1')) {
+            const text = PING1[l.status];
+            if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'ping1', text); sent.push(`ping1 ${l.username}`); } else if (dry) sent.push(`ping1 ${l.username}`);
+            continue;
+        }
+        if (idleMs > 2 * 3600_000 && hm >= 9 * 60 && hm < 21 * 60 && !await done(l.chat_id, 'idle')) {
             const text = 'Ещё актуально? Если нет, напишите, освобожу место 🙌';
             if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'idle', text); sent.push(`idle ${l.username}`); } else if (dry) sent.push(`idle ${l.username}`);
         }
