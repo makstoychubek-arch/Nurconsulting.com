@@ -202,6 +202,9 @@ export async function writeClientRow(
     if (idx == null || value === '' || value == null) continue;
     const current = String(cells[idx] ?? '').trim();
     if (current === value) continue;
+    // «р.48» и «48», «1 699 ₽» и «р.1 699»: те же цифры, не считаем расхождением.
+    const dg = (t: string) => t.replace(/\D/g, '');
+    if (current !== '' && dg(current) !== '' && dg(current) === dg(value) && !/\d{1,2}\.\d{1,2}\.\d{4}/.test(current)) continue;
     if (current !== '') { conflicts.push(name); continue; }
     updates.push({ range: `${q}!${colLetter(idx)}${row}`, value });
     written.push(name);
