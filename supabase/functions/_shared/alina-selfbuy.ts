@@ -653,6 +653,15 @@ async function handleAlinaClientMessageInner(opts: {
     // дальше обычный ask_ad / выбор модели
   }
 
+  // Клиент передумал или «просто хотела посмотреть условия» (25 ноября 2026): место сразу освобождаем и отдаём другим, а не держим закреплённым.
+  if (razdachiRowsMode() && ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order'].includes(String(lead.status)) && !hasPhoto && text.length <= 90
+    && /(?:^|[^а-яё])(?:стоп|не\s+надо|не\s+хочу|не\s+буду|не\s+нужно|передума\S*|отказыва\S*|не\s+актуальн\S*|не\s+подходит|не\s+готов\S*|просто\s+(?:хоте\S*|смотре\S*|интересно|узна\S*))/i.test(text)
+    && !/(?:^|[^а-яё])(?:не\s+нашл\S*|не\s+наход\S*|не\s+могу)/i.test(text)) {
+    const row = await releaseClientPlace(db, lead).catch(() => null);
+    await updateLead(db, lead.id, { status: 'closed', sheet_row: null, last_client_text: text });
+    await logEvent(db, lead.id, opts.chatId, 'declined_released', { text, row });
+    return r('Хорошо, освободила место, спасибо за интерес 🙌', 'Если захотите вернуться, напишите.');
+  }
   // Пауза
   if (/^(стоп|pause|пауза)$/i.test(text)) {
     await updateLead(db, lead.id, { status: 'paused', last_client_text: text });
