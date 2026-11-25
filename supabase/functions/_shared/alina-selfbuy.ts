@@ -229,13 +229,33 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     const me = String(opts.username || '').replace(/^@/, '').toLowerCase();
     setLateException(Number.isFinite(until) && until > Date.now() && (!only || only === me));
   } catch { setLateException(false); }
-  const res = await handleAlinaClientMessageInner(opts);
+  let res = await handleAlinaClientMessageInner(opts);
+  // Алина пообещала фото («вот обе», «секунду, отправлю»), а фото в ответе нет: добавляем свои фото моделей, иначе клиент остаётся с пустым обещанием.
+  if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => /вот обе|вот фото|вот они|отправлю|пришлю фото|высылаю фото|подписала/i.test(x))) {
+    try {
+      const db0 = admin();
+      const { data: l0 } = await db0.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (l0) {
+        const ph = await handleProductPhotoRequest(db0, l0 as SelfbuyLead, null, 'покажите все модели');
+        if (ph?.photos?.length) res = { ...res, photos: ph.photos, replies: res.replies.filter((x) => !/отправлю|пришлю фото/i.test(x)) };
+      }
+    } catch (e) { console.warn('[alina] photo promise', e); }
+  }
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
   const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
   const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
   if (res.escalate || !(promised || asksManager)) return await withHuman(res, opts.text);
   const group = await managerGroupId();
   if (!group) return await withHuman(res, opts.text);
+  // Менеджеру этот клиент уже писал за последние 10 минут: второй раз не передаём и «уточню» не повторяем.
+  {
+    const { data: recent } = await admin().from('alina_selfbuy_events').select('id').eq('chat_id', opts.chatId).eq('event_type', 'manager_escalated')
+      .gt('created_at', new Date(Date.now() - 10 * 60_000).toISOString()).limit(1);
+    if (recent && recent.length) {
+      await logAlinaRawEvent(opts.chatId, 'escalation_suppressed', { text: (opts.text || '').slice(0, 120) });
+      return { ...res, replies: res.replies.filter((x) => !/уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x)) };
+    }
+  }
   const question = (opts.text || '').trim() || '[клиент прислал фото]';
   await logAlinaRawEvent(opts.chatId, 'manager_escalated', { topic: 'вопрос клиента', text: question.slice(0, 200), auto: true });
   return await withHuman({ ...res, escalate: { topic: 'вопрос клиента', question, group } }, opts.text);
@@ -1765,6 +1785,13 @@ async function handleProductPhotoRequest(
     let ask = '';
     if (!shots.length) {
       shots = pajamaPhotosFor(open);
+      ask = 'Выберите модель, которая нравится, и напишите мне 🙌';
+    }
+    if (!shots.length) {
+      // Поздно вечером «открытых на сегодня» нет: показываем модели, у которых есть свободные места в ближайшие дни.
+      const sheet = getLastRazdachi()?.sheet;
+      const freeModels = sheet ? [...new Set(freeSlots(sheet, todayMskKey(), 14).map((x) => x.model))] : [];
+      shots = pajamaPhotosFor(freeModels);
       ask = 'Выберите модель, которая нравится, и напишите мне 🙌';
     }
     await logEvent(db, lead.id, lead.chat_id, 'product_photo', { text, own: shots.map((x) => x.caption) });
