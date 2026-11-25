@@ -62,5 +62,10 @@ Deno.serve(async (req) => {
     const data = res ? await res.json().catch(() => null) : null;
     const ok = data?.ok === true;
     if (ok) await admin.from('alina_selfbuy_events').insert({ event_type: 'chat_log', chat_id: chatId, payload: { dir: 'alina', text: say, by: 'owner_request', mid: data?.result?.message_id ?? null } });
+    // Алина 2.0: ожидаемый ответ. { expect: { kind: 'start_deal' | 'book', model, date? } }: «да» клиента выполнит это предложение.
+    const ex = body.expect as { kind?: string; model?: string; date?: string } | undefined;
+    if (ok && ex && (ex.kind === 'start_deal' || ex.kind === 'book') && ex.model) {
+        await admin.from('alina_selfbuy_events').insert({ event_type: 'expect', chat_id: chatId, payload: { kind: ex.kind, model: String(ex.model), date: ex.date ? String(ex.date) : undefined, by: 'owner_request' } });
+    }
     return json({ ok, telegram: ok ? undefined : String(data?.description || 'нет ответа').slice(0, 120) });
 });
