@@ -1025,6 +1025,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // ── wait_integration: ждём дату выхода интеграции ────────────────────────
   if (lead.status === 'wait_integration') {
+    if (hasPhoto) return rAsk('wait_integration', 'Спасибо, получила ✅ Подскажите дату выхода интеграции, например 28.11 или «завтра» 🙌');
     const d = parseIntegrationDate(text, true);
     // Вторая часть реквизитов (ФИО отдельным сообщением): дописываем к реквизитам, дату не переспрашиваем
     const isPhone = /^\+?\d[\d\s\-()]{9,}$/.test(text.trim()) && text.replace(/\D/g, '').length >= 10;
@@ -1033,7 +1034,7 @@ async function handleAlinaClientMessageInner(opts: {
       await syncLeadToSheet(db, lead.id);
       return { replies: [] };
     }
-    if (!d) return rAsk('wait_integration', 'Напишите дату выхода интеграции, например 28.11 или «завтра» 🙌');
+    if (!d) return rAsk('wait_integration', 'Спасибо, получила ✅ Подскажите дату выхода интеграции, например 28.11 или «завтра» 🙌');
     await updateLead(db, lead.id, { status: 'wait_pickup', notes: withInt(lead.notes, d), last_client_text: text });
     await logEvent(db, lead.id, opts.chatId, 'integration_done', { date: d });
     await syncLeadToSheet(db, lead.id);
@@ -1077,7 +1078,7 @@ async function handleAlinaClientMessageInner(opts: {
       await syncLeadToSheet(db, lead.id);
       return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌', MSG_REELS_TZ());
     }
-    if (hasPhoto) return { replies: [] };
+    if (hasPhoto) return rAsk('wait_pickup', 'Спасибо, получила ✅ Когда заберёте заказ, напишите.');
     if (/заказал|оформил|выкупил/i.test(text)) return r('Заказ у вас уже записан ✅ Когда он придёт в пункт выдачи, я напомню 🙌');
     // Задержка, «не пришло», «нет ссылки» и подобное: коротко отвечаем, дату в таблице меняет менеджер.
     if (shouldUseBrain({ text, status: 'wait_pickup', hasPhoto, matchedProduct: false })) {
