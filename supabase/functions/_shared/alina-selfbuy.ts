@@ -13,6 +13,7 @@ import {
   MSG_ASK_BANK_CASHBACK,
   MSG_ASK_FILTERS,
   MSG_ASK_PICKUP,
+  MSG_REELS_TZ,
   MSG_ASK_REELS,
   MSG_ASK_REVIEW,
   MSG_CLOSED,
@@ -359,9 +360,10 @@ async function handleAlinaClientMessageInner(opts: {
 
   let lead = await getOrCreateLead(db, opts, source);
   // Клиент с оформленным заказом присылает фото (разрезанные ШК, отзыв): ведём по его живой заявке, а не по закрытой или новой (иначе Алина снова спросит модель).
-  if (opts.hasPhoto && ['new', 'closed', 'ask_ad', 'ask_type'].includes(String(lead.status))) {
+  // Так же для текста: клиент с заказом в работе не считается новым (иначе ему снова предлагают модели и места). Вторую модель ведёт обработчик «по очереди».
+  if (['new', 'closed', 'ask_ad', 'ask_type'].includes(String(lead.status))) {
     const { data: active } = await db.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId)
-      .in('status', ['wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done']).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+      .in('status', ['wait_size', 'wait_bank', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done']).order('updated_at', { ascending: false }).limit(1).maybeSingle();
     if (active) lead = active as SelfbuyLead;
   }
 
@@ -398,6 +400,12 @@ async function handleAlinaClientMessageInner(opts: {
       await updateLead(db, lead.id, { notes });
       lead = { ...lead, notes };
     }
+  }
+
+  // «Можно две модели?», «сколько костюмов могу взять?»: честный ответ по наличию, по очереди одну за другой (владелец, 25 ноября 2026).
+  if (razdachiRowsMode() && !hasPhoto && QTY_RE.test(text)) {
+    const qty = await handleQuantityQuestion(db, lead);
+    if (qty) return qty;
   }
 
   // Клиент пишет, что его размера нет (владелец, 25 ноября 2026): предлагаем другую модель; если и её нет, переносим на следующий день и убираем из строки на сегодня.
@@ -1024,6 +1032,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // ── wait_integration: ждём дату выхода интеграции ────────────────────────
   if (lead.status === 'wait_integration') {
+    if (hasPhoto) return rAsk('wait_integration', 'Спасибо, получила ✅ Подскажите дату выхода интеграции, например 28.11 или «завтра» 🙌');
     const d = parseIntegrationDate(text, true);
     // Вторая часть реквизитов (ФИО отдельным сообщением): дописываем к реквизитам, дату не переспрашиваем
     const isPhone = /^\+?\d[\d\s\-()]{9,}$/.test(text.trim()) && text.replace(/\D/g, '').length >= 10;
@@ -1032,7 +1041,7 @@ async function handleAlinaClientMessageInner(opts: {
       await syncLeadToSheet(db, lead.id);
       return { replies: [] };
     }
-    if (!d) return rAsk('wait_integration', 'Напишите дату выхода интеграции, например 28.11 или «завтра» 🙌');
+    if (!d) return rAsk('wait_integration', 'Спасибо, получила ✅ Подскажите дату выхода интеграции, например 28.11 или «завтра» 🙌');
     await updateLead(db, lead.id, { status: 'wait_pickup', notes: withInt(lead.notes, d), last_client_text: text });
     await logEvent(db, lead.id, opts.chatId, 'integration_done', { date: d });
     await syncLeadToSheet(db, lead.id);
@@ -1074,9 +1083,9 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌');
+      return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌', MSG_REELS_TZ());
     }
-    if (hasPhoto) return { replies: [] };
+    if (hasPhoto) return rAsk('wait_pickup', 'Спасибо, получила ✅ Когда заберёте заказ, напишите.');
     if (/заказал|оформил|выкупил/i.test(text)) return r('Заказ у вас уже записан ✅ Когда он придёт в пункт выдачи, я напомню 🙌');
     // Задержка, «не пришло», «нет ссылки» и подобное: коротко отвечаем, дату в таблице меняет менеджер.
     if (shouldUseBrain({ text, status: 'wait_pickup', hasPhoto, matchedProduct: false })) {
@@ -1390,6 +1399,28 @@ async function handleSizeMissing(db: SupabaseClient, lead: SelfbuyLead, text: st
   return r(`Поняла, размера нет. Перенесла вас на ${ruDay(target.date, today)}: «${target.model}» ✅ Напишите в этот день, и начнём.`);
 }
 
+const QTY_RE = /(?:можно|могу|мож\S*|хочу|хотела|возьм\S*|взять)\s+(?:сразу\s+)?(?:две|2(?!\s*в\s*\d)|два|обе|оба|три|3(?!\s*в\s*\d)|несколько|больше\s+одн\S*|ещ[её]\s+одн\S*)\s*(?:модел\S*|костюм\S*|пижам\S*|штук\S*|комплект\S*|шт\b)?|сколько\s+(?:костюм\S*|пижам\S*|модел\S*|штук|комплект\S*)?\s*(?:можно|могу|мне)?\s*(?:взять|заказать|получить)|сколько\s+могу\s+взять|(?:две|2(?!\s*в\s*\d)|два)\s+(?:модел\S*|костюм\S*|пижам\S*)\s+(?:можно|возможн\S*)/i;
+
+/** Вопрос про несколько моделей: Алина отвечает честно по наличию, по правилу «по очереди одну за другой». */
+async function handleQuantityQuestion(db: SupabaseClient, lead: SelfbuyLead): Promise<AlinaReply | null> {
+  const sheet = getLastRazdachi()?.sheet;
+  if (!sheet) return null;
+  const today = todayMskKey();
+  const slots = freeSlots(sheet, today, 14).filter((x) => !tooLateForToday() || x.date !== today);
+  const own = clientRowsToday(lead.username);
+  const busy = own.state === 'ok' && own.rows.length > 0;
+  const todayNames = [...new Set(slots.filter((x) => x.date === today).map((x) => x.model.replace(/^Пижама\s+/i, '')))];
+  const later = slots.filter((x) => x.date !== today);
+  const laterNames = [...new Set(later.map((x) => x.model))].slice(0, 3).map((m) => `${m.replace(/^Пижама\s+/i, '')} (${ruDay(later.find((x) => x.model === m)!.date, today)})`);
+  await logEvent(db, lead.id, lead.chat_id, 'qty_question', {});
+  const rule = 'Берём по очереди: сначала оформляете одну пижаму, потом можно вторую.';
+  if (todayNames.length >= 2) return { ...r(`${rule} Сегодня есть: ${todayNames.join(', ')}. С какой начнём?`), tag: 'models' as const };
+  if (todayNames.length === 1) {
+    return { ...r(`${rule} Сегодня доступна только одна модель: ${todayNames[0]}.${laterNames.length ? ` Другие появятся позже: ${laterNames.join('; ')}.` : ' Других моделей пока нет.'}${busy ? '' : ' Берёте её?'}`), tag: 'models' as const };
+  }
+  return { ...r(`${rule} Сегодня мест уже нет.${laterNames.length ? ` Ближайшие: ${laterNames.join('; ')}.` : ' Других моделей пока нет.'}`), tag: 'models' as const };
+}
+
 async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
   const t = text.trim();
   // 1. Ответ на предложение даты
@@ -1464,7 +1495,7 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
         const near = slots.find((x) => x.model.toLowerCase() === m.toLowerCase());
         return `${m} — ${near ? ruDay(near.date, today) : 'пока мест нет'}`;
       });
-      return r(`Такой цвет есть в нескольких вариантах: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
+      return r(`Есть несколько вариантов: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
     }
     return null;
   }

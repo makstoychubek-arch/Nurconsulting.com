@@ -116,12 +116,28 @@ export function addDaysKey(dateKey: string, n: number): string {
   return `${String(t.getUTCDate()).padStart(2, '0')}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${t.getUTCFullYear()}`;
 }
 
+/** Статус заявки Алины в колонке «Статус» таблицы. Пустое значение: в таблицу не пишем. */
+export function sheetStatusOf(status: string | null | undefined): string {
+  switch (String(status || '')) {
+    case 'tz_sent': return 'Условия отправлены';
+    case 'key_sent': case 'wait_product': case 'ask_filters': return 'Ищет товар';
+    case 'wait_cart': case 'wait_order': return 'Корзина';
+    case 'wait_size': case 'wait_bank': case 'wait_integration': return 'Заказ оформлен';
+    case 'wait_pickup': return 'Ждёт получения';
+    case 'wait_shk': return 'Забрал';
+    case 'wait_review': return 'ШК получен';
+    case 'wait_reels': case 'done': return 'Отзыв на согласовании';
+    default: return '';
+  }
+}
+
 export function leadFields(lead: Lead & { order_received_at?: string | null }): Record<string, string> {
   return {
     price: String(lead.order_price ?? '').replace(/\D/g, ''), // только сумма заказа, без «₽» и пробелов
     pickup_plan: '', // «Примерная дата забора» = дата заказа + 3 дня, считается при записи (syncLeadToRazdachiRow)
     size: String(lead.notes ?? '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '',
     // Фактическая дата забора ставится только когда клиент подтвердил получение (этап «фото ШК» и дальше)
+    status: sheetStatusOf(lead.status),
     pickup_fact: ['wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status)) ? parseDeliveryDate(lead.pickup_at) : '',
     shk: String(lead.screens_done ?? '').split(',').includes('shk') ? 'Да' : '',
     review_date: '', // дату публикации отзыва по умолчанию ставит сумма заказа + 3 дня, дальше её двигает менеджер

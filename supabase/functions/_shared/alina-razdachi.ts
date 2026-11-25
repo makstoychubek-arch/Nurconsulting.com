@@ -23,6 +23,9 @@ export type RazSheet = {
 };
 
 // Имена полей Алины → заголовки колонок (в нижнем регистре). Для дублей («Реквизиты») берётся первая колонка.
+/** Статусы, которые ставит и меняет сама Алина (остальные в списке ставит менеджер). */
+export const ALINA_STATUSES = ['Записан', 'Условия отправлены', 'Ищет товар', 'Корзина', 'Заказ оформлен', 'Ждёт получения', 'Забрал', 'ШК получен', 'Отзыв на согласовании'];
+
 const FIELD_HEADERS: Record<string, RegExp> = {
   model: /^товар$|^модель$/,
   kind: /^вид( раздачи)?$/,
@@ -34,6 +37,7 @@ const FIELD_HEADERS: Record<string, RegExp> = {
   pickup_fact: /^фактическая\s*дата\s*забора$|^факт забора$/,
   review_date: /^дата\s*публикации\s*отзыва$/,
   payout_plan: /^планируемая\s*дата\s*выплаты$/,
+  status: /^статус$/,
   shk: /^разрезан\S*\s*шк$/,
   integration: /^дата\s*интеграции$/, // колонка N (раньше вторые «Реквизиты»)
   review_kind: /^вид\s*отзыва$/,
@@ -204,6 +208,13 @@ export async function writeClientRow(
     if (idx == null || value === '' || value == null) continue;
     const current = String(cells[idx] ?? '').trim();
     if (current === value) continue;
+    // Статус: свои этапы Алина обновляет по ходу дела, статус менеджера (согласован, опубликован, выплачено, ведёт, отказ) не трогает и расхождением не считает.
+    if (name === 'status') {
+      if (current !== '' && !ALINA_STATUSES.includes(current)) continue;
+      updates.push({ range: `${q}!${colLetter(idx)}${row}`, value });
+      written.push(name);
+      continue;
+    }
     // «р.48» и «48», «1 699 ₽» и «р.1 699»: те же цифры, не считаем расхождением.
     const dg = (t: string) => t.replace(/\D/g, '');
     if (current !== '' && dg(current) !== '' && dg(current) === dg(value) && !/\d{1,2}\.\d{1,2}\.\d{4}/.test(current)) continue;
@@ -351,6 +362,7 @@ export async function claimFreeRow(
   if (normModel(cells[sheet.col.model]) !== normModel(target.model) || normDate(cells[sheet.col.date]) !== target.date) return { status: 'moved', row: target.row };
   if (String(cells[sheet.col.tg] ?? '').trim() !== '') return { status: 'taken', row: target.row };
   const updates = [{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: `@${tg}` }];
+  if (sheet.col.status != null && String(cells[sheet.col.status] ?? '').trim() === '') updates.push({ range: `${q}!${colLetter(sheet.col.status)}${target.row}`, value: 'Записан' });
   if (sheet.col.responsible != null && String(cells[sheet.col.responsible] ?? '').trim() === '') {
     updates.push({ range: `${q}!${colLetter(sheet.col.responsible)}${target.row}`, value: responsible });
   }
