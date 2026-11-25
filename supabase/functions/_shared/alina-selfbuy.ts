@@ -1496,7 +1496,7 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
         const sheet = getLastRazdachi()?.sheet;
         const near = sheet ? nearestFree(sheet, model!, todayMskKey(), 14) : null;
         if (near) return await offerLater(db, lead, near.model, near.date);
-        return r('Пока писали, это место заняли, а других свободных пока нет. Уточню у менеджера и вернусь к вам.');
+        return r('Вы не успели: это место уже занял другой клиент 🙏');
       }
       return r('Не получилось записать место, уточню у менеджера и вернусь к вам.');
     }
