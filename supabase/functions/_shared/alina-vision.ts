@@ -176,7 +176,7 @@ export async function analyzeAlinaScreenshot(opts: {
     const raw = await res.text();
     if (!res.ok) {
       console.warn('[alina-vision] API', res.status, raw.slice(0, 240));
-      await recordLlmUsage(model, null, openAiErrorCode(res.status, raw));
+      await recordLlmUsage(model, null, openAiErrorCode(res.status, raw), 'vision');
       return empty;
     }
     let data: { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
@@ -185,7 +185,7 @@ export async function analyzeAlinaScreenshot(opts: {
     } catch {
       return empty;
     }
-    await recordLlmUsage(model, data?.usage);
+    await recordLlmUsage(model, data?.usage, null, 'vision');
     const content = String(data?.choices?.[0]?.message?.content ?? '').trim();
     if (!content) return empty;
     let parsed: Record<string, unknown>;
