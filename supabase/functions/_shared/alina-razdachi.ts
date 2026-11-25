@@ -33,6 +33,8 @@ const FIELD_HEADERS: Record<string, RegExp> = {
   pickup_plan: /^примерная\s*дата\s*забора$/,
   pickup_fact: /^фактическая\s*дата\s*забора$|^факт забора$/,
   review_date: /^дата\s*публикации\s*отзыва$/,
+  payout_plan: /^планируемая\s*дата\s*выплаты$/,
+  shk: /^разрезан\S*\s*шк$/,
   integration: /^дата\s*интеграции$/, // колонка N (раньше вторые «Реквизиты»)
   review_kind: /^вид\s*отзыва$/,
   requisites: /^реквизиты$/,

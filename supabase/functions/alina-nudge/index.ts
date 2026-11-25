@@ -23,7 +23,10 @@ async function releaseRow(token: string, username: string, dayKey: string): Prom
         if (tg === me && String(r[3] || '').trim() === dayKey) hit.push(i + 1);
     });
     if (hit.length !== 1) return false; // не уверены, что строка одна: не трогаем
-    const w = await fetch(`${base}/${encodeURIComponent(`'${TAB}'!C${hit[0]}`)}?valueInputOption=USER_ENTERED`, { method: 'PUT', headers: H, body: JSON.stringify({ values: [['']] }), signal: AbortSignal.timeout(15000) }).catch(() => null);
+    // Логин и даты-заготовки (публикация отзыва K, плановая выплата S): иначе пустая строка не считалась бы свободной.
+    const w = await fetch(`${base}:batchUpdate`, { method: 'POST', headers: H, signal: AbortSignal.timeout(15000), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: [
+        { range: `'${TAB}'!C${hit[0]}`, values: [['']] }, { range: `'${TAB}'!K${hit[0]}`, values: [['']] }, { range: `'${TAB}'!S${hit[0]}`, values: [['']] },
+    ] }) }).catch(() => null);
     return Boolean(w?.ok);
 }
 
@@ -121,6 +124,24 @@ Deno.serve(async (req) => {
         if (idleMs > 3 * 3600_000 && hm >= 9 * 60 && hm < 21 * 60 && !await done(l.chat_id, 'idle')) {
             const text = 'Ещё актуально? Если нет, напишите, освобожу место 🙌';
             if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'idle', text); sent.push(`idle ${l.username}`); } else if (dry) sent.push(`idle ${l.username}`);
+        }
+    }
+    // Заказ должен был прийти (примерная дата забора = заказ + 3 дня): раз в день днём спрашиваем «забрали?» у тех, кто ждёт получения.
+    if (hm >= 11 * 60 && hm < 19 * 60) {
+        const { data: pk } = await admin.from('alina_selfbuy_leads').select('id, chat_id, username, sheet_target, updated_at').eq('status', 'wait_pickup').limit(60);
+        for (const l of (pk || []) as Array<{ id: string; chat_id: number; username: string | null; sheet_target: string | null }>) {
+            if (l.username && skip.has(l.username.toLowerCase())) continue;
+            const ds = String(l.sheet_target || '').split('|')[2] || '';
+            const m = ds.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (!m) continue;
+            const due = Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])) + 3 * 86400_000;
+            if (due > Date.UTC(msk.getUTCFullYear(), msk.getUTCMonth(), msk.getUTCDate())) continue;
+            if (await done(l.chat_id, 'pickup_ask')) continue;
+            const { data: ownerNow } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', l.chat_id).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', new Date(now - 30 * 60_000).toISOString()).limit(1);
+            if (ownerNow && ownerNow.length) continue;
+            const text = 'Здравствуйте! Заказ уже должен быть в пункте выдачи. Вы его забрали? 🙌';
+            if (dry) { sent.push(`pickup_ask ${l.username}`); continue; }
+            if (await send(l.chat_id, text)) { await log(l.chat_id, 'pickup_ask', text); sent.push(`pickup_ask ${l.username}`); }
         }
     }
     // После 22:30 МСК: список не приславших заказ в группу менеджеров (один раз за день)

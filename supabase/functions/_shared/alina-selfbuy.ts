@@ -83,6 +83,7 @@ export type SelfbuyStatus =
   | 'wait_integration'
   | 'wait_bank'
   | 'wait_pickup'
+  | 'wait_shk'
   | 'wait_review'
   | 'wait_reels'
   | 'done'
@@ -90,6 +91,9 @@ export type SelfbuyStatus =
   | 'paused';
 
 export type DealType = 'cashback' | 'barter';
+
+const MSG_PICKUP_LATER = 'Всё записала ✅ Когда заказ придёт в пункт выдачи, напомню, и вы пришлёте фото с разрезанными штрихкодами 🙌';
+const RECEIVED_RE = /(?<!не\s)(?:забрал[аи]?|получил[аи]?|заб[её]р\s+сделал[аи]?|(?:товар|заказ|пижам\S*)\s+(?:уже\s+)?(?:у\s+меня|пришл\S+))/i;
 
 export type SelfbuyLead = {
   id: string;
@@ -349,6 +353,12 @@ async function handleAlinaClientMessageInner(opts: {
   const camp = await ensureCampaignFresh();
 
   let lead = await getOrCreateLead(db, opts, source);
+  // Клиент с оформленным заказом присылает фото (разрезанные ШК, отзыв): ведём по его живой заявке, а не по закрытой или новой (иначе Алина снова спросит модель).
+  if (opts.hasPhoto && ['new', 'closed', 'ask_ad', 'ask_type'].includes(String(lead.status))) {
+    const { data: active } = await db.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId)
+      .in('status', ['wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done']).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+    if (active) lead = active as SelfbuyLead;
+  }
 
   // Старые/зависшие статусы → снова уточняем объявление
   if (
@@ -360,7 +370,7 @@ async function handleAlinaClientMessageInner(opts: {
   }
 
   // Вторая модель по очереди: первая заявка прошла этап скрина заказа, клиент называет другую модель → отдельная заявка на неё.
-  if (razdachiRowsMode() && !hasPhoto && ['wait_bank', 'wait_pickup', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status))) {
+  if (razdachiRowsMode() && !hasPhoto && ['wait_bank', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status))) {
     const next = await startSecondModelLead(db, lead, text);
     if (next) lead = next;
   }
@@ -487,7 +497,7 @@ async function handleAlinaClientMessageInner(opts: {
 
   // Фото товара с WB (по контексту диалога / названию в сообщении)
   // Фото модели шлём только в начале (выбор модели). Когда процесс идёт дальше или речь про отзыв («пример фото отзыва»), фото пижамы не отправляем.
-  const lateStage = ['wait_bank', 'wait_size', 'wait_integration', 'wait_pickup', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status));
+  const lateStage = ['wait_bank', 'wait_size', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status));
   if (wantsProductPhoto(text) && !(razdachiRowsMode() && (lateStage || /отзыв/i.test(text)))) {
     const photoReply = await handleProductPhotoRequest(db, lead, camp, text);
     if (photoReply) return photoReply;
@@ -995,7 +1005,7 @@ async function handleAlinaClientMessageInner(opts: {
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
     if (!haveInt) return { ...r('Когда планируете выход интеграции? Напишите дату 🙌'), tag: 'ask:wait_integration', react: '❤', reactFallback: 'Реквизиты приняла ✅' };
-    return { ...r(MSG_ASK_PICKUP()), react: '❤', reactFallback: 'Реквизиты приняла ✅' };
+    return { ...r(MSG_PICKUP_LATER), react: '❤', reactFallback: 'Реквизиты приняла ✅' };
   }
 
   // ── wait_integration: ждём дату выхода интеграции ────────────────────────
@@ -1012,52 +1022,72 @@ async function handleAlinaClientMessageInner(opts: {
     await updateLead(db, lead.id, { status: 'wait_pickup', notes: withInt(lead.notes, d), last_client_text: text });
     await logEvent(db, lead.id, opts.chatId, 'integration_done', { date: d });
     await syncLeadToSheet(db, lead.id);
-    return r(MSG_ASK_PICKUP());
+    return r(MSG_PICKUP_LATER);
   }
 
-  // ── wait_pickup ──────────────────────────────────────────────────────────
+  // ── wait_pickup: ждём, когда заказ заберут ───────────────────────────────
   if (lead.status === 'wait_pickup') {
-    if (hasPhoto || /забрал|получил|пвз|сегодня|завтра|\d{1,2}[./]/i.test(text)) {
-      const vision = hasPhoto ? await readScreen('pickup') : null;
-      // Скрин поиска/корзины/заказа здесь не «получение»: не двигаем этап, решает менеджер
-      // Скрин получения должен быть именно с ПВЗ/получением: любой другой (поиск, корзина, заказ, переписка) этап не двигает, молчим.
-      if (vision && vision.via === 'ai' && String(vision.kind) !== 'pickup' && !text.trim().replace(/^скрин$/i, '')) {
-        return { replies: [] };
-      }
+    // «Забрала / получила» (или скрин получения): записываем фактическую дату сегодняшней, просим фото разрезанных ШК.
+    // Даты вроде «28.11» здесь не получение: это интеграция или вопрос, фактическую дату сами не ставим.
+    const vision = hasPhoto ? await readScreen('pickup') : null;
+    const photoIsPickup = Boolean(vision && vision.via === 'ai' && String(vision.kind) === 'pickup');
+    if (RECEIVED_RE.test(text) || photoIsPickup) {
       await updateLead(db, lead.id, {
-        pickup_at: text.slice(0, 200) || vision?.delivery_date ||
-          new Date().toISOString().slice(0, 10),
-        status: 'wait_review',
+        pickup_at: new Date().toISOString().slice(0, 10),
+        status: 'wait_shk',
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'pickup'),
         notes: visionNote(lead.notes, vision),
       });
       await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r(MSG_ASK_REVIEW());
+      return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌');
     }
-    return r('Как заберёте — напишите дату/скрин с ПВЗ.');
+    if (hasPhoto) return { replies: [] };
+    // Задержка, «не пришло», «нет ссылки» и подобное: коротко отвечаем, дату в таблице меняет менеджер.
+    if (shouldUseBrain({ text, status: 'wait_pickup', hasPhoto, matchedProduct: false })) {
+      const { brain } = await runBrain();
+      if (brain.reply) return rAsk('wait_pickup', brain.reply);
+    }
+    return { replies: [] };
   }
 
-  // ── wait_review ──────────────────────────────────────────────────────────
+  // ── wait_shk: ждём фото с разрезанными штрихкодами ───────────────────────
+  if (lead.status === 'wait_shk') {
+    if (hasPhoto) {
+      await updateLead(db, lead.id, {
+        status: 'wait_review',
+        last_client_text: '[фото]',
+        screens_done: appendScreen(lead.screens_done, 'shk'),
+      });
+      await logEvent(db, lead.id, opts.chatId, 'shk', { hasPhoto });
+      await syncLeadToSheet(db, lead.id);
+      return r('Спасибо ✅ Теперь пришлите отзыв: фото и текст. Публиковать сразу не нужно, сначала согласуем 🙌');
+    }
+    if (isAck(text)) return { replies: [] };
+    return rAsk('wait_shk', 'Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌');
+  }
+
+  // ── wait_review: черновик отзыва уходит менеджеру на согласование ────────
   if (lead.status === 'wait_review') {
-    if (hasPhoto || /отзыв|текст|звёзд|звезд|соглас/i.test(text)) {
+    if (hasPhoto || text.trim().length > 25 || /отзыв|звёзд|звезд/i.test(text)) {
       const next = lead.deal_type === 'barter' ? 'wait_reels' : 'done';
       await updateLead(db, lead.id, {
         review_note: text.slice(0, 2000) || '[фото отзыва]',
-        review_planned_at: new Date().toISOString().slice(0, 10),
         status: next,
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'review'),
       });
       await logEvent(db, lead.id, opts.chatId, 'review', { text, hasPhoto });
-      await syncLeadToSheet(db, lead.id);
-      if (next === 'wait_reels') return r('Отзыв на согласовании/принят 👍', MSG_ASK_REELS());
-      return r(
-        'Супер, зафиксировала ✅ Кэшбек — через 16 дней после получения при выполнении всех условий (отзыв, фото, разрезанные ШК).',
-      );
+      const group = await managerGroupId();
+      const reply = next === 'wait_reels' ? r('Передала отзыв менеджеру на согласование, ответ придёт сюда 🙌', MSG_ASK_REELS()) : r('Передала отзыв менеджеру на согласование, ответ придёт сюда 🙌');
+      if (group) {
+        return { ...reply, escalate: { topic: 'отзыв', question: `Отзыв от @${lead.username || opts.chatId} (${lead.product_name || 'модель'}) необходимо согласовать: ${text ? '«' + text.slice(0, 600) + '»' : 'фото отзыва в чате'}`, group } };
+      }
+      return reply;
     }
-    return r(MSG_ASK_REVIEW());
+    if (isAck(text)) return { replies: [] };
+    return rAsk('wait_review', MSG_ASK_REVIEW());
   }
 
   // ── wait_reels (бартер) ──────────────────────────────────────────────────
