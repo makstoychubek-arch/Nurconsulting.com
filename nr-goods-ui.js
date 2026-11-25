@@ -187,8 +187,12 @@
             if (!m) return;
             var hit = all.filter(function (a) { return a.nm === m[1] || a.nm.slice(-m[1].length) === m[1]; });
             if (hit.length !== 1) { notes.push('Артикул ' + m[1] + (hit.length ? ': найдено несколько' : ': не найден')); return; }
+            // Размеры-диапазоны («40-48», «50-56», как у свитеров) пишутся с двоеточием или «=»: «6940: 40-48=336, 50-56=186». Они забираются первыми, остальное как раньше.
+            var rest = m[2], rng = /(\d{2}\s*[-–]\s*\d{2})\s*[:=]\s*(\d{1,4})/g, y;
+            while ((y = rng.exec(m[2]))) items.push({ nm_id: Number(hit[0].nm), size: y[1].replace(/\s+/g, '').replace('–', '-'), qty: Number(y[2]) });
+            rest = rest.replace(rng, ' ');
             var re = /(\d{2}|XXS|XS|S|M|L|XL|XXL)\s*[-–:= ]\s*(\d{1,4})/gi, x;
-            while ((x = re.exec(m[2]))) items.push({ nm_id: Number(hit[0].nm), size: x[1].toUpperCase(), qty: Number(x[2]) });
+            while ((x = re.exec(rest))) items.push({ nm_id: Number(hit[0].nm), size: x[1].toUpperCase(), qty: Number(x[2]) });
         });
         var sum = {};
         items.forEach(function (i) { var k = i.nm_id + '|' + i.size; sum[k] = sum[k] ? { nm_id: i.nm_id, size: i.size, qty: sum[k].qty + i.qty } : i; });
