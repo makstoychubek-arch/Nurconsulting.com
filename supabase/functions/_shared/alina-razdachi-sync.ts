@@ -41,6 +41,7 @@ type Lead = {
   reels_url?: string | null;
   sheet_row?: number | null;
   sheet_target?: string | null;
+  screens_done?: string | null;
 };
 
 const TARGET_PREFIX = 'razdachi|';
@@ -117,14 +118,16 @@ export function addDaysKey(dateKey: string, n: number): string {
 
 export function leadFields(lead: Lead & { order_received_at?: string | null }): Record<string, string> {
   return {
-    price: String(lead.order_price ?? ''),
+    price: String(lead.order_price ?? '').replace(/\D/g, ''), // только сумма заказа, без «₽» и пробелов
     pickup_plan: '', // «Примерная дата забора» = дата заказа + 3 дня, считается при записи (syncLeadToRazdachiRow)
     size: String(lead.notes ?? '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '',
-    pickup_fact: parseDeliveryDate(lead.pickup_at), // только дата (дд.мм.гггг), а не слово «скрин»
-    review_date: String(lead.review_planned_at ?? ''),
+    // Фактическая дата забора ставится только когда клиент подтвердил получение (этап «фото ШК» и дальше)
+    pickup_fact: ['wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status)) ? parseDeliveryDate(lead.pickup_at) : '',
+    shk: String(lead.screens_done ?? '').split(',').includes('shk') ? 'Да' : '',
+    review_date: '', // дату публикации отзыва по умолчанию ставит сумма заказа + 3 дня, дальше её двигает менеджер
     integration: String(lead.notes ?? '').match(/интеграция:(\S+)/)?.[1] ?? '',
-    review_kind: lead.review_note ? 'Получен' : '',
-    published: lead.status === 'done' ? 'Да' : '',
+    review_kind: '', // вид отзыва и «опубликован» заполняет менеджер сам
+    published: '',
     requisites: String(lead.bank_details ?? '').replace(/\s+/g, ' ').trim().slice(0, 200),
     responsible: 'Алина',
     key: String(lead.keyword ?? ''),
@@ -178,7 +181,7 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
     const res = await writeClientRow(
       sheetIO(active.sheet_id, token), tab, sheet,
       { tg, model: lead.product_name, date, hintRow: lead.sheet_row ?? candidates[0]?.row },
-      { ...leadFields(lead), ...(lead.order_price ? { pickup_plan: addDaysKey(date, 3) } : {}) },
+      { ...leadFields(lead), ...(lead.order_price ? { pickup_plan: addDaysKey(date, 3), review_date: addDaysKey(date, 3), payout_plan: addDaysKey(date, 3) } : {}) },
     );
     if (res.row) {
       await db.from('alina_selfbuy_leads').update({
@@ -285,10 +288,31 @@ export async function releaseClientPlace(db: SupabaseClient, lead: Lead): Promis
   const target = mine.sort((a, b) => a.date.localeCompare(b.date))[0];
   if (!target) return null;
   const q = `'${ctx.tab.replace(/'/g, "''")}'`;
-  if (!await io.batchWrite([{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: '' }])) return null;
+  // Вместе с логином убираем даты-заготовки (публикация отзыва и плановая выплата), иначе строка перестанет считаться свободной.
+  const clears = [{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: '' }];
+  for (const f of ['review_date', 'payout_plan']) if (sheet.col[f] != null) clears.push({ range: `${q}!${colLetter(sheet.col[f])}${target.row}`, value: '' });
+  if (!await io.batchWrite(clears)) return null;
   const cached = ctx.sheet.rows.find((r) => r.row === target.row);
   if (cached) cached.tg = '';
   await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'slot_released', payload: { row: target.row, date: target.date, model: target.model, reason: 'not_found' } }).then(() => undefined, () => undefined);
+  return target.row;
+}
+
+/** Перенести «Дату публикации отзыва» клиента на другую дату (по его просьбе и после его согласия). Возвращает номер строки или null. */
+export async function moveReviewDate(db: SupabaseClient, lead: Lead, newDate: string): Promise<number | null> {
+  const ctx = await placeCtx(db);
+  const tg = normTg(lead.username);
+  if (!ctx || !tg || !lead.product_name) return null;
+  const io = sheetIO(ctx.sheetId, await googleAccessToken(ctx.saJson));
+  const fresh = await io.read(`'${ctx.tab.replace(/'/g, "''")}'!A1:AZ2000`);
+  const sheet = (fresh && parseRazdachiSheet(fresh)) || ctx.sheet;
+  if (sheet.col.review_date == null) return null;
+  const mine = sheet.rows.filter((r) => r.tg === tg && normModel(r.model) === normModel(lead.product_name || ''));
+  const target = mine.sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!target) return null;
+  const q = `'${ctx.tab.replace(/'/g, "''")}'`;
+  if (!await io.batchWrite([{ range: `${q}!${colLetter(sheet.col.review_date)}${target.row}`, value: newDate }])) return null;
+  await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'review_date_moved', payload: { row: target.row, date: newDate } }).then(() => undefined, () => undefined);
   return target.row;
 }
 

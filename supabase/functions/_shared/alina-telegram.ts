@@ -149,13 +149,15 @@ export async function processAlinaTelegramUpdate(
         // Пустые и служебные значения («null», «undefined») клиенту не отправляем никогда.
         let replies = draft.filter((x) => !/^\s*(null|none|undefined|nan|n\/a)?\s*$/i.test(String(x ?? '')));
         // «Принято» одним сердечком на сообщение клиента; если Telegram реакцию не принял, отправляем короткий текст.
-        if (reactEmoji) {
+        if (reactEmoji && Deno.env.get('ALINA_TRY_REACTIONS') === '1') {
           const rr = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(8000),
             body: JSON.stringify({ chat_id: message.chatId, message_id: message.messageId, business_connection_id: message.connectionId, reaction: [{ type: 'emoji', emoji: reactEmoji }] }),
           }).then((x) => x.json()).catch(() => null);
           await logAlinaRawEvent(message.chatId, rr?.ok === true ? 'reaction_set' : 'reaction_failed', { update_id: message.updateId, error: rr?.ok === true ? undefined : String(rr?.description || '').slice(0, 100) });
           if (rr?.ok !== true && reactFallback) replies = [reactFallback, ...replies];
+        } else if (reactEmoji && reactFallback) {
+          replies = [reactFallback, ...replies];
         }
         if (escalate) {
           // Вопрос менеджерам. Клиент получает «уточню» только если вопрос действительно дошёл до группы.
