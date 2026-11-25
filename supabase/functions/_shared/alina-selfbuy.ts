@@ -261,6 +261,12 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   if (!res.replies.length && !(res.photos && res.photos.length) && !res.react && !res.escalate && !isAck(opts.text || '') && (opts.text || '').trim()) {
     await logAlinaRawEvent(opts.chatId, 'empty_reply', { text: (opts.text || '').slice(0, 160) });
   }
+  // Место уже освобождено после «не нашёл» (лесенка): повторное «освобождаю место» в ответ на отказ клиента не шлём.
+  if (res.replies.length && res.replies.some((x) => /освобожда\S*\s+(?:ваше\s+)?мест/i.test(x))) {
+    const { data: rel } = await admin().from('alina_selfbuy_events').select('id').eq('chat_id', opts.chatId).eq('event_type', 'not_found_released')
+      .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+    if (rel && rel.length && !(res.replies.some((x) => /не\s+получилось\s+помочь/i.test(x)))) res = { ...res, replies: [] };
+  }
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
   const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
   const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
@@ -1014,8 +1020,9 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto || /забрал|получил|пвз|сегодня|завтра|\d{1,2}[./]/i.test(text)) {
       const vision = hasPhoto ? await readScreen('pickup') : null;
       // Скрин поиска/корзины/заказа здесь не «получение»: не двигаем этап, решает менеджер
-      if (vision && ['product', 'cart', 'order'].includes(String(vision.kind)) && !text.trim().replace(/^скрин$/i, '')) {
-        return await visionToManager(lead, vision);
+      // Скрин получения должен быть именно с ПВЗ/получением: любой другой (поиск, корзина, заказ, переписка) этап не двигает, молчим.
+      if (vision && vision.via === 'ai' && String(vision.kind) !== 'pickup' && !text.trim().replace(/^скрин$/i, '')) {
+        return { replies: [] };
       }
       await updateLead(db, lead.id, {
         pickup_at: text.slice(0, 200) || vision?.delivery_date ||
