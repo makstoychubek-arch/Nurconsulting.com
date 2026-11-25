@@ -231,6 +231,23 @@ async function upsertCampaign(
 
 /** Если Алина пообещала «уточню у менеджера», вопрос действительно уходит в группу менеджеров (раньше фраза говорилась, а в группу ничего не шло). */
 export async function handleAlinaClientMessage(opts: Parameters<typeof handleAlinaClientMessageInner>[0]): Promise<AlinaReply> {
+  // У клиента нет логина в Telegram: в строку таблицы писать нечего, место не закрепить. Просим логин один раз, дальше берём его из ответа.
+  if (razdachiRowsMode() && !String(opts.username || '').trim() && (opts.text || '').trim() && !opts.hasPhoto) {
+    const t0 = (opts.text || '').trim();
+    const m0 = t0.match(/@([A-Za-z][A-Za-z0-9_]{4,31})/) || t0.match(/^([A-Za-z][A-Za-z0-9_]{4,31})$/);
+    if (m0) {
+      await admin().from('alina_selfbuy_leads').update({ username: m0[1] }).eq('chat_id', opts.chatId).is('username', null).then(() => undefined, () => undefined);
+      await logAlinaRawEvent(opts.chatId, 'username_given', { username: m0[1] });
+      opts = { ...opts, username: m0[1] };
+    } else {
+      const { data: asked } = await admin().from('alina_selfbuy_events').select('id').eq('chat_id', opts.chatId).eq('event_type', 'ask_username')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      if (!asked || !asked.length) {
+        await logAlinaRawEvent(opts.chatId, 'ask_username', { text: t0.slice(0, 120) });
+        return r('Чтобы закрепить за вами место, мне нужен ваш логин в Telegram (он начинается с @, например @name).', 'Напишите его, пожалуйста 🙌');
+      }
+    }
+  }
   // Разовое исключение владельца: пока не истекло, место на сегодня берём и поздно вечером.
   try {
     const { data: ex } = await admin().from('alina_settings').select('value').eq('key', 'lateException').maybeSingle();
