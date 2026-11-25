@@ -80,8 +80,20 @@ Deno.serve(async (req) => {
     const released: string[] = [];
     let sheetToken = '';
     const dayKey = `${String(msk.getUTCDate()).padStart(2, '0')}.${String(msk.getUTCMonth() + 1).padStart(2, '0')}.${msk.getUTCFullYear()}`;
+    // Напоминаем «до 22:00» и освобождаем строку только тем, у кого в таблице есть строка на СЕГОДНЯ (25 ноября 2026: Тамила получала «до 22:00», а её строку уже перенесли на 28.11).
+    let todayTg: Set<string> | null = null;
+    try {
+        if (!sheetToken) sheetToken = await googleAccessToken((await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON')) || '').catch(() => '');
+        const rs = sheetToken ? await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`'${TAB}'!A1:D1500`)}?valueRenderOption=FORMATTED_VALUE`, { headers: { Authorization: `Bearer ${sheetToken}` }, signal: AbortSignal.timeout(15_000) }).catch(() => null) : null;
+        if (rs?.ok) {
+            const vals = ((await rs.json().catch(() => null))?.values || []) as string[][];
+            todayTg = new Set(vals.filter((r) => String(r[3] || '').trim().replace(/^(\d{2}\.\d{2})$/, `$1.${msk.getUTCFullYear()}`) === dayKey && String(r[2] || '').trim())
+                .map((r) => String(r[2]).replace(/^https?:\/\/t\.me\//, '').replace(/^@/, '').trim().toLowerCase()));
+        }
+    } catch { todayTg = null; }
     for (const l of leads) {
         if (sent.length >= 10) break;
+        if (todayTg && l.username && !todayTg.has(l.username.replace(/^@/, '').toLowerCase())) continue;
         if (l.username && skip.has(l.username.toLowerCase())) continue;
         // человек сейчас ведёт чат сам (последние 30 минут) или зовёт менеджера: не вмешиваемся
         const since30 = new Date(now - 30 * 60_000).toISOString();
