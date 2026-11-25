@@ -7,6 +7,7 @@ import { secretOrEnv } from './integration-secrets.ts';
 import { googleAccessToken } from './alina-google-auth.ts';
 import { getLastRazdachi, resolveActiveSheet } from './alina-sheet-plan.ts';
 import {
+  colLetter,
   claimFreeRow,
   findClientRows,
   freeSlots,
@@ -267,6 +268,28 @@ export async function takePlaceToday(db: SupabaseClient, lead: Lead, model: stri
   if (r === 'failed') return { kind: 'unavailable' };
   const near = nearestFree(getLastRazdachi()?.sheet ?? ctx.sheet, model, today, 14);
   return near ? { kind: 'later', date: near.date, model: near.model } : { kind: 'none' };
+}
+
+/**
+ * Освободить место клиента (очистить логин в «Ссылка ТГ»): только его строки без заказа (цены нет), ближайшая по дате.
+ * Нужен, когда клиент так и не смог найти товар и мы извинились. Возвращает номер освобождённой строки или null.
+ */
+export async function releaseClientPlace(db: SupabaseClient, lead: Lead): Promise<number | null> {
+  const ctx = await placeCtx(db);
+  const tg = normTg(lead.username);
+  if (!ctx || !tg) return null;
+  const io = sheetIO(ctx.sheetId, await googleAccessToken(ctx.saJson));
+  const fresh = await io.read(`'${ctx.tab.replace(/'/g, "''")}'!A1:AZ2000`);
+  const sheet = (fresh && parseRazdachiSheet(fresh)) || ctx.sheet;
+  const mine = sheet.rows.filter((r) => r.tg === tg && !String(fresh?.[r.row - 1]?.[sheet.col.price] ?? '').trim());
+  const target = mine.sort((a, b) => a.date.localeCompare(b.date))[0];
+  if (!target) return null;
+  const q = `'${ctx.tab.replace(/'/g, "''")}'`;
+  if (!await io.batchWrite([{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: '' }])) return null;
+  const cached = ctx.sheet.rows.find((r) => r.row === target.row);
+  if (cached) cached.tg = '';
+  await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'slot_released', payload: { row: target.row, date: target.date, model: target.model, reason: 'not_found' } }).then(() => undefined, () => undefined);
+  return target.row;
 }
 
 /** Бронь на выбранную дату по согласию клиента. */

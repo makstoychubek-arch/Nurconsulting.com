@@ -155,7 +155,7 @@ export async function alinaBrain(opts: {
     const raw = await res.text();
     if (!res.ok) {
       console.warn('[alina-brain]', res.status, raw.slice(0, 200));
-      await recordLlmUsage(model, null, openAiErrorCode(res.status, raw));
+      await recordLlmUsage(model, null, openAiErrorCode(res.status, raw), 'brain');
       return empty;
     }
     let data: { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
@@ -164,7 +164,7 @@ export async function alinaBrain(opts: {
     } catch {
       return empty;
     }
-    await recordLlmUsage(model, data?.usage);
+    await recordLlmUsage(model, data?.usage, null, 'brain');
     const content = String(data?.choices?.[0]?.message?.content ?? '').trim();
     if (!content) return empty;
     let parsed: Record<string, unknown>;
@@ -281,6 +281,10 @@ export function shouldUseBrain(opts: {
 /** Мозг не видит картинки: «да, это наш товар» подтверждает только скрин-проверка (vision), иначе передаём менеджеру. */
 export function safeProductClaim(reply: string | null): string | null {
   if (!reply) return reply;
+  // Бронь и запись места делает только система. ChatGPT «закрепил за вами» без записи в таблицу сказать не может: переспрашиваем модель.
+  if (/закреплен|забронирова|записал[аи]\s+(?:вас|за)|место\s+за\s+вами|за\s+вами\s+на\s+(?:сегодня|завтра)/i.test(reply)) {
+    return 'Подскажите, какую модель выбираете? 🙌';
+  }
   if (/(^|[\s,.!])(да,?\s*)?(это\s+)?наш(а|е|и)?\s+(товар|пижам)|да,?\s+наш[\s.!,]|(^|\s)наш\s+товар/i.test(reply) && !/не\s+наш/i.test(reply)) {
     return 'Сейчас уточню у менеджера и вернусь 🙌';
   }

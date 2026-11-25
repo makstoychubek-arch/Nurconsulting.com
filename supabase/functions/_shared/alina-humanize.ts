@@ -61,9 +61,9 @@ export async function humanizeReplies(replies: string[], clientText: string): Pr
       signal: AbortSignal.timeout(8000),
     });
     const raw = await res.text();
-    if (!res.ok) { await recordLlmUsage(model, null, openAiErrorCode(res.status, raw)); return replies; }
+    if (!res.ok) { await recordLlmUsage(model, null, openAiErrorCode(res.status, raw), 'humanize'); return replies; }
     const data = JSON.parse(raw);
-    await recordLlmUsage(model, data?.usage);
+    await recordLlmUsage(model, data?.usage, null, 'humanize');
     const parsed = JSON.parse(String(data?.choices?.[0]?.message?.content ?? '{}'));
     const out: unknown = parsed.replies;
     if (!Array.isArray(out) || out.length !== idx.length) return replies;

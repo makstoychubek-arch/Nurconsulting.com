@@ -43,6 +43,7 @@ import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdach
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { dayApproved } from './alina-dayplan.ts';
+import { releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
 import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, ruDay, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
@@ -246,6 +247,19 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
         if (ph?.photos?.length) res = { ...res, photos: ph.photos, replies: res.replies.filter((x) => !/отправлю|пришлю фото/i.test(x)) };
       }
     } catch (e) { console.warn('[alina] photo promise', e); }
+  }
+  // Алина сказала «сегодня мест нет», а в таблице на сегодня места есть (клиент написал неточно: «2 можно?»): вместо отказа называем, что есть сегодня.
+  if (razdachiRowsMode() && !tooLateForToday() && res.replies.length && !(res.photos && res.photos.length) && res.replies.some((x) => /мест\s+нет|нет\s+мест|разобрал|попробуйте\s+завтра|напишите\s+завтра/i.test(x))) {
+    try {
+      const sheet = getLastRazdachi()?.sheet;
+      const today = todayMskKey();
+      const names = sheet ? [...new Set(freeSlots(sheet, today, 0).filter((x) => x.date === today).map((x) => x.model.replace(/^Пижама\s+/i, '')))] : [];
+      if (names.length) res = { ...res, replies: [`Сегодня есть: ${names.join(', ')}. Какую выберете?`], tag: 'models' };
+    } catch { /* оставляем ответ как есть */ }
+  }
+  // Диагностика: клиент написал по делу, а ответа нет (не «ок/спасибо»). Пишем в журнал, на каком этапе так вышло, чтобы найти причину.
+  if (!res.replies.length && !(res.photos && res.photos.length) && !res.react && !res.escalate && !isAck(opts.text || '') && (opts.text || '').trim()) {
+    await logAlinaRawEvent(opts.chatId, 'empty_reply', { text: (opts.text || '').slice(0, 160) });
   }
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
   const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
@@ -877,7 +891,9 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto || (!razdachiRowsMode() && /корзин|конкурент|избранн/i.test(text))) {
       const vision = hasPhoto ? await readScreen('cart') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
-      if (vision && vision.via === 'ai' && ['product'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
+      // Карточка или поиск уже проверены раньше: повторный такой скрин (даже с другим фото карточки из A/B-теста) менеджеру не передаём, молчим.
+      if (vision && vision.via === 'ai' && String(vision.kind) === 'product') return { replies: [] };
+      if (vision && vision.via === 'ai' && String(vision.kind) === 'other' && vision.ok !== false) return rAsk('wait_cart', 'Пришлите скрин корзины: наш товар + 2–3 конкурента и бренд в избранном ❤️');
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
@@ -911,7 +927,9 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto || (!razdachiRowsMode() && /заказ|оформил|выкуп|пвз|доставк/i.test(text))) {
       const vision = hasPhoto ? await readScreen('order') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
-      if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
+      // Поиск, карточка и корзина уже пройдены: повторный такой скрин не повод звать менеджера, молчим. Нужен именно скрин заказа.
+      if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind))) return { replies: [] };
+      if (vision && vision.via === 'ai' && String(vision.kind) === 'other' && vision.ok !== false) return rAsk('wait_order', 'Пришлите скрин заказа: видны цена, ПВЗ и дата доставки 🙌');
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
@@ -2023,19 +2041,28 @@ async function handleCantFindFilters(
     // yes → ниже отправим batch
   } else if (cantFindProduct(text)) {
     if (round >= 2) {
-      // Обе пачки фильтров отправлены, а клиент всё равно не находит (регион, недоступная карточка): не крутим одно и то же, передаём менеджеру один раз.
-      const { data: done } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'filters_escalated')
-        .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(1);
-      if (done && done.length) return { replies: [] };
-      const group = await managerGroupId();
-      await logEvent(db, lead.id, lead.chat_id, 'filters_escalated', { text });
-      if (group) {
-        return {
-          replies: ['Передала менеджеру, он посмотрит и подскажет.'],
-          escalate: { topic: 'не находит товар', question: `Клиент не находит товар даже с фильтрами: «${text.slice(0, 200)}». Модель: ${lead.product_name || '—'}, ключ: ${lead.keyword || '—'}. Посмотрите регион и доступность карточки.`, group },
-        };
+      // Лесенка (владелец, 25 ноября 2026): фильтры → точное главное фото карточки → извиняемся и освобождаем место другим.
+      const { data: sentPhoto } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'main_photo_sent')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      if (!sentPhoto || !sentPhoto.length) {
+        const mine = await resolveLeadArticle(lead, camp).catch(() => null);
+        const photo = mine?.article ? await fetchWbMainPhoto(mine.article).catch(() => null) : null;
+        if (photo?.bytes) {
+          await logEvent(db, lead.id, lead.chat_id, 'main_photo_sent', { text });
+          return {
+            replies: [`Вот точное главное фото нашего товара. Найдите его в выдаче по ключу${lead.keyword ? ` «${lead.keyword}»` : ''} и пришлите скрин 🙌`],
+            photos: [{ bytes: photo.bytes, mime: photo.mime, filename: photo.filename, caption: '' }],
+          };
+        }
       }
-      return r('Попробуйте сортировку «Популярные» и без лишних фильтров кроме тех, что скидывала. Потом скрин поиска с ключом сверху 🙌');
+      // Фото уже отправляли (или его нет), а товар всё равно не находят: извиняемся и сразу отдаём место другим.
+      const { data: done } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'not_found_released')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      if (done && done.length) return { replies: [] };
+      const row = await releaseClientPlace(db, lead).catch(() => null);
+      await updateLead(db, lead.id, { status: 'closed', sheet_row: null, last_client_text: text });
+      await logEvent(db, lead.id, lead.chat_id, 'not_found_released', { text, row });
+      return r('Извините, не получилось помочь найти товар 🙏 Освобождаю ваше место, чтобы его смогли занять другие. Если захотите попробовать ещё раз в другой день, напишите.');
     }
     if (round === 1) {
       // сразу вторая пачка без повторного «хотите?»
