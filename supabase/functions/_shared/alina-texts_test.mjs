@@ -10,12 +10,12 @@ const gate = new Function(stripTypeScriptTypes(readFileSync(new URL('./alina-gat
 
 // стандартные тексты
 const ids = tpl.TEXT_DEFS.map((d) => d.id);
-assert.equal(new Set(ids).size, ids.length, 'идентификаторы уникальны'); assert.equal(ids.length, 19);
+assert.equal(new Set(ids).size, ids.length, 'идентификаторы уникальны'); assert.equal(ids.length, 20);
 for (const d of tpl.TEXT_DEFS) { assert.ok(d.text.trim().length > 5, d.id); for (const v of d.vars) assert.ok(d.text.includes('{' + v + '}'), `${d.id}: подстановка {${v}} есть в стандартном тексте`); assert.ok(!/\$\{/.test(d.text), d.id + ': нет остатков шаблонных строк'); }
 assert.equal(tpl.MSG_CLOSED(), 'На сегодня места закончились 🙌 Напишите завтра — посмотрим');
 assert.equal(tpl.msgOpenHuman('cashback', 'Пижама 2в1'), 'Да, актуально 🙌 по «Пижама 2в1»\nВысылаю ТЗ:'); assert.equal(tpl.msgOpenHuman('barter', null), 'Да, актуально 🙌\nВысылаю ТЗ:');
-assert.match(tpl.msgKey('пижама женская'), /^Ключ для поиска:\n«пижама женская»\n\nВбиваете/); assert.match(tpl.tzBarter('18.11.2026 до 22:00 МСК'), /Заказать НУЖНО 18\.11\.2026 до 22:00 МСК,/);
-assert.match(tpl.tzBarter(null), /Заказать НУЖНО в указанную дату ДО 22:00 ПО МСК,/);
+assert.match(tpl.msgKey('пижама женская'), /^Ключ для поиска: «пижама женская»\. Найдите по нему/); assert.match(tpl.tzBarter('18.11.2026 до 22:00 МСК'), /Заказать нужно 18\.11\.2026 до 22:00 МСК,/);
+assert.match(tpl.tzBarter(null), /Заказать нужно в указанную дату ДО 22:00 ПО МСК,/);
 assert.ok(tpl.TZ_CASHBACK().startsWith('ТЗ Для ОЗНАКОМЛЕНИЯ'));
 console.log('ok   стандартные тексты на месте, подстановки совпадают с шаблонами');
 

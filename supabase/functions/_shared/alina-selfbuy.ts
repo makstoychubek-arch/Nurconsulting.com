@@ -13,6 +13,7 @@ import {
   MSG_ASK_BANK_CASHBACK,
   MSG_ASK_FILTERS,
   MSG_ASK_PICKUP,
+  MSG_REELS_TZ,
   MSG_ASK_REELS,
   MSG_ASK_REVIEW,
   MSG_CLOSED,
@@ -1074,7 +1075,7 @@ async function handleAlinaClientMessageInner(opts: {
       });
       await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
-      return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌');
+      return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌', MSG_REELS_TZ());
     }
     if (hasPhoto) return { replies: [] };
     if (/заказал|оформил|выкупил/i.test(text)) return r('Заказ у вас уже записан ✅ Когда он придёт в пункт выдачи, я напомню 🙌');
