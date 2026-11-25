@@ -248,6 +248,19 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       }
     } catch (e) { console.warn('[alina] photo promise', e); }
   }
+  // Алина сказала «сегодня мест нет», а в таблице на сегодня места есть (клиент написал неточно: «2 можно?»): вместо отказа называем, что есть сегодня.
+  if (razdachiRowsMode() && !tooLateForToday() && res.replies.length && !(res.photos && res.photos.length) && res.replies.some((x) => /мест\s+нет|нет\s+мест|разобрал|попробуйте\s+завтра|напишите\s+завтра/i.test(x))) {
+    try {
+      const sheet = getLastRazdachi()?.sheet;
+      const today = todayMskKey();
+      const names = sheet ? [...new Set(freeSlots(sheet, today, 0).filter((x) => x.date === today).map((x) => x.model.replace(/^Пижама\s+/i, '')))] : [];
+      if (names.length) res = { ...res, replies: [`Сегодня есть: ${names.join(', ')}. Какую выберете?`], tag: 'models' };
+    } catch { /* оставляем ответ как есть */ }
+  }
+  // Диагностика: клиент написал по делу, а ответа нет (не «ок/спасибо»). Пишем в журнал, на каком этапе так вышло, чтобы найти причину.
+  if (!res.replies.length && !(res.photos && res.photos.length) && !res.react && !res.escalate && !isAck(opts.text || '') && (opts.text || '').trim()) {
+    await logAlinaRawEvent(opts.chatId, 'empty_reply', { text: (opts.text || '').slice(0, 160) });
+  }
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
   const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
   const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
@@ -878,7 +891,9 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto || (!razdachiRowsMode() && /корзин|конкурент|избранн/i.test(text))) {
       const vision = hasPhoto ? await readScreen('cart') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
-      if (vision && vision.via === 'ai' && ['product'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
+      // Карточка или поиск уже проверены раньше: повторный такой скрин (даже с другим фото карточки из A/B-теста) менеджеру не передаём, молчим.
+      if (vision && vision.via === 'ai' && String(vision.kind) === 'product') return { replies: [] };
+      if (vision && vision.via === 'ai' && String(vision.kind) === 'other' && vision.ok !== false) return rAsk('wait_cart', 'Пришлите скрин корзины: наш товар + 2–3 конкурента и бренд в избранном ❤️');
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
@@ -912,7 +927,9 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto || (!razdachiRowsMode() && /заказ|оформил|выкуп|пвз|доставк/i.test(text))) {
       const vision = hasPhoto ? await readScreen('order') : null;
       // Клиент заново прислал скрин прошлого этапа (поиск, корзина): повторять и звать менеджера не нужно, молчим.
-      if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind)) && vision.has_our_product !== false) return { replies: [] };
+      // Поиск, карточка и корзина уже пройдены: повторный такой скрин не повод звать менеджера, молчим. Нужен именно скрин заказа.
+      if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind))) return { replies: [] };
+      if (vision && vision.via === 'ai' && String(vision.kind) === 'other' && vision.ok !== false) return rAsk('wait_order', 'Пришлите скрин заказа: видны цена, ПВЗ и дата доставки 🙌');
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
