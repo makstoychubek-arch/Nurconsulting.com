@@ -19,7 +19,24 @@ Deno.serve(async (req) => {
     const day = mskDayKey();
     const { data: cur } = await admin.from('alina_settings').select('value').eq('key', 'dayPlan').maybeSingle();
     const prev = (cur as { value?: { day?: string; status?: string } } | null)?.value;
-    if (prev?.day === day && !body.force && body.dry_run !== true) return json({ ok: true, skipped: 'уже отправлен', status: prev.status });
+    if (prev?.day === day && !body.force && body.dry_run !== true) {
+        // План на сегодня уже отправлен. Не согласован больше часа: напоминаем реплаем на него (не чаще раза в час), пока не ответят «ок».
+        const pv = (cur as { value?: { status?: string; message_id?: number; sent_at?: string; remind_at?: string } } | null)?.value;
+        const last = Date.parse(String(pv?.remind_at || pv?.sent_at || ''));
+        if (pv?.status === 'pending' && pv.message_id && Number.isFinite(last) && Date.now() - last > 55 * 60_000) {
+            const group = await managerGroupId();
+            const botToken = (Deno.env.get('ALINA_BOT_TOKEN') || '').trim();
+            if (group && botToken) {
+                const rr = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000),
+                    body: JSON.stringify({ chat_id: group, text: 'Жду «ок» на план дня (ответом на сообщение с планом). Пока его нет, клиентам на сегодня места не отдаю.', reply_parameters: { message_id: pv.message_id, allow_sending_without_reply: true } }),
+                }).catch(() => null);
+                if (rr?.ok) await admin.from('alina_settings').upsert({ key: 'dayPlan', value: { ...prev, remind_at: new Date().toISOString() } });
+                return json({ ok: true, reminded: Boolean(rr?.ok) });
+            }
+        }
+        return json({ ok: true, skipped: 'уже отправлен', status: prev.status });
+    }
 
     const token = await googleAccessToken((await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON')) || '').catch(() => '');
     if (!token) return json({ ok: false, error: 'нет доступа к таблице' }, 503);

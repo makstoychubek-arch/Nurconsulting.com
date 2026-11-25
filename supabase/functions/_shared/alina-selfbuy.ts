@@ -1243,7 +1243,11 @@ function rAsk(status: string, text: string): AlinaReply {
 const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|бронирую|забронируй|бронь|беру|хочу|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
 const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
 
+/** План дня ещё не согласован владельцем: клиентам на сегодня говорим одно, без дальних дат. */
+const dayWaitReply = (): AlinaReply => ({ ...r('Сейчас уточняю наличие на сегодня и вернусь к вам в течение дня 🙌'), tag: 'models' as const });
+
 async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, date: string): Promise<AlinaReply> {
+  if (dayClosedOn()) return dayWaitReply();
   await logEvent(db, lead.id, lead.chat_id, 'slot_offer', { model, date });
   const day = ruDay(date, todayMskKey());
   return { ...r(`На сегодня «${model}» уже нет 😔\nБлижайшее место: ${day}. Забронировать?`), tag: 'models' as const };
@@ -1340,6 +1344,7 @@ async function startDealFromOffer(
   offer: SheetPlanOffer,
   text: string,
 ): Promise<AlinaReply> {
+  if (dayClosedOn()) return dayWaitReply();
   if (!offer.is_open || (offer.slots_left ?? 0) <= 0) {
     const open = await getOpenProductChoices();
     return r(msgColorUnavailable(
