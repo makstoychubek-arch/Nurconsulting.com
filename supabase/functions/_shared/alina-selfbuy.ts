@@ -1450,12 +1450,32 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     }
     return null;
   }
+  // Клиент соглашается («Хорошо на завтра», «давайте») на ближайшую дату, но модель не назвал: называем, что есть на эту дату, а не зовём менеджера.
+  if (hit.length === 0 && (isYes(t) || /завтра|ближайш/i.test(t)) && slots.length) {
+    const { data: told0 } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+      .gt('created_at', sinceIso(25)).like('payload->>kind', 'models').limit(1);
+    if (told0 && told0.length) {
+      const first = slots.find((x) => x.date !== today) ?? slots[0];
+      const onDate = [...new Set(slots.filter((x) => x.date === first.date).map((x) => x.model))];
+      if (onDate.length === 1) {
+        const res = await bookPlace(db, lead, onDate[0], first.date);
+        if (res === 'claimed') return r(`Готово ✅ «${onDate[0]}» за вами на ${ruDay(first.date, today)}.`, 'Напишите в этот день, и начнём.');
+      }
+      return { ...r(`На ${ruDay(first.date, today)} есть: ${onDate.map((n) => n.replace(/^Пижама\s+/i, '')).join(', ')}. Какую забронировать?`), tag: 'models' as const };
+    }
+  }
   if (hit.length !== 1) return null;
   const model = hit[0];
   const k = model.toLowerCase();
   if (slots.some((x) => x.date === today && x.model.toLowerCase() === k)) return null; // сегодня есть место: идём по обычному пути и берём его сразу
   const near = slots.find((x) => x.model.toLowerCase() === k) ?? null;
-  if (!near) return r(`На «${model}» свободных мест в ближайшие дни нет. Уточню у менеджера и вернусь к вам.`);
+  if (!near) {
+    // Этой модели нет ни сегодня, ни в ближайшие дни: предлагаем, что есть (по одной ближайшей дате на модель), менеджера не зовём.
+    const seen = new Set<string>();
+    const alt = slots.filter((x) => (seen.has(x.model) ? false : (seen.add(x.model), true))).slice(0, 4);
+    if (alt.length) return { ...r(`Мест на «${model.replace(/^Пижама\s+/i, '')}» пока нет. Могу предложить: ${alt.map((x) => `${x.model.replace(/^Пижама\s+/i, '')} (${ruDay(x.date, today)})`).join('; ')}. Какую хотите?`), tag: 'models' as const };
+    return r(`Мест на «${model.replace(/^Пижама\s+/i, '')}» пока нет, как появятся, напишу вам 🙌`);
+  }
   // Клиенту уже называли ближайшую дату и спросили модель: он выбрал, бронируем сразу, без повторного «забронировать?».
   const { data: told } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
     .gt('created_at', sinceIso(90)).like('payload->>kind', 'models').limit(1);
