@@ -44,6 +44,7 @@ import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdach
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { classifyAnswer, worthClassifying } from './alina-intent.ts';
+import { pickupDateFromText } from './alina-dates.ts';
 import { dayApproved } from './alina-dayplan.ts';
 import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
@@ -991,7 +992,7 @@ async function handleAlinaClientMessageInner(opts: {
       (lead.status === 'wait_order' && /заказ|оформил|выкуп|пвз|доставк/i.test(text)) ||
       ((lead.status === 'key_sent' || lead.status === 'wait_product') &&
         /скрин|нашла|нашёл|наш товар|это он/i.test(text)) ||
-      (lead.status === 'wait_pickup' && /забрал|получил|пвз|сегодня|завтра/i.test(text)) ||
+      (lead.status === 'wait_pickup' && /забра\S*|заберу|получ\S*|пвз|сегодня|завтра/i.test(text)) ||
       (lead.status === 'wait_review' && /отзыв|текст|звёзд|звезд|соглас/i.test(text));
     if (!stepHint) {
       const { brain } = await runBrain();
@@ -1196,6 +1197,17 @@ async function handleAlinaClientMessageInner(opts: {
       await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
       return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌', MSG_REELS_TZ());
+    }
+    // «Можно товар забрать 1 числа?»: клиент сообщает, когда заберёт заказ из пункта выдачи. Записываем плановую дату забора и разрешаем (25 ноября 2026).
+    if (!hasPhoto && /забра\S*|получ\S*|заберу|пвз|пункт/i.test(text)) {
+      const pd = pickupDateFromText(text);
+      if (pd) {
+        const notes = `${(lead.notes || '').replace(/\s*забор:\S+/g, '')} забор:${pd}`.trim();
+        await updateLead(db, lead.id, { notes, last_client_text: text });
+        await logEvent(db, lead.id, opts.chatId, 'pickup_date', { text, date: pd });
+        await syncLeadToSheet(db, lead.id);
+        return r(`Да, можно, записала: заберёте ${ruDay(pd, todayMskKey())} 🙌`, 'Фото с разрезанными штрихкодами пришлите, когда заберёте.');
+      }
     }
     if (hasPhoto) return rAsk('wait_pickup', 'Спасибо, получила ✅ Когда заберёте заказ, напишите.');
     if (/заказал|оформил|выкупил/i.test(text)) return r('Заказ у вас уже записан ✅ Когда он придёт в пункт выдачи, я напомню 🙌');
@@ -1514,6 +1526,8 @@ async function handleQuantityQuestion(db: SupabaseClient, lead: SelfbuyLead): Pr
 
 async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: string): Promise<AlinaReply | null> {
   const t = text.trim();
+  // Вопрос про забор заказа из пункта выдачи («забрать 1 числа?») это не бронь места, даже если в тексте дата.
+  if (/забра\S*|получ\S*|заберу|пвз/i.test(t) && ['wait_bank', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status))) return null;
   // 1. Ответ на предложение даты
   const { data: ev } = await db.from('alina_selfbuy_events').select('event_type, payload, created_at')
     .eq('chat_id', lead.chat_id).in('event_type', ['slot_offer', 'slot_booked', 'slot_declined'])

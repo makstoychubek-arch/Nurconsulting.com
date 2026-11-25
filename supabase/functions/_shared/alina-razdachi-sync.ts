@@ -201,7 +201,7 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
     const res = await writeClientRow(
       sheetIO(active.sheet_id, token), tab, sheet,
       { tg, model: lead.product_name, date, hintRow: lead.sheet_row ?? candidates[0]?.row },
-      { ...leadFields(lead), ...(lead.order_price ? { pickup_plan: addDaysKey(date, 3), review_date: addDaysKey(date, 3), payout_plan: addDaysKey(date, 3) } : {}) },
+      { ...leadFields(lead), ...(lead.order_price ? { pickup_plan: (lead.notes || '').match(/забор:(\d{2}\.\d{2}\.\d{4})/)?.[1] || addDaysKey(date, 3), review_date: addDaysKey(date, 3), payout_plan: addDaysKey(date, 3) } : {}) },
     );
     if (res.row) {
       await db.from('alina_selfbuy_leads').update({
