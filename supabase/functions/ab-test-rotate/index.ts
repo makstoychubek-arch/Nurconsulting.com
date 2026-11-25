@@ -360,7 +360,9 @@ Deno.serve(async (req) => {
                 if (test.status === 'active') {
                     let finishReason: string | null = null;
 
-                    if (selectedCampaigns.length && (test.settings as Record<string, unknown> | null)?.finishOnCampaignOff !== false) {
+                    // Первые 30 минут после запуска статус РК в базе может отставать от WB (владелец только что включил РК): тест из-за этого не закрываем.
+                    const startedAgoMin = (Date.now() - new Date(String(test.started_at || 0)).getTime()) / 60000;
+                    if (selectedCampaigns.length && startedAgoMin >= 30 && (test.settings as Record<string, unknown> | null)?.finishOnCampaignOff !== false) {
                         const { data: campRows } = await admin
                             .from('advertising_campaigns')
                             .select('status')
@@ -408,7 +410,8 @@ Deno.serve(async (req) => {
                             await admin.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', test.id);
                             await admin.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', winner.id);
                         }
-                        await pauseAbCampaigns(admin, test);
+                        // РК, которая уже остановлена (reason campaign_stopped), повторно на паузу не ставим: статус в базе мог отстать, и тогда живая РК выключалась.
+                        if (finishReason !== 'campaign_stopped') await pauseAbCampaigns(admin, test);
                         await admin.from('ab_tests').update({
                             status: 'finished',
                             finished_at: new Date().toISOString(),
@@ -419,7 +422,7 @@ Deno.serve(async (req) => {
                             variant_label: winner?.variant_label || current?.variant_label || 'stop',
                             action: 'stop',
                         });
-                        statsResults.push({ test_id: test.id, autoFinished: finishReason, pausedCampaigns: true });
+                        statsResults.push({ test_id: test.id, autoFinished: finishReason, pausedCampaigns: finishReason !== 'campaign_stopped' });
                     }
                 }
 
