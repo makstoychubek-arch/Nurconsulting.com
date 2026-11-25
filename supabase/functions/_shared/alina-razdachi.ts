@@ -202,6 +202,9 @@ export async function writeClientRow(
     if (idx == null || value === '' || value == null) continue;
     const current = String(cells[idx] ?? '').trim();
     if (current === value) continue;
+    // «р.48» и «48», «1 699 ₽» и «р.1 699»: те же цифры, не считаем расхождением.
+    const dg = (t: string) => t.replace(/\D/g, '');
+    if (current !== '' && dg(current) !== '' && dg(current) === dg(value) && !/\d{1,2}\.\d{1,2}\.\d{4}/.test(current)) continue;
     if (current !== '') { conflicts.push(name); continue; }
     updates.push({ range: `${q}!${colLetter(idx)}${row}`, value });
     written.push(name);
@@ -295,7 +298,7 @@ export function nearestFree(sheet: RazSheet, model: string, today: string, horiz
 }
 
 const COLOR_WORDS: [RegExp, string][] = [
-  [/шоколад|шоко/, 'шоколад'], [/молоч/, 'молоч'], [/бордо/, 'бордо'], [/лапш|вишн/, 'лапша'], [/ бел(?:ый|ая|ое|ые)?(?=\s)/, 'бел'],
+  [/шоколад|шоко/, 'шоколад'], [/молоч/, 'молоч'], [/бордо/, 'бордо'], [/лапш|вишн/, 'лапша'], [/(?:^|\s)бел[а-яё]*(?=\s|$)/, 'бел'],
 ];
 
 /** Какие из моделей клиент имеет в виду: по формату («3в1», «2 в 1», «три в одном») и цвету. Пусто, если модель не названа. */
@@ -355,4 +358,12 @@ export function mskMinutes(now = Date.now()): number {
   const d = new Date(now + 3 * 3600_000);
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
-export const tooLateForToday = (now = Date.now()): boolean => mskMinutes(now) >= TODAY_CUTOFF_MIN;
+/** Разовое исключение владельца (alina_settings.lateException): до указанного времени места на сегодня берём и после 20:30 МСК. */
+let lateException = false;
+export const setLateException = (v: boolean): void => { lateException = v; };
+export const lateExceptionOn = (): boolean => lateException;
+/** День ещё не согласован владельцем (alina_settings.dayPlan): места на сегодня не отдаём, как после 20:30. */
+let dayClosed = false;
+export const setDayClosed = (v: boolean): void => { dayClosed = v; };
+export const dayClosedOn = (): boolean => dayClosed && !lateException;
+export const tooLateForToday = (now = Date.now()): boolean => !lateException && (dayClosed || mskMinutes(now) >= TODAY_CUTOFF_MIN);

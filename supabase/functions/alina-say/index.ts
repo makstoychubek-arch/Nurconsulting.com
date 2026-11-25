@@ -1,6 +1,7 @@
 // Отправить клиенту готовый текст от имени Алины (по слову владельца). Только сервис. Без тяжёлых модулей, чтобы функция всегда запускалась.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { pajamaPhotoFor } from '../_shared/alina-pajama-photos.ts';
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -17,8 +18,9 @@ Deno.serve(async (req) => {
         return json({ ok: wi?.ok === true, pending: r0.pending_update_count, last_error_date: r0.last_error_date ? new Date(r0.last_error_date * 1000).toISOString() : null, last_error: String(r0.last_error_message || '').slice(0, 160), has_url: Boolean(r0.url), allowed: r0.allowed_updates });
     }
     const say = String(body.say || '').trim().slice(0, 1500);
+    const photoModel = String(body.photo_model || '').trim();
     const delLast = Math.min(10, Math.max(0, Number(body.delete_last_alina) || 0));
-    if (!Number.isSafeInteger(chatId) || (!say && !delLast)) return json({ ok: false, error: 'chat_id и say (или delete_last_alina) обязательны' }, 400);
+    if (!Number.isSafeInteger(chatId) || (!say && !delLast && !photoModel)) return json({ ok: false, error: 'chat_id и say (или delete_last_alina) обязательны' }, 400);
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
     const { data: q } = await admin.from('alina_manager_questions').select('business_connection_id').not('business_connection_id', 'is', null)
         .order('created_at', { ascending: false }).limit(1).maybeSingle();
@@ -37,6 +39,21 @@ Deno.serve(async (req) => {
         }).catch(() => null);
         const d = r ? await r.json().catch(() => null) : null;
         return json({ ok: d?.ok === true, deleted: ids.length, telegram: d?.ok === true ? undefined : String(d?.description || 'нет ответа').slice(0, 120) });
+    }
+    // Своё фото модели (по слову владельца): { chat_id, photo_model: 'Пижама 2в1 шоколадный' }, текст say уходит подписью.
+    if (photoModel) {
+        const shot = pajamaPhotoFor(photoModel);
+        if (!shot) return json({ ok: false, error: 'нет своего фото для этой модели' }, 404);
+        const form = new FormData();
+        form.set('chat_id', String(chatId));
+        form.set('business_connection_id', conn);
+        if (say) form.set('caption', say);
+        form.set('photo', new Blob([new Uint8Array(shot.bytes)], { type: shot.mime }), shot.filename);
+        const pr = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(20_000) }).catch(() => null);
+        const pd = pr ? await pr.json().catch(() => null) : null;
+        const pok = pd?.ok === true;
+        if (pok) await admin.from('alina_selfbuy_events').insert({ event_type: 'chat_log', chat_id: chatId, payload: { dir: 'alina', kind: 'photo', text: say || shot.caption, by: 'owner_request', mid: pd?.result?.message_id ?? null } });
+        return json({ ok: pok, telegram: pok ? undefined : String(pd?.description || 'нет ответа').slice(0, 120) });
     }
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000),

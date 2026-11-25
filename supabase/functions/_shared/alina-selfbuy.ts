@@ -42,8 +42,9 @@ import {
 import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
+import { dayApproved } from './alina-dayplan.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, ruDay, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, ruDay, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -130,6 +131,9 @@ export type AlinaReply = {
   escalate?: { topic: string; question: string; group: number };
   /** Ответить реплаем на своё прежнее сообщение этого вида («Отправила выше»). */
   replyToKind?: 'tz' | 'key' | 'photo';
+  /** Вместо отдельного «принято» ставим реакцию на сообщение клиента; если не вышло, уходит reactFallback. */
+  react?: string;
+  reactFallback?: string;
   /** Ответ про наличие моделей: один раз в 5 минут на чат, чтобы не было дублей (проверяет alina-telegram). */
   tag?: string;
 };
@@ -221,13 +225,43 @@ async function upsertCampaign(
 
 /** Если Алина пообещала «уточню у менеджера», вопрос действительно уходит в группу менеджеров (раньше фраза говорилась, а в группу ничего не шло). */
 export async function handleAlinaClientMessage(opts: Parameters<typeof handleAlinaClientMessageInner>[0]): Promise<AlinaReply> {
-  const res = await handleAlinaClientMessageInner(opts);
+  // Разовое исключение владельца: пока не истекло, место на сегодня берём и поздно вечером.
+  try {
+    const { data: ex } = await admin().from('alina_settings').select('value').eq('key', 'lateException').maybeSingle();
+    const until = Date.parse(String((ex?.value as { until?: string } | null)?.until || ''));
+    const only = String((ex?.value as { login?: string } | null)?.login || '').replace(/^@/, '').toLowerCase();
+    const me = String(opts.username || '').replace(/^@/, '').toLowerCase();
+    setLateException(Number.isFinite(until) && until > Date.now() && (!only || only === me));
+  } catch { setLateException(false); }
+  // План дня должен быть согласован владельцем (ответ «ок» в группе менеджеров), пока нет, места на сегодня не отдаём.
+  try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
+  let res = await handleAlinaClientMessageInner(opts);
+  // Алина пообещала фото («вот обе», «секунду, отправлю»), а фото в ответе нет: добавляем свои фото моделей, иначе клиент остаётся с пустым обещанием.
+  if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => /вот обе|вот фото|вот они|отправлю|пришлю фото|высылаю фото|подписала/i.test(x))) {
+    try {
+      const db0 = admin();
+      const { data: l0 } = await db0.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (l0) {
+        const ph = await handleProductPhotoRequest(db0, l0 as SelfbuyLead, null, 'покажите все модели');
+        if (ph?.photos?.length) res = { ...res, photos: ph.photos, replies: res.replies.filter((x) => !/отправлю|пришлю фото/i.test(x)) };
+      }
+    } catch (e) { console.warn('[alina] photo promise', e); }
+  }
   // Менеджеру передаём, если Алина пообещала «уточню / спрошу / передам» (в любой формулировке) или клиент прямо зовёт менеджера.
   const promised = res.replies.some((x) => /уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x));
   const asksManager = /(?:^|[^а-яё])(менеджер\S*|оператор\S*|живо\S* человек\S*|администратор\S*)(?![а-яё])/i.test((opts.text || '').slice(0, 300));
   if (res.escalate || !(promised || asksManager)) return await withHuman(res, opts.text);
   const group = await managerGroupId();
   if (!group) return await withHuman(res, opts.text);
+  // Менеджеру этот клиент уже писал за последние 10 минут: второй раз не передаём и «уточню» не повторяем.
+  {
+    const { data: recent } = await admin().from('alina_selfbuy_events').select('id').eq('chat_id', opts.chatId).eq('event_type', 'manager_escalated')
+      .gt('created_at', new Date(Date.now() - 10 * 60_000).toISOString()).limit(1);
+    if (recent && recent.length) {
+      await logAlinaRawEvent(opts.chatId, 'escalation_suppressed', { text: (opts.text || '').slice(0, 120) });
+      return { ...res, replies: res.replies.filter((x) => !/уточню|спрошу|передам|узнаю у|выясню|сверю/i.test(x)) };
+    }
+  }
   const question = (opts.text || '').trim() || '[клиент прислал фото]';
   await logAlinaRawEvent(opts.chatId, 'manager_escalated', { topic: 'вопрос клиента', text: question.slice(0, 200), auto: true });
   return await withHuman({ ...res, escalate: { topic: 'вопрос клиента', question, group } }, opts.text);
@@ -349,12 +383,29 @@ async function handleAlinaClientMessageInner(opts: {
     if (!file) return null;
     // Эталон: главное фото нашей карточки с WB. Клиенту оно не уходит, нужно только чтобы сверить, наш ли товар на его скрине.
     let reference: { bytes: Uint8Array; mime: string } | null = null;
+    const abRefs: { bytes: Uint8Array; mime: string }[] = [];
     let article = expectArticle;
     if (razdachiRowsMode() && (stage === 'product' || stage === 'cart' || stage === 'order')) {
       const mine = await resolveLeadArticle(lead, camp).catch(() => null);
       if (mine?.article) article = mine.article;
       const ref = article ? await fetchWbMainPhoto(article).catch(() => null) : null;
       if (ref?.bytes) reference = { bytes: ref.bytes, mime: ref.mime || 'image/jpeg' };
+      // A/B-тест меняет главное фото карточки: клиент мог снять скрин с прошлым вариантом, поэтому сверяем и с ними.
+      if (article) {
+        try {
+          const { data: vars } = await db.from('ab_tests').select('id, ab_test_variants(photo_url, is_currently_on_wb)')
+            .eq('nm_id', Number(article)).eq('status', 'active').limit(1);
+          const urls = ((vars?.[0] as { ab_test_variants?: { photo_url?: string }[] } | undefined)?.ab_test_variants || [])
+            .map((v) => v.photo_url).filter(Boolean) as string[];
+          for (const u of urls.slice(0, 5)) {
+            const res = await fetch(u, { signal: AbortSignal.timeout(8000) }).catch(() => null);
+            if (res?.ok) {
+              const buf = new Uint8Array(await res.arrayBuffer());
+              if (buf.length > 800) abRefs.push({ bytes: buf, mime: res.headers.get('content-type') || 'image/jpeg' });
+            }
+          }
+        } catch { /* без A/B-эталонов сверяем по главному фото */ }
+      }
     }
     return await analyzeAlinaScreenshot({
       imageBytes: file.bytes,
@@ -364,6 +415,7 @@ async function handleAlinaClientMessageInner(opts: {
       expectProduct: lead.product_name || camp?.product_name,
       expectArticle: article,
       reference,
+      references: reference ? [reference, ...abRefs] : abRefs,
     });
   };
 
@@ -506,6 +558,7 @@ async function handleAlinaClientMessageInner(opts: {
       const late = tooLateForToday();
       const first = sheet ? freeSlots(sheet, today, 14).find((x) => !late || x.date !== today) : null; // только ближайшая дата, весь план не перечисляем
       if (first) {
+        if (dayClosedOn()) return { ...r('Сейчас уточняю наличие на сегодня и вернусь к вам в течение дня 🙌'), tag: 'models' as const };
         return { ...r(`${late ? 'На сегодня уже не успеть: заказ до 22:00 МСК' : 'На сегодня всё занято'} 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
       }
     }
@@ -698,6 +751,15 @@ async function handleAlinaClientMessageInner(opts: {
   // Вопрос про бренд: не называем, объясняем, что товар определяем сами по фото на скрине (владелец, 24 ноября 2026).
   if (!hasPhoto && isBrandQuestion(text) && !['new', 'closed', 'done'].includes(String(lead.status))) {
     return r(BRAND_REPLIES[(opts.chatId % 2 + (text.length % 2)) % BRAND_REPLIES.length]);
+  }
+
+  // Товар по скрину уже подтверждён нашей проверкой, а клиент сверяется («она?», «этот?») или пишет артикул цифрами: менеджеру не передаём.
+  if (!hasPhoto && String(lead.screens_done || '').split(',').map((x) => x.trim()).includes('product') &&
+    ['wait_cart', 'wait_order', 'wait_size', 'wait_bank', 'wait_integration'].includes(String(lead.status))) {
+    if (/^\s*\d{7,}\s*$/.test(text)) return { replies: [] };
+    if (/^\s*(?:это\s+)?(?:она|он|этот|эта|наш[а]?|ваш[а]?|та)(?:\s+самая)?\s*[?!.]*\s*$/i.test(text) || /^\s*(?:точно\s+)?(?:наш[а]?|ваш[а]?|она)\s*\?+\s*$/i.test(text)) {
+      return rAsk(String(lead.status), 'Да, она, всё верно 👍');
+    }
   }
 
   // Клиент просто подтвердил («да», «ок», «поняла»): на обычное подтверждение молчим (владелец, 24 ноября 2026), это не вопрос.
@@ -902,15 +964,16 @@ async function handleAlinaClientMessageInner(opts: {
     });
     await logEvent(db, lead.id, opts.chatId, 'bank_done', {});
     await syncLeadToSheet(db, lead.id);
-    if (!haveInt) return r('Реквизиты приняла ✅', 'Когда планируете выход интеграции? Напишите дату 🙌');
-    return r('Реквизиты приняла ✅', MSG_ASK_PICKUP());
+    if (!haveInt) return { ...r('Когда планируете выход интеграции? Напишите дату 🙌'), tag: 'ask:wait_integration', react: '❤', reactFallback: 'Реквизиты приняла ✅' };
+    return { ...r(MSG_ASK_PICKUP()), react: '❤', reactFallback: 'Реквизиты приняла ✅' };
   }
 
   // ── wait_integration: ждём дату выхода интеграции ────────────────────────
   if (lead.status === 'wait_integration') {
     const d = parseIntegrationDate(text, true);
     // Вторая часть реквизитов (ФИО отдельным сообщением): дописываем к реквизитам, дату не переспрашиваем
-    if (!d && /^[А-Яа-яЁёA-Za-z\-]+(?:\s+[А-Яа-яЁёA-Za-z\-]+){1,3}$/.test(text.trim()) && lead.bank_details) {
+    const isPhone = /^\+?\d[\d\s\-()]{9,}$/.test(text.trim()) && text.replace(/\D/g, '').length >= 10;
+    if (!d && (isPhone || /^[А-Яа-яЁёA-Za-z\-]+(?:\s+[А-Яа-яЁёA-Za-z\-]+){1,3}$/.test(text.trim())) && lead.bank_details) {
       await updateLead(db, lead.id, { bank_details: `${lead.bank_details} ${text.trim()}`.slice(0, 1000), last_client_text: text });
       await syncLeadToSheet(db, lead.id);
       return { replies: [] };
@@ -995,7 +1058,7 @@ async function handleAlinaClientMessageInner(opts: {
         last_client_text: text,
       });
       await syncLeadToSheet(db, lead.id);
-      return r('Реквизиты обновила ✅');
+      return { replies: [], react: '❤', reactFallback: 'Реквизиты обновила ✅' };
     }
     if (wantsTz(text)) {
       const deal = (lead.deal_type || 'cashback') as DealType;
@@ -1177,10 +1240,14 @@ function rAsk(status: string, text: string): AlinaReply {
 }
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
-const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|забронируй|бронь|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
+const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|бронирую|забронируй|бронь|беру|хочу|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
 const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
 
+/** План дня ещё не согласован владельцем: клиентам на сегодня говорим одно, без дальних дат. */
+const dayWaitReply = (): AlinaReply => ({ ...r('Сейчас уточняю наличие на сегодня и вернусь к вам в течение дня 🙌'), tag: 'models' as const });
+
 async function offerLater(db: SupabaseClient, lead: SelfbuyLead, model: string, date: string): Promise<AlinaReply> {
+  if (dayClosedOn()) return dayWaitReply();
   await logEvent(db, lead.id, lead.chat_id, 'slot_offer', { model, date });
   const day = ruDay(date, todayMskKey());
   return { ...r(`На сегодня «${model}» уже нет 😔\nБлижайшее место: ${day}. Забронировать?`), tag: 'models' as const };
@@ -1228,15 +1295,26 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   const sheet = getLastRazdachi()?.sheet;
   if (!sheet) return null;
   const today = todayMskKey();
-  const slots = freeSlots(sheet, today, 14);
+  const late = tooLateForToday();
+  // Поздно вечером места «на сегодня» уже не берём: считаем только будущие даты.
+  const slots = freeSlots(sheet, today, 14).filter((x) => !late || x.date !== today);
   const models = [...new Set(sheet.rows.map((x) => x.model))];
-  const hit = matchModels(models, t);
+  let hit = matchModels(models, t);
+  const sinceIso = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  if (hit.length > 1) {
+    // Клиент называет модель по частям («со штанами», «шоколадный», «3 в 1 на завтра»): уточняем по последним его сообщениям.
+    const { data: recent } = await db.from('alina_selfbuy_events').select('payload').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+      .gt('created_at', sinceIso(60)).order('created_at', { ascending: false }).limit(12);
+    const ctx = (recent || []).map((e) => e.payload as { dir?: string; text?: string }).filter((p) => p?.dir === 'client').map((p) => String(p.text || '')).reverse().join(' ');
+    const narrowed = matchModels(models, `${ctx} ${t}`);
+    if (narrowed.length === 1) hit = narrowed;
+  }
   if (hit.length > 1) {
     // Цвет есть в нескольких форматах (2в1 и 3в1), а сегодня место только у части: не выбираем за клиента.
     const todayFree = hit.filter((m) => slots.some((x) => x.date === today && x.model.toLowerCase() === m.toLowerCase()));
     if (todayFree.length && todayFree.length < hit.length) {
       const parts = hit.map((m) => {
-        const near = nearestFree(sheet, m, today, 14);
+        const near = slots.find((x) => x.model.toLowerCase() === m.toLowerCase());
         return `${m} — ${near ? ruDay(near.date, today) : 'пока мест нет'}`;
       });
       return r(`Такой цвет есть в нескольких вариантах: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
@@ -1247,8 +1325,15 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   const model = hit[0];
   const k = model.toLowerCase();
   if (slots.some((x) => x.date === today && x.model.toLowerCase() === k)) return null; // сегодня есть место: идём по обычному пути и берём его сразу
-  const near = nearestFree(sheet, model, today, 14);
+  const near = slots.find((x) => x.model.toLowerCase() === k) ?? null;
   if (!near) return r(`На «${model}» свободных мест в ближайшие дни нет. Уточню у менеджера и вернусь к вам.`);
+  // Клиенту уже называли ближайшую дату и спросили модель: он выбрал, бронируем сразу, без повторного «забронировать?».
+  const { data: told } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'chat_log')
+    .gt('created_at', sinceIso(90)).like('payload->>kind', 'models').limit(1);
+  if (told && told.length) {
+    const res = await bookPlace(db, lead, near.model, near.date);
+    if (res === 'claimed') return r(`Готово ✅ «${near.model}» за вами на ${ruDay(near.date, today)}.`, 'Напишите в этот день, и начнём.');
+  }
   return await offerLater(db, lead, near.model, near.date);
 }
 
@@ -1259,6 +1344,7 @@ async function startDealFromOffer(
   offer: SheetPlanOffer,
   text: string,
 ): Promise<AlinaReply> {
+  if (dayClosedOn()) return dayWaitReply();
   if (!offer.is_open || (offer.slots_left ?? 0) <= 0) {
     const open = await getOpenProductChoices();
     return r(msgColorUnavailable(
@@ -1565,6 +1651,20 @@ async function resolveClientProduct(
   alternatives: SheetPlanOffer[];
 }> {
   const all = offers.length ? offers : (await fetchSheetPlan(false)).offers || [];
+  if (razdachiRowsMode() && text.trim()) {
+    // Названия моделей понимаем по формату и цвету («2 в 1 бордовая», «белую 2в1»): надёжнее общего подбора по словам.
+    const names = [...new Set(all.map((o) => String(o.product_name || '')).filter(Boolean))];
+    const hit = matchModels(names, text);
+    const pick = (n: string) => all.find((o) => o.product_name === n && o.is_open) || all.find((o) => o.product_name === n) || null;
+    if (hit.length === 1) {
+      const o = pick(hit[0]);
+      if (o) return { offer: o, ambiguous: [], unavailableColor: null, alternatives: [] };
+    }
+    if (hit.length > 1 && hit.length < names.length) {
+      const amb = hit.map(pick).filter(Boolean) as SheetPlanOffer[];
+      if (amb.length > 1) return { offer: null, ambiguous: amb, unavailableColor: null, alternatives: [] };
+    }
+  }
   let picked = resolveProductChoice(all, text);
   if (picked.offer || picked.unavailableColor || picked.ambiguous.length) return picked;
 
@@ -1711,6 +1811,13 @@ async function handleProductPhotoRequest(
     let ask = '';
     if (!shots.length) {
       shots = pajamaPhotosFor(open);
+      ask = 'Выберите модель, которая нравится, и напишите мне 🙌';
+    }
+    if (!shots.length) {
+      // Поздно вечером «открытых на сегодня» нет: показываем модели, у которых есть свободные места в ближайшие дни.
+      const sheet = getLastRazdachi()?.sheet;
+      const freeModels = sheet ? [...new Set(freeSlots(sheet, todayMskKey(), 14).map((x) => x.model))] : [];
+      shots = pajamaPhotosFor(freeModels);
       ask = 'Выберите модель, которая нравится, и напишите мне 🙌';
     }
     await logEvent(db, lead.id, lead.chat_id, 'product_photo', { text, own: shots.map((x) => x.caption) });

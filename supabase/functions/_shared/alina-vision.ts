@@ -81,7 +81,10 @@ export async function analyzeAlinaScreenshot(opts: {
   expectArticle?: string | null;
   /** Эталон: главное фото нашей карточки (только для сверки, клиенту не отправляется). */
   reference?: { bytes: Uint8Array; mime: string } | null;
+  /** Все актуальные эталоны: главное фото сейчас и варианты идущего A/B-теста (главное фото в карточке меняется). */
+  references?: { bytes: Uint8Array; mime: string }[] | null;
 }): Promise<VisionResult> {
+  const refs = (opts.references && opts.references.length ? opts.references : opts.reference ? [opts.reference] : []).slice(0, 6);
   const empty: VisionResult = {
     ok: null,
     kind: opts.stage,
@@ -138,7 +141,7 @@ export async function analyzeAlinaScreenshot(opts: {
     'confident=true ТОЛЬКО если ты на 100% видишь, что скрин не подходит (другая категория, другой запрос, вообще не тот экран). Если сомневаешься, похож ли товар на наш, confident=false и ok=true или false как думаешь.',
     'ok=true только если скрин подходит под этап. client_reply — как живой менеджер, 1 предложение.',
     stageHint[opts.stage],
-    opts.reference ? 'Вторая картинка это ЭТАЛОН: главное фото нашей карточки. Сравни с карточками на скрине клиента: has_our_product=true только если на скрине та же пижама (тот же фасон и цвет, то же главное фото). Другая модель или цвет: has_our_product=false. Если карточки на скрине не видно или не уверена, confident=false.' : '',
+    refs.length ? `Первая картинка это скрин клиента. Остальные (${refs.length}) это ЭТАЛОНЫ: главные фото нашей карточки (сейчас на WB и прежние варианты, у нас идёт A/B-тест и главное фото меняется). Просто сравни бок о бок: has_our_product=true, если на скрине клиента есть карточка с тем же товаром, что на любом из эталонов (та же пижама, тот же цвет и рисунок). Другая пижама или цвет: has_our_product=false. На корзине и заказе проверь каждый товар в списке. Если карточки не видно или не уверена, confident=false. В notes напиши цвет и размер, которые видишь.` : '',
     expect ? `Контекст: ${expect}` : '',
   ].filter(Boolean).join('\n');
 
@@ -162,8 +165,8 @@ export async function analyzeAlinaScreenshot(opts: {
             role: 'user',
             content: [
               { type: 'text', text: `Этап: ${opts.stage}. Проверь скрин.` },
-              { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
-              ...(opts.reference ? [{ type: 'image_url', image_url: { url: `data:${opts.reference.mime};base64,${b64(opts.reference.bytes)}`, detail: 'low' } }] : []),
+              { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
+              ...refs.map((rf) => ({ type: 'image_url', image_url: { url: `data:${rf.mime};base64,${b64(rf.bytes)}`, detail: 'low' } })),
             ],
           },
         ],
