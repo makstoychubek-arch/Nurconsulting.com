@@ -29,6 +29,8 @@ export function factsOk(original: string, rewritten: string): boolean {
   return a.every((x, i) => x === b[i]);
 }
 
+const STYLES = ['очень коротко и по делу', 'тепло и просто', 'дружелюбно, как подруге', 'спокойно и деловито', 'чуть живее, с лёгкой интонацией', 'нейтрально, как в переписке в мессенджере'];
+
 export async function humanizeReplies(replies: string[], clientText: string): Promise<string[]> {
   if ((Deno.env.get('ALINA_HUMANIZE') ?? '1') === '0') return replies;
   const idx = replies.map((r, i) => (skipHumanize(r) ? -1 : i)).filter((i) => i >= 0);
@@ -41,6 +43,7 @@ export async function humanizeReplies(replies: string[], clientText: string): Pr
     'Ты редактор живой речи менеджера раздач в Telegram. Перепиши каждую реплику так, как написал бы живой человек: коротко, тепло, без канцелярита и повторов, на «вы».',
     'Нельзя: менять факты, числа, даты, названия в «ёлочках», логины, добавлять обещания и новые сведения, убирать вопрос или просьбу, делать текст длиннее исходного больше чем на треть.',
     'Делай КОРОЧЕ: одна-две короткие фразы, без вводных («к сожалению», «пожалуйста»), без извинений и канцелярита. Не проси писать слово «да»: просто задай вопрос.',
+    `Каждый раз формулируй по-новому, не повторяй свои прошлые обороты и шаблонные начала («Отлично!», «Поняла», «Хорошо»). Стиль этой реплики: ${STYLES[Math.floor(Math.random() * STYLES.length)]}.`,
     'Эмодзи не больше одного на реплику, можно без него. Не начинай каждую реплику одинаково. Не используй «Здравствуйте» повторно, если это не первое сообщение.',
     'Верни ТОЛЬКО JSON {"replies":["...", ...]} с тем же числом реплик и в том же порядке.',
     '',
@@ -52,7 +55,7 @@ export async function humanizeReplies(replies: string[], clientText: string): Pr
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model, temperature: 0.7, max_tokens: 400, response_format: { type: 'json_object' },
+        model, temperature: 0.9, max_tokens: 400, response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: JSON.stringify({ client: clientText.slice(0, 400), replies: idx.map((i) => replies[i]) }) },
