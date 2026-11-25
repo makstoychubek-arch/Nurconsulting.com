@@ -1379,7 +1379,9 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     .eq('chat_id', lead.chat_id).in('event_type', ['slot_offer', 'slot_booked', 'slot_declined'])
     .order('created_at', { ascending: false }).limit(1);
   const last = (ev || [])[0] as { event_type: string; payload: { model?: string; date?: string }; created_at: string } | undefined;
-  const fresh = last && Date.now() - Date.parse(last.created_at) < 24 * 3600_000;
+  const dayKey = (d?: string) => { const m = String(d || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}${m[2]}${m[1]}` : ''; };
+  // Бронь и предложение живут сутки и только пока дата не прошла (иначе вчерашнее «закреплено» всплывает в ответ на любое сообщение).
+  const fresh = last && Date.now() - Date.parse(last.created_at) < 24 * 3600_000 && dayKey(last.payload?.date) >= dayKey(todayMskKey());
   if (last?.event_type === 'slot_offer' && fresh && last.payload?.model && last.payload?.date) {
     const { model, date } = last.payload;
     if (YES_RE.test(t)) {
@@ -1472,7 +1474,10 @@ async function startDealFromOffer(
   text: string,
 ): Promise<AlinaReply> {
   if (dayClosedOn()) return dayWaitReply();
-  if (!offer.is_open || (offer.slots_left ?? 0) <= 0) {
+  // Клиент уже занимает строку этой модели на сегодня (его записал менеджер или бронь): места в плане «0», но ему они не нужны, продолжаем с его строкой.
+  const ownRows = clientRowsToday(lead.username);
+  const holdsModel = ownRows.state === 'ok' && ownRows.rows.some((x) => normModel(x.model) === normModel(offer.product_name || ''));
+  if (!holdsModel && (!offer.is_open || (offer.slots_left ?? 0) <= 0)) {
     const open = await getOpenProductChoices();
     return r(msgColorUnavailable(
       offer.product_name || 'этой модели',
