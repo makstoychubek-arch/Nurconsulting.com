@@ -54,6 +54,30 @@ Deno.serve(async (req) => {
         await admin.from('alina_settings').upsert({ key: 'statusBackfillReport', value: { at: new Date().toISOString(), applied, count: data.length, filled: filled.slice(0, 400), peek, headers: sheet.headers } });
         await admin.from('alina_settings').upsert({ key: 'statusBackfill', value: { run: false } });
     }
+    // Разовое освобождение строк по слову владельца (alina_settings.statusRelease {items:[{tg,date,model}], run:true}): очищает логин, дату отзыва, плановую выплату и статус.
+    const { data: rl } = await admin.from('alina_settings').select('value').eq('key', 'statusRelease').maybeSingle();
+    const rlv = (rl?.value ?? null) as { run?: boolean; items?: Array<{ tg: string; date: string; model: string }> } | null;
+    if (rlv?.run && rlv.items?.length) {
+        const out: string[] = [];
+        const data: Array<{ range: string; values: string[][] }> = [];
+        for (const it of rlv.items) {
+            const hit = sheet.rows.filter((rw) => rw.tg === normTg(it.tg) && rw.model === it.model && rw.date === it.date);
+            if (hit.length !== 1) { out.push(`${it.tg}: строк ${hit.length}, пропуск`); continue; }
+            const rw = hit[0];
+            if (sheet.col.price != null && String(rw.cells[sheet.col.price] ?? '').trim() !== '') { out.push(`${it.tg}: в строке уже есть заказ, пропуск`); continue; }
+            for (const f of ['tg', 'review_date', 'payout_plan', 'status']) {
+                const ci = sheet.col[f];
+                if (ci != null) data.push({ range: `'${TAB}'!${colLetter(ci)}${rw.row}`, values: [['']] });
+            }
+            out.push(`${it.tg}: строка ${rw.row} освобождена`);
+        }
+        let applied = false;
+        if (data.length) {
+            const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(30000), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) }).catch(() => null);
+            applied = Boolean(w?.ok);
+        }
+        await admin.from('alina_settings').upsert({ key: 'statusRelease', value: { run: false, at: new Date().toISOString(), applied, out } });
+    }
     const { data: snapRow } = await admin.from('alina_settings').select('value').eq('key', 'statusSnap').maybeSingle();
     const prev = (snapRow?.value ?? null) as Record<string, string> | null;
     const { snap, changes } = planStatusChanges(prev, sheet, idCol >= 0 ? idCol : undefined);
