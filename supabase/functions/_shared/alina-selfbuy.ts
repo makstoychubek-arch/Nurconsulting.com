@@ -43,6 +43,7 @@ import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdach
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { dayApproved } from './alina-dayplan.ts';
+import { releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
 import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, ruDay, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
@@ -2023,19 +2024,28 @@ async function handleCantFindFilters(
     // yes → ниже отправим batch
   } else if (cantFindProduct(text)) {
     if (round >= 2) {
-      // Обе пачки фильтров отправлены, а клиент всё равно не находит (регион, недоступная карточка): не крутим одно и то же, передаём менеджеру один раз.
-      const { data: done } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'filters_escalated')
-        .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(1);
-      if (done && done.length) return { replies: [] };
-      const group = await managerGroupId();
-      await logEvent(db, lead.id, lead.chat_id, 'filters_escalated', { text });
-      if (group) {
-        return {
-          replies: ['Передала менеджеру, он посмотрит и подскажет.'],
-          escalate: { topic: 'не находит товар', question: `Клиент не находит товар даже с фильтрами: «${text.slice(0, 200)}». Модель: ${lead.product_name || '—'}, ключ: ${lead.keyword || '—'}. Посмотрите регион и доступность карточки.`, group },
-        };
+      // Лесенка (владелец, 25 ноября 2026): фильтры → точное главное фото карточки → извиняемся и освобождаем место другим.
+      const { data: sentPhoto } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'main_photo_sent')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      if (!sentPhoto || !sentPhoto.length) {
+        const mine = await resolveLeadArticle(lead, camp).catch(() => null);
+        const photo = mine?.article ? await fetchWbMainPhoto(mine.article).catch(() => null) : null;
+        if (photo?.bytes) {
+          await logEvent(db, lead.id, lead.chat_id, 'main_photo_sent', { text });
+          return {
+            replies: [`Вот точное главное фото нашего товара. Найдите его в выдаче по ключу${lead.keyword ? ` «${lead.keyword}»` : ''} и пришлите скрин 🙌`],
+            photos: [{ bytes: photo.bytes, mime: photo.mime, filename: photo.filename, caption: '' }],
+          };
+        }
       }
-      return r('Попробуйте сортировку «Популярные» и без лишних фильтров кроме тех, что скидывала. Потом скрин поиска с ключом сверху 🙌');
+      // Фото уже отправляли (или его нет), а товар всё равно не находят: извиняемся и сразу отдаём место другим.
+      const { data: done } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'not_found_released')
+        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+      if (done && done.length) return { replies: [] };
+      const row = await releaseClientPlace(db, lead).catch(() => null);
+      await updateLead(db, lead.id, { status: 'closed', sheet_row: null, last_client_text: text });
+      await logEvent(db, lead.id, lead.chat_id, 'not_found_released', { text, row });
+      return r('Извините, не получилось помочь найти товар 🙏 Освобождаю ваше место, чтобы его смогли занять другие. Если захотите попробовать ещё раз в другой день, напишите.');
     }
     if (round === 1) {
       // сразу вторая пачка без повторного «хотите?»
