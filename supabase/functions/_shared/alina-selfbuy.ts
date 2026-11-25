@@ -1494,7 +1494,7 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
         const near = slots.find((x) => x.model.toLowerCase() === m.toLowerCase());
         return `${m} — ${near ? ruDay(near.date, today) : 'пока мест нет'}`;
       });
-      return r(`Такой цвет есть в нескольких вариантах: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
+      return r(`Есть несколько вариантов: ${parts.join('; ')}.`, 'Какой вам подходит? Напишите, и я закреплю место.');
     }
     return null;
   }
