@@ -615,6 +615,24 @@ async function handleAlinaClientMessageInner(opts: {
     if (closedBrain.via === 'ai' && closedBrain.reply) return r(closedBrain.reply);
   }
 
+  // Клиент уже держит строку на сегодня (записан вручную, бронью или после «начинаем?») и отвечает «да» или называет модель: начинаем по его строке, а не «мест нет».
+  if (razdachiRowsMode() && ['new', 'ask_ad', 'ask_type', 'closed'].includes(lead.status) && !lead.deal_type && !hasPhoto && !tooLateForToday() && (isYes(text) || matchModels(PAJAMA_MODEL_NAMES, text).length > 0)) {
+    const own = clientRowsToday(lead.username);
+    const sh = getLastRazdachi()?.sheet;
+    if (own.state === 'ok' && sh && new Set(own.rows.map((x) => normModel(x.model))).size === 1) {
+      const row = own.rows[0];
+      const named = matchModels(PAJAMA_MODEL_NAMES, text);
+      if (!named.length || named.some((n) => normModel(n) === normModel(row.model))) {
+        const keyIdx = sh.col.key;
+        const mine = {
+          date: null, deal_type: 'barter', product_name: row.model, keyword: keyIdx != null ? String(row.cells[keyIdx] ?? '').trim() || null : null,
+          article: null, cashback_pct: null, plan_slots: 1, used_slots: 0, slots_left: 1, order_deadline: null, is_open: true, status_raw: null, tab: '', row_index: 0,
+        } as unknown as SheetPlanOffer;
+        return await startDealFromOffer(db, lead, camp, mine, text);
+      }
+    }
+  }
+
   // Закрытый оффер для новых
   if (
     ['new', 'ask_ad', 'ask_type', 'closed'].includes(lead.status) &&
@@ -1547,6 +1565,8 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
   }
   const k = model.toLowerCase();
   if (slots.some((x) => x.date === today && x.model.toLowerCase() === k)) return null; // сегодня есть место: идём по обычному пути и берём его сразу
+  // Клиент уже держит строку этой модели на сегодня (записан вручную или бронью): «мест нет» ему не говорим, ведём по обычному пути.
+  { const own = clientRowsToday(lead.username); if (own.state === 'ok' && own.rows.some((x) => x.model.toLowerCase() === k)) return null; }
   const near = slots.find((x) => x.model.toLowerCase() === k) ?? null;
   if (!near) {
     // Этой модели нет ни сегодня, ни в ближайшие дни: предлагаем, что есть (по одной ближайшей дате на модель), менеджера не зовём.
