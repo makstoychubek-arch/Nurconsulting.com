@@ -45,6 +45,7 @@ import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { classifyAnswer, worthClassifying } from './alina-intent.ts';
 import { pickupDateFromText } from './alina-dates.ts';
+import { identifyModelFromPhoto } from './alina-model-vision.ts';
 import { dayApproved } from './alina-dayplan.ts';
 import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
@@ -236,6 +237,22 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   // Логин появился у клиента позже (создал в Telegram): подставляем его во все заявки чата, иначе в таблицу писать нечего.
   if (String(opts.username || '').trim()) {
     await admin().from('alina_selfbuy_leads').update({ username: String(opts.username).replace(/^@/, '') }).eq('chat_id', opts.chatId).is('username', null).then(() => undefined, () => undefined);
+  }
+  // ── Алина 2.0: картинка модели вместо названия ───────────────────────────────────────────────────
+  // Клиент без заказа в работе присылает фото или скрин пижамы («вот эта»): определяем модель по нашим фото и дальше ведём, как будто он назвал её словами.
+  if (razdachiRowsMode() && opts.hasPhoto && opts.photoFileId && opts.botToken) {
+    try {
+      const dbm = admin();
+      const { data: ls } = await dbm.from('alina_selfbuy_leads').select('status').eq('chat_id', opts.chatId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+      const st = String((ls as { status?: string } | null)?.status || 'new');
+      const { data: busy } = await dbm.from('alina_selfbuy_leads').select('id').eq('chat_id', opts.chatId)
+        .in('status', ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order', 'wait_size', 'wait_bank', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels']).limit(1);
+      if (['new', 'closed', 'ask_ad', 'ask_type'].includes(st) && !(busy && busy.length)) {
+        const found = await identifyModelFromPhoto(opts.botToken, opts.photoFileId);
+        await logAlinaRawEvent(opts.chatId, 'model_from_photo', { model: found });
+        if (found) opts = { ...opts, text: `${found}${opts.text ? ' ' + opts.text : ''}`, hasPhoto: false, photoFileId: undefined };
+      }
+    } catch (e) { console.warn('[alina2] model photo', e); }
   }
   // ── Алина 2.0: ожидаемый ответ и понимание коротких ответов ───────────────────────────────────────────
   if (razdachiRowsMode() && (opts.text || '').trim() && !opts.hasPhoto) {
