@@ -979,6 +979,8 @@ async function handleAlinaClientMessageInner(opts: {
       const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER() : MSG_ASK_BANK_CASHBACK();
       return r(bankMsg);
     }
+    // Клиент пишет, что заказал: отвечаем всегда (не подавляем как повторный вопрос), просим именно скрин.
+    if (/заказал|оформил|выкупил|купил/i.test(text)) return r('Отлично! Пришлите скрин заказа: видны цена, город/ПВЗ и дата получения 🙌');
     return rAsk('wait_order', 'После оформления пришлите скрин заказа: цена, город/ПВЗ, дата получения.');
   }
 
@@ -1049,7 +1051,7 @@ async function handleAlinaClientMessageInner(opts: {
     // «Забрала / получила» (или скрин получения): записываем фактическую дату сегодняшней, просим фото разрезанных ШК.
     // Даты вроде «28.11» здесь не получение: это интеграция или вопрос, фактическую дату сами не ставим.
     const vision = hasPhoto ? await readScreen('pickup') : null;
-    const photoIsPickup = Boolean(vision && vision.via === 'ai' && String(vision.kind) === 'pickup');
+    const photoIsPickup = Boolean(vision && vision.via === 'ai' && String(vision.kind) === 'pickup' && vision.ok === true);
     if (RECEIVED_RE.test(text) || photoIsPickup) {
       await updateLead(db, lead.id, {
         pickup_at: new Date().toISOString().slice(0, 10),
@@ -1063,6 +1065,7 @@ async function handleAlinaClientMessageInner(opts: {
       return r('Отлично! Пришлите, пожалуйста, фото с разрезанными штрихкодами WB 🙌');
     }
     if (hasPhoto) return { replies: [] };
+    if (/заказал|оформил|выкупил/i.test(text)) return r('Заказ у вас уже записан ✅ Когда он придёт в пункт выдачи, я напомню 🙌');
     // Задержка, «не пришло», «нет ссылки» и подобное: коротко отвечаем, дату в таблице меняет менеджер.
     if (shouldUseBrain({ text, status: 'wait_pickup', hasPhoto, matchedProduct: false })) {
       const { brain } = await runBrain();
