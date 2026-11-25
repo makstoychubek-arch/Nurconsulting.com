@@ -49,8 +49,9 @@ const FIELD_HEADERS: Record<string, RegExp> = {
 };
 
 // Поля, по которым видно, что процесс по строке уже начался.
+// «Дата публикации отзыва» сюда тоже не входит: её Алина ставит заготовкой при брони, и после ручной очистки логина она оставалась в строке, а место считалось занятым (25.11.2026, строка 16).
 // «Ключ» сюда не входит: в таблице МАРС он вписан заранее у каждой размеченной строки (это план, а не признак начатого процесса), из-за чего все места считались занятыми.
-const STARTED_FIELDS = ['price', 'pickup_plan', 'pickup_fact', 'review_date', 'review_kind', 'requisites', 'integration', 'published'];
+const STARTED_FIELDS = ['price', 'pickup_plan', 'pickup_fact', 'review_kind', 'requisites', 'integration', 'published'];
 
 export function normTg(raw: unknown): string {
   let s = String(raw ?? '').normalize('NFKC').replace(/[​-‍﻿]/g, '').trim().toLowerCase();
