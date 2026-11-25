@@ -536,6 +536,26 @@ async function handleAlinaClientMessageInner(opts: {
     return await startDealFromOffer(db, lead, camp, hit, text);
   };
 
+  // Главное фото (владелец, 25 ноября 2026): если клиент просит главное фото карточки, даём настоящее главное фото WB (или по «да» на наше предложение).
+  if (razdachiRowsMode() && !hasPhoto && ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'ask_filters'].includes(String(lead.status))) {
+    let wantMain = MAIN_PHOTO_RE.test(text);
+    if (!wantMain && isYes(text)) {
+      const { data: offer } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'main_photo_offer')
+        .gt('created_at', new Date(Date.now() - 6 * 3600_000).toISOString()).limit(1);
+      wantMain = Boolean(offer && offer.length);
+    }
+    if (wantMain) {
+      const mine = await resolveLeadArticle(lead, camp).catch(() => null);
+      const photo = mine?.article ? await fetchWbMainPhoto(mine.article).catch(() => null) : null;
+      if (photo?.bytes) {
+        await logEvent(db, lead.id, lead.chat_id, 'main_photo_sent', { text });
+        return {
+          replies: [`Вот главное фото нашего товара. Найдите его в выдаче${lead.keyword ? ` по ключу «${lead.keyword}»` : ''} и пришлите скрин 🙌`],
+          photos: [{ bytes: photo.bytes, mime: photo.mime, filename: photo.filename, caption: '' }],
+        };
+      }
+    }
+  }
   // Фото товара с WB (по контексту диалога / названию в сообщении)
   // Фото модели шлём только в начале (выбор модели). Когда процесс идёт дальше или речь про отзыв («пример фото отзыва»), фото пижамы не отправляем.
   const lateStage = ['wait_bank', 'wait_size', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status));
@@ -1414,6 +1434,9 @@ async function handleSizeMissing(db: SupabaseClient, lead: SelfbuyLead, text: st
   return r('Извините, у других выходят все размеры, это связано с регионом.', 'Ваше место передаём другому, спасибо 🙏');
 }
 
+/** Клиент просит главное фото карточки. */
+const MAIN_PHOTO_RE = /главн\S*\s+(?:фото\S*|страниц\S*|картинк\S*|карточк\S*)|фото\s+главн\S*|точное\s+фото/i;
+
 const QTY_RE = /(?:можно|могу|мож\S*|хочу|хотела|возьм\S*|взять)\s+(?:сразу\s+)?(?:две|2(?!\s*в\s*\d)|два|обе|оба|три|3(?!\s*в\s*\d)|несколько|больше\s+одн\S*|ещ[её]\s+одн\S*)\s*(?:модел\S*|костюм\S*|пижам\S*|штук\S*|комплект\S*|шт\b)?|сколько\s+(?:костюм\S*|пижам\S*|модел\S*|штук|комплект\S*)?\s*(?:можно|могу|мне)?\s*(?:взять|заказать|получить)|сколько\s+могу\s+взять|(?:две|2(?!\s*в\s*\d)|два)\s+(?:модел\S*|костюм\S*|пижам\S*)\s+(?:можно|возможн\S*)/i;
 
 /** Вопрос про несколько моделей: Алина отвечает честно по наличию, по правилу «по очереди одну за другой». */
@@ -2249,8 +2272,8 @@ async function handleCantFindFilters(
     }
     // yes → ниже отправим batch
   } else if (cantFindProduct(text)) {
-    if (round >= 2) {
-      // Лесенка (владелец, 25 ноября 2026): фильтры → точное главное фото карточки → извиняемся и освобождаем место другим.
+    if (round >= 0) {
+      // Лесенка (владелец, 25 ноября 2026): фильтров нет вообще: сразу главное фото с подписью «по фото не ищем» карточки → извиняемся и освобождаем место другим.
       const { data: sentPhoto } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'main_photo_sent')
         .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
       if (!sentPhoto || !sentPhoto.length) {
@@ -2259,7 +2282,7 @@ async function handleCantFindFilters(
         if (photo?.bytes) {
           await logEvent(db, lead.id, lead.chat_id, 'main_photo_sent', { text });
           return {
-            replies: [`Вот точное главное фото нашего товара. Найдите его в выдаче по ключу${lead.keyword ? ` «${lead.keyword}»` : ''} и пришлите скрин 🙌`],
+            replies: [`Вот главное фото нашего товара. По фото не ищем: вбейте ключ${lead.keyword ? ` «${lead.keyword}»` : ''} в поиск, найдите этот товар и пришлите скрин 🙌`],
             photos: [{ bytes: photo.bytes, mime: photo.mime, filename: photo.filename, caption: '' }],
           };
         }
