@@ -426,6 +426,13 @@ async function handleAlinaClientMessageInner(opts: {
       if (mine?.article) article = mine.article;
       const ref = article ? await fetchWbMainPhoto(article).catch(() => null) : null;
       if (ref?.bytes) reference = { bytes: ref.bytes, mime: ref.mime || 'image/jpeg' };
+      // На скрине может быть не только главное фото, но и следующие кадры галереи карточки: берём ещё 2-е и 3-е как эталоны.
+      if (article) {
+        for (const idx of [2, 3]) {
+          const extra = await fetchWbMainPhoto(article, idx).catch(() => null);
+          if (extra?.bytes) abRefs.push({ bytes: extra.bytes, mime: extra.mime || 'image/jpeg' });
+        }
+      }
       // A/B-тест меняет главное фото карточки: клиент мог снять скрин с прошлым вариантом, поэтому сверяем и с ними.
       if (article) {
         try {
@@ -1256,6 +1263,12 @@ async function startSecondModelLead(db: SupabaseClient, lead: SelfbuyLead, text:
 /** Модель не уверена, наш ли товар на скрине: клиенту «сверю с менеджером», менеджерам вопрос с пометкой модели. */
 async function visionToManager(lead: SelfbuyLead, v: { notes?: string; search_query?: string | null; has_our_product?: boolean | null }): Promise<AlinaReply> {
   await logAlinaRawEvent(lead.chat_id, 'vision_unsure', { notes: v.notes || null, query: v.search_query || null, has_our: v.has_our_product ?? null });
+  // Первый сомнительный скрин за 3 часа: не дёргаем менеджера, просим прислать чётче. Второй подряд уходит менеджеру.
+  {
+    const { data: prevUnsure } = await admin().from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'vision_unsure')
+      .gt('created_at', new Date(Date.now() - 3 * 3600_000).toISOString()).limit(2);
+    if ((prevUnsure || []).length <= 1) return rAsk(String(lead.status), 'Не вижу на скрине наш товар. Пришлите, пожалуйста, скрин ещё раз: сверху запрос, ниже наш товар 🙌');
+  }
   const group = await managerGroupId();
   const question = `Скрин клиента: Алина не уверена, подходит ли он (наш товар/ключ). Модель в заявке: ${lead.product_name || '—'}; ключ: ${lead.keyword || '—'}. Заметка зрения: ${(v.notes || '—').slice(0, 200)}. Посмотрите скрин в чате и ответьте клиенту.`;
   return {

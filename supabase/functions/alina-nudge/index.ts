@@ -144,6 +144,28 @@ Deno.serve(async (req) => {
             if (await send(l.chat_id, text)) { await log(l.chat_id, 'pickup_ask', text); sent.push(`pickup_ask ${l.username}`); }
         }
     }
+    // Утреннее приглашение начать: у клиента закреплено место на сегодня (бронь с прошлых дней), но он ещё не писал. Один раз за день с 10:00 до 14:00 по Москве.
+    if (hm >= 10 * 60 && hm < 14 * 60 && !dry) {
+        if (!sheetToken) sheetToken = await googleAccessToken((await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON')) || '').catch(() => '');
+        const sr = sheetToken ? await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`'${TAB}'!A1:E700`)}?valueRenderOption=FORMATTED_VALUE`, { headers: { Authorization: `Bearer ${sheetToken}` }, signal: AbortSignal.timeout(20_000) }).catch(() => null) : null;
+        const rows0 = ((await sr?.json().catch(() => null))?.values || []) as string[][];
+        let started = 0;
+        for (const r0 of rows0.slice(1)) {
+            if (started >= 8) break;
+            if (String(r0[3] || '').trim() !== dayKey || !String(r0[2] || '').trim() || String(r0[4] || '').trim()) continue;
+            const un = String(r0[2]).replace(/^@/, '').trim();
+            if (skip.has(un.toLowerCase())) continue;
+            const { data: ld } = await admin.from('alina_selfbuy_leads').select('chat_id, status').ilike('username', un).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+            const chat = (ld as { chat_id?: number; status?: string } | null);
+            if (!chat?.chat_id || !['closed', 'new', 'ask_ad'].includes(String(chat.status))) continue;
+            if (await done(chat.chat_id, 'start_ask')) continue;
+            const { data: today0 } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', chat.chat_id).eq('event_type', 'chat_log').gt('created_at', new Date(now - 6 * 3600_000).toISOString()).limit(1);
+            if (today0 && today0.length) continue; // клиент или менеджер уже общаются сегодня
+            const model = String(r0[0] || '').replace(/^Пижама\s+/i, '');
+            const text = `Доброе утро! Сегодня ваше место на «${model}». Начинаем? Заказать нужно до 22:00 по Москве. Напишите «да», и пришлю условия 🙌`;
+            if (await send(chat.chat_id, text)) { await log(chat.chat_id, 'start_ask', text); sent.push(`start_ask ${un}`); started++; }
+        }
+    }
     // 2 этап: клиент не прислал ШК или черновик отзыва больше суток, напоминаем раз в день днём; отзыв отправлен менеджеру, а ответа нет 3 часа: напоминаем в группу.
     if (hm >= 11 * 60 && hm < 19 * 60 && !dry) {
         const { data: st2 } = await admin.from('alina_selfbuy_leads').select('id, chat_id, username, status, updated_at, product_name').in('status', ['wait_shk', 'wait_review']).limit(60);
