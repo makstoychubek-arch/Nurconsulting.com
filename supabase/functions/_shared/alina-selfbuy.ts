@@ -566,7 +566,7 @@ async function handleAlinaClientMessageInner(opts: {
       if (photo?.bytes) {
         await logEvent(db, lead.id, lead.chat_id, 'main_photo_sent', { text });
         return {
-          replies: [`Вот главное фото нашего товара. Найдите его в выдаче${lead.keyword ? ` по ключу «${lead.keyword}»` : ''} и пришлите скрин 🙌`],
+          replies: [`Вот главное фото нашего товара. По фото не ищем: вбейте ключ${lead.keyword ? ` «${lead.keyword}»` : ''} в поиск, найдите этот товар и пришлите скрин 🙌`],
           photos: [{ bytes: photo.bytes, mime: photo.mime, filename: photo.filename, caption: '' }],
         };
       }
