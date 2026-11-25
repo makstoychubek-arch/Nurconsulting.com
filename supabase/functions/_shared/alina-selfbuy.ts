@@ -43,7 +43,7 @@ import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdach
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
 import { dayApproved } from './alina-dayplan.ts';
-import { releaseClientPlace } from './alina-razdachi-sync.ts';
+import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
 import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, ruDay, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
@@ -1025,6 +1025,25 @@ async function handleAlinaClientMessageInner(opts: {
     return r(MSG_PICKUP_LATER);
   }
 
+  // Клиент просит перенести публикацию («не успеваю», «задерживаюсь»): сначала предлагаем перенос на завтра, после «да» двигаем дату в таблице (владелец, 25 ноября 2026).
+  if (razdachiRowsMode() && !hasPhoto && ['wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status))) {
+    const { data: offerEv } = await db.from('alina_selfbuy_events').select('id, payload, created_at').eq('chat_id', opts.chatId).eq('event_type', 'review_move_offer')
+      .gt('created_at', new Date(Date.now() - 6 * 3600_000).toISOString()).order('created_at', { ascending: false }).limit(1);
+    const offer = (offerEv || [])[0] as { payload?: { date?: string } } | undefined;
+    if (offer && isYes(text)) {
+      const date = String(offer.payload?.date || '');
+      const row = date ? await moveReviewDate(db, lead, date).catch(() => null) : null;
+      await logEvent(db, lead.id, opts.chatId, 'review_move_done', { date, row });
+      return row ? r(`Хорошо, перенесла публикацию на ${date} ✅`) : r('Хорошо, передала менеджеру, он поправит дату 🙌');
+    }
+    if (/не\s+успе\S*|задерж\S*|перенес\S*|попозже|позже\s+(?:опубл|выл|сниму|сделаю)|не\s+смогу\s+(?:опубл|выл)/i.test(text)) {
+      const d = new Date(Date.now() + 3 * 3600_000 + 86400_000);
+      const date = `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${d.getUTCFullYear()}`;
+      await logEvent(db, lead.id, opts.chatId, 'review_move_offer', { date, text });
+      return rAsk(String(lead.status), `Поняла. Можем перенести публикацию на завтра, ${date}. Подойдёт?`);
+    }
+  }
+
   // ── wait_pickup: ждём, когда заказ заберут ───────────────────────────────
   if (lead.status === 'wait_pickup') {
     // «Забрала / получила» (или скрин получения): записываем фактическую дату сегодняшней, просим фото разрезанных ШК.
@@ -1405,6 +1424,14 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     const ctx = (recent || []).map((e) => e.payload as { dir?: string; text?: string }).filter((p) => p?.dir === 'client').map((p) => String(p.text || '')).reverse().join(' ');
     const narrowed = matchModels(models, `${ctx} ${t}`);
     if (narrowed.length === 1) hit = narrowed;
+  }
+  // «А 3 в 1 появятся?», «когда будет 2 в 1?»: называем для каждой модели этого формата ближайшую дату со свободным местом.
+  if (hit.length > 1 && /появ|будет|будут|когда|есть\s+ли|доступн|остал/i.test(t)) {
+    const parts = hit.map((m) => {
+      const near = slots.find((x) => x.model.toLowerCase() === m.toLowerCase());
+      return `${m.replace(/^Пижама\s+/i, '')}: ${near ? ruDay(near.date, today) : 'пока мест нет'}`;
+    });
+    return { ...r(`Ближайшие места: ${parts.join('; ')}. Какую забронировать?`), tag: 'models' as const };
   }
   if (hit.length > 1) {
     // Цвет есть в нескольких форматах (2в1 и 3в1), а сегодня место только у части: не выбираем за клиента.

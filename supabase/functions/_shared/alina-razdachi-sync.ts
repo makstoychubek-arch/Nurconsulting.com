@@ -298,6 +298,24 @@ export async function releaseClientPlace(db: SupabaseClient, lead: Lead): Promis
   return target.row;
 }
 
+/** Перенести «Дату публикации отзыва» клиента на другую дату (по его просьбе и после его согласия). Возвращает номер строки или null. */
+export async function moveReviewDate(db: SupabaseClient, lead: Lead, newDate: string): Promise<number | null> {
+  const ctx = await placeCtx(db);
+  const tg = normTg(lead.username);
+  if (!ctx || !tg || !lead.product_name) return null;
+  const io = sheetIO(ctx.sheetId, await googleAccessToken(ctx.saJson));
+  const fresh = await io.read(`'${ctx.tab.replace(/'/g, "''")}'!A1:AZ2000`);
+  const sheet = (fresh && parseRazdachiSheet(fresh)) || ctx.sheet;
+  if (sheet.col.review_date == null) return null;
+  const mine = sheet.rows.filter((r) => r.tg === tg && normModel(r.model) === normModel(lead.product_name || ''));
+  const target = mine.sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!target) return null;
+  const q = `'${ctx.tab.replace(/'/g, "''")}'`;
+  if (!await io.batchWrite([{ range: `${q}!${colLetter(sheet.col.review_date)}${target.row}`, value: newDate }])) return null;
+  await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'review_date_moved', payload: { row: target.row, date: newDate } }).then(() => undefined, () => undefined);
+  return target.row;
+}
+
 /** Бронь на выбранную дату по согласию клиента. */
 export async function bookPlace(db: SupabaseClient, lead: Lead, model: string, date: string): Promise<'claimed' | 'taken' | 'failed'> {
   const r = await claimOn(db, lead, model, date, todayMskKey());
