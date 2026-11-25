@@ -359,4 +359,8 @@ export function mskMinutes(now = Date.now()): number {
 let lateException = false;
 export const setLateException = (v: boolean): void => { lateException = v; };
 export const lateExceptionOn = (): boolean => lateException;
-export const tooLateForToday = (now = Date.now()): boolean => !lateException && mskMinutes(now) >= TODAY_CUTOFF_MIN;
+/** День ещё не согласован владельцем (alina_settings.dayPlan): места на сегодня не отдаём, как после 20:30. */
+let dayClosed = false;
+export const setDayClosed = (v: boolean): void => { dayClosed = v; };
+export const dayClosedOn = (): boolean => dayClosed && !lateException;
+export const tooLateForToday = (now = Date.now()): boolean => !lateException && (dayClosed || mskMinutes(now) >= TODAY_CUTOFF_MIN);

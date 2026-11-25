@@ -42,8 +42,9 @@ import {
 import { bookPlace, parseIntegrationDate, takePlaceToday } from './alina-razdachi-sync.ts';
 import { PAJAMA_MODEL_NAMES, pajamaPhotosFor } from './alina-pajama-photos.ts';
 import { humanizeReplies } from './alina-humanize.ts';
+import { dayApproved } from './alina-dayplan.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, ruDay, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, ruDay, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -229,6 +230,8 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     const me = String(opts.username || '').replace(/^@/, '').toLowerCase();
     setLateException(Number.isFinite(until) && until > Date.now() && (!only || only === me));
   } catch { setLateException(false); }
+  // План дня должен быть согласован владельцем (ответ «ок» в группе менеджеров), пока нет, места на сегодня не отдаём.
+  try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
   let res = await handleAlinaClientMessageInner(opts);
   // Алина пообещала фото («вот обе», «секунду, отправлю»), а фото в ответе нет: добавляем свои фото моделей, иначе клиент остаётся с пустым обещанием.
   if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => /вот обе|вот фото|вот они|отправлю|пришлю фото|высылаю фото|подписала/i.test(x))) {
@@ -552,6 +555,7 @@ async function handleAlinaClientMessageInner(opts: {
       const late = tooLateForToday();
       const first = sheet ? freeSlots(sheet, today, 14).find((x) => !late || x.date !== today) : null; // только ближайшая дата, весь план не перечисляем
       if (first) {
+        if (dayClosedOn()) return { ...r('Сейчас уточняю наличие на сегодня и вернусь к вам в течение дня 🙌'), tag: 'models' as const };
         return { ...r(`${late ? 'На сегодня уже не успеть: заказ до 22:00 МСК' : 'На сегодня всё занято'} 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
       }
     }
