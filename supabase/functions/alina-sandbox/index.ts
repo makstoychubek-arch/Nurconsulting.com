@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleAlinaClientMessage } from '../_shared/alina-selfbuy.ts';
 import { TEXT_DEFS } from '../_shared/alina-templates.ts';
 import { handleSandbox } from './handler.ts';
+import { buildPulse, setGuardian } from '../_shared/alina-pulse.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -24,6 +25,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    // Пульт Алины (Алина 2.0): только чтение картины дня и переключатели стража (только суперадмин).
+    if (body.action === 'pulse') { try { return json(await buildPulse(admin)); } catch (e) { return json({ ok: false, error: String((e as Error)?.message || e).slice(0, 200) }, 500); } }
+    if (body.action === 'guardian_set') return json(await setGuardian(admin, { watchdog: body.watchdog, waitlist: body.waitlist }));
     const result = await handleSandbox(body, user.id, {
         handle: (opts) => handleAlinaClientMessage(opts) as never,
         leadState: async (chatId) => {
