@@ -536,6 +536,22 @@ async function handleAlinaClientMessageInner(opts: {
     return await startDealFromOffer(db, lead, camp, hit, text);
   };
 
+  // Реквизиты без просьбы (владелец, 25 ноября 2026): клиент прислал их сам до нужного шага. Не записываем молча, а переспрашиваем «это реквизиты?».
+  if (razdachiRowsMode() && !hasPhoto && !lead.bank_details && lead.status !== 'wait_bank' && lead.status !== 'wait_integration' && ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order', 'wait_size'].includes(String(lead.status))) {
+    const { data: ask } = await db.from('alina_selfbuy_events').select('payload').eq('chat_id', lead.chat_id).eq('event_type', 'requisites_ask')
+      .gt('created_at', new Date(Date.now() - 30 * 60_000).toISOString()).order('created_at', { ascending: false }).limit(1);
+    const pending = ((ask || [])[0]?.payload as { text?: string } | undefined)?.text;
+    if (pending && isYes(text)) {
+      await updateLead(db, lead.id, { bank_details: pending.slice(0, 1000), last_client_text: '[реквизиты]' });
+      await logEvent(db, lead.id, opts.chatId, 'bank_done', { early: true });
+      await syncLeadToSheet(db, lead.id);
+      return { replies: [], react: '❤', reactFallback: '❤' };
+    }
+    if (looksLikeBank(text)) {
+      await logEvent(db, lead.id, opts.chatId, 'requisites_ask', { text });
+      return r('Это реквизиты для выплаты?');
+    }
+  }
   // Главное фото (владелец, 25 ноября 2026): если клиент просит главное фото карточки, даём настоящее главное фото WB (или по «да» на наше предложение).
   if (razdachiRowsMode() && !hasPhoto && ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'ask_filters'].includes(String(lead.status))) {
     let wantMain = MAIN_PHOTO_RE.test(text);

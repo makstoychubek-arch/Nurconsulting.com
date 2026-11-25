@@ -2,9 +2,10 @@ import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
 import { askAlinaManager, managerGroupId } from './alina-manager.ts';
-import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAngry, isGreetingOnly, promisesMore, recentWindowMs, splitLong, startsWithGreeting, unsafeReply, wantsHuman, withReplyContext } from './alina-guard.ts';
+import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAck, isAngry, isGreetingOnly, promisesMore, recentWindowMs, splitLong, startsWithGreeting, unsafeReply, wantsHuman, withReplyContext } from './alina-guard.ts';
 import { loadAlinaSettings } from './alina-settings.ts';
 import { normLogin } from './alina-gate.ts';
+import { pickAckEmoji } from './alina-ack.ts';
 
 type BotId = 'alina' | 'alina2';
 type ClientUpdate = Extract<NonNullable<ReturnType<typeof parseAlinaBusinessUpdate>>, { kind: 'client' }>;
@@ -155,9 +156,17 @@ export async function processAlinaTelegramUpdate(
             body: JSON.stringify({ chat_id: message.chatId, message_id: message.messageId, business_connection_id: message.connectionId, reaction: [{ type: 'emoji', emoji: reactEmoji }] }),
           }).then((x) => x.json()).catch(() => null);
           await logAlinaRawEvent(message.chatId, rr?.ok === true ? 'reaction_set' : 'reaction_failed', { update_id: message.updateId, error: rr?.ok === true ? undefined : String(rr?.description || '').slice(0, 100) });
-          if (rr?.ok !== true && reactFallback) replies = [reactFallback, ...replies];
+          if (rr?.ok !== true && reactFallback) replies = [pickAckEmoji(), ...replies];
         } else if (reactEmoji && reactFallback) {
-          replies = [reactFallback, ...replies];
+          // Вместо «приняла ✅» одна короткая «реакция» из эмодзи (владелец, 25 ноября 2026).
+          replies = [pickAckEmoji(), ...replies];
+        }
+        // Сообщение, на которое отвечать не обязательно («ок», «спасибо», «жду»): в основном ставим «реакцию» разными эмодзи, иногда молчим.
+        if (!replies.length && !(photos && photos.length) && !escalate && !reactEmoji && isAck(text) && Math.random() < 0.75) {
+          const { data: lastOut } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').order('created_at', { ascending: false }).limit(3);
+          const outs = (lastOut || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || ''));
+          if (!outs.slice(0, 2).some((t) => /^\p{Extended_Pictographic}[\u200d\ufe0f\p{Extended_Pictographic}]*$/u.test(t.trim()))) replies = [pickAckEmoji(outs)];
         }
         if (escalate) {
           // Вопрос менеджерам. Клиент получает «уточню» только если вопрос действительно дошёл до группы.
