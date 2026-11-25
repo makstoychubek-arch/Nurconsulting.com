@@ -238,13 +238,13 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
   let res = await handleAlinaClientMessageInner(opts);
   // Алина пообещала фото («вот обе», «секунду, отправлю»), а фото в ответе нет: добавляем свои фото моделей, иначе клиент остаётся с пустым обещанием.
-  if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => /вот обе|вот фото|вот они|отправлю|пришлю фото|высылаю фото|подписала/i.test(x))) {
+  if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => x.length < 140 && /вот обе|вот фото|вот они|секунду,?\s*отправлю|сейчас\s+отправлю|пришлю\s+фото|высылаю\s+фото|подписала/i.test(x))) {
     try {
       const db0 = admin();
       const { data: l0 } = await db0.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (l0) {
         const ph = await handleProductPhotoRequest(db0, l0 as SelfbuyLead, null, 'покажите все модели');
-        if (ph?.photos?.length) res = { ...res, photos: ph.photos, replies: res.replies.filter((x) => !/отправлю|пришлю фото/i.test(x)) };
+        if (ph?.photos?.length) res = { ...res, photos: ph.photos, replies: res.replies.filter((x) => !(x.length < 140 && /секунду,?\s*отправлю|сейчас\s+отправлю|пришлю\s+фото/i.test(x))) };
       }
     } catch (e) { console.warn('[alina] photo promise', e); }
   }
@@ -1997,7 +1997,7 @@ function cantFindProduct(text: string): boolean {
 }
 
 function isYes(text: string): boolean {
-  return /^(да|даа|дааа|ага|угу|yes|yep|ок|окей|давай|конечно|хочу|надо|скинь|пришли)([!?.…]|\s|$)/i
+  return /^(да|даа|дааа|ага|угу|yes|yep|ок|окей|давай|давайте|конечно|хочу|надо|скинь|пришли|подходит|согласн\S*|беру|берём|берем|хорошо|отлично|ладно)([!?.…,;:)]|\s|$)/i
     .test(text.trim());
 }
 
