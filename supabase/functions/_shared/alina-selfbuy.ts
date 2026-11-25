@@ -646,6 +646,12 @@ async function handleAlinaClientMessageInner(opts: {
 
   // Режим строк: клиент, которому уже сказали «сегодня мест нет», пишет дальше («хорошо», вопрос): не повторяем список мест, а отвечаем по делу.
   if (razdachiRowsMode() && lead.status === 'closed' && !campaignAccepting(camp) && !hasPhoto) {
+    // Клиент записан на будущий день и уже просит фильтры или пишет «не могу найти»: объясняем, что поиск начнём в его день.
+    if (/фильтр|не\s+могу\s+найти|не\s+нахожу/i.test(text)) {
+      const { data: resv } = await db.from('alina_sheet_reservations').select('order_day').eq('lead_id', lead.id).limit(5);
+      const future = (resv || []).map((x) => String(x.order_day || '')).find((d) => d && d !== todayMskKey());
+      if (future) return r(`Поиск и заказ начнём в ваш день, ${ruDay(future, todayMskKey())}: тогда пришлю ключ и главное фото, фильтры не нужны ✅`);
+    }
     if (isAck(text)) return { replies: [] };
     const { brain: closedBrain } = await runBrain();
     if (closedBrain.via === 'ai' && closedBrain.reply) return r(closedBrain.reply);
