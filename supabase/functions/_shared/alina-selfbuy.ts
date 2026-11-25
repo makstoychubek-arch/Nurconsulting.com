@@ -249,7 +249,7 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     } catch (e) { console.warn('[alina] photo promise', e); }
   }
   // Алина сказала «сегодня мест нет», а в таблице на сегодня места есть (клиент написал неточно: «2 можно?»): вместо отказа называем, что есть сегодня.
-  if (razdachiRowsMode() && !tooLateForToday() && res.replies.length && !(res.photos && res.photos.length) && res.replies.some((x) => /мест\s+нет|нет\s+мест|разобрал|попробуйте\s+завтра|напишите\s+завтра/i.test(x))) {
+  if (razdachiRowsMode() && !tooLateForToday() && res.replies.length && !(res.photos && res.photos.length) && res.replies.some((x) => /мест[^.!?\n]{0,60}\sнет|нет\s+мест|разобрал|попробуйте\s+завтра|напишите\s+завтра/i.test(x))) {
     try {
       const sheet = getLastRazdachi()?.sheet;
       const today = todayMskKey();
