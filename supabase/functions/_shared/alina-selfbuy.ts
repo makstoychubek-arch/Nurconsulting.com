@@ -1425,7 +1425,7 @@ function rAsk(status: string, text: string): AlinaReply {
 }
 
 // ── Бронь места в режиме строк (владелец, 24 ноября 2026) ──
-const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|бронирую|забронируй|бронь|беру|хочу|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?=[\s!.,]|$)/i;
+const YES_RE = /^(да|давай|ок|окей|хорошо|конечно|бронируй|бронирую|забронируй|бронь|беру|хочу|можно|согласн\S*|угу|ага|подходит|пойдёт|пойдет)(?![\p{L}\p{N}_])/iu;
 const NO_RE = /^(нет|не надо|не нужно|не хочу|отмена|не подходит|не буду)(?=[\s!.,]|$)/i;
 
 /** План дня ещё не согласован владельцем: клиентам на сегодня говорим одно, без дальних дат. */
@@ -1496,7 +1496,7 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
         const sheet = getLastRazdachi()?.sheet;
         const near = sheet ? nearestFree(sheet, model!, todayMskKey(), 14) : null;
         if (near) return await offerLater(db, lead, near.model, near.date);
-        return r('Пока писали, это место заняли, а других свободных пока нет. Уточню у менеджера и вернусь к вам.');
+        return r('Вы не успели: это место уже занял другой клиент 🙏');
       }
       return r('Не получилось записать место, уточню у менеджера и вернусь к вам.');
     }
@@ -2203,12 +2203,12 @@ function cantFindProduct(text: string): boolean {
 }
 
 function isYes(text: string): boolean {
-  return /^(да|даа|дааа|ага|угу|yes|yep|ок|окей|давай|давайте|конечно|хочу|надо|скинь|пришли|подходит|согласн\S*|беру|берём|берем|хорошо|отлично|ладно)([!?.…,;:)]|\s|$)/i
+  return /^(да|даа|дааа|ага|угу|yes|yep|ок|окей|давай|давайте|конечно|хочу|надо|скинь|пришли|подходит|согласн\S*|беру|берём|берем|хорошо|отлично|ладно)(?![\p{L}\p{N}_])/iu
     .test(text.trim());
 }
 
 function isNo(text: string): boolean {
-  return /^(нет|не|не надо|не надо|no|неа|не нужно)([!?.…]|\s|$)/i.test(text.trim());
+  return /^(нет|не|не надо|не надо|no|неа|не нужно)(?![\p{L}\p{N}_])/iu.test(text.trim());
 }
 
 function awaitingFiltersYes(lead: SelfbuyLead, text: string): boolean {
