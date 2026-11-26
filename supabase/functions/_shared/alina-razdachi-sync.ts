@@ -310,7 +310,7 @@ export async function releaseClientPlace(db: SupabaseClient, lead: Lead): Promis
   const q = `'${ctx.tab.replace(/'/g, "''")}'`;
   // Вместе с логином убираем даты-заготовки (публикация отзыва и плановая выплата), иначе строка перестанет считаться свободной.
   const clears = [{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: '' }];
-  for (const f of ['review_date', 'payout_plan']) if (sheet.col[f] != null) clears.push({ range: `${q}!${colLetter(sheet.col[f])}${target.row}`, value: '' });
+  for (const f of ['review_date', 'payout_plan', 'status']) if (sheet.col[f] != null) clears.push({ range: `${q}!${colLetter(sheet.col[f])}${target.row}`, value: '' });
   if (!await io.batchWrite(clears)) return null;
   const cached = ctx.sheet.rows.find((r) => r.row === target.row);
   if (cached) cached.tg = '';
