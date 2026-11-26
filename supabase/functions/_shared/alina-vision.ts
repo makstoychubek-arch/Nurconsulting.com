@@ -84,7 +84,7 @@ export async function analyzeAlinaScreenshot(opts: {
   /** Все актуальные эталоны: главное фото сейчас и варианты идущего A/B-теста (главное фото в карточке меняется). */
   references?: { bytes: Uint8Array; mime: string }[] | null;
 }): Promise<VisionResult> {
-  const refs = (opts.references && opts.references.length ? opts.references : opts.reference ? [opts.reference] : []).slice(0, 6);
+  const refs = (opts.references && opts.references.length ? opts.references : opts.reference ? [opts.reference] : []).slice(0, 8);
   const empty: VisionResult = {
     ok: null,
     kind: opts.stage,

@@ -533,6 +533,7 @@ async function handleAlinaClientMessageInner(opts: {
     // Эталон: главное фото нашей карточки с WB. Клиенту оно не уходит, нужно только чтобы сверить, наш ли товар на его скрине.
     let reference: { bytes: Uint8Array; mime: string } | null = null;
     const abRefs: { bytes: Uint8Array; mime: string }[] = [];
+    const abVars: { bytes: Uint8Array; mime: string }[] = []; // варианты идущего A/B-теста: первыми в списке эталонов
     let article = expectArticle;
     if (razdachiRowsMode() && (stage === 'product' || stage === 'cart' || stage === 'order')) {
       const mine = await resolveLeadArticle(lead, camp).catch(() => null);
@@ -557,7 +558,7 @@ async function handleAlinaClientMessageInner(opts: {
             const res = await fetch(u, { signal: AbortSignal.timeout(8000) }).catch(() => null);
             if (res?.ok) {
               const buf = new Uint8Array(await res.arrayBuffer());
-              if (buf.length > 800) abRefs.push({ bytes: buf, mime: res.headers.get('content-type') || 'image/jpeg' });
+              if (buf.length > 800) abVars.push({ bytes: buf, mime: res.headers.get('content-type') || 'image/jpeg' });
             }
           }
         } catch { /* без A/B-эталонов сверяем по главному фото */ }
@@ -571,7 +572,7 @@ async function handleAlinaClientMessageInner(opts: {
       expectProduct: lead.product_name || camp?.product_name,
       expectArticle: article,
       reference,
-      references: reference ? [reference, ...abRefs] : abRefs,
+      references: [...abVars, ...(reference ? [reference] : []), ...abRefs],
     });
   };
 
