@@ -366,6 +366,20 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       }
     } catch (e) { console.warn('[alina] model switch', e); }
   }
+  // «Это за отзыв?», «что взамен?»: коротко объясняем суть бартера и сразу зовём выбрать модель (владелец, 26 ноября 2026).
+  if (razdachiRowsMode() && !opts.photoFileId && (opts.text || '').length <= 120 &&
+    /за\s+(?:отзыв|видео|рилс\S*|рэлс|reels)|(?:это|у\s+вас)\s+бартер|что\s+(?:вза[мм]ен|нужно\s+сделать|надо\s+сделать|я\s+должна)|бесплатно\s*\?|в\s+обмен\s+на/i.test(opts.text || '')) {
+    try {
+      const db4 = admin();
+      const { data: l4 } = await db4.from('alina_selfbuy_leads').select('status').eq('chat_id', opts.chatId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+      const st4 = String((l4 as { status?: string } | null)?.status || 'new');
+      if (['new', 'closed', 'ask_ad', 'ask_type'].includes(st4)) {
+        const sheet4 = getLastRazdachi()?.sheet;
+        const names4 = sheet4 ? [...new Set(freeSlots(sheet4, todayMskKey(), 0).filter((x) => x.date === todayMskKey()).map((x) => x.model.replace(/^Пижама\s+/i, '')))] : [];
+        return { replies: [`Да 🙌 Это бартер: пижама за рилс (видео) и отзыв на WB.${names4.length ? ` Сегодня в наличии: ${names4.join(', ')}. Выберите одну модель 🙌` : ''}`], tag: 'models' } as never;
+      }
+    } catch (e) { console.warn('[alina] barter faq', e); }
+  }
   let res = await handleAlinaClientMessageInner(opts);
   // Алина пообещала фото («вот обе», «секунду, отправлю»), а фото в ответе нет: добавляем свои фото моделей, иначе клиент остаётся с пустым обещанием.
   if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => x.length < 140 && /вот обе|вот фото|вот они|секунду,?\s*отправлю|сейчас\s+отправлю|пришлю\s+фото|высылаю\s+фото|подписала/i.test(x))) {
