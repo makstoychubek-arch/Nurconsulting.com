@@ -434,6 +434,11 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       }
     } catch { /* оставляем как есть */ }
   }
+  // «Когда будет 3в1?», «может завтра?»: честно говорим, что броней на другие дни нет, и показываем, что есть сегодня.
+  if (razdachiRowsMode() && todayOnlyOn() && res.replies.length && (res as { tag?: string }).tag === 'models' &&
+    /когда\s+будет|будут\s+ли|в\s+какой\s+день|может\s+завтра|а\s+завтра|на\s+завтра/i.test((opts.text || '').replace(/\s*\(в ответ на[\s\S]*$/, ''))) {
+    res = { ...res, replies: res.replies.map((x, i) => (i === 0 ? `Бронь на другие дни пока не делаем, когда появятся новые места, мы напишем 🙌 ${x}` : x)) };
+  }
   // Осталась одна модель на сегодня: не просим выбирать из списка, а прямо говорим, что доступна одна (владелец, 26 ноября 2026).
   if (razdachiRowsMode() && res.replies.length && (res as { tag?: string }).tag === 'models') {
     try {
