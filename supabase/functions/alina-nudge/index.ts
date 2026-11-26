@@ -43,6 +43,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const dry = body.dry_run === true;
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
+    // Бот на паузе (telegram_bots.is_enabled = false, владелец, 26 ноября 2026): сами клиентам не пишем.
+    { const { data: bp } = await admin.from('telegram_bots').select('is_enabled').eq('id', 'alina').maybeSingle(); if (bp && bp.is_enabled === false) return json({ ok: true, paused: true, sent: [] }); }
     const token = (Deno.env.get('ALINA_BOT_TOKEN') || '').trim();
     const now = Date.now();
     const msk = new Date(now + 3 * 3600_000);
