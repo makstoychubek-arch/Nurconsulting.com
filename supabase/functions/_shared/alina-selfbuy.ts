@@ -814,11 +814,13 @@ async function handleAlinaClientMessageInner(opts: {
   }
 
   // Запрос ТЗ / ключа в любой момент
-  if (wantsTz(text)) {
+  // Приписку «(в ответ на «…»)» (цитата сообщения, на которое ответил клиент) в запросах ТЗ и ключа не учитываем: «Я забрала» в ответ на «скиньте скрин…» не просьба прислать ТЗ.
+  const bareText = text.replace(/\s*\(в ответ на[\s\S]*$/, '');
+  if (wantsTz(bareText)) {
     const deal = (lead.deal_type || resolveDealFromCampaign(camp) || 'cashback') as DealType;
     return r(...tzBundle(deal, camp, lead));
   }
-  if (wantsKey(text)) {
+  if (wantsKey(bareText)) {
     return await sendKeyFlow(db, lead, camp, text);
   }
 
