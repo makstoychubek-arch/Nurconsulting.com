@@ -1670,13 +1670,15 @@ async function handleRowsBooking(db: SupabaseClient, lead: SelfbuyLead, text: st
     }
   }
   // Бронь закреплена, клиент отвечает «хорошо / ок / да» или коротким словом: не начинаем заново и не перечисляем места, а коротко подтверждаем.
-  if (last?.event_type === 'slot_booked' && fresh && last.payload?.model && last.payload?.date && !/[?]/.test(t) && t.length <= 40 &&
+  // Только на сегодня: прежняя бронь на другую дату уже не действует (строки перенесены на сегодня), её не повторяем.
+  const staleBook = todayOnlyOn() && last?.event_type === 'slot_booked' && last.payload?.date !== todayMskKey();
+  if (last?.event_type === 'slot_booked' && fresh && !staleBook && last.payload?.model && last.payload?.date && !/[?]/.test(t) && t.length <= 40 &&
     !/заброн|закрепит|запиш/i.test(t) && matchModels(PAJAMA_MODEL_NAMES, t).length === 0) {
     if (isAck(t)) return { replies: [] };
     return r(`Ваше место «${last.payload.model}» на ${ruDay(last.payload.date, todayMskKey())} закреплено ✅ Напишите мне в этот день, и сразу начнём.`);
   }
   // Бронь только что закреплена, а клиент просит «забронируйте»: подтверждаем уже сделанное, а не берём другую модель.
-  if (last?.event_type === 'slot_booked' && fresh && /заброн|закрепит|запиш/i.test(t) && last.payload?.model && last.payload?.date) {
+  if (last?.event_type === 'slot_booked' && fresh && !staleBook && /заброн|закрепит|запиш/i.test(t) && last.payload?.model && last.payload?.date) {
     return r(`Уже закрепила за вами «${last.payload.model}» на ${ruDay(last.payload.date, todayMskKey())} ✅`);
   }
   // 2. Клиент назвал модель, на которую сегодня мест нет
