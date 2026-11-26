@@ -1368,6 +1368,20 @@ async function handleAlinaClientMessageInner(opts: {
       const { brain } = await runBrain();
       if (brain.reply) return rAsk('wait_pickup', brain.reply);
     }
+    // Клиент пишет про дату интеграции или ШК, а ответа нет: не молчим (26 ноября 2026).
+    if (!hasPhoto && !isAck(text)) {
+      if (/интеграц|реклам|дат[аыу]\s+выход/i.test(text)) {
+        const di = parseIntegrationDate(text, true);
+        if (di) {
+          await updateLead(db, lead.id, { notes: withInt(lead.notes, di), last_client_text: text });
+          await syncLeadToSheet(db, lead.id);
+          return r(`Записала дату интеграции: ${di} ✅`);
+        }
+        return rAsk('wait_pickup', 'Записала 👍 Если дата изменится, напишите.');
+      }
+      if (/штрихкод|\bшк\b/i.test(text)) return rAsk('wait_pickup', 'Да, фото с разрезанными штрихкодами пришлите, когда заберёте заказ 🙌');
+      if (text.replace(/\s*\(в ответ на[\s\S]*$/, '').trim().length >= 12) return rAsk('wait_pickup', 'Приняла 👍 Когда заберёте заказ, напишите.');
+    }
     return { replies: [] };
   }
 
