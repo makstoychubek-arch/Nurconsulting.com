@@ -2594,7 +2594,7 @@ async function handleCantFindFilters(
       }
       // Фото уже отправляли (или его нет), а товар всё равно не находят: извиняемся и сразу отдаём место другим.
       const { data: done } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'not_found_released')
-        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+        .gt('created_at', new Date(photoSince).toISOString()).limit(1);
       if (done && done.length) return { replies: [] };
       const row = await releaseClientPlace(db, lead).catch(() => null);
       await updateLead(db, lead.id, { status: 'closed', sheet_row: null, last_client_text: text });
