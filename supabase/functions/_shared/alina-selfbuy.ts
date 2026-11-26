@@ -2472,8 +2472,12 @@ async function handleCantFindFilters(
     }
     if (round >= 0) {
       // Лесенка (владелец, 25 ноября 2026): фильтров нет вообще: сразу главное фото с подписью «по фото не ищем» карточки → извиняемся и освобождаем место другим.
+      // Фото считаем только по текущей модели: после последнего ТЗ (клиент мог сменить модель, и фото прежней не в счёт).
+      const { data: lastTz } = await db.from('alina_selfbuy_events').select('created_at').eq('chat_id', lead.chat_id).eq('event_type', 'tz_sent')
+        .order('created_at', { ascending: false }).limit(1);
+      const photoSince = Math.max(Date.now() - 12 * 3600_000, lastTz?.[0]?.created_at ? Date.parse(lastTz[0].created_at as string) : 0);
       const { data: sentPhoto } = await db.from('alina_selfbuy_events').select('id').eq('chat_id', lead.chat_id).eq('event_type', 'main_photo_sent')
-        .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString()).limit(1);
+        .gt('created_at', new Date(photoSince).toISOString()).limit(1);
       if (!sentPhoto || !sentPhoto.length) {
         const mine = await resolveLeadArticle(lead, camp).catch(() => null);
         const photo = mine?.article ? await fetchWbMainPhoto(mine.article).catch(() => null) : null;
