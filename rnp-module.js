@@ -244,10 +244,10 @@ const RNP = (() => {
             { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
             { key: 'wb_for_withdraw',    label: 'Доступно к выводу',                type: 'som',  src: 'auto',  cabinetOnly: true },
             // Ozon: те же две строки, что у карточки «Баланс» на дашборде (баланс на конец дня и на начало месяца); показываются только в режиме Ozon
-            { key: 'ozon_balance',       label: 'Баланс Ozon (итого)',              type: 'som',  src: 'auto',  bold: true, cabinetOnly: true, ozOnly: true },
-            { key: 'ozon_opening',       label: 'На начало месяца',                 type: 'som',  src: 'auto',  cabinetOnly: true, ozOnly: true },
+            { key: 'ozon_balance',       label: 'Баланс Ozon, ₽',              type: 'som',  src: 'auto',  bold: true, cabinetOnly: true, ozOnly: true },
+            { key: 'ozon_opening',       label: 'На начало месяца, ₽',               type: 'som',  src: 'auto',  cabinetOnly: true, ozOnly: true },
             // Выплаты Ozon вносятся вручную по дням (дату и сумму берут в кабинете Ozon → Финансы → Выплаты), сумма в сомах
-            { key: 'ozon_payout',        label: 'Выплата Ozon',                     type: 'som',  src: 'manual', cabinetOnly: true, ozOnly: true },
+            { key: 'ozon_payout',        label: 'Выплата Ozon, с',                  type: 'som',  src: 'manual', cabinetOnly: true, ozOnly: true },
         ]},
     ];
 
@@ -3277,9 +3277,9 @@ const RNP = (() => {
         wb_balance: ['Баланс WB (итого)', 'Баланс продавца WB на конец дня (виджет «Баланс» на главной странице кабинета). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи.'],
         wb_for_withdraw: ['Доступно к выводу', 'Сколько из баланса можно вывести на конец дня.'],
         comm_after: ['Комиссия после баллов', 'Комиссия Ozon за вычетом баллов за скидки и корректировки вознаграждения: Ozon сначала зачитывает их в комиссию. Если баллов больше комиссии, остаток идёт в доставку и услуги (строка «Остаток баллов»). «К выводу» от этого не меняется. Баллы появляются в отчёте Ozon после закрытия периода, поэтому за свежие дни пока 0.'],
-        ozon_payout: ['Выплата Ozon', 'Выплаты вносятся вручную: дата отправки выплаты и сумма в сомах из кабинета Ozon (Финансы → Выплаты). Впишите сумму в ячейку нужного дня. Баланс в этой же таблице пересчитан в сомы по курсу дня.'],
-        ozon_balance: ['Баланс Ozon (итого)', 'Баланс продавца Ozon на конец дня (как карточка «Баланс» на дашборде). Показан в сомах: рубли из Ozon пересчитаны по курсу дня, поэтому цифра не совпадает с кабинетом Ozon Seller (там рубли и живой баланс). Снимок записывается раз в сутки (около 03:20 по Бишкеку) и дальше не меняется; история копится с первого дня записи, дни без снимка показаны прочерком.'],
-        ozon_opening: ['На начало месяца', 'Баланс Ozon на начало месяца по данным Ozon (в сомах, рубли пересчитаны по курсу). Ozon не отдаёт сумму «Доступно к выводу», поэтому здесь, как и на дашборде, показан баланс на начало месяца.'],
+        ozon_payout: ['Выплата Ozon, с', 'Выплаты вносятся вручную: дата отправки выплаты и сумма в сомах из кабинета Ozon (Финансы → Выплаты). Впишите сумму в ячейку нужного дня. Баланс в этой же таблице пересчитан в сомы по курсу дня.'],
+        ozon_balance: ['Баланс Ozon, ₽', 'Баланс продавца Ozon на конец дня в рублях, как «Текущий баланс» в кабинете Ozon Seller (без пересчёта в сомы). Это снимок, он записывается раз в сутки (около 03:20 по Бишкеку) и дальше не меняется, а в кабинете Ozon баланс живой, поэтому днём цифры могут отличаться. История копится с первого дня записи, дни без снимка показаны прочерком.'],
+        ozon_opening: ['На начало месяца, ₽', 'Баланс Ozon на начало месяца в рублях по данным Ozon. Ozon не отдаёт сумму «Доступно к выводу», поэтому здесь, как и на дашборде, показан баланс на начало месяца.'],
         wb_commission: ['Комиссия WB и вычеты с продаж', 'Реализация − эквайринг − (к перечислению без компенсаций). Всё, что WB удержал с цены продажи: комиссия, скидки по программам и прочие вычеты.'],
         acquiring_sum: ['Эквайринг', 'Комиссия за приём платежей (acquiring_fee) по продажам минус возвраты. Уже вычтена в «К перечислению».'],
         compensation_sum: ['Компенсации WB (плюс)', 'Добровольные компенсации при возврате. Входят в «К перечислению».'],
@@ -6857,7 +6857,7 @@ const RNP = (() => {
         }).filter(Boolean);
         const m = _mergeDerivedMetrics(parts);
         // Ozon: итогов кабинета из финотчёта WB нет, «К выводу» и комиссия считаются из строк Ozon (к перечислению и реализации).
-        if (_mp() === 'ozon' && m) { const b = _ozBal[date]; m.ozon_balance = b ? b.c : null; m.ozon_opening = b ? b.o : null; m.ozon_payout = _ozPay[date] != null ? _ozPay[date] : null; }
+        if (_mp() === 'ozon' && m) { const b = _ozBal[date]; m.ozon_balance = b ? (b.rc != null ? b.rc : b.c) : null; m.ozon_opening = b ? (b.ro != null ? b.ro : b.o) : null; m.ozon_payout = _ozPay[date] != null ? _ozPay[date] : null; }
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
@@ -6938,7 +6938,7 @@ const RNP = (() => {
     let _ozBal = {};
     let _ozPay = {};
     let _ozBalCab = null;
-    const _ozBalKey = (cab) => 'nr_oz_bal_v2_' + cab;
+    const _ozBalKey = (cab) => 'nr_oz_bal_v3_' + cab;
     const _ozPayKey = (cab) => 'nr_oz_pay_v1_' + cab;
     // Баланс и выплаты Ozon: баланс приходит в рублях, пересчитываем в сомы по курсу дня (как реклама); выплаты вносятся вручную в сомах
     async function _loadOzBalance(cal) {
@@ -6961,7 +6961,7 @@ const RNP = (() => {
             const rates = ((rateRes && rateRes.data) || []).map((x) => [String(x.date).split('T')[0], Number(x.rate)]).filter((x) => x[1] > 0);
             const rateOn = (d) => { let r = rates.length ? rates[0][1] : 1; for (const [dd, rr] of rates) { if (dd <= d) r = rr; else break; } return r; };
             const fresh = {};
-            (balRes.data || []).forEach((r) => { const d = String(r.d).split('T')[0]; const k = rateOn(d); fresh[d] = { c: Math.round((Number(r.closing) || 0) * k * 100) / 100, o: Math.round((Number(r.opening) || 0) * k * 100) / 100 }; });
+            (balRes.data || []).forEach((r) => { const d = String(r.d).split('T')[0]; const k = rateOn(d); fresh[d] = { c: Math.round((Number(r.closing) || 0) * k * 100) / 100, o: Math.round((Number(r.opening) || 0) * k * 100) / 100, rc: Math.round((Number(r.closing) || 0) * 100) / 100, ro: Math.round((Number(r.opening) || 0) * 100) / 100 }; });
             const changed = JSON.stringify(fresh) !== JSON.stringify(Object.fromEntries(Object.keys(fresh).map((k) => [k, _ozBal[k]])));
             Object.assign(_ozBal, fresh);
             try { localStorage.setItem(_ozBalKey(cab), JSON.stringify(_ozBal)); } catch (e) { /* места нет */ }
