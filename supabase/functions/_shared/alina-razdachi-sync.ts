@@ -7,13 +7,20 @@ import { secretOrEnv } from './integration-secrets.ts';
 import { googleAccessToken } from './alina-google-auth.ts';
 import { getLastRazdachi, resolveActiveSheet } from './alina-sheet-plan.ts';
 import {
+  colLetter,
+  claimFreeRow,
   findClientRows,
+  freeSlots,
+  nearestFree,
   normModel,
   normTg,
   parseRazdachiSheet,
   type RazSheet,
   type SheetIO,
   todayMskKey,
+  tooLateForToday,
+  lateExceptionOn,
+  setLateException,
   writeClientRow,
 } from './alina-razdachi.ts';
 
@@ -27,11 +34,14 @@ type Lead = {
   pickup_at?: string | null;
   review_planned_at?: string | null;
   review_note?: string | null;
+  notes?: string | null;
+  bank_details?: string | null;
   status?: string | null;
   keyword?: string | null;
   reels_url?: string | null;
   sheet_row?: number | null;
   sheet_target?: string | null;
+  screens_done?: string | null;
 };
 
 const TARGET_PREFIX = 'razdachi|';
@@ -71,14 +81,74 @@ function sheetIO(sheetId: string, token: string): SheetIO {
 }
 
 /** Поля Алины для строки блогера. Модель, вид, ТГ и дата уже в строке и не пишутся. */
-export function leadFields(lead: Lead): Record<string, string> {
+const RU_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+/** Дата получения со скрина заказа («27 ноября», «27.11») → дд.мм.гггг. Пустая строка, если даты нет. */
+export function parseDeliveryDate(text: string | null | undefined, now = Date.now()): string {
+  const t = String(text ?? '').toLowerCase();
+  const year = new Date(now + 3 * 3600_000).getUTCFullYear();
+  let m = t.match(/(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/);
+  if (m) return `${m[1].padStart(2, '0')}.${String(RU_MONTHS.indexOf(m[2]) + 1).padStart(2, '0')}.${year}`;
+  m = t.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
+  if (m) return `${m[1].padStart(2, '0')}.${m[2].padStart(2, '0')}.${m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : m[3]) : year}`;
+  return '';
+}
+
+/** Дата интеграции из сообщения: «интеграция 28.11», «выйду 28 ноября», «выложу завтра». loose: годится и просто дата («28.11», «завтра»). Пусто, если даты нет. */
+import { weekdayDate } from './alina-dates.ts';
+
+export function parseIntegrationDate(text: string | null | undefined, loose = false, now = Date.now()): string {
+  const t = String(text ?? '').toLowerCase().replace(/ё/g, 'е');
+  const ctx = /(интеграц|выйд|выход|выложу|опубликую|опубликовать|разместлю|размещу|рилс|рилз|reels|сторис|ролик)/.test(t);
+  if (!ctx && !loose) return '';
+  const day = (n: number) => {
+    const d = new Date(now + 3 * 3600_000 + n * 86400_000);
+    return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${d.getUTCFullYear()}`;
+  };
+  if (/послезавтра/.test(t)) return day(2);
+  if (/завтра/.test(t)) return day(1);
+  if (/сегодня/.test(t)) return day(0);
+  const wd = weekdayDate(t, now);
+  if (wd) return wd;
+  return parseDeliveryDate(t, now);
+}
+
+/** Прибавляет дни к дате дд.мм.гггг. */
+export function addDaysKey(dateKey: string, n: number): string {
+  const [d, m, y] = dateKey.split('.').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${String(t.getUTCDate()).padStart(2, '0')}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${t.getUTCFullYear()}`;
+}
+
+/** Статус заявки Алины в колонке «Статус» таблицы. Пустое значение: в таблицу не пишем. */
+export function sheetStatusOf(status: string | null | undefined): string {
+  switch (String(status || '')) {
+    case 'tz_sent': return 'Условия отправлены';
+    case 'key_sent': case 'wait_product': case 'ask_filters': return 'Ищет товар';
+    case 'wait_cart': case 'wait_order': return 'Корзина';
+    case 'wait_size': case 'wait_bank': case 'wait_integration': return 'Заказ оформлен';
+    case 'wait_pickup': return 'Ждёт получения';
+    case 'wait_shk': return 'Забрал';
+    case 'wait_review': return 'ШК получен';
+    case 'wait_reels': case 'done': return 'Отзыв на согласовании';
+    default: return '';
+  }
+}
+
+export function leadFields(lead: Lead & { order_received_at?: string | null }): Record<string, string> {
   return {
-    price: String(lead.order_price ?? ''),
-    cash_pct: lead.cashback_pct == null ? '' : String(lead.cashback_pct),
-    pickup_fact: String(lead.pickup_at ?? ''),
-    review_date: String(lead.review_planned_at ?? ''),
-    review_kind: lead.review_note ? 'Получен' : '',
-    published: lead.status === 'done' ? 'Да' : '',
+    price: String(lead.order_price ?? '').replace(/\D/g, ''), // только сумма заказа, без «₽» и пробелов
+    pickup_plan: '', // «Примерная дата забора» = дата заказа + 3 дня, считается при записи (syncLeadToRazdachiRow)
+    size: String(lead.notes ?? '').match(/размер:(\S+)/)?.[1]?.replace(/_/g, ' ') ?? '',
+    // Фактическая дата забора ставится только когда клиент подтвердил получение (этап «фото ШК» и дальше)
+    status: sheetStatusOf(lead.status),
+    pickup_fact: ['wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String(lead.status)) ? parseDeliveryDate(lead.pickup_at) : '',
+    shk: String(lead.screens_done ?? '').split(',').includes('shk') ? 'Да' : '',
+    review_date: '', // дату публикации отзыва по умолчанию ставит сумма заказа + 3 дня, дальше её двигает менеджер
+    integration: String(lead.notes ?? '').match(/интеграция:(\S+)/)?.[1] ?? '',
+    review_kind: '', // вид отзыва и «опубликован» заполняет менеджер сам
+    published: '',
+    requisites: String(lead.bank_details ?? '').replace(/\s+/g, ' ').trim().slice(0, 200),
     responsible: 'Алина',
     key: String(lead.keyword ?? ''),
     reels: String(lead.reels_url ?? ''),
@@ -115,7 +185,7 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
 
   // Дата строки: сохранённая при первой записи (клиент может дописывать данные в следующие дни), иначе сегодняшняя.
   const stored = lead.sheet_target?.startsWith(TARGET_PREFIX) ? lead.sheet_target.split('|') : null;
-  const tab = stored?.[1] || (active.cabinet_key === 'mars' ? 'Раздачи' : (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim());
+  const tab = stored?.[1] || (active.cabinet_key === 'mars' ? 'Раздачи Пижам' : (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim());
   const date = stored?.[2] || todayMskKey();
   const sheet: RazSheet = cached.sheet;
   const candidates = sheet.rows.filter((r) =>
@@ -131,7 +201,7 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
     const res = await writeClientRow(
       sheetIO(active.sheet_id, token), tab, sheet,
       { tg, model: lead.product_name, date, hintRow: lead.sheet_row ?? candidates[0]?.row },
-      leadFields(lead),
+      { ...leadFields(lead), ...(lead.order_price ? { pickup_plan: (lead.notes || '').match(/забор:(\d{2}\.\d{2}\.\d{4})/)?.[1] || addDaysKey(date, 3), review_date: addDaysKey(date, 3), payout_plan: addDaysKey(date, 3) } : {}) },
     );
     if (res.row) {
       await db.from('alina_selfbuy_leads').update({
@@ -145,6 +215,131 @@ export async function syncLeadToRazdachiRow(db: SupabaseClient, leadId: string):
     console.error('[alina-razdachi] write failed');
     await event('razdachi_write_problem', { status: 'error' });
   }
+}
+
+// ── Места и бронь (владелец, 24 ноября 2026) ──
+export type PlaceResult =
+  | { kind: 'have' | 'claimed'; row: number; date: string }
+  | { kind: 'later'; date: string; model: string }
+  | { kind: 'none' }
+  | { kind: 'unavailable' };
+
+async function placeCtx(db: SupabaseClient) {
+  const active = await resolveActiveSheet(db);
+  const saJson = await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON');
+  const cached = getLastRazdachi();
+  if (!active?.sheet_id || !saJson || !cached || cached.sheetId !== active.sheet_id) return null;
+  const tab = active.cabinet_key === 'mars' ? 'Раздачи Пижам' : (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim();
+  return { sheet: cached.sheet, tab, sheetId: active.sheet_id, saJson };
+}
+
+async function claimOn(db: SupabaseClient, lead: Lead, model: string, date: string, today: string): Promise<'claimed' | 'taken' | 'failed' | { row: number }> {
+  const ctx = await placeCtx(db);
+  const tg = normTg(lead.username);
+  if (!ctx || !tg) return 'failed';
+  // Перечитываем лист заново перед выбором: кэш мог устареть.
+  const io = sheetIO(ctx.sheetId, await googleAccessToken(ctx.saJson));
+  const fresh = await io.read(`'${ctx.tab.replace(/'/g, "''")}'!A1:AZ2000`);
+  const sheet = (fresh && parseRazdachiSheet(fresh)) || ctx.sheet;
+  const k = normModel(model);
+  const own = sheet.rows.find((r) => r.tg === tg && r.date === date && normModel(r.model) === k);
+  if (own) return { row: own.row };
+  const free = freeSlots(sheet, today, 14).find((x) => x.date === date && normModel(x.model) === k);
+  for (const cand of (free?.rows ?? []).slice(0, 3)) {
+    const res = await claimFreeRow(io, ctx.tab, sheet, { row: cand.row, model: cand.model, date }, tg);
+    if (res.status === 'claimed') {
+      const cachedRow = ctx.sheet.rows.find((r) => r.row === cand.row);
+      if (cachedRow) cachedRow.tg = tg;
+      await db.from('alina_sheet_reservations').insert({ sheet_target: `${TARGET_PREFIX}${ctx.tab}|${date}`, sheet_row: cand.row, lead_id: lead.id, order_day: date })
+        .then(() => undefined, () => undefined);
+      await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'slot_booked', payload: { model, date, row: cand.row } })
+        .then(() => undefined, () => undefined);
+      return 'claimed';
+    }
+    if (res.status === 'failed' || res.status === 'unverified') return 'failed';
+  }
+  return 'taken';
+}
+
+/** Берёт место на сегодня сразу; если мест нет, возвращает ближайшую дату со свободным местом. */
+export async function takePlaceToday(db: SupabaseClient, lead: Lead, model: string): Promise<PlaceResult> {
+  const ctx = await placeCtx(db);
+  if (!ctx || !normTg(lead.username)) return { kind: 'unavailable' };
+  const today = todayMskKey();
+  // После 20:30 МСК на сегодня не берём: предлагаем ближайшую следующую дату.
+  if (tooLateForToday()) {
+    const next = freeSlots(getLastRazdachi()?.sheet ?? ctx.sheet, today, 14).find((x) => x.date !== today && normModel(x.model) === normModel(model));
+    return next ? { kind: 'later', date: next.date, model: next.model } : { kind: 'none' };
+  }
+  const r = await claimOn(db, lead, model, today, today);
+  if (typeof r === 'object') return { kind: 'have', row: r.row, date: today };
+  if (r === 'claimed') {
+    if (lateExceptionOn()) {
+      // Исключение разовое: место взято, выключаем его и не трогаем этого клиента автосбросом и напоминаниями.
+      await db.from('alina_settings').delete().eq('key', 'lateException').then(() => undefined, () => undefined);
+      const { data: sk } = await db.from('alina_settings').select('value').eq('key', 'nudgeSkip').maybeSingle();
+      const list = Array.isArray(sk?.value) ? (sk!.value as string[]) : [];
+      const me = String(lead.username || '').replace(/^@/, '').toLowerCase();
+      if (me && !list.map((x) => String(x).toLowerCase()).includes(me)) {
+        await db.from('alina_settings').upsert({ key: 'nudgeSkip', value: [...list, me] }).then(() => undefined, () => undefined);
+      }
+      setLateException(false);
+    }
+    const row = getLastRazdachi()?.sheet.rows.find((x) => x.tg === normTg(lead.username) && x.date === today && normModel(x.model) === normModel(model));
+    return { kind: 'claimed', row: row?.row ?? 0, date: today };
+  }
+  if (r === 'failed') return { kind: 'unavailable' };
+  const near = nearestFree(getLastRazdachi()?.sheet ?? ctx.sheet, model, today, 14);
+  return near ? { kind: 'later', date: near.date, model: near.model } : { kind: 'none' };
+}
+
+/**
+ * Освободить место клиента (очистить логин в «Ссылка ТГ»): только его строки без заказа (цены нет), ближайшая по дате.
+ * Нужен, когда клиент так и не смог найти товар и мы извинились. Возвращает номер освобождённой строки или null.
+ */
+export async function releaseClientPlace(db: SupabaseClient, lead: Lead): Promise<number | null> {
+  const ctx = await placeCtx(db);
+  const tg = normTg(lead.username);
+  if (!ctx || !tg) return null;
+  const io = sheetIO(ctx.sheetId, await googleAccessToken(ctx.saJson));
+  const fresh = await io.read(`'${ctx.tab.replace(/'/g, "''")}'!A1:AZ2000`);
+  const sheet = (fresh && parseRazdachiSheet(fresh)) || ctx.sheet;
+  const mine = sheet.rows.filter((r) => r.tg === tg && !String(fresh?.[r.row - 1]?.[sheet.col.price] ?? '').trim());
+  const target = mine.sort((a, b) => a.date.localeCompare(b.date))[0];
+  if (!target) return null;
+  const q = `'${ctx.tab.replace(/'/g, "''")}'`;
+  // Вместе с логином убираем даты-заготовки (публикация отзыва и плановая выплата), иначе строка перестанет считаться свободной.
+  const clears = [{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: '' }];
+  for (const f of ['review_date', 'payout_plan']) if (sheet.col[f] != null) clears.push({ range: `${q}!${colLetter(sheet.col[f])}${target.row}`, value: '' });
+  if (!await io.batchWrite(clears)) return null;
+  const cached = ctx.sheet.rows.find((r) => r.row === target.row);
+  if (cached) cached.tg = '';
+  await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'slot_released', payload: { row: target.row, date: target.date, model: target.model, reason: 'not_found' } }).then(() => undefined, () => undefined);
+  return target.row;
+}
+
+/** Перенести «Дату публикации отзыва» клиента на другую дату (по его просьбе и после его согласия). Возвращает номер строки или null. */
+export async function moveReviewDate(db: SupabaseClient, lead: Lead, newDate: string): Promise<number | null> {
+  const ctx = await placeCtx(db);
+  const tg = normTg(lead.username);
+  if (!ctx || !tg || !lead.product_name) return null;
+  const io = sheetIO(ctx.sheetId, await googleAccessToken(ctx.saJson));
+  const fresh = await io.read(`'${ctx.tab.replace(/'/g, "''")}'!A1:AZ2000`);
+  const sheet = (fresh && parseRazdachiSheet(fresh)) || ctx.sheet;
+  if (sheet.col.review_date == null) return null;
+  const mine = sheet.rows.filter((r) => r.tg === tg && normModel(r.model) === normModel(lead.product_name || ''));
+  const target = mine.sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!target) return null;
+  const q = `'${ctx.tab.replace(/'/g, "''")}'`;
+  if (!await io.batchWrite([{ range: `${q}!${colLetter(sheet.col.review_date)}${target.row}`, value: newDate }])) return null;
+  await db.from('alina_selfbuy_events').insert({ lead_id: lead.id, chat_id: lead.chat_id ?? null, event_type: 'review_date_moved', payload: { row: target.row, date: newDate } }).then(() => undefined, () => undefined);
+  return target.row;
+}
+
+/** Бронь на выбранную дату по согласию клиента. */
+export async function bookPlace(db: SupabaseClient, lead: Lead, model: string, date: string): Promise<'claimed' | 'taken' | 'failed'> {
+  const r = await claimOn(db, lead, model, date, todayMskKey());
+  return typeof r === 'object' ? 'claimed' : r;
 }
 
 export { parseRazdachiSheet };

@@ -1,7 +1,11 @@
 import { getAdminClient } from './alina-db.ts';
 import { parseAlinaBusinessUpdate } from './alina-business-update.ts';
 import { handleAlinaClientMessage, logAlinaRawEvent, type AlinaReply } from './alina-selfbuy.ts';
-import { askAlinaManager } from './alina-manager.ts';
+import { askAlinaManager, managerGroupId } from './alina-manager.ts';
+import { HUMAN_HANDOFF, SAFE_REPLY, applyGreeting, dedupeReplies, dropRecentSimilar, isAck, isAngry, isGreetingOnly, promisesMore, recentWindowMs, splitLong, startsWithGreeting, unsafeReply, wantsHuman, withReplyContext } from './alina-guard.ts';
+import { loadAlinaSettings } from './alina-settings.ts';
+import { normLogin } from './alina-gate.ts';
+import { pickAckEmoji } from './alina-ack.ts';
 
 type BotId = 'alina' | 'alina2';
 type ClientUpdate = Extract<NonNullable<ReturnType<typeof parseAlinaBusinessUpdate>>, { kind: 'client' }>;
@@ -12,8 +16,20 @@ export async function processAlinaTelegramUpdate(
     update: Parameters<typeof parseAlinaBusinessUpdate>[0],
 ): Promise<void> {
     const message = parseAlinaBusinessUpdate(update);
-    if (!message) return;
+    if (!message) {
+        await notifyMedia(botId, envToken, update);
+        return;
+    }
     const admin = getAdminClient();
+    // Журнал переписки для обучения Алины (режим наблюдения): что пишет клиент и что отвечает владелец вручную, с временем. Работает и при выключенной Алине.
+    try {
+        const who = message.kind === 'owner' ? 'owner' : 'client';
+        const text = message.kind === 'owner' ? message.ownerText : message.text;
+        await admin.from('alina_selfbuy_events').insert({
+            event_type: 'chat_log', chat_id: message.chatId,
+            payload: { dir: who, text: String(text || '').slice(0, 1500), username: message.kind === 'client' ? message.username || null : null, update_id: message.updateId },
+        });
+    } catch { /* журнал не должен мешать ответу */ }
     const { data: bot, error: botError } = await admin.from('telegram_bots')
         .select('is_enabled, deleted_at').eq('id', botId).maybeSingle();
     if (botError) throw new Error('Alina bot registry is unavailable');
@@ -23,28 +39,159 @@ export async function processAlinaTelegramUpdate(
         return;
     }
 
+    // Список «только эти логины» (настройка onlyLogins): пока он не пуст, остальным клиентам Алина не отвечает и ничего не записывает
+    const only = (await loadAlinaSettings()).onlyLogins;
+    if (only.length && !only.includes(normLogin(message.username))) return;
+
     const { data: credentials } = await admin.from('telegram_bot_secrets')
         .select('token').eq('bot_id', botId).maybeSingle();
     const token = String(credentials?.token || envToken).trim();
     if (!token) return;
 
     const delivery = { bot_id: botId, update_id: message.updateId };
-    const { error } = await admin.from('alina_selfbuy_events').insert({
+    const { data: claimed, error } = await admin.from('alina_selfbuy_events').insert({
         event_type: 'telegram_delivery',
         chat_id: message.chatId,
-        payload: delivery,
-    });
+        payload: { ...delivery, text: (message.text || '').slice(0, 1500), photo: Boolean(message.photoFileId) },
+    }).select('created_at').maybeSingle();
     if (error?.code === '23505') return;
     if (error) throw new Error('Alina event storage is unavailable');
 
+    // Несколько сообщений подряд: ждём, пока человек допишет, и отвечаем один раз на всё (владелец, 24 ноября 2026).
+    let text = message.text;
+    const useBurst = !message.photoFileId && (message.text || '').trim() && claimed?.created_at;
+    if (useBurst) {
+        await pacing.sleep(pacing.burstMs);
+        const hasNewer = async () => {
+            const { data } = await admin.from('alina_selfbuy_events').select('id')
+                .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', claimed!.created_at).limit(1);
+            return Boolean(data && data.length);
+        };
+        let newer = await hasNewer();
+        // «Минуту, сейчас пришлю»: клиент обещал ещё, ждём следующее сообщение дольше (до ~70 секунд), чтобы ответить один раз на всё.
+        if (!newer && promisesMore(message.text || '')) {
+            for (let waited = 0; waited < pacing.promiseMs && !newer; waited += 5000) {
+                await pacing.sleep(5000);
+                newer = await hasNewer();
+            }
+        }
+        if (newer) return; // дописал ещё: ответит последнее сообщение, сведя всё в один ответ
+    }
+
+    // Один разговор обрабатывается строго по очереди: пока идёт ответ на прошлое сообщение этого чата, следующее ждёт (иначе два ответа расходятся и дублируются).
+    const releaseLock = await acquireChatLock(admin, message.chatId, message.updateId);
     try {
-        const { replies: draft, photos, escalate } = await handleAlinaClientMessage({
+    if (useBurst) {
+        const { data: mark } = await admin.from('alina_selfbuy_events').select('created_at')
+            .eq('chat_id', message.chatId).eq('event_type', 'burst_handled').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        const since = mark?.created_at ?? new Date(Date.now() - 120_000).toISOString();
+        const { data: burst } = await admin.from('alina_selfbuy_events').select('payload, created_at')
+            .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', since).order('created_at', { ascending: true }).limit(20);
+        const rows = (burst || []) as Array<{ payload: { text?: string; photo?: boolean; update_id?: number } }>;
+        // Это сообщение уже вошло в ответ на предыдущую пачку (его разобрал предыдущий обработчик): второй раз не отвечаем.
+        if (rows.length && !rows.some((x) => x.payload?.update_id === message.updateId)) {
+            await logAlinaRawEvent(message.chatId, 'burst_already_handled', { update_id: message.updateId });
+            return;
+        }
+        text = joinBurst(rows.map((r) => r.payload), message.text || '');
+        await admin.from('alina_selfbuy_events').insert({ event_type: 'burst_handled', chat_id: message.chatId, payload: { update_id: message.updateId, parts: rows.length } });
+    }
+
+    if (message.kind === 'client' && message.replyText) text = withReplyContext(text || '', message.replyText);
+    const budget = { spent: 0 };
+
+    // Ручной режим: если владелец сам пишет по делу в этом чате (последние 5 минут) или клиент уже позвал человека (последние 3 часа), Алина молчит.
+    // Одно приветствие владельца («Здравствуйте») ручным режимом не считается: на ответ блогера Алина продолжает сама.
+    const since5 = new Date(Date.now() - 2 * 60_000).toISOString(); // владелец написал по делу: Алина молчит 2 минуты
+    const since3h = new Date(Date.now() - 3 * 3600_000).toISOString();
+    const [ownerLog, handoff] = await Promise.all([
+        admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId).eq('event_type', 'chat_log').eq('payload->>dir', 'owner').gt('created_at', since5).limit(10),
+        admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'human_requested').gt('created_at', since3h).limit(1),
+    ]);
+    // Приветствие и отправленные владельцем фильтры ручным режимом не считаются: дальше разговор подхватывает Алина.
+    const ownerBusy = (ownerLog.data || []).some((x: { payload: { text?: string } }) => { const t = String(x.payload?.text || ''); return !isGreetingOnly(t) && !/фильтр/i.test(t); });
+    if (ownerBusy || handoff.data?.length) {
+        await logAlinaRawEvent(message.chatId, 'muted_human', { update_id: message.updateId });
+        return;
+    }
+
+    // Штаны (владелец, 25 ноября 2026): раздача штанов закончена, клиенты пишут про них («получили» и т. п.). Алина про штаны молчит и не предлагает пижамы,
+    // пока человек сам не заговорит про пижаму. Исключение: у клиента уже идёт заказ пижамы, тогда разговор ведёт Алина как обычно.
+    if (message.kind === 'client') {
+        const t0 = String(text || '');
+        const PANTS_RE = /(?:^|[^а-яё])(?:штан\S*|брюк\S*|лонгслив\S*|жилет\S*)/i;
+        const PAJ_RE = /пижам|[23]\s?в\s?1|модел|комплект|шорт/i;
+        const { data: pm } = await admin.from('alina_selfbuy_events').select('event_type').eq('chat_id', message.chatId)
+            .in('event_type', ['pants_muted', 'pants_unmuted']).gt('created_at', new Date(Date.now() - 72 * 3600_000).toISOString()).order('created_at', { ascending: false }).limit(1);
+        const muted = (pm || [])[0]?.event_type === 'pants_muted';
+        if (muted && PAJ_RE.test(t0)) {
+            await logAlinaRawEvent(message.chatId, 'pants_unmuted', { text: t0.slice(0, 80) });
+        } else if (muted) {
+            await logAlinaRawEvent(message.chatId, 'muted_pants', { update_id: message.updateId });
+            return;
+        } else if (PANTS_RE.test(t0) && !PAJ_RE.test(t0)) {
+            const { data: act } = await admin.from('alina_selfbuy_leads').select('id').eq('chat_id', message.chatId)
+                .in('status', ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order', 'wait_size', 'wait_bank', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels']).limit(1);
+            if (!act || !act.length) {
+                await logAlinaRawEvent(message.chatId, 'pants_muted', { text: t0.slice(0, 120) });
+                return;
+            }
+        }
+    }
+
+    // Клиент зовёт человека или раздражён: сразу передаём менеджеру, дальше пишет он (владелец подключится по уведомлению в группе).
+    if ((text || '').trim() && (wantsHuman(text || '') || isAngry(text || ''))) {
+        const group = await managerGroupId();
+        const posted = group ? await askAlinaManager(token, group, {
+            chatId: message.chatId, connectionId: message.connectionId, username: message.username,
+        }, `Клиент просит человека или раздражён: «${String(text).slice(0, 300)}». Подключитесь к чату, Алина больше не отвечает.`) : false;
+        await logAlinaRawEvent(message.chatId, 'human_requested', { text: String(text).slice(0, 200), posted });
+        const reply = posted ? HUMAN_HANDOFF[message.updateId % HUMAN_HANDOFF.length] : 'Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.';
+        try {
+            if (await sendText(token, message, reply, true, budget)) await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply });
+        } catch { /* ответ не критичен */ }
+        return;
+    }
+
+    // Последние сообщения чата (клиент, владелец, Алина) для контекста: так Алина отвечает по делу, а не как на первое обращение.
+    let history = '';
+    try {
+        const { data: hist } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').order('created_at', { ascending: false }).limit(10);
+        const label: Record<string, string> = { client: 'Клиент', owner: 'Менеджер', alina: 'Алина' };
+        history = (hist || []).reverse().map((x: { payload: { dir?: string; text?: string } }) =>
+            `${label[String(x.payload?.dir)] || '?'}: ${String(x.payload?.text || '').slice(0, 300)}`).join('\n');
+    } catch { /* без контекста тоже работаем */ }
+    try {
+        const { replies: draft, photos, escalate, replyToKind, tag, react: reactEmoji, reactFallback } = await handleAlinaClientMessage({
             ...message,
+            text,
+            history,
             hasPhoto: Boolean(message.photoFileId),
             botToken: token,
             sourceAccount: 'business',
         });
-        let replies = draft;
+        // Пустые и служебные значения («null», «undefined») клиенту не отправляем никогда.
+        let replies = draft.filter((x) => !/^\s*(null|none|undefined|nan|n\/a)?\s*$/i.test(String(x ?? '')));
+        // «Принято» одним сердечком на сообщение клиента; если Telegram реакцию не принял, отправляем короткий текст.
+        if (reactEmoji && Deno.env.get('ALINA_TRY_REACTIONS') === '1') {
+          const rr = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(8000),
+            body: JSON.stringify({ chat_id: message.chatId, message_id: message.messageId, business_connection_id: message.connectionId, reaction: [{ type: 'emoji', emoji: reactEmoji }] }),
+          }).then((x) => x.json()).catch(() => null);
+          await logAlinaRawEvent(message.chatId, rr?.ok === true ? 'reaction_set' : 'reaction_failed', { update_id: message.updateId, error: rr?.ok === true ? undefined : String(rr?.description || '').slice(0, 100) });
+          if (rr?.ok !== true && reactFallback) replies = [pickAckEmoji(), ...replies];
+        } else if (reactEmoji && reactFallback) {
+          // Вместо «приняла ✅» одна короткая «реакция» из эмодзи (владелец, 25 ноября 2026).
+          replies = [pickAckEmoji(), ...replies];
+        }
+        // Сообщение, на которое отвечать не обязательно («ок», «спасибо», «жду»): в основном ставим «реакцию» разными эмодзи, иногда молчим.
+        if (!replies.length && !(photos && photos.length) && !escalate && !reactEmoji && isAck(text) && Math.random() < 0.75) {
+          const { data: lastOut } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').order('created_at', { ascending: false }).limit(3);
+          const outs = (lastOut || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || ''));
+          if (!outs.slice(0, 2).some((t) => /^\p{Extended_Pictographic}[\u200d\ufe0f\p{Extended_Pictographic}]*$/u.test(t.trim()))) replies = [pickAckEmoji(outs)];
+        }
         if (escalate) {
           // Вопрос менеджерам. Клиент получает «уточню» только если вопрос действительно дошёл до группы.
           const posted = await askAlinaManager(token, escalate.group, {
@@ -52,42 +199,204 @@ export async function processAlinaTelegramUpdate(
           }, escalate.question);
           if (!posted) replies = ['Не получилось связаться с менеджером. Напишите мне чуть позже, пожалуйста.'];
         }
+        // Ответ про наличие моделей (5 минут) и повторный вопрос в том же шаге (3 минуты): второй раз не отправляем, чтобы не было дублей.
+        if (tag === 'models' || (tag && tag.startsWith('ask:'))) {
+            const windowMs = tag === 'models' ? 5 * 60_000 : 3 * 60_000;
+            const { data: shown } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log')
+                .eq('payload->>dir', 'alina').eq('payload->>kind', tag).gt('created_at', new Date(Date.now() - windowMs).toISOString()).limit(1);
+            if (shown && shown.length) {
+                await logAlinaRawEvent(message.chatId, 'prompt_suppressed', { update_id: message.updateId, tag });
+                return;
+            }
+        }
         for (const photo of photos || []) {
-            if (!await sendPhoto(token, message, photo)) {
+            const photoMid = await sendPhoto(token, message, photo);
+            if (photoMid !== null) await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', kind: 'photo', text: String(photo.caption || '').slice(0, 300), mid: photoMid });
+            if (photoMid === null) {
                 const fallback = [photo.caption, photo.url].filter(Boolean).join('\n');
                 if (fallback && !await sendText(token, message, fallback)) {
                     throw new Error('photo_fallback');
                 }
             }
         }
+        // Защита: ответ не должен выдавать «бот» или артикул, и не повторяем слово в слово прошлые реплики этого диалога.
+        if (replies.some(unsafeReply)) replies = replies.map((r) => (unsafeReply(r) ? SAFE_REPLY : r));
+        const { data: prev } = await admin.from('alina_selfbuy_events').select('payload, created_at').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').order('created_at', { ascending: false }).limit(3);
+        replies = dedupeReplies(replies, (prev || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || '')));
+        // То же по смыслу (другие слова): за последние 90 секунд почти такую реплику уже отправляли, второй раз не шлём.
+        // Списки моделей не повторяем 5 минут, остальные реплики 90 секунд.
+        replies = replies.filter((r) => dropRecentSimilar([r], (prev || [])
+            .filter((x: { created_at: string }) => Date.now() - Date.parse(x.created_at) < recentWindowMs(r))
+            .map((x: { payload: { text?: string } }) => String(x.payload?.text || ''))).length > 0);
+        // Подтверждение брони («за вами», «закреплено», «в этот день») по той же модели и дате уже отправляли за последние 6 часов: второй раз не шлём,
+        // даже если гуманайзер переписал его другими словами.
+        {
+          const confirmRe = /за вами|закреплен|ждёт вас|в этот день/i;
+          if (replies.some((x) => confirmRe.test(x))) {
+            const { data: old6 } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+              .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').gt('created_at', new Date(Date.now() - 6 * 3600_000).toISOString()).limit(60);
+            const olds = (old6 || []).map((x: { payload: { text?: string } }) => String(x.payload?.text || '')).filter((t) => confirmRe.test(t));
+            const key = (t: string) => `${(t.match(/[23]\s?в\s?1\s+[а-яё]+/i) || [''])[0].toLowerCase().replace(/\s/g, '')}|${(t.match(/\d{1,2}\s+(?:ноября|декабря)/i) || [''])[0]}`;
+            if (olds.length) {
+              const prevKeys = new Set(olds.map(key).filter((k) => k !== '|'));
+              const ctxKey = [...prevKeys][0];
+              replies = replies.filter((x) => {
+                if (!confirmRe.test(x)) return true;
+                const k = key(x);
+                // «Напишите в этот день» без модели и даты тоже считаем повтором
+                return !(k === '|' ? prevKeys.size > 0 : prevKeys.has(k)) && !(ctxKey && k === '|');
+              });
+            }
+          }
+        }
+        // Одно приветствие на диалог: уже поздоровались (владелец или Алина за 12 часов), так убираем его из ответа; никто не здоровался, так добавляем.
+        const since12h = new Date(Date.now() - 12 * 3600_000).toISOString();
+        const { data: hist } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+            .eq('event_type', 'chat_log').in('payload->>dir', ['owner', 'alina']).gt('created_at', since12h).limit(40);
+        const greeted = (hist || []).some((x: { payload: { text?: string } }) => startsWithGreeting(String(x.payload?.text || '')));
+        replies = applyGreeting(replies, greeted);
+        replies = replies.flatMap((x) => splitLong(x, 3800)); // длинные тексты (ТЗ) отправляем несколькими сообщениями
+        // «Отправила выше»: отвечаем реплаем на своё прежнее сообщение (условия, ключ, фото), чтобы не отправлять его второй раз.
+        let replyMid = 0;
+        if (replyToKind) {
+            const { data: prevMsg } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId)
+                .eq('event_type', 'chat_log').eq('payload->>dir', 'alina').eq('payload->>kind', replyToKind)
+                .order('created_at', { ascending: false }).limit(1).maybeSingle();
+            replyMid = Number((prevMsg as { payload?: { mid?: number } } | null)?.payload?.mid || 0);
+        }
+        let firstReply = true;
         for (const reply of replies) {
-            if (!await sendText(token, message, reply)) throw new Error('text_delivery');
+            const mid = await sendTextId(token, message, reply, firstReply, budget, replyMid || undefined);
+            if (mid === null) throw new Error('text_delivery');
+            const kind = (tag && reply === replies[0]) ? tag : kindOf(reply);
+            await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', text: reply.slice(0, 1500), mid, ...(kind ? { kind } : {}) });
+            firstReply = false;
         }
         await logAlinaRawEvent(message.chatId, 'business_out', {
             ...delivery,
             messages: replies.length,
             photos: photos?.length || 0,
         });
-    } catch {
+    } catch (e) {
         // The CRM may already have advanced. Replaying the update could advance it twice.
-        await logAlinaRawEvent(message.chatId, 'business_error', delivery);
+        await logAlinaRawEvent(message.chatId, 'business_error', { ...delivery, error: String((e as Error)?.message || e).slice(0, 200) });
         console.error('[alina] Telegram update failed after being claimed');
+    }
+    } finally {
+        await releaseLock();
     }
 }
 
-async function sendText(token: string, message: ClientUpdate, text: string): Promise<boolean> {
-    return telegramSend(token, 'sendMessage', JSON.stringify({
+/** Клиент прислал видео, голосовое или файл без текста: Алина это не разбирает, один раз за 10 минут говорим менеджерам (клиенту не отвечаем). */
+async function notifyMedia(botId: BotId, envToken: string, update: Parameters<typeof parseAlinaBusinessUpdate>[0]): Promise<void> {
+    try {
+        const bm = (update as { business_message?: Record<string, unknown> } | null)?.business_message as {
+            business_connection_id?: string; chat?: { id?: number; type?: string }; from?: { id?: number; username?: string; is_bot?: boolean };
+            video?: unknown; video_note?: unknown; voice?: unknown; animation?: unknown; document?: unknown; text?: string; caption?: string; sender_business_bot?: unknown;
+        } | undefined;
+        if (!bm || bm.chat?.type !== 'private' || !bm.chat.id || bm.from?.id !== bm.chat.id || bm.from?.is_bot || bm.sender_business_bot) return;
+        if (!(bm.video || bm.video_note || bm.voice || bm.animation || bm.document) || bm.text || bm.caption) return;
+        const admin = getAdminClient();
+        const { data: bot } = await admin.from('telegram_bots').select('is_enabled, deleted_at').eq('id', botId).maybeSingle();
+        if (!bot?.is_enabled || bot.deleted_at) return;
+        const only = (await loadAlinaSettings()).onlyLogins;
+        if (only.length && !only.includes(normLogin(bm.from?.username))) return;
+        const { data: recent } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', bm.chat.id).eq('event_type', 'media_notice')
+            .gt('created_at', new Date(Date.now() - 10 * 60_000).toISOString()).limit(1);
+        if (recent && recent.length) return;
+        const group = await managerGroupId();
+        const { data: credentials } = await admin.from('telegram_bot_secrets').select('token').eq('bot_id', botId).maybeSingle();
+        const token = String(credentials?.token || envToken).trim();
+        if (!group || !token || !bm.business_connection_id) return;
+        await admin.from('alina_selfbuy_events').insert({ event_type: 'media_notice', chat_id: bm.chat.id, payload: { kind: bm.video ? 'video' : bm.voice ? 'voice' : 'file' } });
+        await askAlinaManager(token, group, { chatId: bm.chat.id, connectionId: bm.business_connection_id, username: bm.from?.username },
+            'Клиент прислал видео, голосовое или файл без текста. Алина такое не разбирает и клиенту не отвечала. Посмотрите в чате.');
+    } catch { /* уведомление не критично */ }
+}
+
+/** Очередь обработки в одном чате: вперёд пропускаем самое раннее незавершённое сообщение; зависшие (старше 90 секунд) не ждём. */
+async function acquireChatLock(admin: ReturnType<typeof getAdminClient>, chatId: number, uid: number): Promise<() => Promise<void>> {
+    const key = String(uid);
+    try {
+        const { data: mine } = await admin.from('alina_selfbuy_events').insert({ event_type: 'proc_start', chat_id: chatId, payload: { uid: key } })
+            .select('id, created_at').maybeSingle();
+        const deadline = Date.now() + pacing.lockWaitMs;
+        while (mine && Date.now() < deadline) {
+            const since = new Date(Date.now() - 90_000).toISOString();
+            const [{ data: starts }, { data: ends }] = await Promise.all([
+                admin.from('alina_selfbuy_events').select('id, created_at, payload').eq('chat_id', chatId).eq('event_type', 'proc_start').gt('created_at', since).order('created_at', { ascending: true }).limit(30),
+                admin.from('alina_selfbuy_events').select('payload').eq('chat_id', chatId).eq('event_type', 'proc_end').gt('created_at', since).limit(60),
+            ]);
+            const ended = new Set(((ends || []) as Array<{ payload: { uid?: string } }>).map((e) => String(e.payload?.uid)));
+            const earlier = ((starts || []) as Array<{ id: number | string; created_at: string; payload: { uid?: string } }>).filter((x) =>
+                String(x.payload?.uid) !== key && !ended.has(String(x.payload?.uid)) &&
+                (x.created_at < mine.created_at || (x.created_at === mine.created_at && String(x.id) < String(mine.id))));
+            if (!earlier.length) break;
+            await pacing.sleep(2000);
+        }
+    } catch { /* очередь best-effort: при сбое базы отвечаем как раньше */ }
+    return async () => {
+        try { await admin.from('alina_selfbuy_events').insert({ event_type: 'proc_end', chat_id: chatId, payload: { uid: key } }); } catch { /* не критично */ }
+    };
+}
+
+// Живой темп: перед ответом «читает» и «печатает». Пауза зависит от длины текста, на все ответы одного сообщения не больше 25 секунд.
+export const pacing = {
+    sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    burstMs: 7000, // сколько ждём, не допишет ли человек ещё
+    promiseMs: 70_000, // если клиент пообещал прислать ещё
+    lockWaitMs: 60_000, // сколько ждём очередь предыдущего сообщения в этом чате
+};
+
+/** Склеивает сообщения подряд в один текст (фото-сообщения не берём: у них свой путь). Если ничего не нашли, остаётся текст этого сообщения. */
+export function joinBurst(parts: { text?: string; photo?: boolean }[], own: string): string {
+    const texts = parts.filter((p) => !p.photo).map((p) => String(p.text || '').trim()).filter(Boolean);
+    return texts.length ? texts.join('\n') : own;
+}
+export function humanPauseMs(text: string, first: boolean): number {
+    const base = 1200 + text.length * 40 + (first ? 1500 : 0);
+    return Math.min(9000, Math.round(base * (0.85 + Math.random() * 0.3)));
+}
+async function humanPause(token: string, message: ClientUpdate, text: string, first: boolean, budget: { spent: number }): Promise<void> {
+    const left = 25_000 - budget.spent;
+    if (left <= 0) return;
+    const ms = Math.min(left, humanPauseMs(text, first));
+    budget.spent += ms;
+    // «Печатает…» держится около 5 секунд: обновляем индикатор, пока ждём
+    for (let waited = 0; waited < ms; waited += 4500) {
+        await telegramSend(token, 'sendChatAction', JSON.stringify({
+            chat_id: message.chatId, business_connection_id: message.connectionId, action: 'typing',
+        }));
+        await pacing.sleep(Math.min(4500, ms - waited));
+    }
+}
+
+async function sendTextId(token: string, message: ClientUpdate, text: string, first = false, budget = { spent: 25_000 }, replyTo?: number): Promise<number | null> {
+    await humanPause(token, message, text, first, budget);
+    return telegramSendId(token, 'sendMessage', JSON.stringify({
         chat_id: message.chatId,
         business_connection_id: message.connectionId,
         text,
+        ...(replyTo ? { reply_parameters: { message_id: replyTo } } : {}),
     }));
+}
+async function sendText(token: string, message: ClientUpdate, text: string, first = false, budget = { spent: 25_000 }): Promise<boolean> {
+    return (await sendTextId(token, message, text, first, budget)) !== null;
+}
+
+/** Вид отправленного сообщения для «отправила выше»: условия или ключ. */
+function kindOf(text: string): 'tz' | 'key' | null {
+    if (/Высылаю ТЗ|ТЗ для ОЗНАКОМЛЕНИЯ/.test(text)) return 'tz';
+    if (/^Ключ для поиска/.test(text)) return 'key';
+    return null;
 }
 
 async function sendPhoto(
     token: string,
     message: ClientUpdate,
     photo: NonNullable<AlinaReply['photos']>[number],
-): Promise<boolean> {
+): Promise<number | null> {
     const form = new FormData();
     form.set('chat_id', String(message.chatId));
     form.set('business_connection_id', message.connectionId);
@@ -97,18 +406,22 @@ async function sendPhoto(
     } else if (photo.url) {
         form.set('photo', photo.url);
     } else {
-        return false;
+        return null;
     }
-    return telegramSend(token, 'sendPhoto', form);
+    return telegramSendId(token, 'sendPhoto', form);
 }
 
-async function telegramSend(token: string, method: string, body: string | FormData): Promise<boolean> {
+async function telegramSendId(token: string, method: string, body: string | FormData): Promise<number | null> {
     const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
         method: 'POST',
         headers: typeof body === 'string' ? { 'Content-Type': 'application/json' } : undefined,
         signal: AbortSignal.timeout(10_000),
         body,
     }).catch(() => null);
-    if (!response?.ok) return false;
-    return (await response.json().catch(() => null))?.ok === true;
+    if (!response?.ok) return null;
+    const data = await response.json().catch(() => null);
+    return data?.ok === true ? Number(data?.result?.message_id ?? 0) || 0 : null;
+}
+async function telegramSend(token: string, method: string, body: string | FormData): Promise<boolean> {
+    return (await telegramSendId(token, method, body)) !== null;
 }

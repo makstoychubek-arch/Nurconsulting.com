@@ -23,6 +23,10 @@ export type VisionResult = {
   pvz: string | null;
   delivery_date: string | null;
   has_our_product: boolean | null;
+  /** Размер вещи из скрина заказа (M, 46, 44-46) или null, если не виден. */
+  size: string | null;
+  /** Модель уверена на 100%, что скрин не подходит (другая выдача/категория/не тот экран). Иначе решает менеджер. */
+  confident: boolean;
   competitors_count: number | null;
   notes: string;
   /** Короткая реплика клиенту, если ok=false */
@@ -75,7 +79,12 @@ export async function analyzeAlinaScreenshot(opts: {
   expectKeyword?: string | null;
   expectProduct?: string | null;
   expectArticle?: string | null;
+  /** Эталон: главное фото нашей карточки (только для сверки, клиенту не отправляется). */
+  reference?: { bytes: Uint8Array; mime: string } | null;
+  /** Все актуальные эталоны: главное фото сейчас и варианты идущего A/B-теста (главное фото в карточке меняется). */
+  references?: { bytes: Uint8Array; mime: string }[] | null;
 }): Promise<VisionResult> {
+  const refs = (opts.references && opts.references.length ? opts.references : opts.reference ? [opts.reference] : []).slice(0, 6);
   const empty: VisionResult = {
     ok: null,
     kind: opts.stage,
@@ -86,6 +95,8 @@ export async function analyzeAlinaScreenshot(opts: {
     pvz: null,
     delivery_date: null,
     has_our_product: null,
+    size: null,
+    confident: false,
     competitors_count: null,
     notes: '',
     client_reply: null,
@@ -113,7 +124,7 @@ export async function analyzeAlinaScreenshot(opts: {
     product:
       'Скрин поиска WB/Ozon: строка запроса сверху + карточки. Нужен наш товар в выдаче и ключ в строке поиска.',
     cart: 'Скрин корзины: наш товар + конкуренты (2–3), желательно бренд в избранном.',
-    order: 'Скрин оформленного заказа: цена, ПВЗ/город, дата получения.',
+    order: 'Скрин оформленного заказа: цена, размер вещи (size), ПВЗ/город, дата получения.',
     pickup: 'Скрин получения / ПВЗ / статус «получен».',
     review: 'Черновик или опубликованный отзыв / фото товара / ШК.',
     other: 'Определи, что на скрине.',
@@ -124,11 +135,13 @@ export async function analyzeAlinaScreenshot(opts: {
     'Ответь ТОЛЬКО JSON без markdown:',
     '{"ok":true|false,"kind":"ad|product|cart|order|pickup|review|other",',
     '"search_query":string|null,"article":string|null,"product_hint":string|null,',
-    '"price":string|null,"pvz":string|null,"delivery_date":string|null,',
-    '"has_our_product":true|false|null,"competitors_count":number|null,',
+    '"price":string|null,"size":string|null,"pvz":string|null,"delivery_date":string|null,',
+    '"has_our_product":true|false|null,"confident":true|false,"competitors_count":number|null,',
     '"notes":"кратко","client_reply":"короткая реплика клиенту на русском если ok=false, иначе null"}',
+    'confident=true ТОЛЬКО если ты на 100% видишь, что скрин не подходит (другая категория, другой запрос, вообще не тот экран). Если сомневаешься, похож ли товар на наш, confident=false и ok=true или false как думаешь.',
     'ok=true только если скрин подходит под этап. client_reply — как живой менеджер, 1 предложение.',
     stageHint[opts.stage],
+    refs.length ? `Первая картинка это скрин клиента. Остальные (${refs.length}) это ЭТАЛОНЫ: главные фото нашей карточки (сейчас на WB и прежние варианты, у нас идёт A/B-тест и главное фото меняется). Просто сравни бок о бок: has_our_product=true, если на скрине клиента есть карточка с тем же товаром, что на любом из эталонов (та же пижама, тот же цвет и рисунок). Другая пижама или цвет: has_our_product=false. На корзине и заказе проверь каждый товар в списке. Если карточки не видно или не уверена, confident=false. В notes напиши цвет и размер, которые видишь.` : '',
     expect ? `Контекст: ${expect}` : '',
   ].filter(Boolean).join('\n');
 
@@ -152,7 +165,8 @@ export async function analyzeAlinaScreenshot(opts: {
             role: 'user',
             content: [
               { type: 'text', text: `Этап: ${opts.stage}. Проверь скрин.` },
-              { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
+              { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
+              ...refs.map((rf) => ({ type: 'image_url', image_url: { url: `data:${rf.mime};base64,${b64(rf.bytes)}`, detail: 'low' } })),
             ],
           },
         ],
@@ -162,7 +176,7 @@ export async function analyzeAlinaScreenshot(opts: {
     const raw = await res.text();
     if (!res.ok) {
       console.warn('[alina-vision] API', res.status, raw.slice(0, 240));
-      await recordLlmUsage(model, null, openAiErrorCode(res.status, raw));
+      await recordLlmUsage(model, null, openAiErrorCode(res.status, raw), 'vision');
       return empty;
     }
     let data: { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
@@ -171,7 +185,7 @@ export async function analyzeAlinaScreenshot(opts: {
     } catch {
       return empty;
     }
-    await recordLlmUsage(model, data?.usage);
+    await recordLlmUsage(model, data?.usage, null, 'vision');
     const content = String(data?.choices?.[0]?.message?.content ?? '').trim();
     if (!content) return empty;
     let parsed: Record<string, unknown>;
@@ -195,6 +209,8 @@ export async function analyzeAlinaScreenshot(opts: {
       has_our_product: typeof parsed.has_our_product === 'boolean'
         ? parsed.has_our_product
         : null,
+      size: parsed.size != null && String(parsed.size).trim() ? String(parsed.size).trim().slice(0, 20) : null,
+      confident: parsed.confident === true,
       competitors_count: Number.isFinite(Number(parsed.competitors_count))
         ? Number(parsed.competitors_count)
         : null,
@@ -212,9 +228,21 @@ export async function analyzeAlinaScreenshot(opts: {
 
 /** Эвристика: если vision сказал ок=null — не блокируем; если false — отклоняем. */
 export function visionBlocks(v: VisionResult | null | undefined): boolean {
-  return Boolean(v && v.via === 'ai' && v.ok === false);
+  if (!v || v.via !== 'ai') return false;
+  if (v.ok === false) return true;
+  // Скрин принят моделью, но нашего товара на нём нет («пижама другого фасона и цвета») — тоже не пропускаем.
+  return ['product', 'cart', 'order'].includes(String(v.kind)) && v.has_our_product === false;
 }
 
 export function visionRejectReply(v: VisionResult, fallback: string): string {
   return (v.client_reply || fallback).trim();
+}
+
+/**
+ * Что делать со скрином: pass (подходит), reject (уверенно не подходит, просим другой), manager (не уверены, решает менеджер).
+ * Клиенту не отказываем, пока модель не уверена на 100%: ошибка зрения не должна выглядеть как ошибка клиента.
+ */
+export function visionVerdict(v: VisionResult | null | undefined): 'pass' | 'reject' | 'manager' {
+  if (!visionBlocks(v)) return 'pass';
+  return v!.confident ? 'reject' : 'manager';
 }

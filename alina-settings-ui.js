@@ -111,6 +111,7 @@
 
     // Настройки Алины по группам (макет «Настройки по группам»): Запуск, Расписание, Ответы, Защита и проверка
     var AS_GROUPS = [
+        { id: 'pulse', n: 'Пульт', secs: [{ id: 'now', n: 'Сейчас' }, { id: 'guards', n: 'Стражи' }] },
         { id: 'launch', n: 'Запуск', secs: [{ id: 'power', n: 'Включение' }, { id: 'spend', n: 'Клиенты и расход' }] },
         { id: 'time', n: 'Расписание', secs: [{ id: 'hours', n: 'Часы работы' }, { id: 'mgr', n: 'Менеджеры' }] },
         { id: 'say', n: 'Ответы', secs: [{ id: 'how', n: 'Как отвечает' }, { id: 'texts', n: 'Тексты Алины' }] },
@@ -119,6 +120,7 @@
     function applyTab(g, s) {
         var wrap = state.host.querySelector('.as-wrap'); if (!wrap) return;
         Array.prototype.forEach.call(wrap.querySelectorAll('[data-ag]'), function (c) { c.classList.toggle('nr-gt-off', !(c.getAttribute('data-ag') === g && c.getAttribute('data-as') === s)); });
+        if (g === 'pulse') startPulse(); else stopPulse();
         wrap.classList.toggle('as-noprev', !(g === 'say' || g === 'guard')); // «как увидит клиент» и менеджеры нужны там, где настраивают ответы и проверяют
     }
     function mountTabs() {
@@ -133,6 +135,8 @@
         var h = '<div class="as-wrap">' +
             '<div class="as-head"><p>Как Алина отвечает клиентам и менеджерам. Изменения применяются в течение полуминуты.</p></div>' +
             '<div class="as-cols"><div class="as-stack">' +
+            '<section class="as-card ap-card" data-ag="pulse" data-as="now" data-v="pulsecard" hidden><h3>Пульт Алины <span class="ap-ver" data-v="apver"></span></h3><div data-v="pulsenow"><p class="as-sub">Загружаю картину дня…</p></div></section>' +
+            '<section class="as-card" data-ag="pulse" data-as="guards" data-v="guardcard" hidden><h3>Страж и лист ожидания</h3><p class="as-sub">Страж каждые 3 минуты ловит клиентов без ответа и сообщает менеджерам. Лист ожидания предлагает освободившееся на сегодня место тем, кому отказали «мест нет».</p><div data-v="guardbox"></div></section>' +
             '<section class="as-card" data-ag="launch" data-as="power" data-v="powercard" hidden><h3>Кому отвечает</h3>' +
             '<div class="as-row"><div class="as-t"><b>Алина отвечает клиентам</b><span data-v="powersub">Проверяю состояние…</span></div>' +
             '<label class="as-sw"><input type="checkbox" data-power="1"><u></u></label></div>' +
@@ -234,6 +238,57 @@
         }).join('');
     }
 
+
+    // ── Пульт Алины (Алина 2.0): картина дня, обновляется каждые 20 секунд, пока открыта вкладка ──
+    function agoMin(m) { return m >= 60 ? Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : m + ' мин'; }
+    function pulseHm(iso) { var d = new Date(iso); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+    function renderPulse(d) {
+        var box = q('[data-v="pulsenow"]'); if (!box) return;
+        var pl = d.plan, tot = pl ? pl.total : 0, ord = pl ? pl.ordered : 0, pct = tot ? Math.round(100 * (pl.taken) / tot) : 0;
+        var vv = q('[data-v="apver"]'); if (vv) vv.textContent = 'АЛИНА ' + esc(d.version || '2.0');
+        var h = '<div class="ap-strip">' +
+            '<div class="ap-m ap-ink"><i>План на сегодня</i><b>' + (pl ? pl.taken + ' / ' + tot : '—') + '</b><u><s style="width:' + pct + '%"></s></u></div>' +
+            '<div class="ap-m"><i>Заказали</i><b>' + (pl ? ord : '—') + '</b></div>' +
+            '<div class="ap-m"><i>Ждут ответа</i><b class="' + (d.waiting ? 'ap-bad' : '') + '">' + d.waiting + '</b><span>дольше 4 минут</span></div>' +
+            '<div class="ap-m"><i>Свободных мест</i><b>' + (pl ? pl.free : '—') + '</b><span>лист ожидания ' + d.waitlist.size + '</span></div></div>';
+        h += '<h4 class="as-grp-h">Клиенты</h4><div class="ap-scroll"><table class="ap-t"><tr><th>Клиент</th><th>Модель</th><th>Шаг</th><th>Тишина</th></tr>' +
+            d.clients.map(function (c) { return '<tr' + (c.waitMin >= 4 ? ' class="ap-hot"' : '') + '><td>@' + esc(c.username) + '</td><td>' + esc(c.model) + '</td><td><span class="ap-pill">' + esc(c.step) + '</span></td><td>' + (c.waitMin ? agoMin(c.waitMin) : '') + '</td></tr>'; }).join('') +
+            '</table></div>';
+        if (pl && pl.free) h += '<p class="as-sub">Свободно сегодня: ' + esc(pl.freeModels.join(', ')) + '</p>';
+        h += '<h4 class="as-grp-h">Лента</h4><div class="ap-feed">' + (d.feed.length ? d.feed.map(function (f) { return '<div><span class="ap-ts">' + pulseHm(f.at) + '</span> ' + esc(f.who) + ': ' + esc(f.what) + '</div>'; }).join('') : '<p class="as-sub">Пока событий нет</p>') + '</div>';
+        box.innerHTML = h; state.pulseHtml = h;
+        renderGuard(d.guardian);
+    }
+    function renderGuard(g) {
+        var box = q('[data-v="guardbox"]'); if (!box || !g) return;
+        var opts = [['off', 'Выключен'], ['dry', 'Пробный'], ['live', 'Включён']];
+        box.innerHTML = '<div class="as-row"><div class="as-t"><b>Страж молчания</b><span>Оповещение в группу менеджеров, если клиент ждёт дольше 4 минут</span></div><label class="as-sw"><input type="checkbox" data-gw="1"' + (g.watchdog ? ' checked' : '') + '><u></u></label></div>' +
+            '<div class="as-row"><div class="as-t"><b>Лист ожидания</b><span>Пробный: только пишет в журнал, что предложил бы. Включён: сам пишет клиентам</span></div><div class="ap-seg">' +
+            opts.map(function (o) { return '<button type="button" data-gl="' + o[0] + '" class="' + (g.waitlist === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
+        var sw = box.querySelector('[data-gw]'); if (sw) sw.onchange = function () { setGuardian({ watchdog: sw.checked }); };
+        Array.prototype.forEach.call(box.querySelectorAll('[data-gl]'), function (b) { b.onclick = function () {
+            var v = b.getAttribute('data-gl');
+            if (v === 'live' && !b.getAttribute('data-ok')) { b.setAttribute('data-ok', '1'); b.textContent = 'Точно включить?'; return; }
+            setGuardian({ waitlist: v });
+        }; });
+    }
+    function setGuardian(patch) {
+        var cur = state.pulse && state.pulse.guardian; if (cur) { var n = { watchdog: cur.watchdog, waitlist: cur.waitlist }; Object.keys(patch).forEach(function (k) { n[k] = patch[k]; }); renderGuard(n); state.pulse.guardian = n; }
+        return Promise.resolve(state.sb.functions.invoke('alina-sandbox', { body: Object.assign({ action: 'guardian_set' }, patch) })).then(function (r) { if (r && r.data && r.data.guardian) renderGuard(r.data.guardian); }, function () { toast('Не получилось сохранить, попробуйте ещё раз'); loadPulse(); });
+    }
+    function loadPulse() {
+        if (!state.canPower || !state.sb) return Promise.resolve();
+        return Promise.resolve(state.sb.functions.invoke('alina-sandbox', { body: { action: 'pulse' } })).then(function (r) {
+            if (r && r.data && r.data.ok) { state.pulse = r.data; if (state.active) renderPulse(r.data); }
+        }, function () { /* старая картина остаётся на экране */ });
+    }
+    function startPulse() {
+        if (state.pulseTimer) return;
+        var box = q('[data-v="pulsenow"]'); if (box && state.pulseHtml) box.innerHTML = state.pulseHtml;
+        loadPulse(); state.pulseTimer = root.setInterval(function () { if (state.active && !root.document.hidden) loadPulse(); }, 20000);
+    }
+    function stopPulse() { if (state.pulseTimer) { root.clearInterval(state.pulseTimer); state.pulseTimer = null; } }
+
     function loadTexts() {
         if (!state.canPower || state.textDefs) return Promise.resolve();
         return Promise.resolve(state.sb.functions.invoke('alina-sandbox', { body: { action: 'texts' } })).then(function (r) {
@@ -245,6 +300,7 @@
         var card = q('[data-v="powercard"]'); if (!card) return;
         var sbx = q('[data-v="sandbox"]');
         if (sbx) { sbx.hidden = !state.canPower; if (state.canPower && !sbx.getAttribute('data-mounted') && root.NrAlinaSandbox) { sbx.setAttribute('data-mounted', '1'); root.NrAlinaSandbox.mount({ host: sbx, supabase: state.sb }); } }
+        ['pulsecard', 'guardcard'].forEach(function (v) { var c = q('[data-v="' + v + '"]'); if (c) c.hidden = !state.canPower; });
         card.hidden = !state.canPower; if (!state.canPower) return;
         var p = state.power, sw = card.querySelector('[data-power]');
         sw.checked = p.on; sw.disabled = p.busy || !p.known;
@@ -393,7 +449,7 @@
         load().catch(function () { if (state.active && !state.loadedFresh) toast('Не удалось загрузить настройки, показаны сохранённые на этом устройстве'); });
     }
 
-    function hide() { state.active = false; }
+    function hide() { state.active = false; stopPulse(); }
 
     /** Окно настроек Алины из шестерёнки в «Раздачах». Фон за окном размыт (правило сайта), Esc и клик по фону закрывают. */
     var win = null;

@@ -2698,8 +2698,6 @@ html body .ru-gi.on b { text-decoration: underline; }
    лежит над прокручиваемой таблицей, размытие под ней на iPhone считалось на каждом кадре, поэтому у неё плотная заливка без размытия. */
 html[data-theme] body :is(#rnp-sheet-body, #rnp-sheet-body *, .rnp-workspace, .rnp-general-topbar, .rnp-general-topbar *) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 @media (max-width: 768px) {
-  html[data-theme="neon"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(46,46,44) !important; }
-  html[data-theme="ios"] body .bottom-nav:not(#nr-x) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgb(255,255,255) !important; }
 }
 
 /* Список площадки на телефоне: на странице «Продвижение» у кнопки были правила с более высокой специфичностью (html#nr-root.nr-f-adv), и открытый список оставался в потоке и вылезал за правый край экрана. Правило для открытого списка усилено для всех страниц. */
@@ -3081,6 +3079,293 @@ html body #adv-view-ads .ads-hq-kpi.main { background: var(--accent) !important;
 html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-label, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-d { color: inherit; }
 html body #adv-view-ads .ads-hq-kpi.main, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value, html body #adv-view-ads .ads-hq-kpi.main .ads-hq-kpi-value span { color: var(--on-accent, #fff) !important; }
 @media (max-width: 768px) { html body #adv-view-ads .ads-hq-kpi.main { padding: 6px 12px !important; border-radius: 14px; } }
+
+/* ───── А/Б тесты: лента на 4 фото, кнопки-иконки, кольцо до смены фото (от владельца, 20 ноября 2026) ───── */
+.abtest-strip { position: relative; flex: 0 0 382px; width: 382px; max-width: 100%; min-width: 0; }
+html body .abtest-strip .abtest-variants { max-width: 100%; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; gap: 10px; padding-bottom: 2px; }
+.abtest-strip .abtest-variants::-webkit-scrollbar { display: none; }
+.abtest-strip .abtest-variant { flex: 0 0 88px; scroll-snap-align: start; }
+.abtest-strip[data-more]:not([data-end]) .abtest-variants { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+.abtest-strip[data-more]:not([data-end])::after { content: attr(data-more); position: absolute; right: 4px; top: 4px; z-index: 2; background: var(--accent); color: var(--on-accent, #fff); font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; pointer-events: none; }
+.abtest-card-actions { align-items: center; gap: 8px; }
+.abtest-card-actions .btn-outline[onclick^="openABReportModal"], .abtest-card-actions .btn-outline[onclick^="editABTest"], .abtest-card-actions .btn-outline[onclick^="finishABTest"], .abtest-card-actions .btn-outline[onclick^="deleteABTest"] {
+    font-size: 0 !important; width: 32px; height: 32px; padding: 0 !important; border-radius: 50%; border: 1px solid var(--border) !important; background: transparent !important; color: var(--text-primary) !important; display: inline-grid; place-items: center; order: 2; }
+.abtest-card-actions .btn-outline[onclick^="openABReportModal"]::before, .abtest-card-actions .btn-outline[onclick^="editABTest"]::before, .abtest-card-actions .btn-outline[onclick^="finishABTest"]::before, .abtest-card-actions .btn-outline[onclick^="deleteABTest"]::before {
+    content: ""; width: 15px; height: 15px; background: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+.abtest-card-actions .btn-outline[onclick^="openABReportModal"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 20V11M12 20V4M19 20v-6'/%3E%3C/svg%3E"); }
+.abtest-card-actions .btn-outline[onclick^="editABTest"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20l4-1 11-11-3-3L5 16l-1 4z'/%3E%3C/svg%3E"); }
+.abtest-card-actions .btn-outline[onclick^="finishABTest"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Crect x='6' y='6' width='12' height='12' rx='2'/%3E%3C/svg%3E"); }
+.abtest-card-actions .btn-outline[onclick^="deleteABTest"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); color: var(--red) !important; }
+.abtest-card-actions .btn-outline[onclick^="forceRotateABTest"] { order: 1; background: var(--accent) !important; color: var(--on-accent, #fff) !important; border-radius: 999px; padding: 6px 14px !important; }
+.abtest-card-actions .btn-outline[onclick^="armABWinnerStop"] { order: 3; background: transparent !important; border: 1px solid var(--border) !important; color: var(--text-muted) !important; border-radius: 999px; font-weight: 600; }
+.abtest-card-actions .btn-outline[onclick^="NrAbRot.restart"] { order: 1; border-radius: 999px; padding: 6px 14px !important; }
+.ab-ring { --p: 0; width: 34px; height: 34px; border-radius: 50%; position: relative; display: inline-grid; place-items: center; flex: none; order: 0; cursor: default; }
+.ab-ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--text-primary) calc(var(--p) * 1%), var(--muted-soft, rgba(128,128,128,.25)) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); }
+.ab-ring b { position: relative; font-size: 11px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.ab-ring.is-imp b::after { content: "%"; font-size: 8px; font-weight: 700; }
+@media (max-width: 768px) {
+    .abtest-card { padding: 14px; }
+    .abtest-card-row { gap: 12px; }
+    .abtest-card-status { order: -1; align-self: flex-start; }
+    .abtest-strip { flex: 0 0 auto; width: 100%; }
+    .abtest-strip .abtest-variant { flex: 0 0 calc((100% - 30px) / 4); width: auto; min-width: 0; }
+    .abtest-strip .abtest-variant img { height: auto; aspect-ratio: 3 / 4; }
+    .abtest-card-title { font-size: 16px; }
+    .abtest-card-meta { font-size: 11.5px; line-height: 1.45; }
+    .abtest-card-actions { gap: 10px; margin-top: 12px; }
+    .abtest-card-actions .btn-outline[onclick^="openABReportModal"], .abtest-card-actions .btn-outline[onclick^="editABTest"], .abtest-card-actions .btn-outline[onclick^="finishABTest"], .abtest-card-actions .btn-outline[onclick^="deleteABTest"] { width: 38px; height: 38px; }
+    .abtest-card-actions .btn-outline[onclick^="forceRotateABTest"] { padding: 9px 16px !important; font-size: 12px !important; }
+    .ab-ring { width: 38px; height: 38px; }
+}
+
+/* ===== Отчёт А/Б теста: все варианты на одном экране, без вердикта (от владельца, 20 ноября 2026) ===== */
+html body #ab-report-verdict:empty { display: none; }
+html body .ab-report-grid { grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 10px; justify-content: stretch; }
+html body .ab-report-card { padding: 8px; gap: 5px; box-shadow: none; }
+html body .ab-report-card .ab-report-ctr-val { font-size: 17px; }
+html body .ab-report-card .ab-report-img-wrap { align-self: center; width: min(100%, calc(min(300px, 34vh) * 7 / 9)); }
+@media (max-width: 760px) {
+  html body #ab-report-modal #ab-report-title { font-size: 17px !important; line-height: 1.2 !important; letter-spacing: -.01em !important; margin: 0 40px 2px 0 !important; }
+  html body .nr-win.ab-report-dialog > .nr-win-bar { padding: 12px 14px 0 16px !important; }
+  html body .nr-win.ab-report-dialog .nr-win-title { font-size: 17px !important; line-height: 1.2 !important; }
+  html body .nr-win.ab-report-dialog > .nr-win-scroll { padding: 8px 14px 14px !important; }
+  html body #ab-report-source-toggle { gap: 6px !important; margin-bottom: 6px !important; }
+  html body #ab-report-source-toggle > span { display: none; }
+  html body #ab-report-source-toggle .ui-btn { white-space: nowrap; font-size: 11px !important; padding: 5px 12px !important; }
+  html body .ab-report-dialog #ab-report-sub { font-size: 11px; line-height: 1.4; margin-bottom: 6px !important; }
+  html body .ab-report-grid { grid-template-columns: 1fr; gap: 8px; }
+  html body .ab-report-card { display: grid; grid-template-columns: 62px minmax(0, 1fr); grid-template-areas: "img head" "img ctr" "img tbl"; column-gap: 10px; row-gap: 2px; align-items: start; padding: 8px; }
+  html body .ab-report-card .ab-report-head { grid-area: head; min-height: 0; }
+  html body .ab-report-card .ab-report-img-wrap { grid-area: img; width: auto; align-self: start; }
+  html body .ab-report-card .ab-report-ctr-row { grid-area: ctr; }
+  html body .ab-report-card .ab-report-metrics-table { grid-area: tbl; display: block; border: 0; padding: 0; }
+  html body .ab-report-card .ab-report-metrics-table tbody { display: flex; flex-wrap: wrap; gap: 1px 12px; }
+  html body .ab-report-card .ab-report-metrics-table tr { display: flex; gap: 4px; }
+  html body .ab-report-card .ab-report-metrics-table tr { display: none; }
+  html body .ab-report-card .ab-report-metrics-table tr:is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(9)) { display: flex; }
+  html body .ab-report-card .ab-report-metrics-table td { padding: 0; font-size: 11px; }
+  html body .ab-report-card .ab-report-meta { display: none; }
+}
+
+/* ===== iPhone: окна не заходят под строку состояния (от владельца, 20 ноября 2026) =====
+   Apple размывает всё под строкой состояния. Окно начинаем ниже: env(safe-area-inset-top) + 24px,
+   а высоту уменьшаем на то же, чтобы низ не уехал за экран. */
+@media (max-width: 760px) {
+  html body :is(.rnp-settings-overlay, .rnp-plan-fact-overlay, #ab-edit-modal, #ab-report-modal, #new-test-form, #premium-modal, #add-cabinet-modal, #autobidder-modal, #supply-detail-modal) {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 24px) !important; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+  html body .nr-win.nr-win:not(.nr-win-photo):not(.nw-modal), html body .ab-new-dialog.nr-win.nr-win {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 36px) !important;
+  }
+  html body .nr-win.nr-win:not(.nr-win-photo):not(.nw-modal):is(.rnp-settings-dialog, .ab-report-dialog, .gg-settings-dialog, .cl-dialog, .nr-glass-dialog, .ab-new-dialog, .rnp-plan-fact-dialog) {
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 36px) !important;
+  }
+  html body .nru-win { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 36px); }
+}
+
+/* ===== РК в карточке и отчёте А/Б теста: один ровный ряд (владелец, 20 ноября 2026) ===== */
+.abtest-camps { display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 6px; overflow: hidden; }
+.abtest-camps.all { overflow-x: auto; scrollbar-width: none; margin: 0 0 8px; }
+.abtest-camps.all::-webkit-scrollbar { display: none; }
+.abtest-camps > span { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.abtest-camps > span.more { color: var(--text-muted); }
+.abtest-camps.edit { flex-wrap: wrap; overflow: visible; }
+.abtest-camps.edit button { border: 0; background: transparent; color: var(--text-muted); font-size: 14px; line-height: 1; padding: 0 0 0 2px; cursor: pointer; }
+.abtest-camps.edit button:hover { color: var(--red); }
+
+
+/* ===== Живое стекло (Liquid Glass) на плавающих элементах (от владельца, 20 ноября 2026: «делай и на ПК тоже») =====
+   Стекло у того, что реально плавает над содержимым: нижнее меню и круглые кнопки шапки (телефон), уведомления, список кабинетов, окна. Страницы и таблицы остаются плотными.
+   Материал: полупрозрачная заливка, размытие с насыщением, световая кромка и блик. В Chrome и Edge по краям ещё преломление фона (SVG-карта смещения строит nr-ui.js);
+   в Safari и на iPhone браузер преломление не умеет, остаётся стекло без искажения. Отключить: html[data-lg="off"] или localStorage nr_lg = 0. */
+html body { --lg-fill: rgba(255,255,255,.5); --lg-win: rgba(255,255,255,.8); --lg-hi: rgba(255,255,255,.95); --lg-lo: rgba(0,0,0,.10); --lg-glow: rgba(255,255,255,.5); --lg-edge: rgba(0,0,0,.10); --lg-sh: rgba(0,0,0,.14); --lg-sheen: rgba(255,255,255,.55); --lg-blur: 10px; --lg-bf: blur(14px) saturate(1.8); }
+html[data-theme="neon"] body { --lg-fill: rgba(255,255,255,.07); --lg-win: rgba(34,34,32,.74); --lg-hi: rgba(255,255,255,.38); --lg-lo: rgba(0,0,0,.4); --lg-glow: rgba(255,255,255,.07); --lg-edge: rgba(255,255,255,.16); --lg-sh: rgba(0,0,0,.5); --lg-sheen: rgba(255,255,255,.14); }
+html:not([data-lg="off"]) body :is(.nru-toast, .cabinet-dropdown-menu) {
+  background-color: var(--lg-fill) !important; background-image: linear-gradient(135deg, var(--lg-sheen), rgba(255,255,255,0) 46%) !important;
+  -webkit-backdrop-filter: var(--lg-bf) !important; backdrop-filter: var(--lg-bf) !important; border-color: var(--lg-edge) !important;
+  box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), inset 0 0 16px var(--lg-glow), 0 8px 22px var(--lg-sh) !important;
+}
+html:not([data-lg="off"]) body .nru-toast { --lg-fill: var(--lg-win); }
+html:not([data-lg="off"]) body :is(.nr-win:not(.nr-win-photo):not(.nw-modal), .nru-win) {
+  --lg-blur: 24px; --lg-bf: blur(26px) saturate(1.6);
+  background-color: var(--lg-win) !important; background-image: linear-gradient(135deg, var(--lg-sheen), rgba(255,255,255,0) 38%) !important;
+  -webkit-backdrop-filter: var(--lg-bf) !important; backdrop-filter: var(--lg-bf) !important; border-color: var(--lg-edge) !important;
+  box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), 0 24px 70px var(--lg-sh) !important;
+}
+html:not([data-lg="off"]) body .nru-win .nru-ft { background: transparent !important; border-top: 1px solid var(--lg-edge); }
+@media (max-width: 768px) {
+  html:not([data-lg="off"]) body :is(.bottom-nav, .nr-mp, #header-date-chip-wrap) {
+    background-color: var(--lg-fill) !important; background-image: linear-gradient(135deg, var(--lg-sheen), rgba(255,255,255,0) 46%) !important;
+    -webkit-backdrop-filter: var(--lg-bf) !important; backdrop-filter: var(--lg-bf) !important; border-color: var(--lg-edge) !important;
+    box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), inset 0 0 16px var(--lg-glow), 0 8px 22px var(--lg-sh) !important;
+  }
+  html:not([data-lg="off"]) body .bottom-nav-btn.active {
+    background-color: var(--lg-fill) !important; background-image: linear-gradient(160deg, var(--lg-sheen), rgba(255,255,255,0) 60%) !important;
+    box-shadow: inset 1px 1px 1px var(--lg-hi), inset -1px -1px 1px var(--lg-lo), 0 3px 10px var(--lg-sh) !important; border-color: var(--lg-edge) !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) { html body { --lg-bf: none; --lg-fill: var(--surface-solid, #fff); --lg-win: var(--surface-solid, #fff); } html[data-theme="neon"] body { --lg-fill: rgb(46,46,44); --lg-win: rgb(34,34,32); } }
+
+/* Открыт календарь или список кабинетов: белая полоса шапки (header::before) затемняется на столько же, на сколько страница.
+   Шапка в этот момент выше затемнения, и без этого она оставалась яркой при потемневшем названии «Модуль РНП» (владелец, 21 ноября 2026). */
+html#nr-root:is(.nr-f-dp, .nr-f-cab) body header.glass.app-header:not(#nr-x)::before { background: linear-gradient(rgba(0,0,0,.4), rgba(0,0,0,.4)), var(--nr-frame) !important; }
+html#nr-root[data-theme="neon"]:is(.nr-f-dp, .nr-f-cab) body header.glass.app-header:not(#nr-x)::before { background: linear-gradient(rgba(0,0,0,.5), rgba(0,0,0,.5)), var(--nr-frame) !important; }
+
+/* РНП: выбор шрифта таблицы (Настройки РНП → Вид таблицы → Подсветка → Шрифт). «Как в таблице Google»: Arial, широкий и жирный.
+   Применяется сразу через html[data-rnp-font] и html[data-rnp-fs] (владелец, 22 ноября 2026: цифры в таблице не читались). */
+html[data-rnp-font="sheet"] :is(.rnp-sheet-table, .rnp-ht-prev) :is(td, th), html[data-rnp-font="sheet"] .rnp-ht-fs.f-sheet { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; letter-spacing: .01em; }
+html[data-rnp-font="sheet"] .rnp-sheet-table td[data-rnp-value], html[data-rnp-font="sheet"] .rnp-sheet-table td[data-rnp-value] * { font-weight: 800; }
+html[data-rnp-font="sheet"] .rnp-sheet-table td.rnp-metric-col { font-weight: 900; }
+html[data-rnp-font="wide"] :is(.rnp-sheet-table, .rnp-ht-prev) :is(td, th) { font-family: Verdana, "DejaVu Sans", Geneva, sans-serif; letter-spacing: .02em; }
+html[data-rnp-font="wide"] .rnp-sheet-table td[data-rnp-value], html[data-rnp-font="wide"] .rnp-sheet-table td[data-rnp-value] * { font-weight: 700; }
+html[data-rnp-font="mono"] :is(.rnp-sheet-table, .rnp-ht-prev) :is(td, th) { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+html[data-rnp-fs="1"] .rnp-sheet-table { --fs-label: 12px; --fs-micro: 11px; --fs-compact: 10px; font-size: 13px; }
+html[data-rnp-fs="2"] .rnp-sheet-table { --fs-label: 13px; --fs-micro: 12px; --fs-compact: 11px; font-size: 14px; }
+.rnp-ht-fonts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.rnp-ht-font { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--border, rgba(0,0,0,.14)); border-radius: 16px; background: transparent; color: var(--text-primary); cursor: pointer; }
+.rnp-ht-font.is-on { border-color: var(--text-primary); box-shadow: 0 0 0 1px var(--text-primary); }
+.rnp-ht-font .rnp-ht-fs { font-size: 16px; font-weight: 800; }
+.rnp-ht-font[data-heat-font="site"] .rnp-ht-fs { font-family: inherit; }
+.rnp-ht-font[data-heat-font="sheet"] .rnp-ht-fs { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.rnp-ht-font[data-heat-font="wide"] .rnp-ht-fs { font-family: Verdana, "DejaVu Sans", sans-serif; }
+.rnp-ht-font[data-heat-font="mono"] .rnp-ht-fs { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.rnp-ht-font b { font-size: 12px; }
+.rnp-ht-card .rnp-ht-seg { margin-bottom: 8px; }
+
+/* Тёмная тема: белых и светло-сиреневых блоков нет (владелец, 23 ноября 2026, скрины РНП «Общее по артикулам» и План/факт).
+   «Итог за период» РНП теперь на тёмной подложке (rnp-extra.css), а лист План/факт, нарисованный под светлую таблицу Google, перекрашен в тёмные тона. */
+[data-theme="neon"] :is(.pf-bar, .pf-pager, .pf-scroll, .pf-sheet, .pf-sheet .pf-a, .pf-sheet .pf-b, .pf-sheet .pf-c, .pf-sheet thead .pf-a, .pf-sheet thead .pf-b, .pf-sheet thead .pf-c, .pf-sheet tbody .pf-day) { background: var(--surface-solid) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet th, [data-theme="neon"] .pf-sheet td { color: var(--text-primary); border-color: rgba(255,255,255,.12); }
+[data-theme="neon"] .pf-sheet .pf-c { box-shadow: 2px 0 0 rgba(255,255,255,.18); }
+[data-theme="neon"] .pf-sheet thead :is(.pf-day, .pf-date, .pf-dow, .pf-fact-h) { background: color-mix(in srgb, #4caf50 26%, var(--surface-solid)) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet :is(.pf-plan, .pf-fact) { background: color-mix(in srgb, #4caf50 20%, var(--surface-solid)) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet .pf-total, [data-theme="neon"] .pf-sheet thead .pf-total { background: color-mix(in srgb, #4caf50 12%, var(--surface-solid)) !important; color: var(--text-primary) !important; }
+[data-theme="neon"] .pf-sheet .pf-dark { background: color-mix(in srgb, #4caf50 40%, #0b1a07) !important; color: #fff !important; }
+[data-theme="neon"] .pf-sheet .pf-nm { color: var(--text-muted); }
+[data-theme="neon"] .pf-bar-title { color: var(--text-primary); }
+[data-theme="neon"] .pf-pg { background: transparent; color: var(--text-primary); border-color: rgba(255,255,255,.35); }
+
+/* ===== Вид сайта «Стекло» (Настройки → Вид сайта, html[data-design="glass"], только компьютер) =====
+   Разделы кнопками в стеклянной полосе сверху, подразделы выпадают под своей кнопкой, окна из живого стекла на мягком цветном фоне.
+   Содержимое страниц не меняется. Классический вид (меню слева) остаётся по умолчанию. */
+@media (min-width: 769px) {
+  html[data-design="glass"] { --nr-gl: max(12px, calc((100vw - 1760px) / 2 + 12px)); --nr-topbar: 60px; --nr-top-y: 84px; }
+  html[data-design="glass"] body { background: transparent; }
+  html[data-design="glass"] { background: var(--bg); }
+  html[data-design="glass"]::before { content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background: radial-gradient(900px 620px at 8% -6%, color-mix(in srgb, var(--wb, #8b3dff) 30%, transparent), transparent 70%), radial-gradient(900px 640px at 96% 104%, color-mix(in srgb, var(--oz, #005bff) 26%, transparent), transparent 70%); }
+  html[data-design="glass"] body #dashboard-app-shell { z-index: auto !important; }  /* без своего слоя: выпадающие подразделы поверх шапки страницы */
+  html[data-design="glass"] body .sidebar-app { position: fixed !important; left: var(--nr-gl) !important; right: var(--nr-gl) !important; top: 12px !important; bottom: auto !important; width: auto !important; height: var(--nr-topbar) !important; z-index: 10001; }
+  html[data-design="glass"] body .sidebar-rail { flex-direction: row !important; align-items: center !important; width: 100% !important; min-width: 0 !important; max-width: none !important; height: var(--nr-topbar) !important; margin: 0 !important; padding: 0 14px !important; gap: 10px !important; border-radius: 30px !important; overflow: visible !important; }
+  html[data-design="glass"] body .sidebar-rail .rail-logo { margin: 0 !important; padding: 0 !important; flex: none; }
+  html[data-design="glass"] body .sidebar-rail .rail-nav { display: flex !important; flex-direction: row !important; align-items: center; gap: 4px !important; flex: 1; margin: 0 0 0 18px !important; padding: 0 !important; overflow: visible !important; height: auto !important; }
+  html[data-design="glass"] body .sidebar-rail .rail-btn { width: auto !important; height: 40px !important; padding: 0 16px !important; flex-direction: row !important; gap: 0 !important; border-radius: 999px !important; }
+  html[data-design="glass"] body .sidebar-rail .rail-btn-ico { display: none !important; }
+  html[data-design="glass"] body .sidebar-rail .rail-btn-lbl { font-size: 14px !important; font-weight: 700 !important; margin: 0 !important; }
+  html[data-design="glass"] body .sidebar-rail .rail-bottom { margin-left: auto !important; flex-direction: row !important; align-items: center; margin: 0 !important; padding: 0 !important; border: 0 !important; gap: 10px; width: auto !important; }
+  html[data-design="glass"] body .sidebar-rail .rail-user .min-w-0 { display: none !important; }
+  html[data-design="glass"] body .sidebar-rail .rail-bottom-icons { flex-direction: row !important; gap: 6px; }
+  html[data-design="glass"] body .sidebar-flyout { top: calc(var(--nr-topbar) + 6px); width: max-content; min-width: 180px; height: auto !important; max-height: calc(100vh - 100px); border-radius: 22px !important; }
+  html[data-design="glass"] body .main-rail, html[data-design="glass"] body.flyout-expanded .main-rail, html#nr-root[data-design="glass"].nr-f-dash body .main-rail { margin-left: 0 !important; padding: var(--nr-top-y) var(--nr-gl) 12px var(--nr-gl) !important; height: 100vh; box-sizing: border-box; }
+  html[data-design="glass"] body .main-rail .main-content:not(#nr-x) { height: calc(100vh - var(--nr-top-y) - 12px) !important; }
+  html[data-design="glass"] body header.glass.app-header:not(#nr-x), html[data-design="glass"] body.flyout-expanded header.glass.app-header:not(#nr-x) { top: var(--nr-top-y) !important; left: var(--nr-gl) !important; right: var(--nr-gl) !important; width: auto !important; }
+  html[data-design="glass"] body .main-rail .main-content:not(#nr-x) { margin: 0 !important; }
+}
+/* Экран-логотип при переключении вида */
+.nr-ds { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 18px; background: rgba(0,0,0,.35); -webkit-backdrop-filter: blur(34px) saturate(1.5); backdrop-filter: blur(34px) saturate(1.5); animation: nr-ds-in .3s ease; }
+.nr-ds.out { opacity: 0; transition: opacity .35s ease; }
+.nr-ds-lg { width: 150px; height: 150px; border-radius: 44px; background: var(--surface-solid, #fff); border: 1px solid rgba(255,255,255,.4); display: flex; align-items: center; justify-content: center; animation: nr-ds-pu 1.4s ease-in-out infinite; }
+.nr-ds-t { color: #fff; font-weight: 800; font-size: 20px; }
+.nr-ds-bar { width: 260px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.22); overflow: hidden; }
+.nr-ds-bar i { display: block; height: 100%; background: #fff; border-radius: 99px; animation: nr-ds-ld 1.4s ease forwards; }
+@keyframes nr-ds-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nr-ds-pu { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes nr-ds-ld { from { width: 0; } to { width: 100%; } }
+/* Настройки → Вид сайта */
+.nr-dz { max-width: 900px; }
+.nr-dz h4 { margin: 0 0 4px; font-size: 18px; font-weight: 900; color: var(--text-primary); }
+.nr-dz-sub { margin: 0 0 16px; color: var(--text-muted); font-size: 13px; }
+.nr-dz-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.nr-dz-card { text-align: left; border: 1px solid var(--g-line, rgba(0,0,0,.14)); border-radius: 26px; padding: 14px; background: transparent; color: var(--text-primary); cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.nr-dz-card.on { border-color: var(--text-primary); box-shadow: 0 0 0 1px var(--text-primary); }
+.nr-dz-card strong { font-size: 16px; font-weight: 900; margin-top: 8px; }
+.nr-dz-card strong em { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: var(--sel, rgba(0,0,0,.08)); margin-left: 6px; }
+.nr-dz-card small { color: var(--text-muted); font-size: 12.5px; }
+.nr-dz-prev { position: relative; display: block; height: 150px; border-radius: 18px; overflow: hidden; background: #f4f4f6; border: 1px solid rgba(0,0,0,.08); }
+.nr-dz-prev i, .nr-dz-prev b { position: absolute; display: block; }
+.nr-dz-p1 i { left: 0; top: 0; bottom: 0; width: 44px; background: #e6e6ea; }
+.nr-dz-p1 b:nth-of-type(1) { left: 58px; right: 12px; top: 12px; height: 38px; border: 1px solid #c9c9ce; border-radius: 12px; }
+.nr-dz-p1 b:nth-of-type(2) { left: 58px; right: 12px; top: 62px; bottom: 12px; border: 1px solid #c9c9ce; border-radius: 12px; }
+.nr-dz-p2 { background: #101012; }
+.nr-dz-p2 i { left: 12px; right: 12px; top: 10px; height: 26px; border-radius: 14px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); }
+.nr-dz-p2 b:nth-of-type(1) { left: 12px; width: 90px; top: 46px; height: 40px; border-radius: 12px; background: linear-gradient(140deg, #a66bff, #5a2fb0); }
+.nr-dz-p2 b:nth-of-type(2) { left: 12px; right: 12px; top: 96px; bottom: 10px; border-radius: 12px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); }
+@media (max-width: 768px) { .nr-dz-grid { grid-template-columns: 1fr; } }
+
+/* РНП: числа не наезжают друг на друга (владелец, 23 ноября 2026: «числа в РНП выходят криво»).
+   Колонка дня 48px была уже, чем шестизначное число с таблеткой (825 844 + поля 2×9px), поэтому соседние цифры слипались.
+   Теперь колонка 52px (ширину считает _dayColW в rnp-module.js) и растёт вместе с выбранным шрифтом и размером (Настройки РНП → Подсветка таблицы → Шрифт), таблетка уже.
+   Заодно «Крупнее» и «Ещё крупнее» действительно увеличивают цифры в ячейках (раньше менялся только шрифт таблицы целиком). */
+html[data-rnp-fs="1"] body .rnp-sheet-table :is(td.rnp-day-col, td.rnp-data-col) { font-size: 11px; }
+html[data-rnp-fs="2"] body .rnp-sheet-table :is(td.rnp-day-col, td.rnp-data-col) { font-size: 12px; }
+html body .rnp-sheet-table td[data-hr] .rnp-hvs { padding-left: 5px !important; padding-right: 5px !important; }
+
+/* Аналитика → «Сводка РНП» (карточки перенесены из РНП, владелец, 23 ноября 2026) */
+html body .an-rnp-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font-size: 14px; font-weight: 800; color: var(--text-primary); }
+html body .an-rnp-head small { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+html body .an-rnp .rnp-general-topbar.rnp-gh { position: static !important; padding: 0 !important; }
+
+/* РНП: блоки таблицы (Касса, Воронка, Выкупы, Реклама, Все расходы…) разделены серой плашкой с названием и отступом сверху, без чёрных полос
+   (владелец, 23 ноября 2026: «добавь разделители», затем «в макете не было чёрных полос»). Цвет плашки от темы, поэтому в светлой и тёмной одинаково читается;
+   розовые и красные полосы на заголовках блоков (подсветка строки) перекрываются серым. */
+html body .rnp-sheet-table tr.rnp-section-hdr > td,
+html body .rnp-sheet-table tr.rnp-section-hdr > td.rnp-section-stick,
+html body .rnp-sheet-table tr.rnp-section-hdr > td.rnp-section-fill { background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-solid)) !important; color: var(--text-primary) !important; height: 24px; border-top: 10px solid var(--surface-solid) !important; border-bottom: 0 !important; box-shadow: none !important; }
+html body .rnp-sheet-table tr.rnp-section-hdr > td:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+html body .rnp-sheet-table tr.rnp-section-hdr > td:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
+html body .rnp-sheet-table tr.rnp-section-hdr .rnp-gs-section-title { font-weight: 900; letter-spacing: .06em; font-size: 11px; }
+
+/* Кнопка «Скрыть» в РНП (владелец, 24 ноября 2026): пока зажата, фото, названия и артикулы размыты, цифры остаются. Отклик без задержки. */
+.rnp-blur-btn { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.rnp-blur-btn.is-on { background: var(--text-primary) !important; color: var(--surface-solid, #fff) !important; border-color: var(--text-primary) !important; }
+html[data-nr-privacy] .rnp-tab-img,
+html[data-nr-privacy] .rnp-test-img,
+html[data-nr-privacy] .rnp-gs-photo-img,
+html[data-nr-privacy] .rnp-byart-img,
+html[data-nr-privacy] .rnp-gs-photo,
+html[data-nr-privacy] .rnp-gh-card img,
+html[data-nr-privacy] .rnp-gh-li img { filter: blur(14px) !important; }
+html[data-nr-privacy] .rnp-tab-label,
+html[data-nr-privacy] .rnp-cat-name,
+html[data-nr-privacy] .rnp-gs-name,
+html[data-nr-privacy] .rnp-wb-link,
+html[data-nr-privacy] .rnp-byart-name,
+html[data-nr-privacy] .rnp-gh-li > span { filter: blur(9px) !important; -webkit-user-select: none; user-select: none; }
+
+/* Пульт Алины («Минимализм»): контур, чёрный блок только у главной метрики, цвет только у «плохо». */
+.ap-ver { font: 700 10px var(--font-d, inherit); letter-spacing: .08em; border: 1px solid currentColor; border-radius: 99px; padding: 2px 9px; vertical-align: middle; margin-left: 8px; }
+.ap-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.ap-m { border: 1px solid currentColor; border-radius: 26px; padding: 14px 16px; min-width: 0; display: grid; gap: 2px; }
+.ap-m i { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .65; }
+.ap-m b { font-size: 30px; font-weight: 900; line-height: 1.1; }
+.ap-m span { font-size: 12px; opacity: .65; }
+.ap-m u { display: block; height: 6px; border-radius: 99px; background: rgba(128, 128, 128, .35); text-decoration: none; overflow: hidden; margin-top: 6px; }
+.ap-m u s { display: block; height: 100%; background: currentColor; text-decoration: none; }
+.ap-ink { background: var(--accent, #0b0b0b); color: var(--on-accent, #fff); border-color: var(--accent, #0b0b0b); }
+.ap-bad { color: #c62828; }
+.ap-scroll { overflow-x: auto; }
+.ap-t { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 460px; }
+.ap-t th { text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .65; padding: 6px 8px; border-bottom: 1px solid currentColor; }
+.ap-t td { padding: 7px 8px; border-bottom: 1px solid rgba(128, 128, 128, .25); }
+.ap-hot td { background: rgba(198, 40, 40, .08); }
+.ap-pill { display: inline-block; border: 1px solid currentColor; border-radius: 99px; padding: 1px 9px; font-size: 12px; font-weight: 700; }
+.ap-feed { display: grid; gap: 6px; font-size: 13px; }
+.ap-ts { opacity: .55; font-variant-numeric: tabular-nums; margin-right: 4px; }
+.ap-seg { display: inline-flex; border: 1px solid currentColor; border-radius: 99px; overflow: hidden; }
+.ap-seg button { font: 700 12px inherit; background: transparent; color: inherit; border: 0; padding: 6px 12px; cursor: pointer; }
+.ap-seg button.on { background: var(--accent, #0b0b0b); color: var(--on-accent, #fff); }
+@media (max-width: 760px) { .ap-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* «Кампании»: фото в своей колонке (не наезжает на название), название шире, плашка динамики под цифрой (правка 19 ноября) */
 @media (min-width: 769px) {
   html body #adv-pulse .adp2-tc { width: 66px; padding-left: 12px; }

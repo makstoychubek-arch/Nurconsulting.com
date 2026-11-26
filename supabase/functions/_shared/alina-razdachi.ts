@@ -23,16 +23,23 @@ export type RazSheet = {
 };
 
 // Имена полей Алины → заголовки колонок (в нижнем регистре). Для дублей («Реквизиты») берётся первая колонка.
+/** Статусы, которые ставит и меняет сама Алина (остальные в списке ставит менеджер). */
+export const ALINA_STATUSES = ['Записан', 'Условия отправлены', 'Ищет товар', 'Корзина', 'Заказ оформлен', 'Ждёт получения', 'Забрал', 'ШК получен', 'Отзыв на согласовании'];
+
 const FIELD_HEADERS: Record<string, RegExp> = {
   model: /^товар$|^модель$/,
   kind: /^вид( раздачи)?$/,
   tg: /^ссылка\s*тг$|^тг$|^username$/,
   date: /^дата\s*заказа$/,
   price: /^цена\s*в\s*заказе$/,
-  cash_pct: /^размер\s*кэша$/,
+  size: /^размер(?:\s*кэша)?$/, // раньше «Размер кэша»; кэшбека нет, колонка теперь «Размер» (одежды)
   pickup_plan: /^примерная\s*дата\s*забора$/,
   pickup_fact: /^фактическая\s*дата\s*забора$|^факт забора$/,
   review_date: /^дата\s*публикации\s*отзыва$/,
+  payout_plan: /^планируемая\s*дата\s*выплаты$/,
+  status: /^статус$/,
+  shk: /^разрезан\S*\s*шк$/,
+  integration: /^дата\s*интеграции$/, // колонка N (раньше вторые «Реквизиты»)
   review_kind: /^вид\s*отзыва$/,
   requisites: /^реквизиты$/,
   published: /^отзыв\s*опубликован$/,
@@ -42,7 +49,9 @@ const FIELD_HEADERS: Record<string, RegExp> = {
 };
 
 // Поля, по которым видно, что процесс по строке уже начался.
-const STARTED_FIELDS = ['price', 'pickup_plan', 'pickup_fact', 'review_date', 'review_kind', 'requisites', 'published', 'key'];
+// «Дата публикации отзыва» сюда тоже не входит: её Алина ставит заготовкой при брони, и после ручной очистки логина она оставалась в строке, а место считалось занятым (25.11.2026, строка 16).
+// «Ключ» сюда не входит: в таблице МАРС он вписан заранее у каждой размеченной строки (это план, а не признак начатого процесса), из-за чего все места считались занятыми.
+const STARTED_FIELDS = ['price', 'pickup_plan', 'pickup_fact', 'review_kind', 'requisites', 'integration', 'published'];
 
 export function normTg(raw: unknown): string {
   let s = String(raw ?? '').normalize('NFKC').replace(/[​-‍﻿]/g, '').trim().toLowerCase();
@@ -200,6 +209,16 @@ export async function writeClientRow(
     if (idx == null || value === '' || value == null) continue;
     const current = String(cells[idx] ?? '').trim();
     if (current === value) continue;
+    // Статус: свои этапы Алина обновляет по ходу дела, статус менеджера (согласован, опубликован, выплачено, ведёт, отказ) не трогает и расхождением не считает.
+    if (name === 'status') {
+      if (current !== '' && !ALINA_STATUSES.includes(current)) continue;
+      updates.push({ range: `${q}!${colLetter(idx)}${row}`, value });
+      written.push(name);
+      continue;
+    }
+    // «р.48» и «48», «1 699 ₽» и «р.1 699»: те же цифры, не считаем расхождением.
+    const dg = (t: string) => t.replace(/\D/g, '');
+    if (current !== '' && dg(current) !== '' && dg(current) === dg(value) && !/\d{1,2}\.\d{1,2}\.\d{4}/.test(current)) continue;
     if (current !== '') { conflicts.push(name); continue; }
     updates.push({ range: `${q}!${colLetter(idx)}${row}`, value });
     written.push(name);
@@ -240,3 +259,132 @@ export function createCachedLoader<T>(load: () => Promise<T>, ttlMs = 60_000, no
     return inflight;
   };
 }
+
+// ── Места и бронь (владелец, 24 ноября 2026) ─────────────────────────────────────────
+// Строка без логина и без данных процесса это свободное место. Алина берёт место сама: сегодня сразу, на другую дату по согласию клиента.
+
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+function dateToUtc(key: string): number {
+  const [d, m, y] = key.split('.').map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+/** Сколько дней от одной даты (дд.мм.гггг) до другой. */
+export function daysBetween(fromKey: string, toKey: string): number {
+  return Math.round((dateToUtc(toKey) - dateToUtc(fromKey)) / 86400000);
+}
+
+/** «сегодня», «завтра, 25 ноября», «послезавтра, 26 ноября» или «28 ноября». */
+export function ruDay(dateKey: string, today: string): string {
+  const n = daysBetween(today, dateKey);
+  const [d, m] = dateKey.split('.').map(Number);
+  const abs = `${d} ${MONTHS_GEN[m - 1]}`;
+  if (n === 0) return 'сегодня';
+  if (n === 1) return `завтра, ${abs}`;
+  if (n === 2) return `послезавтра, ${abs}`;
+  return abs;
+}
+
+export const isFreeRow = (r: RazRow): boolean => !r.tg && !r.started;
+
+export type FreeSlot = { model: string; date: string; rows: RazRow[] };
+
+/** Свободные места по моделям и датам от сегодняшней даты на horizon дней вперёд, по возрастанию даты. */
+/** Модели, которые сейчас недоступны на WB (alina_settings.blockedModels): Алина их не предлагает и не бронирует. */
+let blockedModels = new Set<string>();
+export const setBlockedModels = (names: string[]): void => { blockedModels = new Set(names.map((n) => normModel(n))); };
+export const isModelBlocked = (name: string): boolean => blockedModels.has(normModel(name));
+
+export function freeSlots(sheet: RazSheet, today: string, horizon = 14): FreeSlot[] {
+  const map = new Map<string, FreeSlot>();
+  for (const r of sheet.rows) {
+    if (!isFreeRow(r)) continue;
+    if (isModelBlocked(r.model)) continue;
+    const n = daysBetween(today, r.date);
+    if (n < 0 || n > horizon) continue;
+    const k = normModel(r.model) + '|' + r.date;
+    const s = map.get(k) ?? { model: r.model, date: r.date, rows: [] };
+    s.rows.push(r);
+    map.set(k, s);
+  }
+  return [...map.values()].sort((a, b) => dateToUtc(a.date) - dateToUtc(b.date) || a.model.localeCompare(b.model, 'ru'));
+}
+
+/** Ближайшая дата со свободным местом по модели. */
+export function nearestFree(sheet: RazSheet, model: string, today: string, horizon = 14): FreeSlot | null {
+  const k = normModel(model);
+  return freeSlots(sheet, today, horizon).find((s) => normModel(s.model) === k) ?? null;
+}
+
+const COLOR_WORDS: [RegExp, string][] = [
+  [/шоколад|шоко/, 'шоколад'], [/молоч/, 'молоч'], [/бордо/, 'бордо'], [/лапш|вишн/, 'лапша'], [/(?:^|\s)бел[а-яё]*(?=\s|$)/, 'бел'],
+];
+
+/** Какие из моделей клиент имеет в виду: по формату («3в1», «2 в 1», «три в одном») и цвету. Пусто, если модель не названа. */
+export function matchModels(models: string[], text: string): string[] {
+  const t = ' ' + normModel(text).replace(/(^|\s)три в одном(?=\s|$)/g, '$13в1').replace(/(^|\s)два в одном(?=\s|$)/g, '$12в1').replace(/([23]) в одном/g, '$1в1') + ' ';
+  const fmt = (t.match(/([23])в1/) || [])[1] || (/штан|брюк/.test(t) ? '3' : /шорт/.test(t) ? '2' : '');
+  const colors = COLOR_WORDS.filter(([re]) => re.test(t)).map(([, c]) => c);
+  if (!fmt && !colors.length) return [];
+  const uniq = [...new Map(models.map((m) => [normModel(m), m])).values()];
+  const scored = uniq.map((m) => {
+    const nm = normModel(m);
+    const mf = (nm.match(/([23])в1/) || [])[1] || '';
+    if (fmt && mf && fmt !== mf) return { m, s: -1 };
+    const colorHit = colors.length ? colors.some((c) => nm.includes(c)) : false;
+    if (colors.length && !colorHit) return { m, s: -1 };
+    return { m, s: (fmt && mf === fmt ? 2 : 0) + (colorHit ? 2 : 0) };
+  }).filter((x) => x.s > 0);
+  const best = Math.max(0, ...scored.map((x) => x.s));
+  return scored.filter((x) => x.s === best).map((x) => x.m);
+}
+
+export type ClaimResult = { status: 'claimed' | 'taken' | 'moved' | 'failed' | 'unverified'; row: number };
+
+/** Вписывает логин клиента в свободную строку. Перед записью строку читаем заново: занята или сдвинулась, не пишем. После записи сверяем. */
+export async function claimFreeRow(
+  io: SheetIO,
+  tab: string,
+  sheet: RazSheet,
+  target: { row: number; model: string; date: string },
+  tg: string,
+  responsible = 'Алина',
+): Promise<ClaimResult> {
+  const width = Math.max(sheet.headers.length, 1);
+  const last = colLetter(width - 1);
+  const q = quoteTab(tab);
+  const readRow = async (): Promise<string[] | null> => {
+    const v = await io.read(`${q}!A${target.row}:${last}${target.row}`);
+    return v ? (v[0] ?? []).map((c) => String(c ?? '')) : null;
+  };
+  const cells = await readRow();
+  if (!cells) return { status: 'failed', row: target.row };
+  if (normModel(cells[sheet.col.model]) !== normModel(target.model) || normDate(cells[sheet.col.date]) !== target.date) return { status: 'moved', row: target.row };
+  if (String(cells[sheet.col.tg] ?? '').trim() !== '') return { status: 'taken', row: target.row };
+  const updates = [{ range: `${q}!${colLetter(sheet.col.tg)}${target.row}`, value: `@${tg}` }];
+  if (sheet.col.status != null && String(cells[sheet.col.status] ?? '').trim() === '') updates.push({ range: `${q}!${colLetter(sheet.col.status)}${target.row}`, value: 'Записан' });
+  if (sheet.col.responsible != null && String(cells[sheet.col.responsible] ?? '').trim() === '') {
+    updates.push({ range: `${q}!${colLetter(sheet.col.responsible)}${target.row}`, value: responsible });
+  }
+  if (!await io.batchWrite(updates)) return { status: 'failed', row: target.row };
+  const after = await readRow();
+  if (!after) return { status: 'unverified', row: target.row };
+  return { status: normTg(after[sheet.col.tg]) === normTg(tg) ? 'claimed' : 'taken', row: target.row };
+}
+
+// После 20:30 МСК на сегодняшний день уже не берём (заказ нужно сделать до 22:00): предлагаем ближайшую следующую дату.
+export const TODAY_CUTOFF_MIN = 20 * 60 + 30;
+export function mskMinutes(now = Date.now()): number {
+  const d = new Date(now + 3 * 3600_000);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+/** Разовое исключение владельца (alina_settings.lateException): до указанного времени места на сегодня берём и после 20:30 МСК. */
+let lateException = false;
+export const setLateException = (v: boolean): void => { lateException = v; };
+export const lateExceptionOn = (): boolean => lateException;
+/** День ещё не согласован владельцем (alina_settings.dayPlan): места на сегодня не отдаём, как после 20:30. */
+let dayClosed = false;
+export const setDayClosed = (v: boolean): void => { dayClosed = v; };
+export const dayClosedOn = (): boolean => dayClosed && !lateException;
+export const tooLateForToday = (now = Date.now()): boolean => !lateException && (dayClosed || mskMinutes(now) >= TODAY_CUTOFF_MIN);

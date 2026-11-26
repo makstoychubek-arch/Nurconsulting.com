@@ -9,6 +9,7 @@ import { setTelegramReaction, unwrapTelegramMessage } from '../_shared/wb-restoc
 import { alinaWebhookSecret } from '../_shared/alina-webhook-secret.ts';
 import { processAlinaTelegramUpdate } from '../_shared/alina-telegram.ts';
 import { managerGroupId, processAlinaManagerTest } from '../_shared/alina-manager.ts';
+import { tryApproveDay } from '../_shared/alina-dayplan.ts';
 import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 
 const CORS = {
@@ -71,6 +72,10 @@ Deno.serve(async (req) => {
     // Реплай менеджера в тестовой группе. Только бот alina, только эта группа, секрет вебхука Алины обязателен.
     if (alinaBot === 'alina' && update?.message?.reply_to_message && update.message.chat?.id === await managerGroupId()) {
         if (gotSecret !== await alinaWebhookSecret('alina')) return json({ ok: false, error: 'bad_secret' }, 401);
+        // Утренний план дня: реплай «ок» на сообщение с планом открывает места на сегодня.
+        if (await tryApproveDay(createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''), update, await managerGroupId(), (Deno.env.get('ALINA_BOT_TOKEN') || '').trim())) {
+            return json({ ok: true, day_approved: true });
+        }
         await alinaManagerTest(update);
         return json({ ok: true, manager_test: true });
     }

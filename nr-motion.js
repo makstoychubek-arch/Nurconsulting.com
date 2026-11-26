@@ -208,11 +208,11 @@
         function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
         function range() { try { return [activeDateFrom, activeDateTo]; } catch (e) { return ['', '']; } }
         function chipNow() {
-            var r = range(), t = new Date(), y = new Date(t.getTime() - 864e5), w = new Date(t.getTime() - 7 * 864e5), m1 = new Date(t.getFullYear(), t.getMonth(), 1);
-            if (r[0] === iso(t) && r[1] === iso(t)) return 'today';
+            // Ночной пакет: последний день периода вчерашний, «сегодня» на сайте нет
+            var r = range(), t = new Date(), y = new Date(t.getTime() - 864e5), w = new Date(y.getTime() - 6 * 864e5), m1 = new Date(y.getFullYear(), y.getMonth(), 1);
             if (r[0] === iso(y) && r[1] === iso(y)) return 'yday';
-            if (r[0] === iso(w) && r[1] === iso(t)) return 'week';
-            if (r[0] === iso(m1) && r[1] === iso(t)) return 'month';
+            if (r[0] === iso(w) && r[1] === iso(y)) return 'week';
+            if (r[0] === iso(m1) && r[1] === iso(y)) return 'month';
             return 'own';
         }
         function days() { var r = range(); if (!r[0] || !r[1]) return 0; return Math.max(1, Math.round((new Date(r[1]) - new Date(r[0])) / 864e5) + 1); }
@@ -412,35 +412,6 @@
             }
             if (saved && !touching) { clearTimeout(timer); timer = setTimeout(restore, 160); }
         }, { passive: true, capture: true });
-    })();
-    /* Таблица РНП: горизонтальная прокрутка колесом или тачпадом плавная и неторопливая. Даже сильный рывок вправо или влево
-       двигает таблицу не быстрее ~1700 пикс/с: цель сдвигается на долю рывка, а сама таблица догоняет её плавно. Вертикаль и телефон не трогаем. */
-    (function () {
-        var doc = root.document; if (!doc || !root.requestAnimationFrame) return;
-        var SEL = '.rnp-sheet-body', SCALE = 0.35, MAX_EVENT = 70, EASE = 0.1, MAX_FRAME = 28;
-        var el = null, target = 0, raf = 0;
-        function tick() {
-            raf = 0; if (!el) return;
-            var d = target - el.scrollLeft;
-            if (Math.abs(d) < 0.5) { el.scrollLeft = target; el = null; return; }
-            var step = d * EASE; if (step > MAX_FRAME) step = MAX_FRAME; else if (step < -MAX_FRAME) step = -MAX_FRAME;
-            if (Math.abs(step) < 0.6) step = d > 0 ? 0.6 : -0.6;
-            el.scrollLeft += step;
-            raf = root.requestAnimationFrame(tick);
-        }
-        doc.addEventListener('wheel', function (e) {
-            if (e.ctrlKey || e.defaultPrevented) return;
-            var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
-            var dx = e.deltaX, horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
-            if (e.shiftKey && !horizontal) { dx = e.deltaY; horizontal = true; }
-            if (!horizontal || !dx) return;
-            if (e.deltaMode === 1) dx *= 16; else if (e.deltaMode === 2) dx *= t.clientWidth;
-            e.preventDefault();
-            if (el !== t) { el = t; target = t.scrollLeft; }
-            var inc = dx * SCALE; if (inc > MAX_EVENT) inc = MAX_EVENT; else if (inc < -MAX_EVENT) inc = -MAX_EVENT;
-            target = Math.max(0, Math.min(t.scrollWidth - t.clientWidth, target + inc));
-            if (!raf) raf = root.requestAnimationFrame(tick);
-        }, { passive: false });
     })();
     root.NrMotion = { shake: shake, count: count, slot: slot, pill: pill, hold: hold, copy: copy, drag: drag, confetti: confetti };
 })(typeof window !== 'undefined' ? window : globalThis);

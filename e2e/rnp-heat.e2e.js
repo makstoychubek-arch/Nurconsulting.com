@@ -79,6 +79,22 @@ const tables = {
             await page.evaluate(() => { RNP.heatSet('bn', true); RNP.heatSet('cap', false); });
         });
 
+        await run('шрифт таблицы: «Как в таблице Google» (Arial, жирный) и размер применяются сразу, выбор запоминается', async () => {
+            const r = await page.evaluate(() => {
+                const td = () => document.querySelector('.rnp-sheet-table td[data-rnp-value]');
+                const before = getComputedStyle(td()).fontFamily;
+                RNP.heatSet('font', 'sheet'); RNP.heatSet('fs', 2);
+                const cs = getComputedStyle(td());
+                const saved = JSON.parse(localStorage.getItem('nr_rnp_heat_v1'));
+                const out = { attr: document.documentElement.getAttribute('data-rnp-font'), fs: document.documentElement.getAttribute('data-rnp-fs'), arial: /Arial/i.test(cs.fontFamily), changed: before !== cs.fontFamily, bold: parseInt(cs.fontWeight, 10) >= 800, saved: saved.font === 'sheet' && saved.fs === 2 };
+                RNP.heatSet('font', 'bogus');
+                out.ignored = document.documentElement.getAttribute('data-rnp-font') === 'sheet';
+                RNP.heatSet('font', 'site'); RNP.heatSet('fs', 0);
+                return out;
+            });
+            assert.deepStrictEqual(r, { attr: 'sheet', fs: '2', arial: true, changed: true, bold: true, saved: true, ignored: true });
+        });
+
         await page.evaluate(() => RNP.openSettings());
         await page.locator('.nr-gt-g[data-g="view"]').click(); // подсветка на вкладке «Вид таблицы»
         await page.waitForSelector('#rnp-heat-sec', { timeout: 15000 });
@@ -107,7 +123,7 @@ const tables = {
         });
         await run('«Сбросить к стандартным» возвращает чёрную таблетку и авто-режим', async () => {
             await page.evaluate(() => RNP.heatReset());
-            const r = await page.evaluate(() => ({ s: document.documentElement.getAttribute('data-rnp-heat'), seg: document.querySelector('#rnp-heat-sec .rnp-ht-seg .is-on').textContent.trim().slice(0, 4) }));
+            const r = await page.evaluate(() => ({ s: document.documentElement.getAttribute('data-rnp-heat'), seg: document.querySelector('#rnp-heat-sec .rnp-ht-seg[aria-label="Режим"] .is-on').textContent.trim().slice(0, 4) }));
             assert.deepStrictEqual(r, { s: 'P', seg: 'Авто' });
         });
         await run('ошибок скриптов нет', async () => { assert.deepStrictEqual(env.errors || [], []); });

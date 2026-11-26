@@ -30,8 +30,9 @@ transition: opacity .18s ease, transform .18s ease;
 /* Заказы / продажи: раскрытие на FBS и FBO */
 .rnp-split-toggle{cursor:pointer}
 .rnp-split-toggle:hover{color:var(--accent)}
-.rnp-row-split-sub td{font-weight:400;font-size:.92em}
-.rnp-metric-sub{padding-left:18px!important;opacity:.85}
+.rnp-row-split-sub td{font-weight:600;font-size:inherit}  /* цифры подстрок того же размера и веса, что в остальных строках РНП (владелец, 23 ноября 2026) */
+html.rnp-heat-bv .rnp-sheet-table .rnp-row-split-sub td.rnp-cell-split-sub{font-weight:800}
+.rnp-metric-sub{padding-left:18px!important;color:var(--text-secondary,#555)}  /* без opacity: закреплённая ячейка должна быть непрозрачной */
 .rnp-row-fbs .rnp-metric-sub,td.rnp-cell-fbs{color:#3b82f6;font-weight:600}
 :root[data-theme="dark"] .rnp-row-fbs .rnp-metric-sub,:root[data-theme="dark"] td.rnp-cell-fbs{color:#60a5fa}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rnp-row-fbs .rnp-metric-sub,:root:not([data-theme="light"]) td.rnp-cell-fbs{color:#60a5fa}}
@@ -403,7 +404,7 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-byart-name { display: block; max-width: 74px; margin: 0 auto; font-size: 9.5px; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
 .rnp-byart-th.open .rnp-byart-name { white-space: normal; overflow: visible; word-break: break-all; }
 .rnp-byart .rnp-day-col { min-width: 78px; width: 78px; }
-.rnp-byart tr > td:last-child { background: #f1eefc !important; font-weight: 800; }
+.rnp-byart tr > td:last-child { background: color-mix(in srgb, var(--text-primary) 9%, var(--surface-solid, #fff)) !important; font-weight: 800; }
 .rnp-byart-total-th small { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
 .rnp-byart-wrap { flex: 1 1 auto; min-height: 0; }
 .rnp-byart { table-layout: auto !important; width: max-content !important; min-width: 100%; }
@@ -412,7 +413,7 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-byart th.rnp-byart-total-th, .rnp-byart tr > td:last-child { position: sticky; right: 0; z-index: 6; min-width: 96px; width: 96px; box-shadow: -1px 0 0 var(--border); }
 .rnp-byart .rnp-th-month-curr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; padding-left: 8px; }
 /* ИТОГ за период — последняя колонка таблицы артикула */
-.rnp-sheet-table th.rnp-period-total-th, .rnp-sheet-table td.rnp-cell-period { background: #f1eefc !important; color: #111 !important; font-weight: 800; position: sticky; right: 0; z-index: 6; box-shadow: -1px 0 0 var(--border); min-width: 86px; }
+.rnp-sheet-table th.rnp-period-total-th, .rnp-sheet-table td.rnp-cell-period { background: color-mix(in srgb, var(--text-primary) 9%, var(--surface-solid, #fff)) !important; color: var(--text-primary) !important; font-weight: 800; position: sticky; right: 0; z-index: 6; box-shadow: -1px 0 0 var(--border); min-width: 86px; }
 .rnp-period-total-th small { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
 /* --accent-soft полупрозрачен в тёмной теме — просвечивал на липких колонках метрик/спарклайна; кладём его
    поверх непрозрачного --surface-solid, как у недель/ИТОГа. (translateZ/will-change здесь не ставим:
@@ -529,7 +530,11 @@ transition: opacity .18s ease, transform .18s ease;
 #tab-goods-groups .gs-ship tr.gs-grp td .gs-batch, #tab-goods-groups .gs-ship tr.gs-grp td .gs-gtot, #tab-goods-groups .gs-ship tr.gs-grp td .gs-addrow { display: inline-block; vertical-align: middle; }
 
 /* РНП «Общий»: подстроки «Штрафы» (красные) и «Прочие удержания» (жёлтые) */
+/* Нулевые подстроки приглушены. Прозрачность ставим только на ячейки с цифрами: у закреплённых слева ячеек (название и график) она делала фон
+   прозрачным, и цифры, уехавшие под них при прокрутке вбок, просвечивали поверх названия (владелец, 23 ноября 2026, Ozon). */
 .rnp-row-split-sub.rnp-sub-zero td{opacity:.45}
+.rnp-row-split-sub.rnp-sub-zero td.rnp-metric-col,.rnp-row-split-sub.rnp-sub-zero td.rnp-spark-col{opacity:1}
+.rnp-row-split-sub.rnp-sub-zero td.rnp-metric-col{color:color-mix(in srgb,var(--text-muted,#8a8a8a) 65%,var(--surface-solid,#fff))}
 /* подстроки раскрытия (логистика, штрафы, удержания, комиссия, ФФ): без цветной подсветки, название серое */
 .rnp-row-split-sub[class*="rnp-row-fin-"] .rnp-metric-sub{color:var(--text-muted,#8a8a8a);font-weight:500}
 

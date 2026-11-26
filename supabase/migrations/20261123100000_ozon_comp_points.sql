@@ -1,0 +1,153 @@
+-- Ozon: баллы за скидки и корректировки вознаграждения Ozon по дням (комиссия после баллов в РНП).
+-- Берутся положительные услуги полумесячного отчёта (MarketplaceServi*PointsAwarded и MarketplaceServi*AgencyFee) и раскладываются по дням
+-- пропорционально цене продаж, как остальные суммы периода. Дни, для которых начислений Ozon ещё нет (период не закрыт), получают 0.
+-- Функция только дополнена двумя ключами comp_pts и comp_adj; остальной ответ не изменился.
+create or replace function public.ozon_finance_daily(p_cabinet uuid, p_from date, p_to date, p_logi_pct numeric DEFAULT 0.179)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+    with auth as (select public.can_view_cabinet(p_cabinet::text) ok),
+    prod as (
+        select public.ozon_base_offer(offer_id) base, avg(commission_fbo_pct) comm, avg(acquiring / nullif(price, 0)) acq_pct
+        from public.ozon_products where cabinet_id::text = p_cabinet::text group by 1
+    ),
+    per as (
+        select c.period_begin pb,
+               s.ad / nullif((c.summary->>'orders_amount')::numeric, 0) ad_pct,
+               s.fine / nullif((c.summary->>'orders_amount')::numeric, 0) fine_pct,
+               s.stor / nullif((c.summary->>'orders_amount')::numeric, 0) stor_pct,
+               s.ded / nullif((c.summary->>'orders_amount')::numeric, 0) ded_pct,
+               -(c.summary->>'item_delivery_and_return_amount')::numeric / nullif((c.summary->>'orders_amount')::numeric, 0) logi_pct,
+               -(c.summary->>'commission_amount')::numeric / nullif((c.summary->>'orders_amount')::numeric, 0) comm_pct,
+               s.acq / nullif((c.summary->>'orders_amount')::numeric, 0) acq_pct,
+               c.period_end pe, s.acq acq_amt, s.ad ad_amt, s.fine fine_amt, s.stor stor_amt, s.ded ded_amt, s.bonus bonus_amt, s.move move_amt, s.pts pts_amt, s.adj adj_amt
+        from public.ozon_cashflow c
+        cross join lateral (
+            select -coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%Acquiring%'), 0) acq,
+                   -coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%PromotionWithCostPerOrder%' or it->>'name' ilike '%CostPerClick%' or it->>'name' ilike '%Promotion%Paid%'), 0) ad,
+                   -coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike 'Fines%'), 0) fine,
+                   -coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%StorageItem%'), 0) stor,
+                   -((c.summary->>'services_amount')::numeric)
+                   - (-coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%Acquiring%'), 0))
+                   - (-coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%PromotionWithCostPerOrder%' or it->>'name' ilike '%CostPerClick%' or it->>'name' ilike '%Promotion%Paid%'), 0))
+                   - (-coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike 'Fines%'), 0))
+                   - (-coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%StorageItem%'), 0))
+                   - (-coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%PremiumProMembership%' or it->>'name' ilike '%ProductReviewsManagement%'), 0)) ded
+                   , -coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%PremiumSellerBonusAccrual%'), 0) bonus
+                   , -coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike '%ProductMovementFromWarehouse%' or it->>'name' ilike '%SellerReturnsCargo%' or it->>'name' ilike '%ProductDisposal%' or it->>'name' ilike '%DeliveryToHandoverPlace%'), 0) move
+                   , coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike 'MarketplaceServi%PointsAwarded%' and (it->>'price')::numeric > 0), 0) pts
+                   , coalesce(sum((it->>'price')::numeric) filter (where it->>'name' ilike 'MarketplaceServi%AgencyFee%' and (it->>'price')::numeric > 0), 0) adj
+            from jsonb_array_elements(coalesce(c.detail->'services'->'items', '[]'::jsonb) || coalesce(c.detail->'others'->'items', '[]'::jsonb)) it
+        ) s
+        where c.cabinet_id::text = p_cabinet::text
+    ),
+    items as (
+        select o.created_at::date d, o.status, public.ozon_base_offer(i.item->>'offer_id') base,
+               coalesce((i.item->>'quantity')::int, 1) q,
+               coalesce(case when jsonb_typeof(i.item->'price') = 'object' then (i.item->'price'->>'amount')::numeric else (i.item->>'price')::numeric end, 0) price
+        from public.ozon_postings o, auth
+        cross join lateral (select jsonb_array_elements(o.items) item) i
+        where auth.ok and o.cabinet_id::text = p_cabinet::text and o.created_at::date between p_from and p_to
+    ),
+    t as (
+        select d, base, coalesce(sum(q), 0) orders, coalesce(sum(q * price), 0) orders_sum,
+               coalesce(sum(q) filter (where status = 'delivered'), 0) sales, coalesce(sum(q * price) filter (where status = 'delivered'), 0) sales_sum,
+               coalesce(sum(q) filter (where status = 'delivering'), 0) transit,
+               coalesce(sum(q) filter (where status = 'cancelled'), 0) cancels
+        from items group by d, base
+    ),
+    fn as (
+        select f.d, public.ozon_base_offer(pr.offer_id) base, sum(f.views) views, sum(f.views_pdp) pdp, sum(f.tocart) tocart
+        from public.ozon_funnel_daily f
+        join (select distinct on (sku) sku, offer_id from public.ozon_products where cabinet_id::text = p_cabinet::text order by sku, updated_at desc nulls last) pr on pr.sku = f.sku
+        where f.cabinet_id::text = p_cabinet::text and f.d between p_from and p_to and exists (select 1 from auth where auth.ok)
+        group by 1, 2
+    ),
+    rt as (
+        select r.d, public.ozon_base_offer(r.offer_id) base, sum(r.qty) cnt, sum(r.qty * r.price) sm
+        from public.ozon_returns r, auth
+        where auth.ok and r.cabinet_id::text = p_cabinet::text and r.type = 'ClientReturn' and r.d between p_from and p_to
+        group by 1, 2
+    ),
+    acd_all as (
+        select accrual_date d, sum(seller_price) filter (where type_id = 69) price_net
+        from public.ozon_accruals where cabinet_id::text = p_cabinet::text and exists (select 1 from auth where auth.ok) group by 1
+    ),
+    ptot as (
+        select p.pb, nullif(sum(a.price_net), 0) tot from per p join acd_all a on a.d between p.pb and p.pe group by p.pb
+    ),
+    skumap as (
+        select distinct on (sku) sku, public.ozon_base_offer(offer_id) base from public.ozon_products where cabinet_id::text = p_cabinet::text and sku is not null order by sku, updated_at desc nulls last
+    ),
+    ac as (
+        -- точные начисления Ozon по отправлениям (по дате начисления, как в отчёте Ozon): цена продавца, комиссия, логистика, обратная логистика, Premium Pro
+        select a.accrual_date d, coalesce(m.base, 'unknown') base,
+               coalesce(sum(a.seller_price) filter (where a.type_id = 69), 0) price_net,
+               -coalesce(sum(a.amount) filter (where a.type_id = 69), 0) comm_sum,
+               -coalesce(sum(a.amount) filter (where a.type_id in (32, 29, 59, 45)), 0) logi_sum,
+               -coalesce(sum(a.amount) filter (where a.type_id in (51, 95)), 0) prem_sum,
+               coalesce(sum(a.quantity) filter (where a.type_id = 69 and a.seller_price > 0), 0) sold_q,
+               coalesce(sum(a.seller_price) filter (where a.type_id = 69 and a.seller_price > 0), 0) sold_sum
+        from public.ozon_accruals a
+        left join skumap m on m.sku = a.sku
+        where exists (select 1 from auth where auth.ok) and a.cabinet_id::text = p_cabinet::text and a.accrual_date between p_from and p_to
+        group by 1, 2
+    ),
+    keys as (select d, base from t union select d, base from fn union select d, base from rt union select d, base from ac),
+    adr as (
+        select a.d, sum(a.spend * coalesce((select e.rate from public.exchange_rates e where e.pair = 'RUB_KGS' and e.date <= a.d order by e.date desc limit 1), 1)) sp,
+               sum(a.impressions) im, sum(a.clicks) cl, sum(a.orders) od,
+               sum(a.orders_sum * coalesce((select e.rate from public.exchange_rates e where e.pair = 'RUB_KGS' and e.date <= a.d order by e.date desc limit 1), 1)) rv
+        from public.ozon_ads_daily a, auth
+        where auth.ok and a.cabinet_id::text = p_cabinet::text and a.d between p_from and p_to group by a.d
+    ),
+    adm as (select min(d) m from public.ozon_ads_daily where cabinet_id::text = p_cabinet::text),
+    x as (
+        select k.d, k.base, coalesce(t.transit, 0) transit, coalesce(t.orders, 0) orders, coalesce(t.orders_sum, 0) orders_sum, case when exists (select 1 from ac a3 where a3.d = k.d) then coalesce(ac.sold_q, 0) else coalesce(t.sales, 0) end sales, case when exists (select 1 from ac a3 where a3.d = k.d) then coalesce(ac.sold_sum, 0) else coalesce(t.sales_sum, 0) end sales_sum, coalesce(t.cancels, 0) cancels,
+               coalesce(fn.views, 0) views, coalesce(fn.pdp, 0) pdp, coalesce(fn.tocart, 0) tocart, coalesce(rt.cnt, 0) ret_cnt, p.comm, p.acq_pct,
+               coalesce(pp.ad_pct, 0) ad_pct, sum(case when exists (select 1 from ac a3 where a3.d = k.d) then coalesce(ac.sold_sum, 0) else coalesce(t.sales_sum, 0) end) over (partition by k.d) day_sales, adr.sp, adr.im, adr.cl, adr.od, adr.rv, (select m from adm) ad_from, coalesce(pp.fine_pct, 0) fine_pct, coalesce(pp.stor_pct, 0) stor_pct, coalesce(pp.ded_pct, 0) ded_pct, pp.logi_pct, pp.comm_pct, pp.acq_pct acq_real,
+               ac.price_net, ac.comm_sum, ac.logi_sum, ac.prem_sum, exists (select 1 from ac a2 where a2.d = k.d) day_ac,
+               pp.acq_amt, pp.ad_amt, pp.fine_amt, pp.stor_amt, pp.ded_amt, pp.bonus_amt, pp.move_amt, pp.pts_amt, pp.adj_amt, pt.tot ptot_v
+        from keys k left join t on t.d = k.d and t.base = k.base left join ac on ac.d = k.d and ac.base = k.base left join fn on fn.d = k.d and fn.base = k.base left join rt on rt.d = k.d and rt.base = k.base left join adr on adr.d = k.d
+        left join prod p on p.base = k.base
+        left join lateral (
+            select * from per where per.pb <= k.d order by per.pb desc limit 1
+        ) pp on true
+        left join ptot pt on pt.pb = pp.pb
+    )
+    select coalesce(jsonb_agg(jsonb_build_object(
+        'cabinet_id', p_cabinet, 'nm_id', public.ozon_pseudo_nm(base), 'date', d,
+        'orders_count', orders, 'orders_sum', orders_sum, 'sales_count', sales, 'sales_sum', sales_sum,
+        'returns_count', ret_cnt, 'cancels_count', cancels, 'transit_count', transit,
+        -- дни с точными начислениями Ozon: реализация, комиссия, логистика и Premium Pro из начислений по отправлениям; остальные дни по оценке
+        'realization', case when day_ac then round(coalesce(price_net, 0), 2) else sales_sum end,
+        'commission_pct', case when day_ac and coalesce(price_net, 0) > 0 then round(comm_sum / price_net * 100, 2) else round(coalesce(comm_pct * 100, comm, 21), 2) end,
+        'to_transfer', case when day_ac and ptot_v is not null then round(coalesce(price_net, 0) - coalesce(comm_sum, 0) - coalesce(acq_amt, 0) * coalesce(price_net, 0) / ptot_v, 2)
+                            when day_ac then round(coalesce(price_net, 0) - coalesce(comm_sum, 0) - coalesce(price_net, 0) * coalesce(acq_real, acq_pct, 0.01), 2)
+                            else round(sales_sum * (1 - coalesce(comm_pct, comm / 100.0, 0.21) - coalesce(acq_real, acq_pct, 0.01)), 2) end,
+        'delivery_sum', case when day_ac then round(coalesce(logi_sum, 0), 2) else round(sales_sum * coalesce(logi_pct, p_logi_pct), 2) end,
+        'storage_sum', case when day_ac and ptot_v is not null then round(coalesce(stor_amt, 0) * coalesce(price_net, 0) / ptot_v, 2) else round(sales_sum * stor_pct, 2) end,
+        'penalty_sum', case when day_ac and ptot_v is not null then round(coalesce(fine_amt, 0) * coalesce(price_net, 0) / ptot_v, 2) else round(sales_sum * fine_pct, 2) end,
+        'deduction_sum', case when day_ac and ptot_v is not null then round(coalesce(prem_sum, 0) + coalesce(ded_amt, 0) * coalesce(price_net, 0) / ptot_v, 2)
+                              when day_ac then round(coalesce(prem_sum, 0) + coalesce(price_net, 0) * ded_pct, 2) else round(sales_sum * ded_pct, 2) end,
+        'ded_prem', case when day_ac and ptot_v is not null then round(coalesce(prem_sum, 0), 2) else 0 end,
+        'ded_bonus', case when day_ac and ptot_v is not null then round(coalesce(bonus_amt, 0) * coalesce(price_net, 0) / ptot_v, 2) else 0 end,
+        'ded_move', case when day_ac and ptot_v is not null then round(coalesce(move_amt, 0) * coalesce(price_net, 0) / ptot_v, 2) else 0 end,
+        'comp_pts', case when day_ac and ptot_v is not null then round(coalesce(pts_amt, 0) * coalesce(price_net, 0) / ptot_v, 2) else 0 end,
+        'comp_adj', case when day_ac and ptot_v is not null then round(coalesce(adj_amt, 0) * coalesce(price_net, 0) / ptot_v, 2) else 0 end,
+        'ded_rest', case when day_ac and ptot_v is not null then round(coalesce(ded_amt, 0) * coalesce(price_net, 0) / ptot_v - (coalesce(bonus_amt, 0) + coalesce(move_amt, 0)) * coalesce(price_net, 0) / ptot_v, 2)
+                         when day_ac then round(coalesce(price_net, 0) * ded_pct, 2) else round(sales_sum * ded_pct, 2) end,
+        'ad_charged', case when day_ac and ptot_v is not null then round(coalesce(ad_amt, 0) * coalesce(price_net, 0) / ptot_v, 2) else null end,
+        'buyout_pct', case when orders > 0 then round(sales * 100.0 / orders, 2) else 0 end,
+        'spp_pct', 0,
+        'ad_spend', case when ad_from is not null and d >= ad_from then round(coalesce(sp, 0) * sales_sum / nullif(day_sales, 0), 2) else round(sales_sum * ad_pct, 2) end,
+        'ad_clicks', case when ad_from is not null and d >= ad_from then round(coalesce(cl, 0) * sales_sum / nullif(day_sales, 0), 2) else 0 end,
+        'ad_impressions', case when ad_from is not null and d >= ad_from then round(coalesce(im, 0) * sales_sum / nullif(day_sales, 0), 2) else 0 end,
+        'ad_revenue', case when ad_from is not null and d >= ad_from then round(coalesce(rv, 0) * sales_sum / nullif(day_sales, 0), 2) else 0 end,
+        'ad_orders', case when ad_from is not null and d >= ad_from then round(coalesce(od, 0) * sales_sum / nullif(day_sales, 0), 2) else 0 end,
+        'impressions', views, 'clicks', pdp, 'basket_count', tocart, 'basket_pct', case when pdp > 0 then round(tocart * 100.0 / pdp, 2) else 0 end
+    ) order by d, base), '[]'::jsonb)
+    from x;
+$function$;

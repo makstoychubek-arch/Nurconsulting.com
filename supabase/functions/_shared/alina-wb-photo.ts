@@ -34,7 +34,7 @@ export type WbPhoto = {
 };
 
 /** Скачать главное фото (байты) — Telegram Business часто не тянет webp по URL сам. */
-export async function fetchWbMainPhoto(nmId: number | string): Promise<WbPhoto | null> {
+export async function fetchWbMainPhoto(nmId: number | string, index = 1): Promise<WbPhoto | null> {
   const nm = Number(nmId);
   if (!Number.isFinite(nm) || nm < 100000) return null;
   const vol = Math.floor(nm / 100000);
@@ -49,7 +49,7 @@ export async function fetchWbMainPhoto(nmId: number | string): Promise<WbPhoto |
   ];
   for (const base of bases) {
     for (const ext of ['webp', 'jpg', 'jpeg', 'png']) {
-      const url = `${base}/1.${ext}`;
+      const url = `${base}/${index}.${ext}`;
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
         if (!res.ok) continue;
@@ -129,6 +129,8 @@ export async function fetchWbSearchFilters(nmId: number | string): Promise<WbFil
       const value = String(o.value || '').trim();
       if (!name || !value) continue;
       if (BRAND_NAME_RE.test(name)) continue;
+      // Цвет в карточке — слова продавца («шоколадный»), такого фильтра в поиске WB нет (есть «коричневый»): цвет клиенту не даём.
+      if (/^(основной\s+)?цвет|расцветка/i.test(name)) continue;
       if (brand && value.toLowerCase() === brand) continue;
       if (/\d{6,}/.test(value)) continue; // не светим артикулы
       const key = name.toLowerCase();
@@ -159,6 +161,8 @@ export function wantsProductPhoto(text: string): boolean {
     /(фото|фотк[а-яё]*|фоту|фотик|фоточк[а-яё]*|картинк[а-яё]*|изображен[а-яё]*|внешн[а-яё]*|вид[а-яё]*|photo|pic|picture)/i;
 
   if (/^(фото|фотк[а-яё]*|фоту|фотик|photo|pic)([!?.…]|\s|$)/i.test(t)) return true;
+  // «Покажите обе», «покажите», «покажи пижамы»: просьба показать без слова «фото»
+  if (/^(покаж[а-яё]*|скинь[а-яё]*|пришли[а-яё]*)\s*(мне\s*)?(их|обе|оба|все|всё|модели|пижам[а-яё]*|картинк[а-яё]*)?\s*[!?.)…]*$/i.test(t)) return true;
   if (/^(главн[а-яё]*|основн[а-яё]*)\s+(фото|фотк[а-яё]*|фоту)(?=$|[\s,.:;!?])/i.test(t)) {
     return true;
   }

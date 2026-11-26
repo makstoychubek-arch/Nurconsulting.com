@@ -1,11 +1,12 @@
 /* Аналитика (только команда, BETA): верх с вкладками-подразделами и четыре подраздела.
- * Данные пока не подключены: структура готова, значения «—». Рисуем один раз при открытии вкладки. */
+ * Первая вкладка «Сводка РНП» показывает карточки, перенесённые из РНП. Остальные вкладки: данные пока не подключены (значения «—»). Рисуем один раз при открытии вкладки. */
 (function (root) {
     'use strict';
     var doc = root.document;
     if (!doc) return;
 
     var TABS = [
+        { id: 'rnp', title: 'Сводка РНП' },
         { id: 'niches', title: 'Подбор ниш' },
         { id: 'content', title: 'Сравнение контента' },
         { id: 'card', title: 'Сравнение карточки' },
@@ -23,6 +24,7 @@
     var NOTE = '<p class="an-note">Раздел готовится. Данные подключим следующим шагом.</p>';
 
     var PANES = {
+        rnp: '<div class="an-rnp-head" id="an-rnp-head"></div><div id="an-rnp-root" class="an-rnp"></div>',
         niches: tools(['Категория или ключевое слово'], ['За 3 месяца', 'Выручка от 5 млн', 'Продавцов до 300']) +
             '<div class="an-tiles">' + tile('Лучшая ниша сейчас', '—', true) + tile('Выручка ниши', '—') + tile('Продавцов', '—') + tile('Доля топ 10', '—') + '</div>' +
             '<div class="an-two">' + col('Топ 5 товаров ниши', [['1.', '—'], ['2.', '—'], ['3.', '—']]) + col('Что показывает ниша', [['Сезонность', '—'], ['Средний чек', '—'], ['Выкуп', '—']]) + '</div>' + NOTE,
@@ -46,9 +48,44 @@
                 var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false');
                 var pane = doc.getElementById('an-' + x.getAttribute('data-an')); if (pane) pane.hidden = !on;
             });
+            if (b.getAttribute('data-an') === 'rnp') openSummary();
             if (b.getAttribute('data-an') === 'reviews' && root.NrReviews) root.NrReviews.open();
             if (b.getAttribute('data-an') === 'content' && root.NrCompare) root.NrCompare.open();
         });
+    }
+
+    /* ───────── Сводка РНП: карточки, которые раньше были сверху в РНП (прибыль, куда уходит выручка, логистика, выкупы, остатки, топ-5) ───────── */
+    var sumTimer = 0;
+    function rangeLabel() {
+        try { var r = typeof root.getActiveDateRange === 'function' ? root.getActiveDateRange() : null; if (r && r.from) return r.from.split('-').reverse().join('.') + ' – ' + r.to.split('-').reverse().join('.'); } catch (e) { /* без подписи */ }
+        return '';
+    }
+    function sumVisible() { var p = doc.getElementById('an-rnp'); return !!p && !p.hidden && !!doc.querySelector('#tab-analytics.active'); }
+    function paintSummary() {
+        var host = doc.getElementById('an-rnp-root'); if (!host || !sumVisible() || !root.RNP || !root.RNP.renderSummary) return;
+        var head = doc.getElementById('an-rnp-head');
+        if (head) head.innerHTML = '<span>Период: ' + rangeLabel() + '</span><small>как в РНП, меняется в разделе РНП</small>';
+        root.RNP.renderSummary(host);
+    }
+    function openSummary() {
+        var host = doc.getElementById('an-rnp-root'); if (!host) return;
+        // каркас сразу, цифры подставятся без перерисовки (правило сайта: пользователь не ждёт загрузку)
+        if (!host.firstChild) host.innerHTML = '<div class="an-note">Считаем сводку…</div>';
+        if (typeof root.bootRnpSummary === 'function') root.bootRnpSummary().then(paintSummary, paintSummary); else paintSummary();
+    }
+    doc.addEventListener('nr-rnp-summary-ready', function () { clearTimeout(sumTimer); sumTimer = setTimeout(paintSummary, 120); });
+    doc.addEventListener('click', function (e) {
+        // строки «Топ-5» и «Теряем» ведут на артикул в РНП: сначала открываем РНП
+        var li = e.target.closest && e.target.closest('#an-rnp-root .rnp-gh-li'); if (!li) return;
+        var m = String(li.getAttribute('onclick') || '').match(/RNP\.pick\((\d+)\)/); if (!m) return;
+        e.stopPropagation(); e.preventDefault();
+        if (typeof root.showTab === 'function') root.showTab('rnp');
+        setTimeout(function () { try { root.RNP.pick(Number(m[1])); } catch (x) { /* откроется РНП */ } }, 300);
+    }, true);
+    // вкладка Аналитики открылась на «Сводке РНП» (первая вкладка или запомненная): рисуем карточки
+    if (root.MutationObserver) {
+        var obs = function () { var t = doc.getElementById('tab-analytics'); if (!t) return; new MutationObserver(function () { if (t.classList.contains('active') && sumVisible()) openSummary(); }).observe(t, { attributes: true, attributeFilter: ['class'] }); };
+        if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', obs); else obs();
     }
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount); else mount();
 

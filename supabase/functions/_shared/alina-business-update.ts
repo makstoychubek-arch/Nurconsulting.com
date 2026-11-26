@@ -7,6 +7,7 @@ type BusinessMessage = {
     text?: string;
     caption?: string;
     photo?: { file_id?: string }[];
+    reply_to_message?: { text?: string; caption?: string };
 };
 
 export function parseAlinaBusinessUpdate(update: {
@@ -31,8 +32,9 @@ export function parseAlinaBusinessUpdate(update: {
         messageId,
     };
     if (message.sender_business_bot || user.is_bot) return null;
-    if (user.id !== chatId) return { ...ids, kind: 'owner' as const };
+    if (user.id !== chatId) return { ...ids, kind: 'owner' as const, ownerText: (message.text || message.caption || (message.photo?.length ? '[фото]' : '')).trim() };
     const text = (message.text || message.caption || '').trim();
+    const replyText = (message.reply_to_message?.caption || message.reply_to_message?.text || '').trim().slice(0, 200);
     const photoFileId = message.photo?.at(-1)?.file_id;
     if (!text && !photoFileId) return null;
 
@@ -44,5 +46,6 @@ export function parseAlinaBusinessUpdate(update: {
         fullName: [user.first_name, user.last_name].filter(Boolean).join(' '),
         text: text || 'скрин',
         photoFileId,
+        ...(replyText ? { replyText } : {}),
     };
 }

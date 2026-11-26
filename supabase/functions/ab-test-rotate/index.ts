@@ -360,7 +360,9 @@ Deno.serve(async (req) => {
                 if (test.status === 'active') {
                     let finishReason: string | null = null;
 
-                    if (selectedCampaigns.length && (test.settings as Record<string, unknown> | null)?.finishOnCampaignOff !== false) {
+                    // Первые 30 минут после запуска статус РК в базе может отставать от WB (владелец только что включил РК): тест из-за этого не закрываем.
+                    const startedAgoMin = (Date.now() - new Date(String(test.started_at || 0)).getTime()) / 60000;
+                    if (selectedCampaigns.length && startedAgoMin >= 30 && (test.settings as Record<string, unknown> | null)?.finishOnCampaignOff !== false) {
                         const { data: campRows } = await admin
                             .from('advertising_campaigns')
                             .select('status')
@@ -368,7 +370,13 @@ Deno.serve(async (req) => {
                             .in('campaign_id', selectedCampaigns);
                         const knownRows = campRows || [];
                         if (knownRows.length && knownRows.every((r) => Number(r.status) !== 9)) {
-                            finishReason = 'campaign_stopped';
+                            // Статус в базе обновляется с задержкой: перед закрытием теста спрашиваем у WB живой статус. Идёт хотя бы одна РК, тест не трогаем.
+                            const live = await liveCampaignStatuses(admin, String(test.cabinet_id), selectedCampaigns);
+                            if (live && live.size) {
+                                for (const [cid, st] of live) await admin.from('advertising_campaigns').update({ status: st }).eq('cabinet_id', test.cabinet_id).eq('campaign_id', cid);
+                            }
+                            if (live && ![...live.values()].some((st) => st === 9)) finishReason = 'campaign_stopped';
+                            // Если WB не ответил, тест остаётся: лучше ещё один круг, чем закрыть живой тест по устаревшей записи.
                         }
                     }
 
@@ -408,7 +416,8 @@ Deno.serve(async (req) => {
                             await admin.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', test.id);
                             await admin.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', winner.id);
                         }
-                        await pauseAbCampaigns(admin, test);
+                        // РК, которая уже остановлена (reason campaign_stopped), повторно на паузу не ставим: статус в базе мог отстать, и тогда живая РК выключалась.
+                        if (finishReason !== 'campaign_stopped') await pauseAbCampaigns(admin, test);
                         await admin.from('ab_tests').update({
                             status: 'finished',
                             finished_at: new Date().toISOString(),
@@ -419,7 +428,7 @@ Deno.serve(async (req) => {
                             variant_label: winner?.variant_label || current?.variant_label || 'stop',
                             action: 'stop',
                         });
-                        statsResults.push({ test_id: test.id, autoFinished: finishReason, pausedCampaigns: true });
+                        statsResults.push({ test_id: test.id, autoFinished: finishReason, pausedCampaigns: finishReason !== 'campaign_stopped' });
                     }
                 }
 
@@ -868,6 +877,21 @@ function json(data: unknown, status = 200) {
         status,
         headers: { ...CORS, 'Content-Type': 'application/json' },
     });
+}
+
+/** Живой статус РК из WB (9 = идёт, 11 = пауза). null, если не удалось спросить. */
+async function liveCampaignStatuses(admin: ReturnType<typeof createClient>, cabinetId: string, ids: number[]): Promise<Map<number, number> | null> {
+    try {
+        const { data: cab } = await admin.from('cabinets').select('wb_token, wb_token_promotion').eq('id', cabinetId).maybeSingle();
+        const token = pickCabinetToken(cab || {}, 'promotion');
+        if (!isValidWbToken(token) || !ids.length) return null;
+        const res = await fetch(`https://advert-api.wildberries.ru/api/advert/v2/adverts?ids=${ids.join(',')}`, { headers: { Authorization: token }, signal: AbortSignal.timeout(15_000) });
+        if (!res.ok) return null;
+        const d = await res.json().catch(() => null);
+        const out = new Map<number, number>();
+        for (const a of (d?.adverts || []) as Array<{ id?: number; status?: number }>) if (Number.isFinite(Number(a.id)) && Number.isFinite(Number(a.status))) out.set(Number(a.id), Number(a.status));
+        return out.size ? out : null;
+    } catch { return null; }
 }
 
 async function pauseAbCampaigns(

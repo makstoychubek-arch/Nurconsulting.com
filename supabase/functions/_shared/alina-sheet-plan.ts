@@ -12,7 +12,7 @@
 import { googleAccessToken } from './alina-google-auth.ts';
 import { secretOrEnv } from './integration-secrets.ts';
 import { scoreProductMatch } from './alina-product-match.ts';
-import { parseRazdachiSheet, type RazSheet } from './alina-razdachi.ts';
+import { parseRazdachiSheet, normModel, isFreeRow, isModelBlocked, todayMskKey, tooLateForToday, type RazSheet } from './alina-razdachi.ts';
 
 /** Режим «Раздачи — строки»: каждая размеченная строка с ТГ, моделью и датой это место блогера. Выключен по умолчанию. */
 export function razdachiRowsMode(): boolean {
@@ -80,6 +80,12 @@ export function extractSheetId(urlOrId: string): string | null {
   return null;
 }
 
+/** Таблицы, где Алине нужны только перечисленные вкладки (владелец, 24 ноября 2026: для «Кэшбэки / Выкупы МАРС» это «График раздач пижам» и «Раздачи Пижам»).
+ *  Остальные вкладки таблицы (брюки, жилетки, лонгслив, калькулятор и т.д.) Алина не читает и не предлагает. */
+export const SHEET_TAB_LIMITS: Record<string, { razdachi: string; graphs: string[] }> = {
+  '1ZSdNfnflgwOQZFSm1qcvfOB94bnfipZu5fB3pDodrik': { razdachi: 'Раздачи Пижам', graphs: ['График раздач пижам'] },
+};
+
 /** Автодетект вкладок: Раздач* + График* */
 async function discoverTabs(
   sheetId: string,
@@ -97,6 +103,12 @@ async function discoverTabs(
       name: properties.title,
     }));
 
+    const limit = SHEET_TAB_LIMITS[sheetId];
+    if (limit) {
+      const want = (n: string) => norm(n);
+      const rz = tabs.find((t) => want(t.name) === want(limit.razdachi));
+      return { razdachiGid: rz?.gid || null, graphs: tabs.filter((t) => limit.graphs.some((g) => want(g) === want(t.name))) };
+    }
     const graphs = tabs.filter((t) => /график|раздач|календарь/i.test(t.name) && !/^раздач/i.test(t.name));
     // вкладка лога: «Раздачи» / «Раздача» / «Выкупы»
     const raz = tabs.find((t) => /^раздач/i.test(t.name)) ||
@@ -261,6 +273,18 @@ type GraphBlock = {
   keywords: { key: string; byDay: Record<string, number>; cluster: number }[];
 };
 
+/** Название модели из ячейки заголовка: до длинного тире или стрелки, без внутренних пометок. */
+export function cleanProductLabel(raw: string): string {
+  const s = String(raw || '').replace(/\s{2,}/g, ' ').trim();
+  if (!/[—–→]/.test(s)) return s;
+  return s.split(/\s*[—–→]\s*/)[0].trim() || s;
+}
+
+/** Поисковый запрос без внутренней пометки в скобках в конце, например «(только отзывы)». */
+export function cleanKeyLabel(raw: string): string {
+  return String(raw || '').replace(/\s*\([^)]*только[^)]*\)\s*$/i, '').trim();
+}
+
 function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
   const blocks: GraphBlock[] = [];
   let i = 0;
@@ -315,6 +339,9 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
       }
     }
     if (!product) product = tabName;
+    // Заголовок блока в таблице МАРС длинный: «Пижама 3в1 шоколадный — 10 на отзывы … → РЫВОК 280 шт …». Клиенту показываем только название модели,
+    // внутренние пометки (цены, объёмы, планы) в ответы не попадают.
+    product = cleanProductLabel(product);
 
     const dayTotals: Record<string, number> = {};
     const prodRow = rows[Math.max(0, headerIdx - 1)] || [];
@@ -375,7 +402,7 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
       }
       const cluster = parseIntSafe(rr[clusterIdx]);
       if (any || cluster > 0) {
-        keywords.push({ key, byDay, cluster });
+        keywords.push({ key: cleanKeyLabel(key), byDay, cluster });
       }
     }
 
@@ -388,6 +415,21 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
       for (const k of keywords) {
         k.byDay[todayLabel] = k.cluster;
       }
+    }
+
+    // Блок «Пижама 3в1 цвета молочный, бордовый, лапша вишня»: каждый цвет отдельная модель со своими местами по датам
+    if (/\sцвета(?=\s|$)/i.test(product) && keywords.length) {
+      const base = product.split(/\sцвета(?=\s|$)/i)[0].trim();
+      for (const kw of keywords) {
+        const m = kw.key.match(/^(.+?)\s+(\d{6,})/);
+        const color = (m ? m[1] : kw.key.split(/\s+[—–]\s+/)[0]).trim();
+        if (!color) continue;
+        // в ячейке запроса цвет и артикул идут перед тире: «молочный 1939954445 — пижама 3 в 1 женская»; поисковый запрос это то, что после тире
+        const realKey = kw.key.includes('—') || kw.key.includes('–') ? kw.key.split(/\s*[—–]\s*/).slice(1).join(' ').trim() || kw.key : kw.key;
+        blocks.push({ tab: tabName, article: m ? m[2] : article, product: `${base} ${color}`, dateCols, dayTotals: { ...kw.byDay }, keywords: [{ ...kw, key: cleanKeyLabel(realKey) }] });
+      }
+      i = Math.max(j, headerIdx + 1);
+      continue;
     }
 
     if (keywords.length || Object.values(dayTotals).some((n) => n > 0)) {
@@ -498,7 +540,7 @@ function buildOffers(
       deal_type: dealMode,
       product_name: b.product,
       keyword: bestKey,
-      article: b.article,
+      article: cleanArticle(b.article),
       cashback_pct: dealMode === 'barter' ? null : 70,
       plan_slots: planToday,
       used_slots: used,
@@ -526,7 +568,7 @@ function buildOffers(
           deal_type: dealMode,
           product_name: b.product,
           keyword: k.key,
-          article: b.article,
+          article: cleanArticle(b.article),
           cashback_pct: dealMode === 'barter' ? null : 70,
           plan_slots: kp,
           used_slots: ku,
@@ -543,6 +585,28 @@ function buildOffers(
     void todayLabels;
   }
   return offers;
+}
+
+/** В ячейке артикула бывает целая заметка графика: берём сам артикул WB (первое число из 6+ цифр). */
+export function cleanArticle(raw: string | null | undefined): string | null {
+  return String(raw ?? '').match(/\d{6,12}/)?.[0] ?? null;
+}
+
+/** Пересчёт мест по строкам листа на сегодня: всего строк модели, свободных (нет логина и данных процесса). */
+export function applyRowsToOffers(offers: SheetPlanOffer[], sheet: RazSheet, today = todayMskKey()): void {
+  for (const o of offers) {
+    const k = normModel(o.product_name);
+    if (!k) continue;
+    const mine = sheet.rows.filter((r) => r.date === today && normModel(r.model) === k);
+    const free = mine.filter(isFreeRow).length;
+    o.plan_slots = mine.length;
+    o.used_slots = mine.length - free;
+    o.slots_left = free;
+    o.is_open = free > 0;
+    o.status_raw = free > 0 ? 'открыто' : (mine.length ? 'места закончились' : 'нет плана на сегодня');
+    if (tooLateForToday()) { o.is_open = false; o.slots_left = 0; o.status_raw = 'уже поздно (после 20:30 МСК)'; }
+    if (isModelBlocked(o.product_name || '')) { o.is_open = false; o.slots_left = 0; o.status_raw = 'недоступна на WB'; }
+  }
 }
 
 /** Уникальные открытые товары (для «по какому объявлению»). */
@@ -843,7 +907,8 @@ export async function fetchSheetPlan(
   }
   const discovered = await discoverTabs(sheetId, token);
   const mars = cabinetKey === 'mars';
-  const leadsGid = mars ? '1641065187' : (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
+  // МАРС: вкладка раздач берётся по названию из SHEET_TAB_LIMITS («Раздачи Пижам»); прежний жёсткий gid 1641065187 оставлен только запасным
+  const leadsGid = mars ? (discovered.razdachiGid || '1641065187') : (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
     ELIUM_RAZDACHI_FALLBACK).trim();
 
   const extraGids = (mars ? '' : Deno.env.get('ALINA_GRAPH_GIDS') || '')
@@ -913,6 +978,8 @@ export async function fetchSheetPlan(
 
   const dealMode = inferDealModeFromLeads(leads);
   const offers = buildOffers(blocks, leads, dealMode);
+  // Режим строк: места считаем по листу «Раздачи Пижам»: свободна строка без логина и без данных процесса (график только называет модели).
+  if (razdachiRowsMode() && lastRazdachi?.sheetId === sheetId) applyRowsToOffers(offers, lastRazdachi.sheet);
   for (const o of offers) o.read_ms = readStartMs;
   const active = pickActive(offers);
   if (active) active.deal_type = dealMode;

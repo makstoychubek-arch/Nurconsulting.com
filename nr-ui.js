@@ -343,7 +343,8 @@
         var d = root.document, G = [
             { id: 'acct', n: 'Аккаунт', secs: ['profile', 'security', 'devsessions'] },
             { id: 'conn', n: 'Подключения', secs: ['integrations', 'api', 'keys'] },
-            { id: 'pay', n: 'Оплата', secs: ['tariffs'] }
+            { id: 'pay', n: 'Оплата', secs: ['tariffs'] },
+            { id: 'look', n: 'Вид сайта', secs: ['design'] }
         ];
         var first = d.getElementById('settings-tab-btn-profile'), row = first && first.parentNode; if (!row) return;
         var visible = function (id) { var t = d.getElementById('settings-tab-btn-' + id); return !!t && !t.classList.contains('hidden-tab'); };
@@ -364,4 +365,112 @@
     };
 
     root.NrUi = { toast: toast, confirm: confirmDlg, dialog: dialog, alert: alertFn, ask: ask, notice: notice };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ───── Живое стекло: преломление по краям (только Chrome и Edge) ─────
+ * Для каждого стеклянного элемента строим карту смещения нужного размера и скругления и подключаем её SVG-фильтром к backdrop-filter.
+ * В Safari и Firefox такие фильтры не работают, там остаётся обычное стекло (стили в nr-mono.css). Выключить: html[data-lg="off"]. */
+(function (root) {
+    'use strict';
+    var doc = root.document; if (!doc) return;
+    var SEL = '.bottom-nav,.nr-mp,.nru-toast,.cabinet-dropdown-menu,#header-date-chip-wrap,.nr-win:not(.nr-win-photo):not(.nw-modal),.nru-win';
+    var ua = root.navigator && root.navigator.userAgent || '';
+    var brands = (root.navigator.userAgentData && root.navigator.userAgentData.brands || []).map(function (b) { return b.brand; }).join(',');
+    var chromium = /Chromium/.test(brands) || (/Chrome\//.test(ua) && !/iPhone|iPad|iPod|CriOS|FxiOS/.test(ua));
+    var off = false; try { off = root.localStorage.getItem('nr_lg') === '0'; } catch (e) { /* по умолчанию включено */ }
+    if (off) { doc.documentElement.setAttribute('data-lg', 'off'); return; }
+    if (!chromium || !root.ResizeObserver) return;
+    var svg = null, n = 0, map = new WeakMap(), timers = new WeakMap();
+    function host() {
+        if (svg) return svg;
+        svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '0'); svg.setAttribute('height', '0'); svg.setAttribute('aria-hidden', 'true');
+        svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none';
+        (doc.body || doc.documentElement).appendChild(svg);
+        return svg;
+    }
+    // Карта: у края вектор смещения направлен наружу, сила падает к центру (линза толщиной bezel).
+    function makeMap(w, h, r, bezel, max) {
+        var c = doc.createElement('canvas'); c.width = w; c.height = h;
+        var ctx = c.getContext('2d'), img = ctx.createImageData(w, h), d = img.data;
+        r = Math.min(r, w / 2, h / 2);
+        for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+            var px = x + 0.5, py = y + 0.5;
+            // ближайшая точка внутреннего прямоугольника (со скруглением) и расстояние до края
+            var cx = Math.min(Math.max(px, r), w - r), cy = Math.min(Math.max(py, r), h - r);
+            var dx = px - cx, dy = py - cy, len = Math.sqrt(dx * dx + dy * dy), dist, nx, ny;
+            if (len > 0.0001) { dist = r - len; nx = dx / len; ny = dy / len; }
+            else { var l = px, rr = w - px, t = py, b = h - py, m = Math.min(l, rr, t, b); dist = m; nx = m === l ? -1 : m === rr ? 1 : 0; ny = m === t ? -1 : m === b ? 1 : 0; }
+            var k = dist >= bezel ? 0 : Math.pow(1 - Math.max(dist, 0) / bezel, 2);
+            var i = (y * w + x) * 4;
+            d[i] = Math.round(128 + nx * k * 127); d[i + 1] = Math.round(128 + ny * k * 127); d[i + 2] = 128; d[i + 3] = 255;
+        }
+        ctx.putImageData(img, 0, 0);
+        return c.toDataURL('image/png');
+    }
+    function build(el) {
+        var b = el.getBoundingClientRect(), w = Math.round(b.width), h = Math.round(b.height);
+        if (w < 24 || h < 16 || w > 900 || h > 700) return;
+        var rec = map.get(el);
+        if (rec && rec.w === w && rec.h === h) return;
+        var r = parseFloat(root.getComputedStyle(el).borderTopLeftRadius) || 12;
+        var bezel = Math.max(8, Math.min(18, Math.round(Math.min(w, h) * 0.32))), max = Math.max(6, Math.min(14, Math.round(bezel * 0.8)));
+        var id = rec ? rec.id : 'nr-lgf-' + (++n);
+        var f = doc.getElementById(id);
+        if (!f) { f = doc.createElementNS('http://www.w3.org/2000/svg', 'filter'); f.setAttribute('id', id); host().appendChild(f); }
+        f.setAttribute('x', '0'); f.setAttribute('y', '0'); f.setAttribute('width', String(w)); f.setAttribute('height', String(h)); f.setAttribute('filterUnits', 'userSpaceOnUse');
+        f.setAttribute('color-interpolation-filters', 'sRGB');
+        f.innerHTML = '<feImage href="' + makeMap(w, h, r, bezel, max) + '" x="0" y="0" width="' + w + '" height="' + h + '" result="m"/>'
+            + '<feDisplacementMap in="SourceGraphic" in2="m" scale="' + (max * 2) + '" xChannelSelector="R" yChannelSelector="G"/>';
+        map.set(el, { id: id, w: w, h: h });
+        el.style.setProperty('--lg-bf', 'url(#' + id + ') blur(var(--lg-blur, 10px)) saturate(1.7)');
+    }
+    var ro = new root.ResizeObserver(function (list) {
+        list.forEach(function (e) { var el = e.target; clearTimeout(timers.get(el)); timers.set(el, setTimeout(function () { build(el); }, 120)); });
+    });
+    function scan() { doc.querySelectorAll(SEL).forEach(function (el) { if (!el.__nrLg) { el.__nrLg = true; ro.observe(el); } }); }
+    scan();
+    new root.MutationObserver(function () { scan(); }).observe(doc.body || doc.documentElement, { childList: true, subtree: true });
+    root.NrGlass = { set: function (on) { try { root.localStorage.setItem('nr_lg', on ? '1' : '0'); } catch (e) { /* без памяти */ } root.location.reload(); } };
+})(window);
+
+
+/* ───── Вид сайта: «Классический» (меню слева) или «Стекло» (меню сверху, окна из живого стекла) ─────
+ * Выбор в Настройки → Вид сайта, хранится в nr_design на устройстве. При переключении сайт на секунду закрывается экраном с логотипом.
+ * Новый вид только на компьютере (от 769px), телефон остаётся как есть. По умолчанию классический (владелец, 23 ноября 2026). */
+(function (root) {
+    'use strict';
+    var doc = root.document; if (!doc) return;
+    var KEY = 'nr_design';
+    function get() { try { return root.localStorage.getItem(KEY) === 'glass' ? 'glass' : 'classic'; } catch (e) { return 'classic'; } }
+    function apply(v) {
+        doc.documentElement.setAttribute('data-design', v === 'glass' ? 'glass' : 'classic');
+        try { root.dispatchEvent(new Event('resize')); } catch (e) { /* без пересчёта */ }
+    }
+    function splash(text, done) {
+        var s = doc.createElement('div'); s.className = 'nr-ds'; s.setAttribute('data-nr-blur', '');
+        s.innerHTML = '<div class="nr-ds-lg"><img src="/icons/logo-nr.svg" alt="NR" width="64" height="64"></div><div class="nr-ds-t"></div><div class="nr-ds-bar"><i></i></div>';
+        s.querySelector('.nr-ds-t').textContent = text;
+        doc.body.appendChild(s);
+        setTimeout(function () { try { done(); } catch (e) { /* вид применится при следующей загрузке */ } s.classList.add('out'); setTimeout(function () { s.remove(); }, 380); }, 1400);
+    }
+    function paint(host) {
+        if (!host) return;
+        var cur = get();
+        host.innerHTML = '<section class="nr-dz"><h4>Вид сайта</h4><p class="nr-dz-sub">Выберите, как выглядит сайт. Переключение сразу, вернуться можно в любой момент. Новый вид работает на компьютере, на телефоне сайт остаётся прежним.</p><div class="nr-dz-grid">'
+            + '<button type="button" class="nr-dz-card' + (cur === 'classic' ? ' on' : '') + '" data-design="classic"><span class="nr-dz-prev nr-dz-p1"><i></i><b></b><b></b></span><strong>Классический</strong><small>Меню слева, как сейчас.</small></button>'
+            + '<button type="button" class="nr-dz-card' + (cur === 'glass' ? ' on' : '') + '" data-design="glass"><span class="nr-dz-prev nr-dz-p2"><i></i><b></b><b></b></span><strong>Стекло <em>новый</em></strong><small>Разделы кнопками сверху, окна из живого стекла.</small></button>'
+            + '</div></section>';
+        host.querySelectorAll('[data-design]').forEach(function (b) { b.addEventListener('click', function () { set(b.getAttribute('data-design'), host); }); });
+    }
+    function set(v, host) {
+        v = v === 'glass' ? 'glass' : 'classic';
+        if (v === get() || doc.querySelector('.nr-ds')) return;
+        splash(v === 'glass' ? 'Переходим на новый дизайн…' : 'Возвращаем классический дизайн…', function () {
+            try { root.localStorage.setItem(KEY, v); } catch (e) { /* только на эту загрузку */ }
+            apply(v); paint(host || doc.getElementById('settings-design'));
+            try { if (root.NrUi && root.NrUi.toast) root.NrUi.toast('success', v === 'glass' ? 'Включён новый дизайн' : 'Включён классический дизайн'); } catch (e) { /* без подсказки */ }
+        });
+    }
+    root.NrDesign = { get: get, set: set, render: paint };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -34,10 +34,12 @@ export async function recordLlmUsage(
   model: string,
   usage: { prompt_tokens?: number; completion_tokens?: number } | null | undefined,
   error: string | null = null,
+  purpose: string | null = null,
 ): Promise<void> {
   try {
+    // Назначение запроса дописывается к названию модели («gpt-4o:vision»), цена считается по началу названия, как и раньше.
     await getAdminClient().rpc('llm_usage_add', {
-      p_model: model.slice(0, 60), p_prompt: Math.round(usage?.prompt_tokens ?? 0), p_completion: Math.round(usage?.completion_tokens ?? 0), p_error: error,
+      p_model: (purpose ? `${model}:${purpose}` : model).slice(0, 60), p_prompt: Math.round(usage?.prompt_tokens ?? 0), p_completion: Math.round(usage?.completion_tokens ?? 0), p_error: error,
     });
   } catch { /* учёт не обязателен */ }
 }
