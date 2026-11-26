@@ -49,7 +49,7 @@ import { identifyModelFromPhoto } from './alina-model-vision.ts';
 import { dayApproved } from './alina-dayplan.ts';
 import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, isModelBlocked, ruDay, setBlockedModels, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, isModelBlocked, ruDay, setBlockedModels, setDayClosed, setLateException, setTodayOnly, todayOnlyOn, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -314,6 +314,11 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     const { data: bm } = await admin().from('alina_settings').select('value').eq('key', 'blockedModels').maybeSingle();
     setBlockedModels(Array.isArray(bm?.value) ? (bm!.value as string[]) : []);
   } catch { setBlockedModels([]); }
+  // Только на сегодня, без броней (alina_settings.todayOnly {day: 'ДД.ММ.ГГГГ'}): действует только в указанный день.
+  try {
+    const { data: to } = await admin().from('alina_settings').select('value').eq('key', 'todayOnly').maybeSingle();
+    setTodayOnly(String((to?.value as { day?: string } | null)?.day || '') === todayMskKey());
+  } catch { setTodayOnly(false); }
   // План дня должен быть согласован владельцем (ответ «ок» в группе менеджеров), пока нет, места на сегодня не отдаём.
   try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
   let res = await handleAlinaClientMessageInner(opts);
@@ -757,6 +762,7 @@ async function handleAlinaClientMessageInner(opts: {
         return { ...r(`${late ? 'На сегодня уже не успеть: заказ до 22:00 МСК' : 'На сегодня всё занято'} 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
       }
     }
+    if (todayOnlyOn()) return r('На сегодня все места уже заняты 😔 Бронь на другие дни пока не делаем: освободится место на сегодня, напишу вам первой 🙌');
     return r(MSG_CLOSED());
   }
 

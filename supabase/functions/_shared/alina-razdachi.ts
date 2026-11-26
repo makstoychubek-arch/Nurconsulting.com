@@ -302,7 +302,7 @@ export function freeSlots(sheet: RazSheet, today: string, horizon = 14): FreeSlo
     if (!isFreeRow(r)) continue;
     if (isModelBlocked(r.model)) continue;
     const n = daysBetween(today, r.date);
-    if (n < 0 || n > horizon) continue;
+    if (n < 0 || n > (todayOnly ? 0 : horizon)) continue;
     const k = normModel(r.model) + '|' + r.date;
     const s = map.get(k) ?? { model: r.model, date: r.date, rows: [] };
     s.rows.push(r);
@@ -387,4 +387,8 @@ export const lateExceptionOn = (): boolean => lateException;
 let dayClosed = false;
 export const setDayClosed = (v: boolean): void => { dayClosed = v; };
 export const dayClosedOn = (): boolean => dayClosed && !lateException;
+/** Только на сегодня (владелец, 26 ноября 2026): броней на другие даты нет, места показываем и отдаём только на сегодня (alina_settings.todayOnly {day}). */
+let todayOnly = false;
+export const setTodayOnly = (v: boolean): void => { todayOnly = v; };
+export const todayOnlyOn = (): boolean => todayOnly;
 export const tooLateForToday = (now = Date.now()): boolean => !lateException && (dayClosed || mskMinutes(now) >= TODAY_CUTOFF_MIN);
