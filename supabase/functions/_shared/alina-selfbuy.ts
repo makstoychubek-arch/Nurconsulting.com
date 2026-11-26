@@ -1273,6 +1273,9 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto && text.length < 8) {
       return rAsk('wait_bank', 'Реквизиты текстом: телефон + ФИО + банк (СБП).');
     }
+    if (!looksLikeBank(text) && /^\s*\d[\d\s]{2,6}\s*(?:руб\S*|р|₽)?\.?\s*$/i.test(text.replace(/\s*\(в ответ на[\s\S]*$/, ''))) {
+      return rAsk('wait_bank', 'Спасибо 🙌 Теперь нужны реквизиты одной строкой: телефон + ФИО + банк (СБП).');
+    }
     if (!looksLikeBank(text)) {
       // вопрос про реквизиты/кэш — мозг
       if (shouldUseBrain({ text, status: 'wait_bank', hasPhoto: false, matchedProduct: false })) {
@@ -1364,10 +1367,6 @@ async function handleAlinaClientMessageInner(opts: {
     if (hasPhoto) return rAsk('wait_pickup', 'Спасибо, получила ✅ Когда заберёте заказ, напишите.');
     if (/заказал|оформил|выкупил/i.test(text)) return r('Заказ у вас уже записан ✅ Когда он придёт в пункт выдачи, я напомню 🙌');
     // Задержка, «не пришло», «нет ссылки» и подобное: коротко отвечаем, дату в таблице меняет менеджер.
-    if (shouldUseBrain({ text, status: 'wait_pickup', hasPhoto, matchedProduct: false })) {
-      const { brain } = await runBrain();
-      if (brain.reply) return rAsk('wait_pickup', brain.reply);
-    }
     // Клиент пишет про дату интеграции или ШК, а ответа нет: не молчим (26 ноября 2026).
     if (!hasPhoto && !isAck(text)) {
       if (/интеграц|реклам|дат[аыу]\s+выход/i.test(text)) {
@@ -1380,8 +1379,12 @@ async function handleAlinaClientMessageInner(opts: {
         return rAsk('wait_pickup', 'Записала 👍 Если дата изменится, напишите.');
       }
       if (/штрихкод|\bшк\b/i.test(text)) return rAsk('wait_pickup', 'Да, фото с разрезанными штрихкодами пришлите, когда заберёте заказ 🙌');
-      if (text.replace(/\s*\(в ответ на[\s\S]*$/, '').trim().length >= 12) return rAsk('wait_pickup', 'Приняла 👍 Когда заберёте заказ, напишите.');
     }
+    if (shouldUseBrain({ text, status: 'wait_pickup', hasPhoto, matchedProduct: false })) {
+      const { brain } = await runBrain();
+      if (brain.reply) return rAsk('wait_pickup', brain.reply);
+    }
+    if (!hasPhoto && !isAck(text) && text.replace(/\s*\(в ответ на[\s\S]*$/, '').trim().length >= 12) return rAsk('wait_pickup', 'Приняла 👍 Когда заберёте заказ, напишите.');
     return { replies: [] };
   }
 
