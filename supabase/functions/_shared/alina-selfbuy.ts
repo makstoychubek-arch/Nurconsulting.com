@@ -337,6 +337,12 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
             photos: [{ bytes: photo1.bytes, mime: photo1.mime, filename: photo1.filename, caption: '' }],
           } as never;
         }
+        // Главного фото WB достать не вышло: показываем свою фото модели, чтобы клиент понял, какой товар ищем.
+        const ph2 = await handleProductPhotoRequest(db1, lead1, null, 'покажите ' + lead1.product_name);
+        if (ph2?.photos?.length) {
+          await logEvent(db1, lead1.id, opts.chatId, 'model_shown', { model: lead1.product_name });
+          return { ...ph2, replies: [`Ваше место на «${lead1.product_name.replace(/^Пижама\s+/i, '')}», вот фото 🙌 Вбейте ключ${lead1.keyword ? ` «${lead1.keyword}»` : ''} в поиск WB, найдите этот товар и пришлите скрин, чтобы сверху был виден запрос.`] } as never;
+        }
       }
     } catch (e) { console.warn('[alina] show model', e); }
   }
@@ -2118,7 +2124,8 @@ async function handleExpectedYes(
   const today = todayMskKey();
   const sheet = getLastRazdachi()?.sheet;
   const notInTime = () => r('Вы не успели: это место уже занял другой клиент 🙏');
-  if (ex.kind === 'book' && ex.date) {
+  // Только на сегодня: старое предложение брони на другую дату не выполняем, «да» ведёт к месту на сегодня (если оно есть).
+  if (ex.kind === 'book' && ex.date && !(todayOnlyOn() && ex.date !== today)) {
     const res = await bookPlace(db, lead, model, ex.date);
     if (res === 'claimed') return r(`Готово ✅ «${model}» за вами на ${ruDay(ex.date, today)}.`, 'Напишите в этот день, и начнём.');
     return notInTime();
