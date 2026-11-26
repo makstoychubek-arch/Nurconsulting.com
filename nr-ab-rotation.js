@@ -339,6 +339,39 @@
     wrapEdit();
 
     root.NrAbImg = Img;
-    root.NrAbRot = { extra: extra, setup: setup, btn: btn, restart: restart, ring: ring, camps: camps };
+
+    /* ───── Удалённые А/Б тесты (25 ноября 2026): удаление не стирает тест, он лежит в «Удалённых», вернуть можно в любой момент ───── */
+    function deletedList() { return root.nrAbDeleted || []; }
+    function deletedLink() {
+        var el = $('ab-deleted-link'); if (!el) return;
+        var n = deletedList().length;
+        el.hidden = !n; el.textContent = n ? 'Удалённые тесты (' + n + ')' : '';
+    }
+    function restoreTest(id) {
+        var sb = root.supabase || (typeof supabase !== 'undefined' ? supabase : null); if (!sb) return;
+        return Promise.resolve(sb.from('ab_tests').update({ finish_reason: 'manual', status: 'finished' }).eq('id', id)).then(function (r) {
+            if (r && r.error) { if (root.NrUi) root.NrUi.toast('error', 'Не удалось вернуть', r.error.message || ''); return; }
+            root.nrAbDeleted = deletedList().filter(function (t) { return String(t.id) !== String(id); });
+            var ov = $('ab-deleted-ov'); if (ov) ov.remove();
+            if (root.NrUi) root.NrUi.toast('success', 'Тест возвращён', 'Он в списке со статусом «Завершён».');
+            if (typeof root.loadABTests === 'function') root.loadABTests();
+            deletedLink();
+        });
+    }
+    function openDeleted() {
+        var list = deletedList(), old = $('ab-deleted-ov'); if (old) old.remove();
+        var ov = doc.createElement('div'); ov.id = 'ab-deleted-ov';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9000;display:grid;place-items:center;background:rgba(0,0,0,.45);padding:16px';
+        ov.innerHTML = '<div style="background:var(--bg-card,#fff);color:var(--text,#111);border:1px solid var(--border,#111);border-radius:26px;max-width:520px;width:100%;padding:20px;max-height:80vh;overflow:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:16px">Удалённые тесты</b><button type="button" data-x style="font-size:20px;background:none;border:0;cursor:pointer;color:inherit" aria-label="Закрыть">×</button></div>' +
+            (list.length ? list.map(function (t) { return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border,#ddd)"><div><div style="font-weight:700">' + esc(t.product_name || 'Тест') + '</div><div style="font-size:12px;opacity:.65">Арт. ' + esc(t.nm_id || '') + '</div></div><button type="button" class="btn-outline" data-restore="' + esc(t.id) + '">Вернуть</button></div>'; }).join('') : '<p style="opacity:.65">Удалённых тестов нет.</p>') + '</div>';
+        ov.addEventListener('click', function (e) {
+            var r = e.target.closest && e.target.closest('[data-restore]');
+            if (r) restoreTest(r.getAttribute('data-restore'));
+            else if (e.target === ov || (e.target.closest && e.target.closest('[data-x]'))) ov.remove();
+        });
+        doc.body.appendChild(ov);
+    }
+    root.openABDeleted = openDeleted;
+    root.NrAbRot = { deletedLink: deletedLink, restore: restoreTest, extra: extra, setup: setup, btn: btn, restart: restart, ring: ring, camps: camps };
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot); else boot();
 })(typeof window !== 'undefined' ? window : globalThis);
