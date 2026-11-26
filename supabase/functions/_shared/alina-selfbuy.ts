@@ -387,6 +387,10 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       if (names.length) res = { ...res, replies: [`Сегодня есть: ${names.join(', ')}. Какую выберете?`], tag: 'models' };
     } catch { /* оставляем ответ как есть */ }
   }
+  // Список моделей для выбора всегда заканчивается просьбой выбрать одну (владелец, 26 ноября 2026): клиенты иначе называют сразу несколько.
+  if (res.replies.length) {
+    res = { ...res, replies: res.replies.map((x) => ((x.match(/[23]\s?в\s?1/gi) || []).length >= 2 && /\?\s*(?:🙌|🙏|😊)?\s*$/.test(x) && !/выберите\s+(?:одну|1)/i.test(x)) ? `${x.replace(/\s*(?:🙌|🙏|😊)?\s*$/, '')} Выберите одну модель 🙌` : x) };
+  }
   // Диагностика: клиент написал по делу, а ответа нет (не «ок/спасибо»). Пишем в журнал, на каком этапе так вышло, чтобы найти причину.
   if (!res.replies.length && !(res.photos && res.photos.length) && !res.react && !res.escalate && !isAck(opts.text || '') && (opts.text || '').trim()) {
     await logAlinaRawEvent(opts.chatId, 'empty_reply', { text: (opts.text || '').slice(0, 160) });
