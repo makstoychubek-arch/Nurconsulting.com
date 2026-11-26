@@ -417,6 +417,18 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       if (names3.length) res = { ...res, replies: [names3.length === 1 ? `${fm[1]}в1 сегодня есть один цвет: ${names3[0]}. Берёте? 🙌` : `${fm[1]}в1 сегодня есть: ${names3.join(', ')}. Какой цвет берёте?`] };
     }
   }
+  // Осталась одна модель на сегодня: не просим выбирать из списка, а прямо говорим, что доступна одна (владелец, 26 ноября 2026).
+  if (razdachiRowsMode() && res.replies.length && (res as { tag?: string }).tag === 'models') {
+    try {
+      const sheet5 = getLastRazdachi()?.sheet;
+      const free5 = sheet5 ? [...new Set(freeSlots(sheet5, todayMskKey(), 0).filter((x) => x.date === todayMskKey()).map((x) => x.model))] : [];
+      if (free5.length === 1 && !tooLateForToday()) {
+        const only = free5[0];
+        await logAlinaRawEvent(opts.chatId, 'expect', { kind: 'start_deal', model: only, by: 'one_model' });
+        res = { ...res, photos: undefined, replies: [`Сегодня доступна только одна модель: «${only.replace(/^Пижама\s+/i, '')}» 🙌 Берёте? Напишите «да», и пришлю условия.`] };
+      }
+    } catch { /* оставляем список */ }
+  }
   // Список моделей для выбора всегда заканчивается просьбой выбрать одну (владелец, 26 ноября 2026): клиенты иначе называют сразу несколько.
   if (res.replies.length) {
     const hasPhotos = Boolean(res.photos && res.photos.length);
