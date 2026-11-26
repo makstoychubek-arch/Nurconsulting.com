@@ -393,6 +393,10 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     const sheet3 = getLastRazdachi()?.sheet;
     if (fm && sheet3 && matchModels(PAJAMA_MODEL_NAMES, opts.text || '').length > 1) {
       const names3 = [...new Set(freeSlots(sheet3, todayMskKey(), 0).filter((x) => x.date === todayMskKey() && normModel(x.model).includes(`${fm[1]}в1`)).map((x) => x.model.replace(/^Пижама\s+[23]в1\s*/i, "")))];
+      // Свободен единственный цвет этого формата: клиент по сути его выбрал, начинаем заявку сразу.
+      if (names3.length === 1 && /^\s*(?:да\S*|хорошо|давайте|хочу|беру|возьму|можно)?[\s,.!]*(?:.{0,15})?[23]\s?в\s?1[\s?.!]*$/i.test(opts.text || '')) {
+        res = await handleAlinaClientMessageInner({ ...opts, text: `Пижама ${fm[1]}в1 ${names3[0]}` });
+      } else
       if (names3.length) res = { ...res, replies: [names3.length === 1 ? `${fm[1]}в1 сегодня есть один цвет: ${names3[0]}. Берёте? 🙌` : `${fm[1]}в1 сегодня есть: ${names3.join(', ')}. Какой цвет берёте?`] };
     }
   }
