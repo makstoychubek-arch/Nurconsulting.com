@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
             if (today0 && today0.length) continue; // клиент или менеджер уже общаются сегодня
             const model = String(r0[0] || '').replace(/^Пижама\s+/i, '');
             const text = `Доброе утро! Сегодня ваше место на «${model}». Начинаем? Заказать нужно до 22:00 по Москве. Напишите «да», и пришлю условия 🙌`;
-            if (await send(chat.chat_id, text)) { await log(chat.chat_id, 'start_ask', text); sent.push(`start_ask ${un}`); started++; }
+            if (await send(chat.chat_id, text)) { await log(chat.chat_id, 'start_ask', text); await admin.from('alina_selfbuy_events').insert({ event_type: 'expect', chat_id: chat.chat_id, payload: { kind: 'start_deal', model: String(r0[0] || '').trim() } }); sent.push(`start_ask ${un}`); started++; }
         }
     }
     // 2 этап: клиент не прислал ШК или черновик отзыва больше суток, напоминаем раз в день днём; отзыв отправлен менеджеру, а ответа нет 3 часа: напоминаем в группу.
