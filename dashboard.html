@@ -7333,7 +7333,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
                 </div>
             </div>
 
-            <div id="abtests-list" class="space-y-3"><div class="ab-skel"></div><div class="ab-skel"></div></div></div>
+            <div id="abtests-list" class="space-y-3"><div class="ab-skel"></div><div class="ab-skel"></div></div><button type="button" id="ab-deleted-link" class="btn-outline" hidden onclick="openABDeleted()" style="margin-top:10px;font-size:12px"></button></div>
 
         <div id="tab-rnp-settings" class="tab-content">
             <div class="p-10 text-center" style="color:var(--text-muted)">
@@ -8230,7 +8230,7 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
 <script src="/dist/nr-analytics.e8238dd842.min.js"></script>
 <script src="/dist/nr-compare.818d837050.min.js"></script>
 <script src="/dist/rnp-prices.456e0da447.min.js"></script>
-<script src="/dist/nr-ab-rotation.cd6580524e.min.js"></script>
+<script src="/dist/nr-ab-rotation.91dbf78734.min.js"></script>
 <script src="/dist/nr-ab-ozon.681e9b03e0.min.js"></script>
 <script src="/dist/nr-ads-ozon.6c9d8f3cd2.min.js"></script>
 <script src="/dist/nr-nav.f6b315940c.min.js"></script>
@@ -15621,9 +15621,13 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         if (abTestsCab !== currentCabinetId) { allABTests = []; abTestsCab = currentCabinetId; }
         if (!allABTests.length) { try { const c = JSON.parse(localStorage.getItem(abKey) || 'null'); if (c && c.length) { allABTests = c; renderABTests(); } } catch (e) {} }
         try {
-            const { data: tests, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
+            const { data: testsAll, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
             if (error) throw error;
-            if (!tests) { allABTests = []; renderABTests(); return; }
+            // Удалённые тесты не стираются из базы, а лежат в «Удалённых» (вернуть можно в любой момент).
+            const tests = (testsAll || []).filter((t) => t.finish_reason !== 'deleted');
+            window.nrAbDeleted = (testsAll || []).filter((t) => t.finish_reason === 'deleted');
+            window.NrAbRot?.deletedLink?.();
+            if (!testsAll) { allABTests = []; renderABTests(); return; }
             const built = [];
             const variantsByTest = new Map();
             if (tests.length) {
@@ -15998,28 +16002,32 @@ addEventListener('load',function(){ld=1});iv=setInterval(function(){var a=Date.n
         await loadABTests();
     }
 
-    // Полное удаление теста, его вариантов и лога ротаций.
+    // Удаление теста (25 ноября 2026: владелец нажал «×» вместо «Завершить» и потерял тест): тест не стирается, а прячется в «Удалённые», вернуть можно в любой момент.
     async function deleteABTest(testId) {
         const test = allABTests.find(t => String(t.id) === String(testId));
-        const ok = await showConfirmModal('Удалить тест?', `«${test?.product_name || 'Тест'}» будет удалён без возможности восстановления, вместе со всей статистикой по вариантам.`);
+        const ok = await showConfirmModal('Удалить тест?', `«${test?.product_name || 'Тест'}» уйдёт в «Удалённые», вернуть его можно в любой момент. Если нужно просто остановить тест, нажмите «Завершить» (значок квадрата).`);
         if (!ok) return;
         clearInterval(abRotationTimers[String(testId)]);
         delete abRotationTimers[String(testId)];
         const idx = allABTests.findIndex(t => String(t.id) === String(testId));
         const removed = idx >= 0 ? allABTests.splice(idx, 1)[0] : null;
         renderABTests();
-        await supabase.from('ab_test_rotation_log').delete().eq('test_id', testId);
-        await supabase.from('ab_test_variants').delete().eq('test_id', testId);
-        const { error } = await supabase.from('ab_tests').delete().eq('id', testId);
+        const nowIso = new Date().toISOString();
+        const { error } = await supabase.from('ab_tests').update({
+            status: 'finished', finish_reason: 'deleted', finished_at: (removed && removed.finished_at) || nowIso,
+            settings: Object.assign({}, (removed && removed.settings) || {}, { deleted_at: nowIso }),
+        }).eq('id', testId);
         if (error) {
             if (removed) { allABTests.splice(idx, 0, removed); renderABTests(); }
             showPremiumModal('error', 'Не удалось удалить', error.message);
             return;
         }
-        try { localStorage.removeItem(abSettingsKey(testId)); } catch (e) {}
-        abOk('Тест удалён');
+        window.nrAbDeleted = (window.nrAbDeleted || []).concat([{ id: testId, product_name: removed?.product_name, nm_id: removed?.nm_id, finished_at: nowIso }]);
+        window.NrAbRot?.deletedLink?.();
+        if (window.NrUi) window.NrUi.toast('success', 'Тест удалён', 'Он лежит в «Удалённых».', { duration: 30000, action: { label: 'Вернуть', onClick: () => window.NrAbRot?.restore?.(testId) } });
+        else abOk('Тест удалён');
     }
-    window.deleteABTest = deleteABTest;
+    window.deleteABTest = deleteABTest; window.loadABTests = loadABTests;
 
     function abGaussianRandom() {
         let u = 0, v = 0;
