@@ -425,7 +425,8 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       if (free5.length === 1 && !tooLateForToday()) {
         const only = free5[0];
         await logAlinaRawEvent(opts.chatId, 'expect', { kind: 'start_deal', model: only, by: 'one_model' });
-        res = { ...res, photos: undefined, replies: [`Сегодня доступна только одна модель: «${only.replace(/^Пижама\s+/i, '')}» 🙌 Берёте? Напишите «да», и пришлю условия.`] };
+        const left5 = freeSlots(sheet5!, todayMskKey(), 0).filter((x) => x.date === todayMskKey() && normModel(x.model) === normModel(only)).reduce((n, x) => n + x.rows.length, 0);
+        res = { ...res, photos: undefined, replies: [`Сегодня доступна только одна модель: «${only.replace(/^Пижама\s+/i, '')}»${left5 && left5 <= 5 ? ` (осталось мест: ${left5})` : ''} 🙌 Берёте? Напишите «да», и пришлю условия.`] };
       }
     } catch { /* оставляем список */ }
   }
