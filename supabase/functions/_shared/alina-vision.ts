@@ -107,8 +107,10 @@ export async function analyzeAlinaScreenshot(opts: {
   if (!apiKey) return empty;
   if (!await llmBudgetOk()) return empty; // бюджет месяца израсходован
 
+  // Скрины поиска и корзины сверяем с эталонами: тут нужна сильная модель (mini путал наш товар, 26 ноября 2026).
+  const strong = opts.stage === 'product' || opts.stage === 'cart' || opts.stage === 'order';
   const model = (Deno.env.get('OPENAI_VISION_MODEL') ||
-    Deno.env.get('OPENAI_MODEL') ||
+    (strong ? 'gpt-4o' : Deno.env.get('OPENAI_MODEL')) ||
     'gpt-4o-mini').trim();
   const baseUrl = (Deno.env.get('OPENAI_BASE_URL') ?? 'https://api.openai.com/v1')
     .replace(/\/$/, '');
