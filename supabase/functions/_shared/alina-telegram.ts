@@ -58,10 +58,15 @@ export async function processAlinaTelegramUpdate(
     if (error) throw new Error('Alina event storage is unavailable');
 
     // Несколько сообщений подряд: ждём, пока человек допишет, и отвечаем один раз на всё (владелец, 24 ноября 2026).
+    // Быстрый темп (alina_settings.fastPacing, владелец 26 ноября 2026): в загруженный день очередь важнее «человеческих» пауз.
+    try {
+        const { data: fp } = await admin.from('alina_settings').select('value').eq('key', 'fastPacing').maybeSingle();
+        fastPacing = (fp as { value?: unknown } | null)?.value === true;
+    } catch { fastPacing = false; }
     let text = message.text;
     const useBurst = !message.photoFileId && (message.text || '').trim() && claimed?.created_at;
     if (useBurst) {
-        await pacing.sleep(pacing.burstMs);
+        await pacing.sleep(fastPacing ? Math.min(pacing.burstMs, 2500) : pacing.burstMs);
         const hasNewer = async () => {
             const { data } = await admin.from('alina_selfbuy_events').select('id')
                 .eq('chat_id', message.chatId).eq('event_type', 'telegram_delivery').gt('created_at', claimed!.created_at).limit(1);
@@ -354,12 +359,13 @@ export function joinBurst(parts: { text?: string; photo?: boolean }[], own: stri
     const texts = parts.filter((p) => !p.photo).map((p) => String(p.text || '').trim()).filter(Boolean);
     return texts.length ? texts.join('\n') : own;
 }
+let fastPacing = false;
 export function humanPauseMs(text: string, first: boolean): number {
     const base = 1200 + text.length * 40 + (first ? 1500 : 0);
-    return Math.min(9000, Math.round(base * (0.85 + Math.random() * 0.3)));
+    return Math.min(fastPacing ? 2500 : 9000, Math.round(base * (0.85 + Math.random() * 0.3)));
 }
 async function humanPause(token: string, message: ClientUpdate, text: string, first: boolean, budget: { spent: number }): Promise<void> {
-    const left = 25_000 - budget.spent;
+    const left = (fastPacing ? 6_000 : 25_000) - budget.spent;
     if (left <= 0) return;
     const ms = Math.min(left, humanPauseMs(text, first));
     budget.spent += ms;
