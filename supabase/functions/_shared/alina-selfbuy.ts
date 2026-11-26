@@ -1613,7 +1613,7 @@ async function handleSizeMissing(db: SupabaseClient, lead: SelfbuyLead, text: st
 }
 
 /** Клиент просит главное фото карточки. */
-const MAIN_PHOTO_RE = /фильтр\S*|главн\S*\s+(?:фото\S*|страниц\S*|картинк\S*|карточк\S*)|фото\s+главн\S*|точное\s+фото|как\s+(?:именно\s+|она\s+|он\s+|оно\s+)?выгляд\S*|что\s+(?:именно\s+)?(?:искать|ищем|ищу)|как\s+(?:она|он|оно)\s+(?:выгляд|вид)\S*|(?:пример|образец)\S*\s+(?:фото|того|что)|(?:скин\S*|пришл\S*|покаж\S*|отправ\S*)\s+(?:мне\s+)?(?:\S+\s+)?(?:фото|картинк\S*|пример)/i;
+const MAIN_PHOTO_RE = /фильтр\S*|фото\s+карточк\S*|карточк\S*\s+фото|главн\S*\s+(?:фото\S*|страниц\S*|картинк\S*|карточк\S*)|фото\s+главн\S*|точное\s+фото|как\s+(?:именно\s+|она\s+|он\s+|оно\s+)?выгляд\S*|что\s+(?:именно\s+)?(?:искать|ищем|ищу)|как\s+(?:она|он|оно)\s+(?:выгляд|вид)\S*|(?:пример|образец)\S*\s+(?:фото|того|что)|(?:скин\S*|пришл\S*|покаж\S*|отправ\S*)\s+(?:мне\s+)?(?:\S+\s+)?(?:фото|картинк\S*|пример)/i;
 
 const QTY_RE = /(?:можно|могу|мож\S*|хочу|хотела|возьм\S*|взять)\s+(?:сразу\s+)?(?:две|2(?!\s*в\s*\d)|два|обе|оба|три|3(?!\s*в\s*\d)|несколько|больше\s+одн\S*|ещ[её]\s+одн\S*)\s*(?:модел\S*|костюм\S*|пижам\S*|штук\S*|комплект\S*|шт\b)?|сколько\s+(?:костюм\S*|пижам\S*|модел\S*|штук|комплект\S*)?\s*(?:можно|могу|мне)?\s*(?:взять|заказать|получить)|сколько\s+могу\s+взять|(?:две|2(?!\s*в\s*\d)|два)\s+(?:модел\S*|костюм\S*|пижам\S*)\s+(?:можно|возможн\S*)/i;
 
@@ -2176,6 +2176,8 @@ async function handleExpectedYes(
   const { data: l } = await db.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
   if (!l) return null;
   let lead = l as SelfbuyLead;
+  // Заявка уже идёт (ТЗ, ключ, поиск и дальше): старое ожидание «да» не трогаем, «да» клиента относится к текущему шагу.
+  if (['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order', 'wait_size', 'wait_bank', 'wait_integration', 'wait_pickup', 'wait_shk', 'wait_review', 'wait_reels'].includes(String(lead.status))) return null;
   if (!lead.username && opts.username) {
     await db.from('alina_selfbuy_leads').update({ username: String(opts.username).replace(/^@/, '') }).eq('id', lead.id);
     lead = { ...lead, username: String(opts.username).replace(/^@/, '') };
