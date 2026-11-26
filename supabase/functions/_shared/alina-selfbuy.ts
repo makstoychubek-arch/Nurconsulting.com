@@ -1215,6 +1215,8 @@ async function handleAlinaClientMessageInner(opts: {
       // Поиск, карточка и корзина уже пройдены: повторный такой скрин не повод звать менеджера, молчим. Нужен именно скрин заказа.
       if (vision && vision.via === 'ai' && ['product', 'cart'].includes(String(vision.kind))) return { replies: [] };
       if (vision && vision.via === 'ai' && String(vision.kind) === 'other' && vision.ok !== false) return rAsk('wait_order', 'Пришлите скрин заказа: видны цена, ПВЗ и дата доставки 🙌');
+      // Скрин другого этапа (корзина, бренд в избранном, страница продавца и т.п.): не ругаем «нет нашего товара», мягко просим скрин самого заказа (26 ноября 2026).
+      if (vision && vision.via === 'ai' && String(vision.kind) !== 'order') return rAsk('wait_order', 'Скрин получила 👍 Заказ оформите через 20–30 минут после корзины и пришлите скрин заказа: цена, ПВЗ, дата получения.');
       {
         const verdict = visionVerdict(vision);
         if (verdict === 'manager') return await visionToManager(lead, vision!);
