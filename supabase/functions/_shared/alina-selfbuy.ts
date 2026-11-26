@@ -321,6 +321,25 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   } catch { setTodayOnly(false); }
   // План дня должен быть согласован владельцем (ответ «ок» в группе менеджеров), пока нет, места на сегодня не отдаём.
   try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
+  // «Эту ищем?» (с фото или без) после ключа: показываем нашу модель из заявки и повторяем, что искать (владелец, 26 ноября 2026).
+  if (razdachiRowsMode() && /(?:эту|эта|такую|это)\s+(?:ищем|искать|ищу|пижам\S*)?\s*\?|эту\s+ищем/i.test((opts.text || '').slice(0, 200))) {
+    try {
+      const db1 = admin();
+      const { data: l1 } = await db1.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const lead1 = l1 as SelfbuyLead | null;
+      if (lead1 && lead1.product_name && ['key_sent', 'wait_product', 'tz_sent'].includes(String(lead1.status))) {
+        const mine1 = await resolveLeadArticle(lead1, null).catch(() => null);
+        const photo1 = mine1?.article ? await fetchWbMainPhoto(mine1.article).catch(() => null) : null;
+        if (photo1?.bytes) {
+          await logEvent(db1, lead1.id, opts.chatId, 'main_photo_sent', { text: opts.text });
+          return {
+            replies: [`Ваше место на «${lead1.product_name.replace(/^Пижама\s+/i, '')}», вот главное фото нашего товара 🙌 По фото не ищем: вбейте ключ${lead1.keyword ? ` «${lead1.keyword}»` : ''} в поиск, найдите этот товар и пришлите скрин, чтобы сверху был виден запрос.`],
+            photos: [{ bytes: photo1.bytes, mime: photo1.mime, filename: photo1.filename, caption: '' }],
+          } as never;
+        }
+      }
+    } catch (e) { console.warn('[alina] show model', e); }
+  }
   let res = await handleAlinaClientMessageInner(opts);
   // Алина пообещала фото («вот обе», «секунду, отправлю»), а фото в ответе нет: добавляем свои фото моделей, иначе клиент остаётся с пустым обещанием.
   if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => x.length < 140 && /вот обе|вот фото|вот они|секунду,?\s*отправлю|сейчас\s+отправлю|пришлю\s+фото|высылаю\s+фото|подписала/i.test(x))) {
