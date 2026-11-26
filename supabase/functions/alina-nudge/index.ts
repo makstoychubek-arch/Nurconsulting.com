@@ -24,6 +24,8 @@ async function releaseRow(token: string, username: string, dayKey: string): Prom
         if (tg === me && String(r[3] || '').trim() === dayKey) hit.push(i + 1);
     });
     if (hit.length !== 1) return false; // не уверены, что строка одна: не трогаем
+    // В строке уже есть цена заказа (внесли вручную или бот): такое место не освобождаем (26 ноября 2026).
+    { const pr = await fetch(`${base}/${encodeURIComponent(`'${TAB}'!E${hit[0]}`)}?valueRenderOption=FORMATTED_VALUE`, { headers: H, signal: AbortSignal.timeout(15000) }).catch(() => null); const pv = pr?.ok ? (((await pr.json().catch(() => null))?.values || [[]])[0] || [])[0] : ''; if (String(pv ?? '').trim()) return false; }
     // Логин и даты-заготовки (публикация отзыва K, плановая выплата S): иначе пустая строка не считалась бы свободной.
     const w = await fetch(`${base}:batchUpdate`, { method: 'POST', headers: H, signal: AbortSignal.timeout(15000), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: [
         { range: `'${TAB}'!C${hit[0]}`, values: [['']] }, { range: `'${TAB}'!K${hit[0]}`, values: [['']] }, { range: `'${TAB}'!S${hit[0]}`, values: [['']] },
