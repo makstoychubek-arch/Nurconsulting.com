@@ -84,6 +84,36 @@ Deno.serve(async (req) => {
     for (const c of changes) {
         await admin.from('alina_selfbuy_events').insert({ lead_id: null, chat_id: 0, event_type: 'status_watch', payload: { ...c, mode: 'dry' } });
     }
+    // Ручная смена статуса Алины в таблице (владелец, 26 ноября 2026): бот принимает её как шаг заявки и дальше ведёт клиента с этого шага. Клиенту ничего не пишем.
+    const adopted: string[] = [];
+    if (prev != null) {
+        const REVERSE: Record<string, string> = {
+            'Условия отправлены': 'tz_sent', 'Ищет товар': 'key_sent', 'Корзина': 'wait_cart', 'Ждёт получения': 'wait_pickup',
+            'Забрал': 'wait_shk', 'ШК получен': 'wait_review', 'Отзыв на согласовании': 'wait_reels', 'Записан': 'closed',
+        };
+        const sc = sheet.col.status!;
+        for (const r of sheet.rows) {
+            if (!r.tg) continue;
+            const st = String(r.cells[sc] ?? '').trim();
+            const key = idCol >= 0 && String(r.cells[idCol] ?? '').trim() ? `id:${String(r.cells[idCol]).trim()}` : `${r.tg}|${r.date}|${r.model}`;
+            const was = prev[key] ?? '';
+            if (!st || st === was || !(st in REVERSE) && st !== 'Заказ оформлен') continue;
+            const { data: lead } = await admin.from('alina_selfbuy_leads').select('id, chat_id, status, product_name, bank_details, notes').ilike('username', r.tg).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+            const l = lead as { id: string; chat_id: number; status: string; product_name: string | null; bank_details: string | null; notes: string | null } | null;
+            if (!l) continue;
+            if (sheetStatusOf(l.status) === st) continue; // бот сам поставил этот статус (или он совпадает с шагом заявки)
+            if (sheetStatusOf(l.status) !== was && was) continue; // бот менял заявку после снимка: не перебиваем
+            let to = REVERSE[st];
+            if (st === 'Заказ оформлен') {
+                const hasSize = /размер:\S+/.test(l.notes || ''), hasInt = /интеграция:\S+/.test(l.notes || '');
+                to = !hasSize ? 'wait_size' : !l.bank_details ? 'wait_bank' : !hasInt ? 'wait_integration' : 'wait_pickup';
+            }
+            if (!to || to === l.status) continue;
+            await admin.from('alina_selfbuy_leads').update({ status: to, updated_at: new Date().toISOString() }).eq('id', l.id);
+            await admin.from('alina_selfbuy_events').insert({ lead_id: l.id, chat_id: l.chat_id, event_type: 'status_adopted', payload: { row: r.row, from_bot: l.status, sheet: st, to } });
+            adopted.push(`${r.tg} стр.${r.row}: ${l.status} → ${to} (таблица: ${st})`);
+        }
+    }
     await admin.from('alina_settings').upsert({ key: 'statusSnap', value: snap });
-    return json({ ok: true, baseline: prev == null, rows: Object.keys(snap).length, changes });
+    return json({ ok: true, baseline: prev == null, rows: Object.keys(snap).length, changes, adopted });
 });
