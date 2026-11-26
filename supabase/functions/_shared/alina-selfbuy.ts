@@ -1803,13 +1803,14 @@ async function startDealFromOffer(
     return r(MSG_CLOSED_FULL());
   }
 
-  let typed = detectDealType(text) || lead.deal_type || resolveDealFromCampaign(camp);
+  // Режим строк «Раздачи Пижам»: только бартер (владелец, 26 ноября 2026), старый тип сделки из прежней заявки не берём.
+  let typed = razdachiRowsMode() ? 'barter' : (detectDealType(text) || lead.deal_type || resolveDealFromCampaign(camp));
   // таблица говорит только кэш — бартер не открываем
-  if (typed === 'barter' && !barterAvailable(camp) && offer.deal_type !== 'barter' &&
+  if (!razdachiRowsMode() && typed === 'barter' && !barterAvailable(camp) && offer.deal_type !== 'barter' &&
     offer.deal_type !== 'both') {
     typed = 'cashback';
   }
-  if (typed === 'barter' && !barterAvailable(camp)) {
+  if (!razdachiRowsMode() && typed === 'barter' && !barterAvailable(camp)) {
     return r(MSG_ONLY_CASHBACK());
   }
   const mode = campaignDealMode(camp);
