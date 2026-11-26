@@ -1882,7 +1882,7 @@ async function openDeal(
 
   const replies: string[] = [];
   if (ig) replies.push(MSG_GOT_IG());
-  const tzText = deal === 'barter'
+  const tzText = (deal === 'barter' || razdachiRowsMode())
     ? tzBarter(offer?.order_deadline || camp?.order_deadline)
     : TZ_CASHBACK();
   if (razdachiRowsMode()) {
@@ -1940,7 +1940,7 @@ async function sendKeyFlow(
 }
 
 function tzBundle(deal: DealType, camp: Campaign | null, _lead: SelfbuyLead): string[] {
-  if (deal === 'barter') {
+  if (deal === 'barter' || razdachiRowsMode()) {
     return ['ТЗ ещё раз 👇', tzBarter(camp?.order_deadline || null)];
   }
   return ['ТЗ ещё раз 👇', TZ_CASHBACK()];

@@ -20,7 +20,8 @@ Deno.serve(async (req) => {
     const say = String(body.say || '').trim().slice(0, 3800);
     const photoModel = String(body.photo_model || '').trim();
     const delLast = Math.min(10, Math.max(0, Number(body.delete_last_alina) || 0));
-    if (!Number.isSafeInteger(chatId) || (!say && !delLast && !photoModel)) return json({ ok: false, error: 'chat_id и say (или delete_last_alina) обязательны' }, 400);
+    const delMids = (Array.isArray(body.delete_mids) ? body.delete_mids : []).map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 20);
+    if (!Number.isSafeInteger(chatId) || (!say && !delLast && !photoModel && !delMids.length)) return json({ ok: false, error: 'chat_id и say (или delete_last_alina) обязательны' }, 400);
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
     const { data: q } = await admin.from('alina_manager_questions').select('business_connection_id').not('business_connection_id', 'is', null)
         .order('created_at', { ascending: false }).limit(1).maybeSingle();
@@ -28,6 +29,14 @@ Deno.serve(async (req) => {
     const token = (Deno.env.get('ALINA_BOT_TOKEN') || '').trim();
     if (!conn || !token) return json({ ok: false, error: 'нет business_connection_id или токена' }, 503);
     // Удалить последние N сообщений Алины в чате (по слову владельца): номера берём из журнала, удаляет Telegram (deleteBusinessMessages)
+    if (delMids.length) {
+        const r0 = await fetch(`https://api.telegram.org/bot${token}/deleteBusinessMessages`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000),
+            body: JSON.stringify({ business_connection_id: conn, message_ids: delMids }),
+        }).catch(() => null);
+        const d0 = r0 ? await r0.json().catch(() => null) : null;
+        return json({ ok: d0?.ok === true, deleted: delMids.length, telegram: d0?.ok === true ? undefined : String(d0?.description || 'нет ответа').slice(0, 120) });
+    }
     if (delLast) {
         const { data: rows } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', chatId).eq('event_type', 'chat_log')
             .eq('payload->>dir', 'alina').not('payload->>mid', 'is', null).order('created_at', { ascending: false }).limit(delLast);
