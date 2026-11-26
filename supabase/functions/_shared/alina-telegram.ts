@@ -362,10 +362,10 @@ export function joinBurst(parts: { text?: string; photo?: boolean }[], own: stri
 let fastPacing = false;
 export function humanPauseMs(text: string, first: boolean): number {
     const base = 1200 + text.length * 40 + (first ? 1500 : 0);
-    return Math.min(fastPacing ? 2500 : 9000, Math.round(base * (0.85 + Math.random() * 0.3)));
+    return Math.min(fastPacing ? 2500 : 6000, Math.round(base * (0.85 + Math.random() * 0.3)));
 }
 async function humanPause(token: string, message: ClientUpdate, text: string, first: boolean, budget: { spent: number }): Promise<void> {
-    const left = (fastPacing ? 6_000 : 25_000) - budget.spent;
+    const left = (fastPacing ? 6_000 : 16_000) - budget.spent;
     if (left <= 0) return;
     const ms = Math.min(left, humanPauseMs(text, first));
     budget.spent += ms;
