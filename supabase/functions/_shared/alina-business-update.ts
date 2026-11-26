@@ -7,7 +7,7 @@ type BusinessMessage = {
     text?: string;
     caption?: string;
     photo?: { file_id?: string }[];
-    reply_to_message?: { text?: string; caption?: string };
+    reply_to_message?: { text?: string; caption?: string; message_id?: number };
 };
 
 export function parseAlinaBusinessUpdate(update: {
@@ -47,5 +47,6 @@ export function parseAlinaBusinessUpdate(update: {
         text: text || 'скрин',
         photoFileId,
         ...(replyText ? { replyText } : {}),
+        ...(message.reply_to_message?.message_id ? { replyToMessageId: Number(message.reply_to_message.message_id) } : {}),
     };
 }

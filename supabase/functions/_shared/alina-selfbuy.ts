@@ -135,6 +135,9 @@ export type AlinaReply = {
     mime?: string;
     filename?: string;
     caption?: string;
+    /** Фото модели без подписи: название модели пишем только в журнал, клиент выбирает ответом (реплаем) на фото. */
+    model?: string;
+    hideCaption?: boolean;
   }[];
   /** Вопрос уходит менеджерам: Telegram-слой отправляет его в группу (песочница только показывает). */
   escalate?: { topic: string; question: string; group: number };
@@ -416,7 +419,8 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   }
   // Список моделей для выбора всегда заканчивается просьбой выбрать одну (владелец, 26 ноября 2026): клиенты иначе называют сразу несколько.
   if (res.replies.length) {
-    res = { ...res, replies: res.replies.map((x) => ((x.match(/[23]\s?в\s?1/gi) || []).length >= 2 && /\?\s*(?:🙌|🙏|😊)?\s*$/.test(x) && !/выберите\s+(?:одну|1)/i.test(x)) ? `${x.replace(/\s*(?:🙌|🙏|😊)?\s*$/, '')} Выберите одну модель 🙌` : x) };
+    const hasPhotos = Boolean(res.photos && res.photos.length);
+    res = { ...res, replies: res.replies.map((x) => ((x.match(/[23]\s?в\s?1/gi) || []).length >= 2 && /\?\s*(?:🙌|🙏|😊)?\s*$/.test(x) && !/выберите\s+(?:одну|1)/i.test(x)) ? `${x.replace(/\s*(?:🙌|🙏|😊)?\s*$/, '')} ${hasPhotos ? 'Выберите одну модель: ответьте (реплаем) на её фото 🙌' : 'Выберите одну модель 🙌'}` : x) };
   }
   // Одинокая дата после записи заказа: не молчим, уточняем, о какой дате речь.
   if (!res.replies.length && !(res.photos && res.photos.length) && !res.react && /^\s*\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\s*$/.test(opts.text || '')) {
@@ -1576,7 +1580,7 @@ async function modelsReply(db: SupabaseClient, lead: SelfbuyLead, names: string[
       .eq('payload->>kind', 'photo').gt('created_at', new Date(Date.now() - 24 * 3600_000).toISOString()).limit(20);
     const sent = new Set(((data || []) as Array<{ payload: { text?: string } }>).map((x) => normModel(x.payload?.text || '')));
     photos = pajamaPhotosFor(names).filter((x) => !sent.has(normModel(x.caption)))
-      .map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption }));
+      .map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption, model: x.caption, hideCaption: true }));
   }
   return { replies: [text], ...(photos.length ? { photos } : {}), tag: 'models' };
 }
@@ -2300,7 +2304,7 @@ async function handleProductPhotoRequest(
     if (!shots.length) return r('Фото пришлю чуть позже, передала менеджеру 🙌');
     return {
       replies: ask ? [ask] : [],
-      photos: shots.map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption })),
+      photos: shots.map((x) => ({ bytes: x.bytes, mime: x.mime, filename: x.filename, caption: x.caption, model: x.caption, hideCaption: true })),
     };
   }
   const choices = await getOpenProductChoices();
@@ -2343,7 +2347,7 @@ async function handleProductPhotoRequest(
     if (ok.length) {
       return {
         replies: ['Выберите модель, которая нравится, и напишите мне 🙌'],
-        photos: ok.map((x) => ({ url: x.photo!.url, bytes: x.photo!.bytes, mime: x.photo!.mime, filename: x.photo!.filename, caption: x.o.product_name! })),
+        photos: ok.map((x) => ({ url: x.photo!.url, bytes: x.photo!.bytes, mime: x.photo!.mime, filename: x.photo!.filename, caption: x.o.product_name!, model: x.o.product_name!, hideCaption: true })),
       };
     }
   }

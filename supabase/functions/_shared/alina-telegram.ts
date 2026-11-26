@@ -102,7 +102,16 @@ export async function processAlinaTelegramUpdate(
         await admin.from('alina_selfbuy_events').insert({ event_type: 'burst_handled', chat_id: message.chatId, payload: { update_id: message.updateId, parts: rows.length } });
     }
 
-    if (message.kind === 'client' && message.replyText) text = withReplyContext(text || '', message.replyText);
+    // Реплай на фото модели без подписи: название модели берём из журнала по номеру сообщения.
+    let replyCtx = message.replyText;
+    if (message.kind === 'client' && !replyCtx && (message as { replyToMessageId?: number }).replyToMessageId) {
+        try {
+            const { data: rr } = await admin.from('alina_selfbuy_events').select('payload').eq('chat_id', message.chatId).eq('event_type', 'chat_log')
+                .eq('payload->>dir', 'alina').eq('payload->>mid', String((message as { replyToMessageId?: number }).replyToMessageId)).limit(1);
+            replyCtx = String((rr?.[0]?.payload as { text?: string } | undefined)?.text || '').slice(0, 200) || undefined;
+        } catch { /* без контекста реплая */ }
+    }
+    if (message.kind === 'client' && replyCtx) text = withReplyContext(text || '', replyCtx);
     const budget = { spent: 0 };
 
     // Ручной режим: если владелец сам пишет по делу в этом чате (последние 5 минут) или клиент уже позвал человека (последние 3 часа), Алина молчит.
@@ -216,7 +225,7 @@ export async function processAlinaTelegramUpdate(
         }
         for (const photo of photos || []) {
             const photoMid = await sendPhoto(token, message, photo);
-            if (photoMid !== null) await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', kind: 'photo', text: String(photo.caption || '').slice(0, 300), mid: photoMid });
+            if (photoMid !== null) await logAlinaRawEvent(message.chatId, 'chat_log', { dir: 'alina', kind: 'photo', text: String(photo.model || photo.caption || '').slice(0, 300), mid: photoMid });
             if (photoMid === null) {
                 const fallback = [photo.caption, photo.url].filter(Boolean).join('\n');
                 if (fallback && !await sendText(token, message, fallback)) {
@@ -406,7 +415,7 @@ async function sendPhoto(
     const form = new FormData();
     form.set('chat_id', String(message.chatId));
     form.set('business_connection_id', message.connectionId);
-    if (photo.caption) form.set('caption', photo.caption);
+    if (photo.caption && !photo.hideCaption) form.set('caption', photo.caption);
     if (photo.bytes) {
         form.set('photo', new Blob([new Uint8Array(photo.bytes)], { type: photo.mime }), photo.filename || 'product.jpg');
     } else if (photo.url) {
