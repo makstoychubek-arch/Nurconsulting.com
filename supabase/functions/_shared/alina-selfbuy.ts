@@ -1993,6 +1993,7 @@ function wantsKey(text: string): boolean {
 function looksLikeBank(text: string): boolean {
   const t = text.trim();
   if (t.length < 12) return false;
+  if (t.length > 160 || t.replace(/\D/g, '').length < 10) return false; // реквизиты короткие и с номером, длинный разговорный текст не считаем
   const hasPhone = /(\+?\d[\d\s\-()]{8,}\d|\d{10,})/.test(t);
   if (!hasPhone) return false;
   const hasBank =
