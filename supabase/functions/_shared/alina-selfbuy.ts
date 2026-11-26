@@ -387,6 +387,15 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       if (names.length) res = { ...res, replies: [`Сегодня есть: ${names.join(', ')}. Какую выберете?`], tag: 'models' };
     } catch { /* оставляем ответ как есть */ }
   }
+  // Клиент назвал только формат («давайте 3в1»): показываем цвета этого формата, а не весь список.
+  if (razdachiRowsMode() && res.replies.length && (res as { tag?: string }).tag === 'models') {
+    const fm = (opts.text || '').match(/(?:^|[^\d])([23])\s?в\s?1(?![а-яa-z])/i);
+    const sheet3 = getLastRazdachi()?.sheet;
+    if (fm && sheet3 && matchModels(PAJAMA_MODEL_NAMES, opts.text || '').length > 1) {
+      const names3 = [...new Set(freeSlots(sheet3, todayMskKey(), 0).filter((x) => x.date === todayMskKey() && normModel(x.model).includes(`${fm[1]}в1`)).map((x) => x.model.replace(/^Пижама\s+\d в1\s*/i, '')))];
+      if (names3.length) res = { ...res, replies: [`${fm[1]}в1 сегодня есть: ${names3.join(', ')}. Какой цвет берёте?`] };
+    }
+  }
   // Список моделей для выбора всегда заканчивается просьбой выбрать одну (владелец, 26 ноября 2026): клиенты иначе называют сразу несколько.
   if (res.replies.length) {
     res = { ...res, replies: res.replies.map((x) => ((x.match(/[23]\s?в\s?1/gi) || []).length >= 2 && /\?\s*(?:🙌|🙏|😊)?\s*$/.test(x) && !/выберите\s+(?:одну|1)/i.test(x)) ? `${x.replace(/\s*(?:🙌|🙏|😊)?\s*$/, '')} Выберите одну модель 🙌` : x) };

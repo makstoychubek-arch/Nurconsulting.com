@@ -206,7 +206,7 @@ export async function processAlinaTelegramUpdate(
         }
         // Ответ про наличие моделей (5 минут) и повторный вопрос в том же шаге (3 минуты): второй раз не отправляем, чтобы не было дублей.
         if (tag === 'models' || (tag && tag.startsWith('ask:'))) {
-            const windowMs = tag === 'models' ? 5 * 60_000 : 3 * 60_000;
+            const windowMs = tag === 'models' ? 90_000 : 3 * 60_000; // список моделей повторно можно через 1,5 минуты: новый вопрос клиента не глушим
             const { data: shown } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', message.chatId).eq('event_type', 'chat_log')
                 .eq('payload->>dir', 'alina').eq('payload->>kind', tag).gt('created_at', new Date(Date.now() - windowMs).toISOString()).limit(1);
             if (shown && shown.length) {
