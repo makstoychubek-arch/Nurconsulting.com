@@ -10,6 +10,8 @@ export function skipHumanize(text: string): boolean {
   if (!t || t.length > 320) return true;
   if (/https?:\/\/|t\.me\/|@\w{3,}/i.test(t)) return true;
   if (/ключ|ТЗ|реквизит|номер карты|iban|\d{8,}/i.test(t)) return true;
+  // Реплики, где важно, кто что делает (фото ШК, пункт выдачи, отзыв, интеграция, оплата): ИИ путал роли («ждите фото» вместо «пришлёте»), не переписываем.
+  if (/штрихкод|\bШК\b|пункт\S*\s+выдач|отзыв|интеграци|оплат|выплат|заказ\S*\s+(?:приде|прибуд)|напомн/i.test(t)) return true;
   return false;
 }
 
