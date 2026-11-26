@@ -241,6 +241,16 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
   if (String(opts.username || '').trim()) {
     await admin().from('alina_selfbuy_leads').update({ username: String(opts.username).replace(/^@/, '') }).eq('chat_id', opts.chatId).is('username', null).then(() => undefined, () => undefined);
   }
+  // Заказ оформлен и дата интеграции получена: дальше (отзыв, видео, выдача) ведут люди (владелец, 26 ноября 2026), Алина этому клиенту больше не отвечает.
+  if (razdachiRowsMode()) {
+    try {
+      const { data: lp } = await admin().from('alina_selfbuy_leads').select('status').eq('chat_id', opts.chatId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+      if (['wait_pickup', 'wait_shk', 'wait_review', 'wait_reels', 'done'].includes(String((lp as { status?: string } | null)?.status || ''))) {
+        await logAlinaRawEvent(opts.chatId, 'post_order_ignored', { text: String(opts.text || '').slice(0, 120) });
+        return { replies: [] };
+      }
+    } catch { /* без проверки продолжаем как обычно */ }
+  }
   // ── Алина 2.0: картинка модели вместо названия ───────────────────────────────────────────────────
   // Клиент без заказа в работе присылает фото или скрин пижамы («вот эта»): определяем модель по нашим фото и дальше ведём, как будто он назвал её словами.
   if (razdachiRowsMode() && opts.hasPhoto && opts.photoFileId && opts.botToken) {

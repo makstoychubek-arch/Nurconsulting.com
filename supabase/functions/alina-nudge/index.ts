@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
     // Заказ должен был прийти (примерная дата забора = заказ + 3 дня): раз в день днём спрашиваем «забрали?» у тех, кто ждёт получения.
     // Пока владелец не согласовал план на день (ответ «ок» в группе менеджеров), клиентам сами не пишем: план мог измениться (25 ноября 2026).
     const planOk = await dayApproved(admin);
-    if (planOk && hm >= 11 * 60 && hm < 19 * 60) {
+    if (false && planOk && hm >= 11 * 60 && hm < 19 * 60) { // отключено: после заказа и даты интеграции клиентов ведут люди (26 ноября 2026)
         const { data: pk } = await admin.from('alina_selfbuy_leads').select('id, chat_id, username, sheet_target, updated_at').eq('status', 'wait_pickup').limit(60);
         for (const l of (pk || []) as Array<{ id: string; chat_id: number; username: string | null; sheet_target: string | null }>) {
             if (l.username && skip.has(l.username.toLowerCase())) continue;
@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
         }
     }
     // 2 этап: клиент не прислал ШК или черновик отзыва больше суток, напоминаем раз в день днём; отзыв отправлен менеджеру, а ответа нет 3 часа: напоминаем в группу.
-    if (planOk && hm >= 11 * 60 && hm < 19 * 60 && !dry) {
+    if (false && planOk && hm >= 11 * 60 && hm < 19 * 60 && !dry) { // отключено: 2 этап ведут люди
         const { data: st2 } = await admin.from('alina_selfbuy_leads').select('id, chat_id, username, status, updated_at, product_name').in('status', ['wait_shk', 'wait_review']).limit(60);
         for (const l of (st2 || []) as Array<{ id: string; chat_id: number; username: string | null; status: string; updated_at: string }>) {
             if (l.username && skip.has(l.username.toLowerCase())) continue;
