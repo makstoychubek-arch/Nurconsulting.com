@@ -417,6 +417,23 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       if (names3.length) res = { ...res, replies: [names3.length === 1 ? `${fm[1]}в1 сегодня есть один цвет: ${names3[0]}. Берёте? 🙌` : `${fm[1]}в1 сегодня есть: ${names3.join(', ')}. Какой цвет берёте?`] };
     }
   }
+  // Список моделей столбиком («• Пижама 3в1 …») может прийти от ИИ со всеми моделями подряд, включая закончившиеся: оставляем только те, что есть сегодня.
+  if (razdachiRowsMode() && res.replies.some((x) => /•\s*Пижама/.test(x))) {
+    try {
+      const sheet6 = getLastRazdachi()?.sheet;
+      const free6 = sheet6 ? [...new Set(freeSlots(sheet6, todayMskKey(), 0).filter((x) => x.date === todayMskKey()).map((x) => x.model))] : [];
+      if (sheet6) {
+        res = { ...res, replies: res.replies.map((x) => {
+          if (!/•\s*Пижама/.test(x)) return x;
+          const asked = [...x.matchAll(/•\s*(Пижама[^\n]*)/g)].map((m) => m[1].trim());
+          const alive = asked.filter((a) => free6.some((f) => normModel(f) === normModel(a)));
+          const short = (n: string) => n.replace(/^Пижама\s+/i, '');
+          if (alive.length) return `Сегодня доступны: ${alive.map(short).join(', ')}. Какую берёте? Выберите одну модель 🙌`;
+          return free6.length ? `Этих моделей на сегодня уже нет. Есть: ${free6.map(short).join(', ')}. Какую берёте? Выберите одну модель 🙌` : 'На сегодня места закончились 🙏';
+        }) };
+      }
+    } catch { /* оставляем как есть */ }
+  }
   // Осталась одна модель на сегодня: не просим выбирать из списка, а прямо говорим, что доступна одна (владелец, 26 ноября 2026).
   if (razdachiRowsMode() && res.replies.length && (res as { tag?: string }).tag === 'models') {
     try {
