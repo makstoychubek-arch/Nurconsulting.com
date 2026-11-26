@@ -542,7 +542,7 @@ async function handleAlinaClientMessageInner(opts: {
       if (ref?.bytes) reference = { bytes: ref.bytes, mime: ref.mime || 'image/jpeg' };
       // На скрине может быть не только главное фото, но и следующие кадры галереи карточки: берём ещё 2-е и 3-е как эталоны.
       if (article) {
-        for (const idx of [2, 3]) {
+        for (const idx of [2, 3, 4, 5, 6]) {
           const extra = await fetchWbMainPhoto(article, idx).catch(() => null);
           if (extra?.bytes) abRefs.push({ bytes: extra.bytes, mime: extra.mime || 'image/jpeg' });
         }
@@ -572,7 +572,7 @@ async function handleAlinaClientMessageInner(opts: {
       expectProduct: lead.product_name || camp?.product_name,
       expectArticle: article,
       reference,
-      references: [...abVars, ...(reference ? [reference] : []), ...abRefs],
+      references: [...(reference ? [reference] : []), ...abRefs, ...abVars],
     });
   };
 
