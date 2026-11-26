@@ -3375,3 +3375,8 @@ html[data-nr-privacy] .rnp-gh-li > span { filter: blur(9px) !important; -webkit-
   html body #adv-view-ads .ads-hq-kpi-value { display: flex !important; flex-direction: column; align-items: flex-start; gap: 0; }
   html body #adv-view-ads .ads-hq-kpi-d { margin: 4px 0 0; }
 }
+/* Переключатель площадки WB / Ozon крупнее (от владельца, 26 ноября 2026): логотипы в 2 раза крупнее */
+html body .nr-mp { height: 42px; padding: 3px; }
+html body header.glass.app-header .nr-mp button, html body .nr-mp button { padding: 0 20px !important; }
+html body header.glass.app-header .nr-mp button svg, html body .nr-mp button svg { height: 18px; width: auto; }
+@media (max-width: 768px) { html body .nr-mp { height: 38px; } html body header.glass.app-header .nr-mp button svg, html body .nr-mp button svg { height: 15px; } html body .nr-mp button { padding: 0 12px !important; } }

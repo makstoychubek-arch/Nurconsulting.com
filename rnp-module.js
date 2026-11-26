@@ -192,9 +192,9 @@ const RNP = (() => {
             { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
             { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
         ]},
-        { id: 'ads', label: 'Реклама (РК)', color: '#8b5cf6', rows: [
-            { key: 'ad_spend',           label: 'Расход',                           type: 'som',  src: 'promo', bold: true },
-            { key: 'plan_ad_spend',      label: 'Расход (план)',                    type: 'som',  src: 'manual', isPlan: true },
+        { id: 'ads', label: 'Показатели РК', color: '#8b5cf6', rows: [
+            // Расход рекламы живёт одной строкой «Реклама (РК)» в «Всех расходах» и раскрывается по видам (макет от владельца, 26 ноября 2026)
+            { key: 'plan_ad_spend',      label: 'План расхода',                    type: 'som',  src: 'manual', isPlan: true },
             { key: 'ad_impressions',     label: 'Показы',                           type: 'int',  src: 'promo' },
             { key: 'ad_clicks',          label: 'Клики',                            type: 'int',  src: 'promo' },
             { key: 'plan_clicks',        label: 'План кликов',                      type: 'int',  src: 'manual', isPlan: true },
@@ -206,7 +206,7 @@ const RNP = (() => {
             { key: 'ad_cpm',             label: 'CPM',                              type: 'som',  src: 'calc' },
             { key: 'ad_cro',             label: 'CR',                               type: 'pct2', src: 'promo' },
             { key: 'ad_cpo',             label: 'CPO',                              type: 'som',  src: 'calc' },
-            { key: 'drr_pct',            label: 'ДРР %',                            type: 'pct',  src: 'calc',  hm: 'low' },
+            { key: 'drr_pct',            label: 'ДРР %',                            type: 'pct',  src: 'calc',  hm: 'low', hero: true },
             { key: 'drr_sales_pct',      label: 'ДРРп %',                           type: 'pct',  src: 'calc',  hm: 'low' },
             { key: 'plan_drr',           label: 'ДРР (план)',                       type: 'pct',  src: 'manual', isPlan: true },
             { key: 'ad_roas',            label: 'ROAS',                             type: 'dec2', src: 'calc' },
@@ -228,14 +228,14 @@ const RNP = (() => {
             { key: 'ad_charged',         label: 'Реклама (РК)',                     type: 'som',  src: 'promo', hm: 'cost' },
             { key: 'ff_sum',             label: 'Фулфилмент',                       type: 'som',  src: 'calc',  hm: 'cost' },
             { key: 'tax_sum',            label: 'Налог',                            type: 'som',  src: 'calc',  hm: 'cost' },
-            { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true },
+            { key: 'net_payout',         label: 'К выводу',                         type: 'som',  src: 'calc',  bold: true, hero: true },
             { key: 'net_payout_unit',    label: 'К выводу на единицу',              type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'log_per_unit',       label: 'Логистика на единицу',             type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'storage_per_unit',   label: 'Хранение на единицу',              type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'ad_per_unit',        label: 'Реклама на единицу',               type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'ff_per_unit',        label: 'Фулфилмент на единицу',            type: 'som',  src: 'calc',  articleOnly: true },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
-            { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
+            { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit', hero: true },
             { key: 'profit_per_unit',    label: 'Прибыль на единицу',               type: 'som',  src: 'calc',  bold: true, articleOnly: true },
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
@@ -245,7 +245,6 @@ const RNP = (() => {
             { key: 'wb_for_withdraw',    label: 'Доступно к выводу',                type: 'som',  src: 'auto',  cabinetOnly: true },
             // Ozon: те же две строки, что у карточки «Баланс» на дашборде (баланс на конец дня и на начало месяца); показываются только в режиме Ozon
             { key: 'ozon_balance',       label: 'Баланс Ozon, ₽',              type: 'som',  src: 'auto',  bold: true, cabinetOnly: true, ozOnly: true },
-            { key: 'ozon_opening',       label: 'На начало месяца, ₽',               type: 'som',  src: 'auto',  cabinetOnly: true, ozOnly: true },
             // Выплаты Ozon вносятся вручную по дням (дату и сумму берут в кабинете Ozon → Финансы → Выплаты), сумма в сомах
             { key: 'ozon_payout',        label: 'Выплата Ozon, с',                  type: 'som',  src: 'manual', cabinetOnly: true, ozOnly: true },
         ]},
@@ -6738,12 +6737,12 @@ const RNP = (() => {
 
     FIN_SPLITS.comm_after = FIN_SPLITS_OZ_COMM;
     // Реклама Ozon по типам списаний (за заказ, за клик, на сайте): только у Ozon
-    const FIN_SPLITS_OZ_AD = { cls: 'ded', hint: 'Расход рекламы по типам списаний Ozon', subs: [
-        { key: 'ad_spend_order', label: 'Оплата за заказ', type: 'ff' },
-        { key: 'ad_spend_click', label: 'Оплата за клик', type: 'ff' },
-        { key: 'ad_spend_site',  label: 'Реклама на сайте (баннер)', type: 'ff' },
+    const FIN_SPLITS_OZ_AD = { cls: 'ded', hint: 'Реклама по типам списаний Ozon', subs: [
+        { key: 'adc_order', label: 'Оплата за заказ', type: 'ff' },
+        { key: 'adc_click', label: 'Оплата за клик', type: 'ff' },
+        { key: 'adc_site',  label: 'Реклама на сайте (баннер)', type: 'ff' },
     ] };
-    const _finDef = (key) => (key === 'ad_spend' ? (_mp() === 'ozon' ? FIN_SPLITS_OZ_AD : null) : FIN_SPLITS[key]);
+    const _finDef = (key) => (key === 'ad_charged' ? (_mp() === 'ozon' ? FIN_SPLITS_OZ_AD : null) : FIN_SPLITS[key]);
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count','transit_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
@@ -6857,7 +6856,7 @@ const RNP = (() => {
         }).filter(Boolean);
         const m = _mergeDerivedMetrics(parts);
         // Ozon: итогов кабинета из финотчёта WB нет, «К выводу» и комиссия считаются из строк Ozon (к перечислению и реализации).
-        if (_mp() === 'ozon' && m) { const b = _ozBal[date]; m.ozon_balance = b ? (b.rc != null ? b.rc : b.c) : null; m.ozon_opening = b ? (b.ro != null ? b.ro : b.o) : null; m.ozon_payout = _ozPay[date] != null ? _ozPay[date] : null; }
+        if (_mp() === 'ozon' && m) { const b = _ozBal[date]; m.ozon_balance = b ? (b.rc != null ? b.rc : b.c) : null; m.ozon_payout = _ozPay[date] != null ? _ozPay[date] : null; }
         if (_mp() === 'ozon' && m && !_cabTotals[date]) {
             m.to_withdraw = (Number(m.to_transfer) || 0) - (Number(m.delivery_sum) || 0) - (Number(m.storage_sum) || 0) - (Number(m.penalty_sum) || 0) - (Number(m.ad_spend) || 0);
             m.wb_commission = Math.max(0, (Number(m.realization) || 0) - (Number(m.to_transfer) || 0));
@@ -7295,6 +7294,11 @@ const RNP = (() => {
         d.ff_sum          = (d.ff_ship || 0) + (d.ff_storage || 0);
         d.tax_sum         = _taxPct() / 100 * ((d.realization || 0) * er);
         d.ad_charged      = d.ad_charged != null ? Number(d.ad_charged) || 0 : (d.ad_spend || 0); // WB-артикул: статистика кампаний; Ozon: списания Ozon, разложенные по дням
+        if (_mp() === 'ozon') {
+            const adSum = (Number(d.ad_spend_order) || 0) + (Number(d.ad_spend_click) || 0) + (Number(d.ad_spend_site) || 0);
+            const adK = adSum > 0 ? (d.ad_charged || 0) / adSum : 0;
+            d.adc_order = (Number(d.ad_spend_order) || 0) * adK; d.adc_click = (Number(d.ad_spend_click) || 0) * adK; d.adc_site = (Number(d.ad_spend_site) || 0) * adK;
+        }
         d.net_payout      = revenue - wbCosts - d.ad_charged - d.ff_sum * er - d.tax_sum;   // «К выводу»: все расходы, до себестоимости
         d.net_payout_unit = units > 0 ? d.net_payout / units : 0;
         d.storage_per_unit = units > 0 ? (d.storage_sum || 0) / units : 0;
@@ -9764,7 +9768,8 @@ const RNP = (() => {
                 // Ручные поля (конкуренты, раздачи) без значения показываем пустыми, а не 0.
                 const manualEmpty = (m.competitor || m.key === 'giveaways') && !(Number(val) > 0);
                 const noBalance = (m.key === 'wb_balance' || m.key === 'wb_for_withdraw' || m.key === 'ozon_balance' || m.key === 'ozon_opening' || m.key === 'ozon_payout') && val == null;
-                const str = (isFuture || manualEmpty) ? '' : ((financePending || noBalance) ? '—' : _fmt(val, m.type));
+                const balDayEmpty = m.key === 'ozon_balance' && isDay; // баланс Ozon только итогом за период (макет владельца, 26 ноября 2026)
+                const str = (isFuture || manualEmpty || balDayEmpty) ? '' : ((financePending || noBalance) ? '—' : _fmt(val, m.type));
                 const cc  = (m.hm && !scaleFn) ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
                 if (cc === 'rnp-green')  style += (style ? ';' : '') + 'color:var(--green, #16a34a);font-weight:700';

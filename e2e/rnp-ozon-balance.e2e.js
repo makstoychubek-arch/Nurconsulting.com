@@ -32,19 +32,19 @@ const fin = Array.from({ length: 8 }, (_, d) => ({ cabinet_id: CAB, nm_id: NM, d
         await page.evaluate(() => RNP.pick('general'));
         await page.waitForFunction(() => [...document.querySelectorAll('#tab-rnp tr')].some((r) => /^Баланс Ozon, ₽/.test((r.children[0] || {}).innerText || '')), null, { timeout: 20000 });
         const read = (re) => page.evaluate((src) => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => new RegExp(src).test(((x.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim())); return r ? [...r.querySelectorAll('td.rnp-day-col')].map((t) => t.textContent.replace(/\s/g, '').trim()) : null; }, re.source);
-        await run('в режиме Ozon внизу блок «Баланс Ozon» из двух строк', async () => {
+        await run('в режиме Ozon внизу блок «Баланс Ozon»: баланс и выплата', async () => {
             const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
             const i = labels.findIndex((l) => /БАЛАНС OZON/i.test(l));
             assert.ok(i > 0, 'нет заголовка блока: ' + labels.slice(-8));
-            assert.strictEqual(labels[i + 1], 'Баланс Ozon, ₽'); assert.strictEqual(labels[i + 2], 'На начало месяца, ₽');
+            assert.strictEqual(labels[i + 1], 'Баланс Ozon, ₽'); assert.strictEqual(labels[i + 2], 'Выплата Ozon, с'); assert.ok(!labels.some((l) => /^На начало месяца/.test(l)), 'строки «На начало месяца» больше нет');
             assert.ok(!labels.some((l) => /Баланс WB|Доступно к выводу/.test(l)), 'строки WB в Ozon не показываются');
         });
-        await run('баланс по дням из ozon_balance_daily, дни без снимка с прочерком', async () => {
-            const bal = await read(/^Баланс Ozon, ₽/); const op = await read(/^На начало месяца/);
+        await run('баланс Ozon показан только итогом: по дням пусто, в «Итог» последний снимок в рублях', async () => {
+            const bal = await read(/^Баланс Ozon, ₽/);
+            assert.ok(bal.every((x) => x === ''), 'по дням баланса быть не должно: ' + JSON.stringify(bal));
+            const total = await page.evaluate(() => { const r = [...document.querySelectorAll('#tab-rnp table tr')].find((x) => /^Баланс Ozon, ₽/.test(((x.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim())); const tds = r ? [...r.querySelectorAll('td')] : []; return tds.slice(-3).map((t) => t.textContent.replace(/\s/g, '').trim()); });
             // баланс Ozon приходит в рублях и в таблице тоже в рублях (как в кабинете Ozon Seller), без пересчёта в сомы
-            assert.ok(bal.includes('273601') && bal.includes('168206') && bal.includes('122939'), JSON.stringify(bal));
-            assert.ok(op.filter((x) => x === '135550').length === 3, 'на начало месяца в три дня со снимком: ' + JSON.stringify(op));
-            assert.ok(bal.filter((x) => x === '—').length >= 3, 'дни без снимка с прочерком: ' + JSON.stringify(bal));
+            assert.ok(total.includes('273601'), 'в итоге последний снимок 273 601 ₽: ' + JSON.stringify(total));
         });
         await run('строка «Выплата Ozon»: сумму вносят вручную в ячейку дня, видна в таблице и в итоге', async () => {
             const labels = await page.evaluate(() => [...document.querySelectorAll('#tab-rnp table tr')].map((r) => ((r.children[0] || {}).innerText || '').replace(/\s+/g, ' ').trim()));
