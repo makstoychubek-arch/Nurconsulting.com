@@ -346,6 +346,26 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
       }
     } catch (e) { console.warn('[alina] show model', e); }
   }
+  // Клиент передумал и называет другую модель, пока не заказал (ТЗ/ключ/поиск/корзина): освобождаем прежнюю строку и ведём заново по новой модели.
+  if (razdachiRowsMode() && !opts.photoFileId && (opts.text || '').length <= 80) {
+    try {
+      const db2 = admin();
+      const { data: l2 } = await db2.from('alina_selfbuy_leads').select('*').eq('chat_id', opts.chatId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+      const lead2 = l2 as SelfbuyLead | null;
+      if (lead2?.product_name && ['tz_sent', 'key_sent', 'wait_product', 'wait_cart'].includes(String(lead2.status))) {
+        const hit2 = matchModels(PAJAMA_MODEL_NAMES, opts.text || '');
+        const sheet2 = getLastRazdachi()?.sheet;
+        if (hit2.length === 1 && normModel(hit2[0]) !== normModel(lead2.product_name) && sheet2 &&
+          freeSlots(sheet2, todayMskKey(), 0).some((x) => x.date === todayMskKey() && normModel(x.model) === normModel(hit2[0]))) {
+          const freed = await releaseClientPlace(db2, lead2 as never);
+          if (freed !== null) {
+            await updateLead(db2, lead2.id, { status: 'closed', product_name: null, keyword: null, sheet_row: null, sheet_target: null } as never);
+            await logEvent(db2, lead2.id, opts.chatId, 'model_switched', { from: lead2.product_name, to: hit2[0] });
+          }
+        }
+      }
+    } catch (e) { console.warn('[alina] model switch', e); }
+  }
   let res = await handleAlinaClientMessageInner(opts);
   // Алина пообещала фото («вот обе», «секунду, отправлю»), а фото в ответе нет: добавляем свои фото моделей, иначе клиент остаётся с пустым обещанием.
   if (razdachiRowsMode() && !(res.photos && res.photos.length) && res.replies.some((x) => x.length < 140 && /вот обе|вот фото|вот они|секунду,?\s*отправлю|сейчас\s+отправлю|пришлю\s+фото|высылаю\s+фото|подписала/i.test(x))) {
