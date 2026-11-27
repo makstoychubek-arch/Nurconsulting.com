@@ -50,6 +50,26 @@ localStorage.setItem('nr_auth_broken', '1');
 NrAuth.prepareAuthStorage();
 assert.strictEqual(localStorage.getItem('sb-fiukyfyhotctvfdidktx-auth-token'), null, 'broken auth storage cleared');
 
+// Зависание входа (26 ноября 2026): флаг nr_auth_broken оставался навсегда и чистил хранилище при каждом заходе, в том числе при возврате из Google (стирал code-verifier).
+localStorage.setItem('nr_auth_broken', '1');
+localStorage.setItem('sb-fiukyfyhotctvfdidktx-auth-token-code-verifier', 'verifier');
+windowStub.location = { search: '?code=abc123', hash: '', pathname: '/login' };
+NrAuth.prepareAuthStorage();
+assert.strictEqual(localStorage.getItem('sb-fiukyfyhotctvfdidktx-auth-token-code-verifier'), 'verifier', 'при возврате из Google verifier не стирается');
+assert.strictEqual(localStorage.getItem('nr_auth_broken'), null, 'флаг сломанной сессии сброшен при возврате из входа');
+windowStub.location = { search: '', hash: '#access_token=x&refresh_token=y', pathname: '/login' };
+localStorage.setItem('nr_auth_broken', '1');
+localStorage.setItem('sb-fiukyfyhotctvfdidktx-auth-token', '{"a":1}');
+NrAuth.prepareAuthStorage();
+assert.notStrictEqual(localStorage.getItem('sb-fiukyfyhotctvfdidktx-auth-token'), null, 'токены в адресе: хранилище не чистим');
+// обычный заход с флагом: чистим один раз и флаг гасим
+windowStub.location = { search: '', hash: '', pathname: '/login' };
+localStorage.setItem('nr_auth_broken', '1');
+NrAuth.prepareAuthStorage();
+assert.strictEqual(localStorage.getItem('sb-fiukyfyhotctvfdidktx-auth-token'), null, 'сломанная сессия очищена');
+assert.strictEqual(localStorage.getItem('nr_auth_broken'), null, 'флаг гасится после чистки, а не живёт вечно');
+windowStub.location = { search: '', pathname: '/' };
+
 async function runRecover() {
     const fakeClient = {
         auth: {

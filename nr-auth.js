@@ -90,8 +90,27 @@
         } catch (_) {}
     }
 
+    /** Возврат после входа через Google/почту: в адресе код (?code=) или токены (#access_token=). Тут хранилище чистить нельзя: в нём ключ PKCE (code-verifier), без него вход не завершится. */
+    function isOAuthReturn() {
+        try {
+            var q = new URLSearchParams(global.location.search);
+            if (q.get('code') || q.get('error_description')) return true;
+            var h = String(global.location.hash || '');
+            if (/access_token=|refresh_token=|error_description=/.test(h)) return true;
+        } catch (_) {}
+        return false;
+    }
+
     function shouldPurgeBeforeInit() {
         try {
+            // Возврат после входа: не чистим, иначе зависает вход (стёрт verifier) и человека возвращает на форму входа по кругу.
+            if (isOAuthReturn()) {
+                var st0 = ls();
+                if (st0) st0.removeItem('nr_auth_broken');
+                var ss0 = ss();
+                if (ss0) ss0.removeItem('nr_logged_out');
+                return false;
+            }
             var session = ss();
             var storage = ls();
             if (session && session.getItem('nr_logged_out') === '1') return true;
@@ -111,7 +130,11 @@
     }
 
     function prepareAuthStorage() {
-        if (shouldPurgeBeforeInit()) clearSupabaseAuthStorage();
+        if (shouldPurgeBeforeInit()) {
+            clearSupabaseAuthStorage();
+            // Флаг «сломанной сессии» гасим сразу после чистки: иначе он остаётся навсегда и чистит хранилище при каждом заходе, в том числе при входе через Google.
+            clearAuthBroken();
+        }
     }
 
     async function recoverBrokenSession(client) {
@@ -160,6 +183,7 @@
         clearSupabaseAuthStorage: clearSupabaseAuthStorage,
         prepareAuthStorage: prepareAuthStorage,
         recoverBrokenSession: recoverBrokenSession,
+        isOAuthReturn: isOAuthReturn,
         createClient: createClient,
         markAuthBroken: markAuthBroken,
         clearAuthBroken: clearAuthBroken
