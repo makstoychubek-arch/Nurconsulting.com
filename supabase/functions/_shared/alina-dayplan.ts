@@ -7,7 +7,17 @@ export const mskDayKey = (now = Date.now()): string => {
   return `${String(m.getUTCDate()).padStart(2, '0')}.${String(m.getUTCMonth() + 1).padStart(2, '0')}.${m.getUTCFullYear()}`;
 };
 
-type DayPlan = { day?: string; status?: 'pending' | 'approved'; message_id?: number | null };
+type DayPlan = {
+  day?: string;
+  status?: 'pending' | 'approved';
+  message_id?: number | null;
+  next?: { day: string; status: 'approved' };
+};
+
+export function isDayPlanApproved(plan: DayPlan, day: string): boolean {
+  return (plan.day === day && plan.status === 'approved') ||
+    (plan.next?.day === day && plan.next.status === 'approved');
+}
 
 async function readPlan(db: SupabaseClient): Promise<DayPlan> {
   const { data } = await db.from('alina_settings').select('value').eq('key', 'dayPlan').maybeSingle();
@@ -18,7 +28,7 @@ async function readPlan(db: SupabaseClient): Promise<DayPlan> {
 export async function dayApproved(db: SupabaseClient): Promise<boolean> {
   try {
     const p = await readPlan(db);
-    return p.day === mskDayKey() && p.status === 'approved';
+    return isDayPlanApproved(p, mskDayKey());
   } catch { return true; }
 }
 

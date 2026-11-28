@@ -296,13 +296,16 @@ let blockedModels = new Set<string>();
 export const setBlockedModels = (names: string[]): void => { blockedModels = new Set(names.map((n) => normModel(n))); };
 export const isModelBlocked = (name: string): boolean => blockedModels.has(normModel(name));
 
+let todayOnly = false;
+export const setTodayOnly = (value: boolean): void => { todayOnly = value; };
+
 export function freeSlots(sheet: RazSheet, today: string, horizon = 14): FreeSlot[] {
   const map = new Map<string, FreeSlot>();
   for (const r of sheet.rows) {
     if (!isFreeRow(r)) continue;
     if (isModelBlocked(r.model)) continue;
     const n = daysBetween(today, r.date);
-    if (n < 0 || n > horizon) continue;
+    if (n < 0 || n > (todayOnly ? 0 : horizon)) continue;
     const k = normModel(r.model) + '|' + r.date;
     const s = map.get(k) ?? { model: r.model, date: r.date, rows: [] };
     s.rows.push(r);

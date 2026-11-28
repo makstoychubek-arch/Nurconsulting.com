@@ -49,7 +49,7 @@ import { identifyModelFromPhoto } from './alina-model-vision.ts';
 import { dayApproved } from './alina-dayplan.ts';
 import { moveReviewDate, releaseClientPlace } from './alina-razdachi-sync.ts';
 import { BRAND_REPLIES, askedAgainKind, isAck, isBrandQuestion, saysNotReceived } from './alina-guard.ts';
-import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, isModelBlocked, ruDay, setBlockedModels, setDayClosed, setLateException, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
+import { freeSlots, matchModels, nearestFree, normModel, dayClosedOn, isModelBlocked, ruDay, setBlockedModels, setDayClosed, setLateException, setTodayOnly, todayMskKey, tooLateForToday } from './alina-razdachi.ts';
 import { getLastRazdachi } from './alina-sheet-plan.ts';
 import {
   analyzeAlinaScreenshot,
@@ -314,6 +314,12 @@ export async function handleAlinaClientMessage(opts: Parameters<typeof handleAli
     const { data: bm } = await admin().from('alina_settings').select('value').eq('key', 'blockedModels').maybeSingle();
     setBlockedModels(Array.isArray(bm?.value) ? (bm!.value as string[]) : []);
   } catch { setBlockedModels([]); }
+  try {
+    const { data } = await admin().from('alina_settings').select('value').eq('key', 'todayOnly').maybeSingle();
+    const scope = data?.value as { day?: string; nextDay?: string } | null;
+    const today = todayMskKey();
+    setTodayOnly(scope?.day === today || scope?.nextDay === today);
+  } catch { setTodayOnly(false); }
   // План дня должен быть согласован владельцем (ответ «ок» в группе менеджеров), пока нет, места на сегодня не отдаём.
   try { setDayClosed(razdachiRowsMode() && !(await dayApproved(admin()))); } catch { setDayClosed(false); }
   let res = await handleAlinaClientMessageInner(opts);

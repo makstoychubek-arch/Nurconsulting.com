@@ -5,7 +5,7 @@ import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { managerGroupId } from '../_shared/alina-manager.ts';
 import { googleAccessToken } from '../_shared/alina-google-auth.ts';
 import { secretOrEnv } from '../_shared/integration-secrets.ts';
-import { mskDayKey } from '../_shared/alina-dayplan.ts';
+import { isDayPlanApproved, mskDayKey } from '../_shared/alina-dayplan.ts';
 
 const SHEET_ID = '1ZSdNfnflgwOQZFSm1qcvfOB94bnfipZu5fB3pDodrik';
 const TAB = 'Раздачи Пижам';
@@ -18,7 +18,10 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey);
     const day = mskDayKey();
     const { data: cur } = await admin.from('alina_settings').select('value').eq('key', 'dayPlan').maybeSingle();
-    const prev = (cur as { value?: { day?: string; status?: string } } | null)?.value;
+    const prev = (cur as { value?: Parameters<typeof isDayPlanApproved>[0] } | null)?.value;
+    if (prev && isDayPlanApproved(prev, day) && prev.next?.day === day && body.dry_run !== true) {
+        return json({ ok: true, skipped: 'план заранее согласован', status: 'approved' });
+    }
     if (prev?.day === day && !body.force && body.dry_run !== true) {
         // План на сегодня уже отправлен. Не согласован больше часа: напоминаем реплаем на него (не чаще раза в час), пока не ответят «ок».
         const pv = (cur as { value?: { status?: string; message_id?: number; sent_at?: string; remind_at?: string } } | null)?.value;
