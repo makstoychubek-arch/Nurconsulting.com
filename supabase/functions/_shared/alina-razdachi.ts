@@ -373,17 +373,17 @@ export async function claimFreeRow(
   return { status: normTg(after[sheet.col.tg]) === normTg(tg) ? 'claimed' : 'taken', row: target.row };
 }
 
-// После 20:30 МСК на сегодняшний день уже не берём (заказ нужно сделать до 22:00): предлагаем ближайшую следующую дату.
-export const TODAY_CUTOFF_MIN = 20 * 60 + 30;
+// С 23:50 МСК места на сегодня закрыты: предлагаем ближайшую следующую дату.
+export const TODAY_CUTOFF_MIN = 23 * 60 + 50;
 export function mskMinutes(now = Date.now()): number {
   const d = new Date(now + 3 * 3600_000);
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
-/** Разовое исключение владельца (alina_settings.lateException): до указанного времени места на сегодня берём и после 20:30 МСК. */
+/** Разовое исключение владельца (alina_settings.lateException): до указанного времени места на сегодня берём и после дедлайна. */
 let lateException = false;
 export const setLateException = (v: boolean): void => { lateException = v; };
 export const lateExceptionOn = (): boolean => lateException;
-/** День ещё не согласован владельцем (alina_settings.dayPlan): места на сегодня не отдаём, как после 20:30. */
+/** День ещё не согласован владельцем (alina_settings.dayPlan): места на сегодня не отдаём. */
 let dayClosed = false;
 export const setDayClosed = (v: boolean): void => { dayClosed = v; };
 export const dayClosedOn = (): boolean => dayClosed && !lateException;

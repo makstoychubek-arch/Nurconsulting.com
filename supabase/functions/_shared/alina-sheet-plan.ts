@@ -545,7 +545,7 @@ function buildOffers(
       plan_slots: planToday,
       used_slots: used,
       slots_left: slotsLeft,
-      order_deadline: dateLabel ? `${dateLabel} до 22:00 МСК` : null,
+      order_deadline: dateLabel ? `${dateLabel} до 23:50 МСК` : null,
       is_open: open,
       status_raw: open ? 'открыто' : (planToday > 0 ? 'места закончились' : 'нет плана на сегодня'),
       tab: b.tab,
@@ -573,7 +573,7 @@ function buildOffers(
           plan_slots: kp,
           used_slots: ku,
           slots_left: left,
-          order_deadline: `${dateLabel} до 22:00 МСК`,
+          order_deadline: `${dateLabel} до 23:50 МСК`,
           is_open: left > 0,
           status_raw: left > 0 ? 'открыто' : 'ключ закрыт',
           tab: b.tab,
@@ -604,7 +604,7 @@ export function applyRowsToOffers(offers: SheetPlanOffer[], sheet: RazSheet, tod
     o.slots_left = free;
     o.is_open = free > 0;
     o.status_raw = free > 0 ? 'открыто' : (mine.length ? 'места закончились' : 'нет плана на сегодня');
-    if (tooLateForToday()) { o.is_open = false; o.slots_left = 0; o.status_raw = 'уже поздно (после 20:30 МСК)'; }
+    if (tooLateForToday()) { o.is_open = false; o.slots_left = 0; o.status_raw = 'места на сегодня закрыты'; }
     if (isModelBlocked(o.product_name || '')) { o.is_open = false; o.slots_left = 0; o.status_raw = 'недоступна на WB'; }
   }
 }

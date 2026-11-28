@@ -1,5 +1,4 @@
-// Напоминания Алины (владелец, 24 ноября 2026): за 2 часа до 22:00 МСК тем, кто ещё не прислал заказ; «ещё актуально?» тем, кто молчит 3 часа;
-// после 22:30 МСК список не приславших заказ уходит в группу менеджеров (места сами не освобождаем). Запускается по расписанию, только сервис.
+// Напоминания перед дедлайном заказа. После дедлайна освобождаем места без заказа и сообщаем менеджерам.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { managerGroupId } from '../_shared/alina-manager.ts';
@@ -32,6 +31,7 @@ async function releaseRow(token: string, username: string, dayKey: string): Prom
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+const ORDER_DEADLINE_MIN = 23 * 60 + 50;
 const WAITING = ['tz_sent', 'key_sent', 'wait_product', 'wait_cart', 'wait_order'];
 const STEP: Record<string, string> = { tz_sent: 'ваше согласие с условиями', key_sent: 'скрин поиска', wait_product: 'скрин поиска', wait_cart: 'скрин корзины', wait_order: 'скрин заказа' };
 
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
     const released: string[] = [];
     let sheetToken = '';
     const dayKey = `${String(msk.getUTCDate()).padStart(2, '0')}.${String(msk.getUTCMonth() + 1).padStart(2, '0')}.${msk.getUTCFullYear()}`;
-    // Напоминаем «до 22:00» и освобождаем строку только тем, у кого в таблице есть строка на СЕГОДНЯ (25 ноября 2026: Тамила получала «до 22:00», а её строку уже перенесли на 28.11).
+    // Напоминаем об истечении срока и освобождаем место только для строк на сегодня.
     let todayTg: Set<string> | null = null;
     try {
         if (!sheetToken) sheetToken = await googleAccessToken((await secretOrEnv('GOOGLE_SERVICE_ACCOUNT_JSON')) || '').catch(() => '');
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
         const idleMs = now - Date.parse(String((lastClient as { created_at?: string } | null)?.created_at || l.updated_at));
         const step = STEP[l.status] || 'скрин';
 
-        if (hm >= 22 * 60 + 30) {
+        if (hm >= ORDER_DEADLINE_MIN) {
             // Дедлайн прошёл, заказа нет: освобождаем только его строку на сегодня (условие ТЗ: заявка аннулируется и отдаётся другому блогеру)
             const who = l.username ? '@' + l.username : String(l.chat_id);
             if (await done(l.chat_id, 'released')) continue;
@@ -119,18 +119,18 @@ Deno.serve(async (req) => {
             const ok = Boolean(sheetToken && l.username && await releaseRow(sheetToken, l.username, dayKey));
             if (!ok) { missed.push(`${who} (${step}, не смогла освободить)`); continue; }
             await admin.from('alina_selfbuy_leads').update({ status: 'closed', sheet_row: null, updated_at: new Date().toISOString() }).eq('id', l.id);
-            const text = 'Время на заказ вышло (до 22:00 МСК), место освободила 🙏 Если ещё актуально, напишите, поставлю на другой день.';
+            const text = 'Время на заказ вышло (до 23:50 МСК), место освободила 🙏 Если ещё актуально, напишите, поставлю на другой день.';
             if (await send(l.chat_id, text)) await log(l.chat_id, 'released', text); else await admin.from('alina_selfbuy_events').insert({ event_type: 'nudge', chat_id: l.chat_id, payload: { kind: 'released', day } });
             released.push(`${who} (${step})`);
             continue;
         }
-        if (hm >= 21 * 60 + 30 && hm < 21 * 60 + 55 && !await done(l.chat_id, 'lastcall')) {
-            const text = `До 22:00 осталось около 30 минут. Жду ${step} 🙌`;
+        if (hm >= ORDER_DEADLINE_MIN - 30 && hm < ORDER_DEADLINE_MIN - 5 && !await done(l.chat_id, 'lastcall')) {
+            const text = `Заказ можно оформить до 23:50 МСК. Жду ${step} 🙌`;
             if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'lastcall', text); sent.push(`lastcall ${l.username}`); } else if (dry) sent.push(`lastcall ${l.username}`);
             continue;
         }
-        if (hm >= 20 * 60 && hm < 21 * 60 + 30 && !await done(l.chat_id, 'deadline')) {
-            const text = `До 22:00 по Москве осталось около 2 часов. Жду ${step} 🙌`;
+        if (hm >= ORDER_DEADLINE_MIN - 120 && hm < ORDER_DEADLINE_MIN - 30 && !await done(l.chat_id, 'deadline')) {
+            const text = `Заказ можно оформить до 23:50 МСК. Жду ${step} 🙌`;
             if (!dry && await send(l.chat_id, text)) { await log(l.chat_id, 'deadline', text); sent.push(`deadline ${l.username}`); } else if (dry) sent.push(`deadline ${l.username}`);
             continue;
         }
@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
             const { data: today0 } = await admin.from('alina_selfbuy_events').select('id').eq('chat_id', chat.chat_id).eq('event_type', 'chat_log').gt('created_at', new Date(now - 6 * 3600_000).toISOString()).limit(1);
             if (today0 && today0.length) continue; // клиент или менеджер уже общаются сегодня
             const model = String(r0[0] || '').replace(/^Пижама\s+/i, '');
-            const text = `Доброе утро! Сегодня ваше место на «${model}». Начинаем? Заказать нужно до 22:00 по Москве. Напишите «да», и пришлю условия 🙌`;
+            const text = `Доброе утро! Сегодня ваше место на «${model}». Начинаем? Заказать нужно до 23:50 по Москве. Напишите «да», и пришлю условия 🙌`;
             if (await send(chat.chat_id, text)) { await log(chat.chat_id, 'start_ask', text); sent.push(`start_ask ${un}`); started++; }
         }
     }
@@ -219,13 +219,13 @@ Deno.serve(async (req) => {
             }
         }
     }
-    // После 22:30 МСК: список не приславших заказ в группу менеджеров (один раз за день)
+    // После дедлайна: список не приславших заказ в группу менеджеров (один раз за день)
     let groupSent = false;
     if ((missed.length || released.length) && !dry) {
         const group = await managerGroupId();
         const { data: mark } = await admin.from('alina_selfbuy_events').select('id').eq('event_type', 'nudge').eq('payload->>kind', 'missed_list').eq('payload->>day', day).limit(1);
         if (group && !(mark && mark.length)) {
-            const text = [released.length ? `Не прислали заказ до 22:00, места освободила: ${released.join(', ')}.` : '', missed.length ? `Не смогла освободить (проверьте вручную): ${missed.join(', ')}.` : ''].filter(Boolean).join(' ');
+            const text = [released.length ? `Не прислали заказ до 23:50, места освободила: ${released.join(', ')}.` : '', missed.length ? `Не смогла освободить (проверьте вручную): ${missed.join(', ')}.` : ''].filter(Boolean).join(' ');
             const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10_000),
                 body: JSON.stringify({ chat_id: group, text }),

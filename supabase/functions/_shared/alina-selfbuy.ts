@@ -754,7 +754,7 @@ async function handleAlinaClientMessageInner(opts: {
       const first = sheet ? freeSlots(sheet, today, 14).find((x) => !late || x.date !== today) : null; // только ближайшая дата, весь план не перечисляем
       if (first) {
         if (dayClosedOn()) return { ...r('Сейчас уточняю наличие на сегодня и вернусь к вам в течение дня 🙌'), tag: 'models' as const };
-        return { ...r(`${late ? 'На сегодня уже не успеть: заказ до 22:00 МСК' : 'На сегодня всё занято'} 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
+        return { ...r(`${late ? 'На сегодня уже не успеть: заказ до 23:50 МСК' : 'На сегодня всё занято'} 😔\nБлижайшая дата: ${ruDay(first.date, today)}. Какую модель забронировать?`), tag: 'models' as const };
       }
     }
     return r(MSG_CLOSED());
@@ -1402,7 +1402,7 @@ function placesFactFor(username?: string | null): string | null {
     : ['свободных мест в ближайшие 14 дней нет'];
   const tg = (username || '').replace(/^@/, '').toLowerCase();
   const mine = sheet.rows.filter((x) => tg && x.tg === tg && x.date >= '' && x.date.length === 10).map((x) => `${x.model} ${ruDay(x.date, today)}`);
-  return [`свободные места: ${lines.join('; ')}${tooLateForToday() ? ' (после 20:30 МСК на сегодня уже не берём: заказ нужно сделать до 22:00 МСК)' : ''}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
+  return [`свободные места: ${lines.join('; ')}${tooLateForToday() ? ' (места на сегодня закрыты)' : ''}`, mine.length ? `у клиента уже закреплено: ${mine.join('; ')}` : 'у клиента пока нет закреплённых мест'].join('\n');
 }
 
 /** Клиент назвал другую модель после скрина заказа: заводим отдельную заявку (одна на клиента и модель). */
@@ -2103,7 +2103,7 @@ async function handleExpectedYes(
   const holds = own.state === 'ok' && own.rows.some((x) => normModel(x.model) === normModel(model));
   const free = Boolean(sheet && freeSlots(sheet, today, 0).some((x) => x.date === today && normModel(x.model) === normModel(model)));
   if (!holds && !free) return notInTime();
-  if (tooLateForToday()) return r('На сегодня уже не успеть: заказ нужно сделать до 22:00 МСК 🙏 Напишите завтра, поставлю на ближайшую дату.');
+  if (tooLateForToday()) return r('На сегодня уже не успеть: заказ нужно сделать до 23:50 МСК 🙏 Напишите завтра, поставлю на ближайшую дату.');
   const keyIdx = sheet?.col.key;
   const row = sheet?.rows.find((x) => normModel(x.model) === normModel(model) && x.date === today);
   const offer = {

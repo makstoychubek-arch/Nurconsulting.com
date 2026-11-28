@@ -266,7 +266,7 @@ export async function takePlaceToday(db: SupabaseClient, lead: Lead, model: stri
   const ctx = await placeCtx(db);
   if (!ctx || !normTg(lead.username)) return { kind: 'unavailable' };
   const today = todayMskKey();
-  // После 20:30 МСК на сегодня не берём: предлагаем ближайшую следующую дату.
+  // С 23:50 МСК на сегодня не берём: предлагаем ближайшую следующую дату.
   if (tooLateForToday()) {
     const next = freeSlots(getLastRazdachi()?.sheet ?? ctx.sheet, today, 14).find((x) => x.date !== today && normModel(x.model) === normModel(model));
     return next ? { kind: 'later', date: next.date, model: next.model } : { kind: 'none' };
